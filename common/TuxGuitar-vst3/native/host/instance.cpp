@@ -399,6 +399,31 @@ HWND frontWindow() {
 // a caption with a close box, no resizing (the view keeps the size it asked for)
 const DWORD kEditorStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
 
+// closing an editor's window (its close box, Alt+F4) hides it, the plugin's view still in it: Edit shows it again. The
+// window is destroyed when TuxGuitar closes the editor
+LRESULT CALLBACK editorProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	if (message == WM_CLOSE) {
+		ShowWindow(window, SW_HIDE);
+		return 0;
+	}
+	return DefWindowProcW(window, message, wParam, lParam);
+}
+
+// the class of editor windows, registered once
+const wchar_t* editorClass() {
+	static const wchar_t* name = [] {
+		WNDCLASSW type = {};
+		type.lpfnWndProc = editorProcedure;
+		type.hInstance = GetModuleHandleW(nullptr);
+		type.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+		type.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
+		type.lpszClassName = L"TuxGuitarVst3Editor";
+		RegisterClassW(&type);
+		return type.lpszClassName;
+	}();
+	return name;
+}
+
 // where a window of that size opens: centred on the owner window, within the work area of the screen that window is
 // on; without an owner, where the system places a new window
 POINT editorPosition(HWND owner, LONG width, LONG height) {
@@ -461,7 +486,7 @@ bool Instance::createEditor(int64 owner) {
 	LONG width = frame.right - frame.left;
 	LONG height = frame.bottom - frame.top;
 	POINT at = editorPosition(ownerWindow, width, height);
-	window = CreateWindowExW(0, L"STATIC", L"", kEditorStyle, at.x, at.y, width, height, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
+	window = CreateWindowExW(0, editorClass(), L"", kEditorStyle, at.x, at.y, width, height, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
 	if (!window || view->attached(window, kPlatformTypeHWND) != kResultOk) {
 		closeEditor();
 		return false;

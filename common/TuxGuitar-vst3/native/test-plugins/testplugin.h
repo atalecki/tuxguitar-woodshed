@@ -100,6 +100,8 @@ private:
 	// the gesture of a "TG.gesture-later" not done yet: its parameter and values
 	ParamID laterParam = 0;
 	std::vector<double> later;
+	// the window its editor is in, while it is in one
+	void* editorWindow = nullptr;
 };
 
 }  // namespace TuxGuitar

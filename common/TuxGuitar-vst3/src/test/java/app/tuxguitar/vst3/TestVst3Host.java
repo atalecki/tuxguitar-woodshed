@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -497,16 +498,35 @@ public class TestVst3Host {
 		return editorOfAnotherProcess(other).getWindow();
 	}
 
-	// its editor's window once the host has shown it in front (it does so right after its reply to Edit), or as it is
-	// after 2 s
-	private static TGVst3EditorWindow inFront(TGVst3Instance plugin) throws TGVst3Exception {
+	// its editor's window once it is as the condition says, or as it is after 2 s: the host shows a window right after
+	// its reply to Edit, and handles a click on the window's close box once it waits for messages
+	private static TGVst3EditorWindow once(TGVst3Instance plugin, Predicate<TGVst3EditorWindow> condition) throws TGVst3Exception {
 		long end = System.currentTimeMillis() + 2000;
 		TGVst3EditorWindow editor = plugin.getEditorWindow();
-		while (!(editor.isShown() && editor.isFront()) && System.currentTimeMillis() < end) {
+		while (!condition.test(editor) && System.currentTimeMillis() < end) {
 			LockSupport.parkNanos(5000000);
 			editor = plugin.getEditorWindow();
 		}
 		return editor;
+	}
+
+	private static TGVst3EditorWindow inFront(TGVst3Instance plugin) throws TGVst3Exception {
+		return once(plugin, editor -> editor.isShown() && editor.isFront());
+	}
+
+	// its close box hides the window, the plugin's view still in it, and the window stays hidden; Edit shows that window
+	// again
+	@Test
+	public void anEditorClosedByItsCloseBoxIsHiddenUntilEditShowsItAgain() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0);
+		long window = inFront(gain).getWindow();
+		gain.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		boolean hidden = !once(gain, editor -> !editor.isShown()).isShown();
+		boolean stays = !gain.getEditorWindow().isShown();
+		gain.openEditor(0);
+		TGVst3EditorWindow again = inFront(gain);
+		assertEquals("true true true true", hidden + " " + stays + " " + (again.getWindow() == window) + " " + again.isShown());
 	}
 
 	// owned, it stays in front of that window, minimises with it and has no taskbar button of its own; it opens centred on

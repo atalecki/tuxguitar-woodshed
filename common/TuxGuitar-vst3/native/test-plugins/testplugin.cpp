@@ -61,18 +61,34 @@ void startModal(int64 millis, int64 window) {
 	waitOn = (HWND) (intptr_t) window;
 	SetTimer(nullptr, 0, 1, runModal);
 }
+
+// as the user clicks the close box of the window the editor is in
+void closeWindow(void* window) { PostMessageW((HWND) window, WM_CLOSE, 0, 0); }
 #else
 const bool inModal = false;
 
 void startModal(int64, int64) {}
+
+void closeWindow(void*) {}
 #endif
 
-// an editor with nothing on it: enough for a host to open it in a window of its own
+// an editor with nothing on it: enough for a host to open it in a window of its own; while it is in one, the plugin
+// knows that window
 class TestView : public CPluginView {
 public:
-	TestView() : CPluginView(nullptr) {
+	explicit TestView(void** window) : CPluginView(nullptr), window(window) {
 		ViewRect size(0, 0, 200, 100);
 		setRect(size);
+	}
+
+	tresult PLUGIN_API attached(void* parent, FIDString type) SMTG_OVERRIDE {
+		*window = parent;
+		return CPluginView::attached(parent, type);
+	}
+
+	tresult PLUGIN_API removed() SMTG_OVERRIDE {
+		*window = nullptr;
+		return CPluginView::removed();
 	}
 
 	tresult PLUGIN_API isPlatformTypeSupported(FIDString type) SMTG_OVERRIDE {
@@ -80,6 +96,9 @@ public:
 		                  std::strcmp(type, kPlatformTypeNSView) == 0);
 		return (supported ? kResultTrue : kResultFalse);
 	}
+
+private:
+	void** window;
 };
 
 SpeakerArrangement arrangement(int32 channels) {
@@ -252,7 +271,7 @@ tresult PLUGIN_API TestPlugin::setState(IBStream* state) {
 
 IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 	if (spec.editor && name && std::strcmp(name, ViewType::kEditor) == 0) {
-		return new TestView();
+		return new TestView(&editorWindow);
 	}
 	return nullptr;
 }
@@ -262,10 +281,15 @@ IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 // does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
 // the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
 // "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
-// "window" of another thread to answer a message, and "TG.in-modal" answers 1 while it does (0 else)
+// "window" of another thread to answer a message, and "TG.in-modal" answers 1 while it does (0 else); "TG.close-window"
+// clicks the close box of the window the editor is in
 tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
+	if (std::strcmp(id, "TG.close-window") == 0) {
+		closeWindow(editorWindow);
+		return kResultOk;
+	}
 	if (std::strcmp(id, "TG.modal") == 0) {
 		int64 millis = 0;
 		int64 window = 0;
