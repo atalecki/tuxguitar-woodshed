@@ -17,8 +17,8 @@ import app.tuxguitar.util.TGVersion;
  * set up), one line each.
  *
  * The file is written after what is there: tuxguitar-0.log, which moves to tuxguitar-1.log when full, and so on, up to
- * FILE_COUNT files of FILE_LIMIT bytes. Each session starts with the versions, the level and the file's path; each
- * change of level is written too, whatever the level.
+ * FILE_COUNT files of FILE_LIMIT bytes. Each session starts with the versions, what "~" means, the level and the file's
+ * path; each change of level is written too, whatever the level.
  */
 public final class TGLogSetup {
 
@@ -86,6 +86,7 @@ public final class TGLogSetup {
 
 		File current = new File(folder, FILE_NAME.replace("%g", "0")).getAbsoluteFile();
 		this.write(session());
+		this.write("paths under the home folder are written as " + TGLogHome.SHORT);
 		this.levelWritten = null;
 		this.writeLevel(this.getChoice());
 		this.writeUnknownLevel();

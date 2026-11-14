@@ -20,6 +20,10 @@ import app.tuxguitar.util.TGVersion;
 
 public class TestLogSetup {
 
+	// a path under this Java's home folder, and how the log writes it
+	private static final String UNDER_HOME = System.getProperty("user.home") + File.separator + "song.gp5";
+	private static final String SHORTENED = "~" + File.separator + "song.gp5";
+
 	@TempDir
 	Path folder;
 
@@ -66,7 +70,7 @@ public class TestLogSetup {
 		try {
 			TGLogSetup setup = setup(null);
 			TGLog log = new TGLog(this.logger);
-			log.warn("before the file");
+			log.warn("before the file in " + UNDER_HOME);
 			log.info("some news");
 			setup.openFile(this.folder.toFile());
 			log.warn("in the file");
@@ -79,7 +83,7 @@ public class TestLogSetup {
 		String text = new String(console.toByteArray(), StandardCharsets.UTF_8);
 		String[] lines = text.split(System.lineSeparator());
 		assertEquals(2, lines.length, text);
-		assertTrue(lines[0].endsWith(" WARN  [" + Thread.currentThread().getName() + "] " + this.logger.getName() + " - before the file"), text);
+		assertTrue(lines[0].endsWith(" WARN  [" + Thread.currentThread().getName() + "] " + this.logger.getName() + " - before the file in " + SHORTENED), text);
 		assertTrue(lines[1].endsWith(" - after the file"), text);
 	}
 
@@ -96,17 +100,20 @@ public class TestLogSetup {
 		TGLogSetup setup = setup(null);
 		File current = setup.openFile(this.folder.toFile());
 		TGLog log = new TGLog(this.logger);
-		log.warn("a warning");
+		log.warn("a warning in " + UNDER_HOME);
 		log.info("some news");
 
 		String text = file("tuxguitar-0.log");
+		String home = System.getProperty("user.home") + File.separator;
 		assertEquals(this.folder.resolve("tuxguitar-0.log").toFile().getAbsolutePath(), current.getAbsolutePath());
 		assertTrue(text.contains(" INFO  [" + Thread.currentThread().getName() + "] " + this.logger.getName() + " - TuxGuitar "
 				+ TGVersion.CURRENT.getVersion() + " started; Java " + System.getProperty("java.version") + " ("), text);
 		assertTrue(text.contains("; " + System.getProperty("os.name") + " " + System.getProperty("os.version")), text);
 		assertTrue(text.contains(" - log level WARN (default)" + System.lineSeparator()), text);
-		assertTrue(text.contains(" - log file " + current.getAbsolutePath() + " (5 files of 5120 KB)"), text);
-		assertTrue(text.contains(" WARN  [") && text.contains(" - a warning"), text);
+		assertTrue(text.contains(" - paths under the home folder are written as ~" + System.lineSeparator()), text);
+		assertTrue(text.contains(" - log file " + current.getAbsolutePath().replace(home, "~" + File.separator) + " (5 files of 5120 KB)"), text);
+		assertTrue(text.contains(" WARN  [") && text.contains(" - a warning in " + SHORTENED), text);
+		assertFalse(text.contains(home), text);
 		assertFalse(text.contains("some news"), text);
 		assertFalse(text.contains("unknown log level"), text);
 	}

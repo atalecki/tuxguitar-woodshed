@@ -9,7 +9,8 @@ import java.util.logging.LogRecord;
 
 /**
  * One line per record: ISO time with milliseconds and offset, level, [thread], logger (without "app.tuxguitar."),
- * message; then the stack trace of the record's error, if it has one.
+ * message; then the stack trace of the record's error, if it has one. The home folder is written as "~" in all of it
+ * ({@link TGLogHome}).
  */
 public class TGLogFormatter extends Formatter {
 
@@ -17,13 +18,19 @@ public class TGLogFormatter extends Formatter {
 	private static final String NL = System.lineSeparator();
 
 	private final DateTimeFormatter time;
+	private final TGLogHome home;
 
 	public TGLogFormatter() {
 		this(ZoneId.systemDefault());
 	}
 
 	public TGLogFormatter(ZoneId zone) {
+		this(zone, TGLogHome.of(System.getProperties()));
+	}
+
+	TGLogFormatter(ZoneId zone, TGLogHome home) {
 		this.time = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX").withZone(zone);
+		this.home = home;
 	}
 
 	public String format(LogRecord record) {
@@ -34,7 +41,7 @@ public class TGLogFormatter extends Formatter {
 		line.append(shortName(record.getLoggerName())).append(" - ");
 		line.append(record.getMessage()).append(NL);
 		line.append(stackTrace(record.getThrown()));
-		return line.toString();
+		return this.home.shorten(line.toString());
 	}
 
 	private static String threadOf(LogRecord record) {
