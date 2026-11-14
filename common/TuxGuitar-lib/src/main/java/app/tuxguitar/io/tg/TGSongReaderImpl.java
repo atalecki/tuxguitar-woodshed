@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import app.tuxguitar.io.base.TGFileFormat;
 import app.tuxguitar.io.base.TGFileFormatException;
@@ -14,6 +15,7 @@ import app.tuxguitar.song.models.TGBeat;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGChannelParameter;
 import app.tuxguitar.song.models.TGChord;
+import app.tuxguitar.song.models.TGColor;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGLyric;
 import app.tuxguitar.song.models.TGMarker;
@@ -23,7 +25,10 @@ import app.tuxguitar.song.models.TGNote;
 import app.tuxguitar.song.models.TGNoteEffect;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGString;
+import app.tuxguitar.song.models.TGTake;
+import app.tuxguitar.song.models.TGTempo;
 import app.tuxguitar.song.models.TGText;
+import app.tuxguitar.song.models.TGTimeSignature;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.song.models.TGVelocities;
 import app.tuxguitar.song.models.TGVoice;
@@ -41,6 +46,16 @@ import org.w3c.dom.Node;
 public class TGSongReaderImpl extends TGStream implements TGSongReader {
 
 	private TGFactory factory;
+	// the codec of the takes of format 3.0; none (Android, older versions): format 3.0 is refused as a newer version
+	private volatile TGTakeCodec takeCodec;
+
+	public TGSongReaderImpl() {
+	}
+
+	// TuxGuitar's audio support gives it to the reader of the file format manager: it then reads format 3.0
+	public void setTakeCodec(TGTakeCodec takeCodec) {
+		this.takeCodec = takeCodec;
+	}
 
 	@Override
 	public TGFileFormat getFileFormat() {
@@ -50,23 +65,40 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 	@Override
 	public void read(TGSongReaderHandle handle) throws TGFileFormatException {
 		try {
-			InputStream[] versionAndContent = this.getDecompressedVersionAndContent(handle.getInputStream());
-			TGVersion version = this.getFileFormatVersion(versionAndContent[0]);
-			if (version.getMajor() < FILE_FORMAT_TGVERSION.getMajor()) {
-				throw new TGFileFormatException();
-			} else if (version.getMajor() > FILE_FORMAT_TGVERSION.getMajor()) {
-				throw new TGFileFormatException(TGMessagesManager.getProperty("error.new-major-version"));
+			TGTakeCodec codec = this.takeCodec;
+			TGFileEntries entries = TGFileEntries.read(handle.getInputStream(), codec, version -> this.readable(version, codec));
+			if (entries.getVersion() == null || entries.getContent() == null || entries.hasUnknown()) {
+				throw new TGFileFormatException(TGMessagesManager.getProperty("error.unsupported-format"));
 			}
-			if (version.getMinor() > FILE_FORMAT_TGVERSION.getMinor()) {
+			if (entries.getVersion().getMinor() > FILE_FORMAT_TGVERSION.getMinor()) {
 				handle.setNewerFileFormatDetected(true);
 			}
-			this.readContent(handle, versionAndContent[1]);
+			this.readContent(handle, entries.getContent(), (entries.hasAudio() ? entries.getTakes() : null), codec);
 		} catch (TGFileFormatException | IOException e) {
 			throw new TGFileFormatException(e);
 		}
 	}
 
+	// the file's version, refused when older than format 2.0, or newer than this reader reads: format 3.0 needs a take
+	// codec. Decided before the entries after version.txt, so a newer file is refused as such whatever it holds
+	private TGVersion readable(InputStream versionStream, TGTakeCodec codec) throws TGFileFormatException {
+		TGVersion version = this.getFileFormatVersion(versionStream);
+		if (version == null || version.getMajor() < FILE_FORMAT_TGVERSION.getMajor()) {
+			throw new TGFileFormatException();
+		}
+		TGVersion newest = (codec != null ? AUDIO_FILE_FORMAT_TGVERSION : FILE_FORMAT_TGVERSION);
+		if (version.getMajor() > newest.getMajor()) {
+			throw new TGFileFormatException(TGMessagesManager.getProperty("error.new-major-version"));
+		}
+		return version;
+	}
+
 	public void readContent(TGSongReaderHandle handle, InputStream inputStream) throws TGFileFormatException {
+		this.readContent(handle, inputStream, null, null);
+	}
+
+	// the song, then its audio (format 3.0) with the takes read
+	private void readContent(TGSongReaderHandle handle, InputStream inputStream, Map<String, TGTake> takes, TGTakeCodec codec) throws TGFileFormatException {
 		try {
 			this.factory = handle.getFactory();
 			TGSong song = this.factory.newSong();
@@ -74,6 +106,9 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 			Node root = getChildNode(xmlDocument, TAG_TGFile);
 			Node nodeSong = getChildNode(root, TAG_TGSONG);
 			this.readSong(song, nodeSong);
+			if (takes != null) {
+				TGAudioPart.read(nodeSong, song, takes, codec);
+			}
 			inputStream.close();
 			handle.setSong(song);
 		} catch (Throwable throwable) {
@@ -130,95 +165,116 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 		}
 	}
 
+	// a header without time signature or tempo keeps those of the header before it
 	private void readMeasureHeaders(TGSong song, Node nodeSong) {
 		Node nodeMeasureHeader = getChildNode(nodeSong, TAG_MEASURE_HEADER);
-		int timeSignatureNumerator = 4;
-		int timeSignatureDenominator = 4;
-		int tempoValue = 120;
-		int tempoBase = TGDuration.QUARTER;
-		boolean tempoDotted = false;
+		TGMeasureHeader previous = this.headerBeforeTheFirst();
 		int number = 1;
 		long headerStart = TGDuration.QUARTER_TIME;
 		while (nodeMeasureHeader != null) {
 			TGMeasureHeader header = this.factory.newHeader();
 			header.setNumber(number);
 			header.setStart(headerStart);
-
-			// timeSignature
-			Node node = getChildNode(nodeMeasureHeader, TAG_TIME_SIGNATURE);
-			if (node != null) {
-				timeSignatureNumerator =readAttributeInt(node, TAG_NUMERATOR);
-				timeSignatureDenominator = readAttributeInt(node, TAG_DENOMINATOR);
-			}
-			header.getTimeSignature().setNumerator(timeSignatureNumerator);
-			header.getTimeSignature().getDenominator().setValue(timeSignatureDenominator);
-
-			// tempo
-			node = getChildNode(nodeMeasureHeader, TAG_TEMPO);
-			if (node != null) {
-				tempoValue = readInt(node);
-				Node nodeBase = node.getAttributes().getNamedItem(TAG_TEMPO_BASE);
-				if (nodeBase != null) {
-					tempoBase = this.readInt(nodeBase);
-				}
-				else {
-					tempoBase = TGDuration.QUARTER;	// no attribute: defaults to a quarter
-				}
-				Node nodeDotted = node.getAttributes().getNamedItem(TAG_TEMPO_DOTTED);
-				if (nodeDotted != null) {
-					tempoDotted = nodeDotted.getTextContent().equals("true");
-				}
-				else {
-					tempoDotted = false;
-				}
-			}
-			header.getTempo().setValueBase(tempoValue, tempoBase, tempoDotted);
-
-			// repeats
-			header.setRepeatOpen(getChildNode(nodeMeasureHeader, TAG_REPEAT_OPEN) != null);
-			node = getChildNode(nodeMeasureHeader, TAG_REPEAT_CLOSE);
-			if (node != null) {
-				header.setRepeatClose(readInt(node));
-			}
-			byte repeatAlternative = 0;
-			node = getChildNode(nodeMeasureHeader, TAG_REPEAT_ALTERNATIVE);
-			if (node!=null) {
-				node = getChildNode(node, TAG_ALTERNATIVE);
-				while (node != null) {
-					repeatAlternative += Math.pow(2, readInt(node)-1);
-					node = getSiblingNode(node.getNextSibling(), TAG_ALTERNATIVE);
-				}
-				header.setRepeatAlternative(repeatAlternative);
-			}
-
-			// marker
-			node = getChildNode(nodeMeasureHeader, TAG_MARKER);
-			if (node != null) {
-				TGMarker marker = this.factory.newMarker();
-				marker.setMeasure(number);
-				marker.setTitle(node.getTextContent());
-				marker.getColor().setR(readAttributeInt(node, TAG_COLOR_R));
-				marker.getColor().setG(readAttributeInt(node, TAG_COLOR_G));
-				marker.getColor().setB(readAttributeInt(node, TAG_COLOR_B));
-				header.setMarker(marker);
-			}
-
-			// tripletFeel
-			node = getChildNode(nodeMeasureHeader, TAG_TRIPLET_FEEL);
-			if (node != null) {
-				header.setTripletFeel(this.tripletsReadMap.get(node.getTextContent()));
-			}
-			// lineBreak
-			if (getChildNode(nodeMeasureHeader, TAG_LINE_BREAK) != null) {
-				header.setLineBreak(true);
-			}
+			this.readMeasureHeader(nodeMeasureHeader, header, previous);
 			// next measureHeader
 			song.addMeasureHeader(header);
 			headerStart += header.getLength();
 			number++;
+			previous = header;
 			nodeMeasureHeader = getSiblingNode(nodeMeasureHeader.getNextSibling(), TAG_MEASURE_HEADER);
 		}
 
+	}
+
+	// what the first header keeps when it has no time signature or tempo: 4/4 at 120 a quarter
+	private TGMeasureHeader headerBeforeTheFirst() {
+		TGMeasureHeader header = this.factory.newHeader();
+		header.getTimeSignature().setNumerator(4);
+		header.getTimeSignature().getDenominator().setValue(4);
+		header.getTempo().setValueBase(120, TGDuration.QUARTER, false);
+		return header;
+	}
+
+	private void readMeasureHeader(Node nodeMeasureHeader, TGMeasureHeader header, TGMeasureHeader previous) {
+		this.readTimeSignature(nodeMeasureHeader, header.getTimeSignature(), previous.getTimeSignature());
+		this.readTempo(nodeMeasureHeader, header.getTempo(), previous.getTempo());
+		this.readRepeats(nodeMeasureHeader, header);
+
+		// marker
+		Node node = getChildNode(nodeMeasureHeader, TAG_MARKER);
+		if (node != null) {
+			TGMarker marker = this.factory.newMarker();
+			marker.setMeasure(header.getNumber());
+			marker.setTitle(node.getTextContent());
+			this.readColor(node, marker.getColor());
+			header.setMarker(marker);
+		}
+
+		// tripletFeel
+		node = getChildNode(nodeMeasureHeader, TAG_TRIPLET_FEEL);
+		if (node != null) {
+			header.setTripletFeel(this.tripletsReadMap.get(node.getTextContent()));
+		}
+		// lineBreak
+		if (getChildNode(nodeMeasureHeader, TAG_LINE_BREAK) != null) {
+			header.setLineBreak(true);
+		}
+	}
+
+	private void readTimeSignature(Node nodeMeasureHeader, TGTimeSignature timeSignature, TGTimeSignature previous) {
+		int numerator = previous.getNumerator();
+		int denominator = previous.getDenominator().getValue();
+		Node node = getChildNode(nodeMeasureHeader, TAG_TIME_SIGNATURE);
+		if (node != null) {
+			numerator = readAttributeInt(node, TAG_NUMERATOR);
+			denominator = readAttributeInt(node, TAG_DENOMINATOR);
+		}
+		timeSignature.setNumerator(numerator);
+		timeSignature.getDenominator().setValue(denominator);
+	}
+
+	// a tempo without base is in quarters, without dotted attribute it is not dotted
+	private void readTempo(Node nodeMeasureHeader, TGTempo tempo, TGTempo previous) {
+		Node node = getChildNode(nodeMeasureHeader, TAG_TEMPO);
+		if (node == null) {
+			tempo.setValueBase(previous.getRawValue(), previous.getBase(), previous.isDotted());
+			return;
+		}
+		int tempoValue = readInt(node);
+		Node nodeBase = node.getAttributes().getNamedItem(TAG_TEMPO_BASE);
+		int tempoBase = (nodeBase != null ? this.readInt(nodeBase) : TGDuration.QUARTER);
+		Node nodeDotted = node.getAttributes().getNamedItem(TAG_TEMPO_DOTTED);
+		boolean tempoDotted = (nodeDotted != null && nodeDotted.getTextContent().equals("true"));
+		tempo.setValueBase(tempoValue, tempoBase, tempoDotted);
+	}
+
+	private void readRepeats(Node nodeMeasureHeader, TGMeasureHeader header) {
+		header.setRepeatOpen(getChildNode(nodeMeasureHeader, TAG_REPEAT_OPEN) != null);
+		Node node = getChildNode(nodeMeasureHeader, TAG_REPEAT_CLOSE);
+		if (node != null) {
+			header.setRepeatClose(readInt(node));
+		}
+		node = getChildNode(nodeMeasureHeader, TAG_REPEAT_ALTERNATIVE);
+		if (node!=null) {
+			header.setRepeatAlternative(this.readRepeatAlternatives(node));
+		}
+	}
+
+	// bit map: alternative n sets bit n-1, summed in a byte
+	private byte readRepeatAlternatives(Node nodeRepeatAlternative) {
+		byte repeatAlternative = 0;
+		Node node = getChildNode(nodeRepeatAlternative, TAG_ALTERNATIVE);
+		while (node != null) {
+			repeatAlternative += Math.pow(2, readInt(node)-1);
+			node = getSiblingNode(node.getNextSibling(), TAG_ALTERNATIVE);
+		}
+		return repeatAlternative;
+	}
+
+	private void readColor(Node node, TGColor color) {
+		color.setR(readAttributeInt(node, TAG_COLOR_R));
+		color.setG(readAttributeInt(node, TAG_COLOR_G));
+		color.setB(readAttributeInt(node, TAG_COLOR_B));
 	}
 
 	private void readTracks(TGSong song, Node nodeSong) {
@@ -244,10 +300,7 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 			if (node != null) {
 				track.setOffset(readInt(node));
 			}
-			node = getSiblingNode(nodeElement, TAG_COLOR);
-			track.getColor().setR(readAttributeInt(node, TAG_COLOR_R));
-			track.getColor().setG(readAttributeInt(node, TAG_COLOR_G));
-			track.getColor().setB(readAttributeInt(node, TAG_COLOR_B));
+			this.readColor(getSiblingNode(nodeElement, TAG_COLOR), track.getColor());
 			this.readStrings(track, getChildNode(nodeTrack, TAG_TGSTRING));
 			this.readLyrics(track, getChildNode(nodeTrack, TAG_TGLYRIC));
 			this.readMeasures(track, nodeTrack);
@@ -405,63 +458,61 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 		int velocity = TGVelocities.DEFAULT;
 		Node nodeNote = getChildNode(nodeVoice, TAG_NOTE);
 		while (nodeNote != null) {
-			TGNote note = this.factory.newNote();
-			note.setVoice(voice);
-			note.setValue(readAttributeInt(nodeNote, TAG_VALUE));
-			Node node = nodeNote.getAttributes().getNamedItem(TAG_VELOCITY);
-			if (node != null) {
-				velocity = readInt(node);
-			}
-			note.setVelocity(velocity);
-			note.setString(readAttributeInt(nodeNote, TAG_STRING));
-			node = nodeNote.getAttributes().getNamedItem(TAG_TIEDNOTE);
-			if (node != null) {
-				note.setTiedNote("true".equals(node.getTextContent()));
-			}
-			TGNoteEffect effect = note.getEffect();
-			effect.setVibrato(this.hasChild(nodeNote, TAG_VIBRATO));
-			effect.setDeadNote(this.hasChild(nodeNote, TAG_DEADNOTE));
-			effect.setSlide(this.hasChild(nodeNote, TAG_SLIDE));
-			effect.setHammer(this.hasChild(nodeNote, TAG_HAMMER));
-			effect.setGhostNote(this.hasChild(nodeNote, TAG_GHOSTNOTE));
-			effect.setAccentuatedNote(this.hasChild(nodeNote, TAG_ACCENTUATEDNOTE));
-			effect.setHeavyAccentuatedNote(this.hasChild(nodeNote, TAG_HEAVYACCENTUATEDNOTE));
-			effect.setPalmMute(this.hasChild(nodeNote, TAG_PALMMUTE));
-			effect.setStaccato(this.hasChild(nodeNote, TAG_STACCATO));
-			effect.setTapping(this.hasChild(nodeNote, TAG_TAPPING));
-			effect.setSlapping(this.hasChild(nodeNote, TAG_SLAPPING));
-			effect.setPopping(this.hasChild(nodeNote, TAG_POPPING));
-			effect.setFadeIn(this.hasChild(nodeNote, TAG_FADEIN));
-			effect.setLetRing(this.hasChild(nodeNote, TAG_LETRING));
-			node = getChildNode(nodeNote, TAG_BEND);
-			if (node != null) {
-				this.readBend(note, node);
-			}
-			node = getChildNode(nodeNote, TAG_TREMOLOBAR);
-			if (node != null) {
-				this.readTremoloBar(note, node);
-			}
-			node = getChildNode(nodeNote, TAG_HARMONIC);
-			if (node != null) {
-				this.readHarmonic(note, node);
-			}
-			node = getChildNode(nodeNote, TAG_GRACE);
-			if (node != null) {
-				this.readGrace(note, node);
-			}
-			node = getChildNode(nodeNote, TAG_TRILL);
-			if (node != null) {
-				this.readTrill(note, node);
-			}
-			node = getChildNode(nodeNote, TAG_TREMOLOPICKING);
-			if (node != null) {
-				this.readTremoloPicking(note, node);
-			}
-			if (this.hasChild(nodeNote, TAG_ALT_ENHARMONIC)) {
-				note.toggleAltEnharmonic();
-			}
+			TGNote note = this.readNote(nodeNote, voice, velocity);
+			velocity = note.getVelocity();
 			voice.addNote(note);
 			nodeNote = getSiblingNode(nodeNote.getNextSibling(), TAG_NOTE);
+		}
+	}
+
+	// a note without velocity has the velocity of the note before it
+	private TGNote readNote(Node nodeNote, TGVoice voice, int previousVelocity) {
+		TGNote note = this.factory.newNote();
+		note.setVoice(voice);
+		note.setValue(readAttributeInt(nodeNote, TAG_VALUE));
+		Node node = nodeNote.getAttributes().getNamedItem(TAG_VELOCITY);
+		note.setVelocity(node != null ? readInt(node) : previousVelocity);
+		note.setString(readAttributeInt(nodeNote, TAG_STRING));
+		node = nodeNote.getAttributes().getNamedItem(TAG_TIEDNOTE);
+		if (node != null) {
+			note.setTiedNote("true".equals(node.getTextContent()));
+		}
+		TGNoteEffect effect = note.getEffect();
+		for (NoteFlag flag : NOTE_FLAGS) {
+			flag.setOn(effect, this.hasChild(nodeNote, flag.getTag()));
+		}
+		this.readNoteEffects(note, nodeNote);
+		if (this.hasChild(nodeNote, TAG_ALT_ENHARMONIC)) {
+			note.toggleAltEnharmonic();
+		}
+		return note;
+	}
+
+	// the effects of a note that have values; in this order, as setting one may remove others
+	private void readNoteEffects(TGNote note, Node nodeNote) {
+		Node node = getChildNode(nodeNote, TAG_BEND);
+		if (node != null) {
+			this.readBend(note, node);
+		}
+		node = getChildNode(nodeNote, TAG_TREMOLOBAR);
+		if (node != null) {
+			this.readTremoloBar(note, node);
+		}
+		node = getChildNode(nodeNote, TAG_HARMONIC);
+		if (node != null) {
+			this.readHarmonic(note, node);
+		}
+		node = getChildNode(nodeNote, TAG_GRACE);
+		if (node != null) {
+			this.readGrace(note, node);
+		}
+		node = getChildNode(nodeNote, TAG_TRILL);
+		if (node != null) {
+			this.readTrill(note, node);
+		}
+		node = getChildNode(nodeNote, TAG_TREMOLOPICKING);
+		if (node != null) {
+			this.readTremoloPicking(note, node);
 		}
 	}
 

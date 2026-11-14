@@ -1,0 +1,219 @@
+package app.tuxguitar.editor.action.measure;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
+
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
+
+import app.tuxguitar.document.TGDocumentContextAttributes;
+import app.tuxguitar.editor.action.SongActionFixture;
+import app.tuxguitar.editor.clipboard.TGClipboard;
+import app.tuxguitar.song.helpers.TGSongSegment;
+import app.tuxguitar.song.models.TGAudioInput;
+import app.tuxguitar.song.models.TGBeat;
+import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGMeasure;
+import app.tuxguitar.song.models.TGTake;
+import app.tuxguitar.song.models.TGTakeClip;
+import app.tuxguitar.song.models.TGTrack;
+
+/**
+ * Pins TGPasteMeasureAction: the measures copied (by TGCopyMeasureAction), repeated the paste count of times, either
+ * replace the measures from the caret measure on (adding measures at the song end when needed) or are inserted before
+ * it. Measures copied from one track go to the caret track, else each to its own track. Audio is not pasted onto a
+ * track that is no audio track, nor notes onto an audio track; a paste that pastes reports success.
+ *
+ * The song has two tracks of three measures; measure m holds one beat with one note, of fret m on track 1 and of fret
+ * 10 + m on track 2. A track reads back as its measures separated by " | ", each as its beats, and the tracks are
+ * separated by " / ".
+ */
+public class TestPasteMeasureAction {
+
+	private static final String UNCHANGED = "s1f1 | s1f2 | s1f3 / s1f11 | s1f12 | s1f13";
+	// measure 1 of track 1 pasted over its measure 2
+	private static final String FIRST_OVER_SECOND = "s1f1 | s1f1 | s1f3 / s1f11 | s1f12 | s1f13 / success";
+
+	private final SongActionFixture fixture = new SongActionFixture();
+
+	public TestPasteMeasureAction() {
+		fixture.songManager.addTrack(fixture.song);
+		fixture.songManager.addNewMeasureBeforeEnd(fixture.song);
+		fixture.songManager.addNewMeasureBeforeEnd(fixture.song);
+		for (int t = 0; t < 2; t++) {
+			for (int m = 0; m < 3; m++) {
+				fixture.note(fixture.beat(fixture.song.getTrack(t).getMeasure(m), 0), 1, (10 * t) + m + 1);
+			}
+		}
+	}
+
+	private TGTrack track(int number) {
+		return fixture.song.getTrack(number - 1);
+	}
+
+	// copies the measures, of the track or of every track, before the paste that follows
+	private TestPasteMeasureAction copy(int track, int measure1, int measure2, boolean allTracks) {
+		fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, track(track));
+		fixture.actionContext.setAttribute(TGCopyMeasureAction.ATTRIBUTE_MEASURE_NUMBER_1, measure1);
+		fixture.actionContext.setAttribute(TGCopyMeasureAction.ATTRIBUTE_MEASURE_NUMBER_2, measure2);
+		fixture.actionContext.setAttribute(TGCopyMeasureAction.ATTRIBUTE_ALL_TRACKS, allTracks);
+		fixture.execute(new TGCopyMeasureAction(fixture.context));
+		return this;
+	}
+
+	private String paste(int mode, int count, int track, int measure) {
+		fixture.actionContext.setAttribute(TGPasteMeasureAction.ATTRIBUTE_PASTE_MODE, mode);
+		fixture.actionContext.setAttribute(TGPasteMeasureAction.ATTRIBUTE_PASTE_COUNT, count);
+		fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, track(track));
+		fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_MEASURE, track(track).getMeasure(measure - 1));
+		fixture.execute(new TGPasteMeasureAction(fixture.context));
+		return describe(track(1)) + " / " + describe(track(2)) + fixture.outcome().replace("success", " / success");
+	}
+
+	// track 2 made an audio track whose measure 1 holds a take instead of its note; its other notes are kept so a
+	// paste over them shows
+	private TestPasteMeasureAction audioOnTrack2() {
+		track(2).getMeasure(0).clear();
+		TGChannel channel = fixture.songManager.getChannel(fixture.song, track(2).getChannelId());
+		channel.setAudioInput(TGAudioInput.mono(1));
+		track(2).getMeasure(0).addTakeClip(new TGTakeClip(new TGTake(1, new float[] { 0.5f }, 44100), 0, 960, 0, 120));
+		return this;
+	}
+
+	private String replace(int count, int track, int measure) {
+		return paste(TGPasteMeasureAction.TRANSFER_TYPE_REPLACE, count, track, measure);
+	}
+
+	private String insert(int count, int track, int measure) {
+		return paste(TGPasteMeasureAction.TRANSFER_TYPE_INSERT, count, track, measure);
+	}
+
+	private static String describe(TGTrack track) {
+		List<String> measures = new ArrayList<String>();
+		for (int m = 0; m < track.countMeasures(); m++) {
+			TGMeasure measure = track.getMeasure(m);
+			List<String> beats = new ArrayList<String>();
+			for (TGBeat beat : measure.getBeats()) {
+				beats.add(SongActionFixture.describe(beat));
+			}
+			measures.add(String.join(" ", beats));
+		}
+		return String.join(" | ", measures);
+	}
+
+	@TestFactory
+	public List<DynamicTest> pastingTheCopiedMeasures() {
+		return Arrays.asList(
+			pasting("replacing overwrites the caret measure", FIRST_OVER_SECOND,
+					test -> test.copy(1, 1, 1, false).replace(1, 1, 2)),
+			pasting("replacing past the song end adds measures", "s1f1 | s1f2 | s1f1 | s1f2 / s1f11 | s1f12 | s1f13 |  / success",
+					test -> test.copy(1, 1, 2, false).replace(1, 1, 3)),
+			pasting("inserting pushes the caret measure back", "s1f1 | s1f3 | s1f2 | s1f3 / s1f11 |  | s1f12 | s1f13 / success",
+					test -> test.copy(1, 3, 3, false).insert(1, 1, 2)),
+			pasting("the count repeats the measures", "s1f1 | s1f1 | s1f1 | s1f2 | s1f3 / s1f11 |  |  | s1f12 | s1f13 / success",
+					test -> test.copy(1, 1, 1, false).insert(2, 1, 2)),
+			pasting("measures of one track go to the caret track", "s1f1 | s1f2 | s1f3 / s1f11 | s1f1 | s1f13 / success",
+					test -> test.copy(1, 1, 1, false).replace(1, 2, 2)),
+			pasting("measures of every track go to their own tracks", "s1f1 | s1f2 | s1f1 / s1f11 | s1f12 | s1f11 / success",
+					test -> test.copy(2, 1, 1, true).replace(1, 2, 3)),
+			pasting("audio is not pasted onto a track of notes", "s1f1 | s1f2 | s1f3 /  | s1f12 | s1f13",
+					test -> test.audioOnTrack2().copy(2, 1, 1, false).replace(1, 1, 2)),
+			pasting("notes are not pasted onto an audio track", "s1f1 | s1f2 | s1f3 /  | s1f12 | s1f13",
+					test -> test.audioOnTrack2().copy(1, 1, 1, false).replace(1, 2, 2)),
+			pasting("audio is pasted onto an audio track, as a new take over what was there", "s1f1 | s1f2 | s1f3 /  | s1f12 | s1f13 / success",
+					test -> test.audioOnTrack2().copy(2, 1, 1, false).replace(1, 2, 2)));
+	}
+
+	// what played in the copied measure becomes a new take in the target, playing the same samples
+	@Test
+	public void pastedAudioIsANewTakeThatPlaysTheSameSamples() {
+		audioOnTrack2();
+		track(2).setNextTakeNumber(2);
+		TGTake recorded = track(2).getMeasure(0).getTakeClips().get(0).getTake();
+		copy(2, 1, 1, false).replace(1, 2, 2);
+		TGTakeClip pasted = track(2).getMeasure(1).getTakeClips().get(0);
+		// take, start, end, first sample, tempo
+		assertEquals("2|0|960|0|120.0", pasted.getTake().getNumber() + "|" + pasted.getStart() + "|" + pasted.getEnd() + "|" + pasted.getFirstSample() + "|" + pasted.getTempo());
+		assertSame(recorded, pasted.getSource());
+		assertEquals(0, pasted.getTake().countSamples());
+		assertEquals(3, track(2).getNextTakeNumber());
+	}
+
+	@Test
+	public void pastedMeasuresEachGetTheAudioOfTheirOwnCopiedMeasure() {
+		audioOnTrack2();
+		TGTake recorded = track(2).getMeasure(0).getTakeClips().get(0).getTake();
+		track(2).getMeasure(1).clear();
+		track(2).getMeasure(1).addTakeClip(new TGTakeClip(recorded, 960, 1920, 7, 120));
+		copy(2, 1, 2, false).replace(1, 2, 2);
+		assertEquals(0, track(2).getMeasure(1).getTakeClips().stream().filter(clip -> clip.getTake() != recorded).findFirst().get().getFirstSample());
+		assertEquals(7, track(2).getMeasure(2).getTakeClips().get(0).getFirstSample());
+	}
+
+	@Test
+	public void pastingAMeasureThatPlaysNothingLeavesTheTargetAsItWas() {
+		audioOnTrack2();
+		track(2).setNextTakeNumber(2);
+		track(2).getMeasure(2).clear();
+		copy(2, 3, 3, false).replace(1, 2, 1);
+		assertEquals(1, track(2).getMeasure(0).getTakeClips().size());
+		assertEquals(2, track(2).getNextTakeNumber());
+	}
+
+	// a case run on a new song: copying then pasting gives the song read back
+	private static DynamicTest pasting(String name, String expected, Function<TestPasteMeasureAction, String> copyThenPaste) {
+		return DynamicTest.dynamicTest(name, () -> assertEquals(expected, copyThenPaste.apply(new TestPasteMeasureAction())));
+	}
+
+	// where the first pasted beat starts, from the start of the measure it was pasted in
+	private long pastedBeatOffset(int measure) {
+		TGMeasure pasted = track(1).getMeasure(measure - 1);
+		return pasted.getBeat(0).getStart() - pasted.getStart();
+	}
+
+	@Test
+	public void pastedBeatsMoveToTheMeasureTheyArePastedIn() {
+		copy(1, 1, 1, false).replace(1, 1, 3);
+		assertEquals(0, pastedBeatOffset(3));
+
+		copy(1, 1, 1, false).insert(1, 1, 2);
+		assertEquals(0, pastedBeatOffset(2));
+	}
+
+	@Test
+	public void measuresOfEveryTrackBringTheirMeasureSettings() {
+		fixture.song.getMeasureHeader(0).getTempo().setQuarterValue(60);
+		copy(1, 1, 1, true).replace(1, 1, 3);
+
+		assertEquals(60, fixture.song.getMeasureHeader(2).getTempo().getQuarterValue());
+	}
+
+	@Test
+	public void pastingNeedsACountAndAKnownMode() {
+		copy(1, 1, 1, false);
+
+		assertEquals(UNCHANGED, replace(0, 1, 2));
+		assertEquals(UNCHANGED, paste(0, 1, 1, 2));
+		assertEquals(UNCHANGED, paste(3, 1, 1, 2));
+		assertEquals(FIRST_OVER_SECOND, replace(1, 1, 2));
+	}
+
+	@Test
+	public void pastingNeedsCopiedMeasures() {
+		assertEquals(UNCHANGED, replace(1, 1, 2));
+
+		TGSongSegment noTracks = new TGSongSegment();
+		noTracks.getHeaders().add(fixture.song.getMeasureHeader(0));
+		TGClipboard.getInstance(fixture.context).setData(noTracks);
+		assertEquals(UNCHANGED, replace(1, 1, 2));
+
+		copy(1, 1, 1, false);
+		assertEquals(FIRST_OVER_SECOND, replace(1, 1, 2));
+	}
+}

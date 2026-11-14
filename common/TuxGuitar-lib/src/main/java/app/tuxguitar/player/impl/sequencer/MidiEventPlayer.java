@@ -37,28 +37,14 @@ public class MidiEventPlayer{
 			return false;
 		}
 		if(event.getTick() > lastTick) {
-			if(event.getTrack() != MidiEvent.ALL_TRACKS){
-				if(this.sequencer.getMidiTrackController().isMute(event.getTrack())){
-					return false;
-				}
-				if(this.sequencer.getMidiTrackController().isAnySolo() && !this.sequencer.getMidiTrackController().isSolo(event.getTrack())){
-					return false;
-				}
-			}
-			return true;
+			return this.sequencer.getMidiTrackController().isAudible(event.getTrack());
 		}
-		if(this.reset){
-			if(event.getType() == MidiEvent.MIDI_SYSTEM_EVENT){
-				return true;
-			}
-			if(event.getType() == MidiEvent.MIDI_EVENT_CONTROL_CHANGE){
-				return true;
-			}
-			if(event.getType() == MidiEvent.MIDI_EVENT_PROGRAM_CHANGE){
-				return true;
-			}
-		}
-		return false;
+		return (this.reset && isChannelSetup(event.getType()));
+	}
+
+	// the events resent after a reset, for the channels to be set up as they were
+	static boolean isChannelSetup(int type){
+		return (type == MidiEvent.MIDI_SYSTEM_EVENT || type == MidiEvent.MIDI_EVENT_CONTROL_CHANGE || type == MidiEvent.MIDI_EVENT_PROGRAM_CHANGE);
 	}
 
 	public void addEvent(MidiEvent event){

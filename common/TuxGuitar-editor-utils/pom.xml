@@ -15,7 +15,49 @@
 
 	<build>
 		<sourceDirectory>src/main/java</sourceDirectory>
+		<plugins>
+			<!-- the test classes as a test-jar, so tuxguitar-audio's features drive actions through SongActionFixture;
+				without this module's features, which would run again in every module that has the jar -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>test-jar</goal>
+						</goals>
+						<configuration>
+							<excludes>
+								<exclude>features/**</exclude>
+								<exclude>app/tuxguitar/editor/features/**</exclude>
+							</excludes>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
 	</build>
+
+	<!-- Cucumber 7 is the last line that runs on Java 8+ and JUnit 5 (8 needs Java 17 and JUnit 6); one JUnit
+		version for the jupiter and the cucumber engines, so the platform jars do not mix -->
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.junit</groupId>
+				<artifactId>junit-bom</artifactId>
+				<version>5.14.4</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.cucumber</groupId>
+				<artifactId>cucumber-bom</artifactId>
+				<version>7.34.9</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<dependencies>
 		<dependency>
@@ -26,7 +68,28 @@
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
-			<version>5.9.2</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- BDD: feature files in src/test/resources/features, run by TestFeatures -->
+		<dependency>
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-suite</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.cucumber</groupId>
+			<artifactId>cucumber-java</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.cucumber</groupId>
+			<artifactId>cucumber-junit-platform-engine</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- one SongWorld per scenario, injected into every step class that asks for it -->
+		<dependency>
+			<groupId>io.cucumber</groupId>
+			<artifactId>cucumber-picocontainer</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
