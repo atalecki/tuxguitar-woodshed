@@ -4,23 +4,160 @@
 #include "public.sdk/source/common/pluginview.h"
 #include "public.sdk/source/main/pluginfactory.h"
 #include "pluginterfaces/gui/iplugview.h"
+#include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace TuxGuitar {
 
 namespace {
 
-// an editor with nothing on it: enough for a host to open it in a window of its own
-class TestView : public CPluginView {
+#ifdef _WIN32
+// a loop of the editor's own, as a file dialog runs one, or Windows while the user drags a window: it dispatches the
+// thread's messages until its time is up. Or, given a window of another thread, a wait for that window to answer a
+// message, as Windows waits on the window owning an editor (TuxGuitar's). It starts at the first timer tick, so once its
+// host waits for messages.
+DWORD modalMillis = 0;
+HWND waitOn = nullptr;
+bool inModal = false;
+
+void loopFor(DWORD millis) {
+	DWORD end = GetTickCount() + millis;
+	MSG message;
+	for (DWORD now = GetTickCount(); now < end; now = GetTickCount()) {
+		if (!PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+			MsgWaitForMultipleObjects(0, nullptr, FALSE, end - now, QS_ALLINPUT);
+		} else if (message.message == WM_QUIT) {
+			PostQuitMessage((int) message.wParam);
+			break;
+		} else {
+			TranslateMessage(&message);
+			DispatchMessageW(&message);
+		}
+	}
+}
+
+void CALLBACK runModal(HWND, UINT, UINT_PTR timer, DWORD) {
+	KillTimer(nullptr, timer);
+	inModal = true;
+	if (waitOn) {
+		SendMessageW(waitOn, WM_NULL, 0, 0);
+	} else {
+		loopFor(modalMillis);
+	}
+	inModal = false;
+}
+
+void startModal(int64 millis, int64 window) {
+	modalMillis = (DWORD) millis;
+	waitOn = (HWND) (intptr_t) window;
+	SetTimer(nullptr, 0, 1, runModal);
+}
+
+// as the user clicks the close box of the window the editor is in
+void closeWindow(void* window) { PostMessageW((HWND) window, WM_CLOSE, 0, 0); }
+
+// as Windows tells the window the editor is in that it went to a screen of that DPI: the frame it suggests is the
+// window's scaled from its DPI now, at the same top left corner (left, top, right, bottom)
+std::vector<double> changeDpi(void* parent, int64 dpi) {
+	HWND window = (HWND) parent;
+	RECT frame = {};
+	GetWindowRect(window, &frame);
+	int now = (int) GetDpiForWindow(window);
+	RECT suggested = {frame.left, frame.top, frame.left + MulDiv(frame.right - frame.left, (int) dpi, now), frame.top + MulDiv(frame.bottom - frame.top, (int) dpi, now)};
+	SendMessageW(window, WM_DPICHANGED, MAKEWPARAM(dpi, dpi), (LPARAM) &suggested);
+	return std::vector<double>{(double) suggested.left, (double) suggested.top, (double) suggested.right, (double) suggested.bottom};
+}
+
+// as the user drags the border of the window the editor is in until the inside is that size
+void dragTo(void* parent, int64 width, int64 height) {
+	HWND window = (HWND) parent;
+	RECT frame = {};
+	RECT inside = {};
+	GetWindowRect(window, &frame);
+	GetClientRect(window, &inside);
+	int extraWidth = (frame.right - frame.left) - inside.right;
+	int extraHeight = (frame.bottom - frame.top) - inside.bottom;
+	SetWindowPos(window, nullptr, 0, 0, (int) width + extraWidth, (int) height + extraHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+#else
+const bool inModal = false;
+
+void startModal(int64, int64) {}
+
+void closeWindow(void*) {}
+
+std::vector<double> changeDpi(void*, int64) { return std::vector<double>(); }
+
+void dragTo(void*, int64, int64) {}
+#endif
+
+tresult reportDoubles(IAttributeList* attributes, const std::vector<double>& values) {
+	return attributes->setBinary("report", values.data(), (uint32) (values.size() * sizeof(double)));
+}
+
+// the test plugins of this module alive, and whether one, or its editor's view, went while the editor's loop ran (its
+// code still running: a host must not take a plugin away under it)
+int32 livePlugins = 0;
+bool goneInLoop = false;
+
+void going() {
+	goneInLoop = (goneInLoop || inModal);
+}
+
+// an editor with nothing on it: enough for a host to open it in a window of its own. The plugin knows the window it is
+// in and the content scale and size its host gave it (ViewState); it can ask its host for another size, and, made
+// resizable, the user can resize it down to kSmallestView
+class TestView : public CPluginView, public IPlugViewContentScaleSupport {
 public:
-	TestView() : CPluginView(nullptr) {
+	explicit TestView(ViewState* state) : CPluginView(nullptr), state(state), resizable(state->resizable) {
 		ViewRect size(0, 0, 200, 100);
 		setRect(size);
+	}
+
+	tresult PLUGIN_API attached(void* parent, FIDString type) SMTG_OVERRIDE {
+		state->view = this;
+		state->window = parent;
+		sized(getRect());
+		return CPluginView::attached(parent, type);
+	}
+
+	// as an editor that asks its host for another size (its own layout changed, or the user chose a larger one)
+	void askSize(int64 width, int64 height) {
+		ViewRect size(0, 0, (int32) width, (int32) height);
+		if (plugFrame) {
+			plugFrame->resizeView(this, &size);
+		}
+	}
+
+	tresult PLUGIN_API canResize() SMTG_OVERRIDE { return (resizable ? kResultTrue : kResultFalse); }
+
+	tresult PLUGIN_API checkSizeConstraint(ViewRect* rect) SMTG_OVERRIDE {
+		rect->right = rect->left + std::max(rect->getWidth(), kSmallestViewWidth);
+		rect->bottom = rect->top + std::max(rect->getHeight(), kSmallestViewHeight);
+		return kResultTrue;
+	}
+
+	tresult PLUGIN_API onSize(ViewRect* newSize) SMTG_OVERRIDE {
+		sized(*newSize);
+		return CPluginView::onSize(newSize);
+	}
+
+	tresult PLUGIN_API removed() SMTG_OVERRIDE {
+		state->view = nullptr;
+		state->window = nullptr;
+		going();
+		return CPluginView::removed();
 	}
 
 	tresult PLUGIN_API isPlatformTypeSupported(FIDString type) SMTG_OVERRIDE {
@@ -28,6 +165,26 @@ public:
 		                  std::strcmp(type, kPlatformTypeNSView) == 0);
 		return (supported ? kResultTrue : kResultFalse);
 	}
+
+	tresult PLUGIN_API setContentScaleFactor(ScaleFactor factor) SMTG_OVERRIDE {
+		state->scale = factor;
+		return kResultOk;
+	}
+
+	OBJ_METHODS(TestView, CPluginView)
+	DEFINE_INTERFACES
+		DEF_INTERFACE(IPlugViewContentScaleSupport)
+	END_DEFINE_INTERFACES(CPluginView)
+	REFCOUNT_METHODS(CPluginView)
+
+private:
+	void sized(const ViewRect& size) {
+		state->width = size.getWidth();
+		state->height = size.getHeight();
+	}
+
+	ViewState* state;
+	bool resizable;
 };
 
 SpeakerArrangement arrangement(int32 channels) {
@@ -40,6 +197,12 @@ TestPlugin::TestPlugin(PluginSpec spec) : spec(spec), preset(0), reportedLatency
 	for (const ParamSpec& param : this->spec.params) {
 		this->values.push_back(param.def);
 	}
+	livePlugins++;
+}
+
+TestPlugin::~TestPlugin() {
+	livePlugins--;
+	going();
 }
 
 tresult PLUGIN_API TestPlugin::initialize(FUnknown* context) {
@@ -200,18 +363,80 @@ tresult PLUGIN_API TestPlugin::setState(IBStream* state) {
 
 IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 	if (spec.editor && name && std::strcmp(name, ViewType::kEditor) == 0) {
-		return new TestView();
+		return new TestView(&view);
 	}
 	return nullptr;
+}
+
+// the test messages on the editor's view and window (kNotImplemented for others): "TG.close-window" clicks the close
+// box of the window the editor is in; "TG.view" answers the view's content scale, width and height (doubles);
+// "TG.dpi-changed" tells the window it went to a screen of that "dpi", as Windows does, and answers the frame suggested;
+// "TG.resizable" makes the views made from now on resizable; and those on its size (sizeMessage)
+tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
+	if (std::strcmp(id, "TG.close-window") == 0) {
+		closeWindow(view.window);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.view") == 0) {
+		return reportDoubles(attributes, {view.scale, (double) view.width, (double) view.height});
+	}
+	if (std::strcmp(id, "TG.dpi-changed") == 0) {
+		int64 dpi = 96;
+		attributes->getInt("dpi", dpi);
+		return reportDoubles(attributes, changeDpi(view.window, dpi));
+	}
+	if (std::strcmp(id, "TG.resizable") == 0) {
+		view.resizable = true;
+		return kResultOk;
+	}
+	return sizeMessage(id, attributes);
+}
+
+// "TG.resize": the view asks its host for that "width" and "height"; "TG.drag-to": the user drags the window's border
+// until its inside is that "width" and "height" (kNotImplemented for others)
+tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
+	int64 width = 0;
+	int64 height = 0;
+	attributes->getInt("width", width);
+	attributes->getInt("height", height);
+	if (std::strcmp(id, "TG.resize") == 0 && view.view) {
+		static_cast<TestView*>(view.view)->askSize(width, height);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.drag-to") == 0) {
+		dragTo(view.window, width, height);
+		return kResultOk;
+	}
+	return kNotImplemented;
 }
 
 // the test messages play the plugin's own editor: "TG.gesture" moves a parameter through values in one gesture,
 // "TG.gesture-later" does it at the plugin's next call from its host (a process, or a parameter read), as an editor
 // does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
-// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error
+// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
+// "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
+// "window" of another thread to answer a message, and "TG.in-modal" answers three bytes: 1 while it does (0 else), 1 once
+// a plugin of the module or an editor's view went while it did, and how many plugins of the module are alive; and
+// those on the editor's view (viewMessage)
 tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
+	tresult viewed = viewMessage(id, attributes);
+	if (viewed != kNotImplemented) {
+		return viewed;
+	}
+	if (std::strcmp(id, "TG.modal") == 0) {
+		int64 millis = 0;
+		int64 window = 0;
+		attributes->getInt("millis", millis);
+		attributes->getInt("window", window);
+		startModal(millis, window);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.in-modal") == 0) {
+		char state[3] = {(char) (inModal ? 1 : 0), (char) (goneInLoop ? 1 : 0), (char) livePlugins};
+		return attributes->setBinary("report", state, 3);
+	}
 	if (std::strcmp(id, "TG.gesture") == 0) {
 		int64 param = 0;
 		attributes->getInt("id", param);

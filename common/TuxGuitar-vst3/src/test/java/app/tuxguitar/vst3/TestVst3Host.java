@@ -9,11 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,7 +78,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 3, not 2", refused.getMessage());
+		assertEquals("the VST3 host speaks version 4, not 3", refused.getMessage());
 	}
 
 	@Test
@@ -285,7 +290,7 @@ public class TestVst3Host {
 
 	@Test
 	public void theEditorOfAPluginWithoutOneDoesNotOpen() throws TGVst3Exception {
-		assertFalse(open("Test Clip 0.5").openEditor());
+		assertFalse(open("Test Clip 0.5").openEditor(0, ""));
 	}
 
 	@Test
@@ -307,6 +312,103 @@ public class TestVst3Host {
 		assertEquals("the VST3 host stopped (exit code 70)", crashed.getMessage());
 		assertFalse(this.host.isRunning());
 		assertEquals(crashed.getMessage(), this.host.getExitReport());
+	}
+
+	// what the test plugins' module says of an editor's loop of its own: whether it runs (1), whether a plugin or an
+	// editor's view went while it ran (1), how many plugins of the module are alive
+	private static byte[] loopState(TGVst3Instance plugin) throws TGVst3Exception {
+		return plugin.message("TG.in-modal", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+	}
+
+	private static boolean inALoopOfItsOwn(TGVst3Instance plugin) throws TGVst3Exception {
+		return loopState(plugin)[0] == 1;
+	}
+
+	// until the loop runs, or no longer does (at most 3 s)
+	private static void awaitLoop(TGVst3Instance plugin, boolean running) {
+		assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
+			while (inALoopOfItsOwn(plugin) != running) {
+				Thread.sleep(5);
+			}
+		});
+	}
+
+	// whether each of 10 blocks played while the plugin's editor runs a loop of its own or waits (as the message says)
+	// is answered in time, then whether it still runs or waits
+	private static String answeredWhileItsEditorWaits(TGVst3Instance plugin, Map<String, Long> wait) throws TGVst3Exception {
+		plugin.message("TG.modal", wait, Collections.<String, byte[]>emptyMap());
+		awaitLoop(plugin, true);
+		List<Boolean> answered = new ArrayList<Boolean>();
+		for (int i = 0; i < 10; i++) {
+			answered.add(plugin.process(block(0.25f, 0.25f), FRAMES, TGVst3Transport.STOPPED, Collections.<TGVst3NoteEvent>emptyList()));
+		}
+		return answered + " " + inALoopOfItsOwn(plugin);
+	}
+
+	// closing a plugin's editor, or the plugin, while an editor runs a loop of its own (a file dialog) is answered at
+	// once, but the view and the plugin go only once that loop has returned: their code may be running in it. An editor
+	// closed and opened again meanwhile stays open
+	@Test
+	public void aPluginClosedWhileAnEditorRunsALoopOfItsOwnGoesOnceTheLoopReturns() throws TGVst3Exception {
+		TGVst3Instance closed = open("Test Gain");
+		TGVst3Instance editorClosed = open("Test Gain");
+		TGVst3Instance reopened = open("Test Gain");
+		closed.openEditor(0, "");
+		editorClosed.openEditor(0, "");
+		reopened.openEditor(0, "");
+		closed.message("TG.modal", Collections.singletonMap("millis", 1500L), Collections.<String, byte[]>emptyMap());
+		awaitLoop(reopened, true);
+		assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+			closed.closeEditor();
+			closed.close();
+			editorClosed.closeEditor();
+			reopened.closeEditor();
+			reopened.openEditor(0, "");
+		});
+		String during = Arrays.toString(loopState(reopened)) + " " + (editorClosed.getEditorWindow().getWindow() != 0);
+		awaitLoop(reopened, false);
+		String after = Arrays.toString(loopState(reopened)) + " " + (editorClosed.getEditorWindow().getWindow() != 0) + " " + (reopened.getEditorWindow().getWindow() != 0);
+		assertEquals("[1, 0, 3] true | [0, 0, 2] false true", during + " | " + after);
+	}
+
+	// a plugin's editor that runs a loop of its own (a file dialog, its window dragged) does not keep the host from
+	// answering: the blocks played meanwhile are answered in time
+	@Test
+	public void theHostAnswersInTimeWhileAPluginsEditorRunsALoopOfItsOwn() throws TGVst3Exception {
+		assertEquals(Collections.nCopies(10, true) + " true", answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("millis", 3000L)));
+	}
+
+	// the plugin opened in the other host, its editor open
+	private static TGVst3Instance withItsEditor(TGVst3Host other, String name) throws TGVst3Exception {
+		TGVst3Instance plugin = other.open(other.scan(TestPlugins.bundle(name)).get(0), 44100f, FRAMES);
+		plugin.openEditor(0, "");
+		return plugin;
+	}
+
+	// its host's thread hangs in a block for 5 s from now (that block's reply is owed): its windows answer no messages
+	private static void hangItsHost(TGVst3Instance hang) throws TGVst3Exception {
+		hang.setParameter(hang.findParameter("Hang at"), 0);
+		hang.setParameter(hang.findParameter("Hang for"), 5000);
+		process(hang, block(0.25f, 0.25f));
+		assertTrue(hang.getHost().isLate());
+	}
+
+	// the window of a Test Hang editor in the other host, whose thread then hangs
+	private static long windowOfAHungHost(TGVst3Host other) throws TGVst3Exception {
+		TGVst3Instance hang = withItsEditor(other, "Test Hang");
+		long window = hang.getEditorWindow().getWindow();
+		hangItsHost(hang);
+		return window;
+	}
+
+	// nor does a wait on a window of another process that does not answer yet, as an editor TuxGuitar's window owns
+	// waits on it while TuxGuitar waits for a reply (here the window of an editor whose host hangs in a block)
+	@Test
+	public void theHostAnswersInTimeWhileItWaitsOnAWindowOfAnotherProcess() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			long window = windowOfAHungHost(other);
+			assertEquals(Collections.nCopies(10, true) + " true", answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("window", window)));
+		}
 	}
 
 	private static float[][] play(TGVst3Instance instrument, TGVst3NoteEvent... events) throws TGVst3Exception {
@@ -421,9 +523,225 @@ public class TestVst3Host {
 	@Test
 	public void anEditorOpensAgainOnceClosed() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		assertTrue(gain.openEditor());
+		assertTrue(gain.openEditor(0, ""));
 		gain.closeEditor();
-		assertTrue(gain.openEditor());
+		assertTrue(gain.openEditor(0, ""));
+	}
+
+	// the window of a Test Gain editor open in another host process, as TuxGuitar's window is a window of another process
+	private static TGVst3EditorWindow editorOfAnotherProcess(TGVst3Host other) throws TGVst3Exception {
+		return withItsEditor(other, "Test Gain").getEditorWindow();
+	}
+
+	private static long windowOfAnotherProcess(TGVst3Host other) throws TGVst3Exception {
+		return editorOfAnotherProcess(other).getWindow();
+	}
+
+	// its editor's window once it is as the condition says, or as it is after 2 s: the host shows a window right after
+	// its reply to Edit, and handles a click on the window's close box once it waits for messages
+	private static TGVst3EditorWindow once(TGVst3Instance plugin, Predicate<TGVst3EditorWindow> condition) throws TGVst3Exception {
+		long end = System.currentTimeMillis() + 2000;
+		TGVst3EditorWindow editor = plugin.getEditorWindow();
+		while (!condition.test(editor) && System.currentTimeMillis() < end) {
+			LockSupport.parkNanos(5000000);
+			editor = plugin.getEditorWindow();
+		}
+		return editor;
+	}
+
+	private static TGVst3EditorWindow inFront(TGVst3Instance plugin) throws TGVst3Exception {
+		return once(plugin, editor -> editor.isShown() && editor.isFront());
+	}
+
+	// its close box hides the window, the plugin's view still in it, and the window stays hidden; Edit shows that window
+	// again
+	@Test
+	public void anEditorClosedByItsCloseBoxIsHiddenUntilEditShowsItAgain() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		long window = inFront(gain).getWindow();
+		gain.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		boolean hidden = !once(gain, editor -> !editor.isShown()).isShown();
+		boolean stays = !gain.getEditorWindow().isShown();
+		gain.openEditor(0, "");
+		TGVst3EditorWindow again = inFront(gain);
+		assertEquals("true true true true", hidden + " " + stays + " " + (again.getWindow() == window) + " " + again.isShown());
+	}
+
+	// owned, it stays in front of that window, minimises with it and has no taskbar button of its own; it opens centred on
+	// that window (here a window of the same size: the same frame)
+	@Test
+	public void anEditorOpensInAWindowOwnedByTheWindowGivenCentredOnIt() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			TGVst3EditorWindow owner = editorOfAnotherProcess(other);
+			TGVst3Instance gain = open("Test Gain");
+			assertTrue(gain.openEditor(owner.getWindow(), ""));
+			TGVst3EditorWindow editor = inFront(gain);
+			assertNotEquals(0L, owner.getWindow());
+			assertNotEquals(0L, editor.getWindow());
+			assertEquals(owner.getWindow(), editor.getOwner());
+			assertEquals(owner.getFrame(), editor.getFrame());
+		}
+	}
+
+	// the inside of its window is the size of the plugin's view (Test Gain's: 200 by 100)
+	@Test
+	public void anEditorOpensShownInFrontSizedForThePluginsView() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		TGVst3EditorWindow editor = inFront(gain);
+		assertEquals("true true 200x100", editor.isShown() + " " + editor.isFront() + " " + editor.getInside());
+	}
+
+	// its window's caption is the title given (any text: UTF-8 on the wire), and Edit again gives it the title then
+	@Test
+	public void anEditorsWindowIsTitledAsEditSays() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "Test Gain – Track 1");
+		String first = gain.getEditorWindow().getTitle();
+		gain.openEditor(0, "Test Gain – Lead é");
+		assertEquals("Test Gain – Track 1 | Test Gain – Lead é", first + " | " + gain.getEditorWindow().getTitle());
+	}
+
+	// a test plugin's message on its editor's view, whose report is doubles
+	private static double[] viewMessage(TGVst3Instance plugin, String id, Map<String, Long> integers) throws TGVst3Exception {
+		ByteBuffer report = ByteBuffer.wrap(plugin.message(id, integers, Collections.<String, byte[]>emptyMap())).order(ByteOrder.nativeOrder());
+		double[] values = new double[report.remaining() / Double.BYTES];
+		report.asDoubleBuffer().get(values);
+		return values;
+	}
+
+	// what the view was last told: its content scale, width, height
+	private static double[] view(TGVst3Instance plugin) throws TGVst3Exception {
+		return viewMessage(plugin, "TG.view", Collections.<String, Long>emptyMap());
+	}
+
+	// the host is aware of each screen's own DPI (per monitor, version 2): the plugin's view is told the content scale of
+	// its window's screen (its DPI over 96)
+	@Test
+	public void aPluginsViewIsToldTheContentScaleOfItsWindowsScreen() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		TGVst3EditorWindow editor = gain.getEditorWindow();
+		assertEquals("true " + (editor.getDpi() / 96.0), editor.isPerMonitorDpiAware() + " " + view(gain)[0]);
+	}
+
+	private static Map<String, Long> size(long width, long height) {
+		Map<String, Long> size = new java.util.HashMap<String, Long>();
+		size.put("width", width);
+		size.put("height", height);
+		return size;
+	}
+
+	// what the window and the view say of the size: the window's inside, the view's size, whether the window has a
+	// border the user can drag
+	private static String sizes(TGVst3Instance plugin) throws TGVst3Exception {
+		TGVst3EditorWindow editor = plugin.getEditorWindow();
+		double[] view = view(plugin);
+		return editor.getInside() + " " + (int) view[1] + "x" + (int) view[2] + " " + editor.isResizable();
+	}
+
+	// a view that asks its host for another size (IPlugFrame.resizeView) gets it: the window's inside takes it, and the
+	// view is told it; a view that cannot be resized gives its window no border to drag
+	// the sizes once the test message ("TG.resize", "TG.drag-to") of that size is played
+	private static String sizesAfter(TGVst3Instance plugin, String message, long width, long height) throws TGVst3Exception {
+		plugin.message(message, size(width, height), Collections.<String, byte[]>emptyMap());
+		return sizes(plugin);
+	}
+
+	@Test
+	public void aViewThatAsksForAnotherSizeGetsItsWindowResized() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		String before = sizes(gain);
+		assertEquals("200x100 200x100 false | 300x150 300x150 false", before + " | " + sizesAfter(gain, "TG.resize", 300, 150));
+	}
+
+	// a view that can be resized has a window with a border the user can drag; the view is told each size, down to the
+	// smallest it accepts (Test Gain's made resizable: 150 by 80)
+	@Test
+	public void aResizableViewsWindowIsResizedByTheUserWithinWhatTheViewAccepts() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.message("TG.resizable", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		gain.openEditor(0, "");
+		String larger = sizesAfter(gain, "TG.drag-to", 260, 140);
+		assertEquals("260x140 260x140 true | 150x80 150x80 true", larger + " | " + sizesAfter(gain, "TG.drag-to", 100, 40));
+	}
+
+	// a window gone to a screen of another DPI takes the frame Windows suggests, and its view is told the new scale
+	@Test
+	public void anEditorsWindowGoneToAScreenOfAnotherDpiTakesTheFrameSuggestedAndTellsItsView() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		long dpi = inFront(gain).getDpi() + 48;
+		double[] suggested = viewMessage(gain, "TG.dpi-changed", Collections.singletonMap("dpi", dpi));
+		String frame = (int) suggested[0] + "," + (int) suggested[1] + " " + (int) suggested[2] + "," + (int) suggested[3];
+		assertEquals((dpi / 96.0) + " " + frame, view(gain)[0] + " " + gain.getEditorWindow().getFrame());
+	}
+
+	// Edit on an editor that is open brings that window to the front rather than opening another
+	@Test
+	public void anEditorOpenedAgainIsTheSameWindowBroughtToTheFront() throws TGVst3Exception {
+		TGVst3Instance first = open("Test Gain");
+		TGVst3Instance second = open("Test Gain");
+		first.openEditor(0, "");
+		long window = inFront(first).getWindow();
+		second.openEditor(0, "");
+		inFront(second);
+		boolean behind = first.getEditorWindow().isFront();
+		assertTrue(first.openEditor(0, ""));
+		TGVst3EditorWindow again = inFront(first);
+		assertEquals("false true true false", behind + " " + (again.getWindow() == window) + " " + again.isFront() + " " + second.getEditorWindow().isFront());
+	}
+
+	// Edit is answered at once while the thread of the owner window answers no messages, as TuxGuitar's UI thread waits
+	// for that reply: the window is shown in front once the reply is sent (here the owner is the window of an editor
+	// whose host hangs in a block)
+	@Test
+	public void anEditorOwnedByAWindowWhoseThreadIsBusyOpensAtOnce() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			long owner = windowOfAHungHost(other);
+			TGVst3Instance gain = open("Test Gain");
+			boolean opened = assertTimeoutPreemptively(Duration.ofMillis(1000), () -> gain.openEditor(owner, ""));
+			assertEquals("true " + owner, opened + " " + gain.getEditorWindow().getOwner());
+		}
+	}
+
+	// closing an editor shown in front (the active window when Windows let the host make it so) is answered at once
+	// while the thread of the owner window answers no messages; the window goes once nothing waits on that thread (here
+	// once the owner's host has ended)
+	@Test
+	public void anEditorInFrontOwnedByAWindowWhoseThreadIsBusyClosesAtOnce() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			TGVst3Instance hang = withItsEditor(other, "Test Hang");
+			gain.openEditor(hang.getEditorWindow().getWindow(), "");
+			inFront(gain);
+			hangItsHost(hang);
+			assertTimeoutPreemptively(Duration.ofMillis(1000), gain::closeEditor);
+		}
+		assertEquals(0L, once(gain, editor -> editor.getWindow() == 0).getWindow());
+	}
+
+	// a handle that is no window any more (that window closed) is no owner
+	@Test
+	public void anEditorGivenNoWindowOrOneThatIsGoneOpensInAWindowOfItsOwn() throws TGVst3Exception {
+		long gone;
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			gone = windowOfAnotherProcess(other);
+		}
+		TGVst3Instance unowned = open("Test Gain");
+		TGVst3Instance stale = open("Test Gain");
+		assertTrue(unowned.openEditor(0, ""));
+		assertTrue(stale.openEditor(gone, ""));
+		assertEquals("0 0", unowned.getEditorWindow().getOwner() + " " + stale.getEditorWindow().getOwner());
+		assertNotEquals(0L, stale.getEditorWindow().getWindow());
+	}
+
+	@Test
+	public void aPluginWithoutAnEditorOpenHasNoEditorWindow() throws TGVst3Exception {
+		TGVst3EditorWindow none = open("Test Gain").getEditorWindow();
+		assertEquals("0 0 false", none.getWindow() + " " + none.getOwner() + " " + none.isShown());
 	}
 
 	@Test

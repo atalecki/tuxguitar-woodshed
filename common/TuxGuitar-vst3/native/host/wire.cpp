@@ -1,7 +1,12 @@
 #include "wire.h"
 
+#include <algorithm>
+#include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <fcntl.h>
+#include <mutex>
+#include <thread>
 
 #ifdef _WIN32
 #include <io.h>
@@ -41,15 +46,72 @@ Wire Wire::claimStandardStreams() {
 	return Wire(input, output);
 }
 
+// the bytes the listening thread read, until the process's thread takes them
+struct Inbox {
+	std::mutex lock;
+	std::condition_variable arrived;
+	std::deque<unsigned char> bytes;
+	bool ended = false;
+
+	void put(const unsigned char* data, int count) {
+		std::lock_guard<std::mutex> held(lock);
+		if (count > 0) {
+			bytes.insert(bytes.end(), data, data + count);
+		} else {
+			ended = true;
+		}
+		arrived.notify_all();
+	}
+
+	bool ready() {
+		std::lock_guard<std::mutex> held(lock);
+		return (!bytes.empty() || ended);
+	}
+
+	size_t take(unsigned char* data, size_t size) {
+		std::unique_lock<std::mutex> held(lock);
+		arrived.wait(held, [this] { return !bytes.empty() || ended; });
+		size_t count = std::min(size, bytes.size());
+		std::copy(bytes.begin(), bytes.begin() + (std::ptrdiff_t) count, data);
+		bytes.erase(bytes.begin(), bytes.begin() + (std::ptrdiff_t) count);
+		return count;
+	}
+};
+
+void Wire::listen(std::function<void()> heard) {
+	std::shared_ptr<Inbox> filled = std::make_shared<Inbox>();
+	inbox = filled;
+	int from = input;
+	std::thread([filled, from, heard] {
+		unsigned char buffer[65536];
+		int count;
+		do {
+			count = (int) tg_read(from, buffer, (unsigned int) sizeof(buffer));
+			filled->put(buffer, count);
+			heard();
+		} while (count > 0);
+	}).detach();
+}
+
+bool Wire::hasInput() { return (!inbox || inbox->ready()); }
+
+size_t Wire::readSome(void* data, size_t size) {
+	if (inbox) {
+		return inbox->take(static_cast<unsigned char*>(data), size);
+	}
+	int count = (int) tg_read(input, data, (unsigned int) size);
+	return (size_t) std::max(count, 0);
+}
+
 void Wire::readFully(void* data, size_t size) {
 	char* bytes = static_cast<char*>(data);
 	while (size > 0) {
-		int count = (int) tg_read(input, bytes, (unsigned int) size);
-		if (count <= 0) {
+		size_t count = readSome(bytes, size);
+		if (count == 0) {
 			throw WireClosed();
 		}
 		bytes += count;
-		size -= (size_t) count;
+		size -= count;
 	}
 }
 
@@ -65,7 +127,7 @@ uint64_t Wire::get(int bytes) {
 
 bool Wire::readInt(int32_t& value) {
 	unsigned char first;
-	if (tg_read(input, &first, 1) != 1) {
+	if (readSome(&first, 1) != 1) {
 		return false;
 	}
 	value = (int32_t) (((uint32_t) first << 24) | (uint32_t) get(3));

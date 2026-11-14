@@ -354,7 +354,22 @@ Feature: Hosting VST3 plugins
     And I have saved the song as a TuxGuitar file
     When I open the editor of VST3 effect 1 of track 1
     Then the plugin's own editor of VST3 effect 1 of track 1 is open
+    And the plugin's own editor of VST3 effect 1 of track 1 is in a window of its own
+    And the window of the plugin's own editor of VST3 effect 1 of track 1 is titled "Test Gain – Track 1"
     And the song is not modified
+
+  Scenario: the window of a VST3 plugin's own editor opened for no track in particular is titled with the plugin's name
+    Given I have added the VST3 effect "Test Gain" to track 1
+    When I open the editor of VST3 effect 1 of track 1 for no track in particular
+    Then the window of the plugin's own editor of VST3 effect 1 of track 1 is titled "Test Gain"
+
+  # TuxGuitar's window is, in the app, its main window (an app without one gives none, as above); here it is the window
+  # of a plugin's editor in a host process of its own. On Windows an owned window stays in front of its owner, minimises
+  # and comes back with it, and has no taskbar button of its own
+  Scenario: a VST3 plugin's own editor opened from TuxGuitar's window is in a window TuxGuitar's window owns
+    Given I have added the VST3 effect "Test Gain" to track 1
+    When I open the editor of VST3 effect 1 of track 1 from TuxGuitar's window
+    Then the plugin's own editor of VST3 effect 1 of track 1 is in a window TuxGuitar's window owns
 
   Scenario: a VST3 plugin without an editor of its own is edited through its parameters
     Given I have added the VST3 effect "Test Clip 0.5" to track 1

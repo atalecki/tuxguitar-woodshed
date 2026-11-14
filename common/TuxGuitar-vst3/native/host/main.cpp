@@ -13,6 +13,7 @@
 
 #include <cstdio>
 #include <map>
+#include <set>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -24,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 2;
+const int32_t kProtocolVersion = 3;
 
 enum Operation {
 	kHello = 1,
@@ -41,29 +42,119 @@ enum Operation {
 	kOpenEditor = 12,
 	kCloseEditor = 13,
 	kMessage = 14,
+	kEditorWindow = 15,
 };
 
 struct Failure {
 	std::string reason;
 };
 
+#ifdef _WIN32
+const UINT kHeard = WM_APP + 1;
+
+LRESULT CALLBACK heardProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+#endif
+
 class Host {
 public:
 	explicit Host(Wire wire) : wire(wire), application(owned(new Vst::HostApplication())) {}
 
+	// answers each request as it comes, until the input ends. On Windows the process's thread waits for its windows'
+	// messages and dispatches them (plugin editors paint and react), and is told when a request comes
 	int run() {
-		try {
-			int32_t operation;
-			while (wire.readInt(operation)) {
-				answer(operation);
-			}
-		} catch (const WireClosed&) {
+#ifdef _WIN32
+		HWND heard = listenInWindow();
+		MSG message;
+		while (GetMessageW(&message, nullptr, 0, 0) > 0) {
+			TranslateMessage(&message);
+			busy++;
+			DispatchMessageW(&message);
+			busy--;
+			finishClosing();
 		}
+		DestroyWindow(heard);
+#else
+		while (serveOne()) {
+		}
+#endif
 		instances.clear();
 		return 0;
 	}
 
+#ifdef _WIN32
+	// answers the requests that came; at the end of the input, the message loop ends. TuxGuitar sends a request once the
+	// last one is answered: one that comes while the thread dispatches messages inside a request (a plugin's loop) finds
+	// no input, so a reply being written is never mixed with another. Served inside something the thread dispatched or
+	// waits in (a plugin's loop of its own, a wait on another thread's window), the requests are answered at once, but
+	// what they close goes once that has returned (finishClosing)
+	void serve() {
+		busy++;
+		bool open = true;
+		while (open && wire.hasInput()) {
+			open = serveOne();
+			doEditorWindowWork();
+		}
+		busy--;
+		if (!open) {
+			PostQuitMessage(0);
+		}
+		finishClosing();
+	}
+#endif
+
 private:
+#ifdef _WIN32
+	// a message-only window, told with a sent message each time the input's listening thread reads bytes: a thread
+	// handles sent messages whenever it waits for messages, in its own loop, in a loop a plugin runs (a file dialog, a
+	// window dragged), and while it waits on a window of another thread
+	HWND listenInWindow() {
+		WNDCLASSW type = {};
+		type.lpfnWndProc = heardProcedure;
+		type.hInstance = GetModuleHandleW(nullptr);
+		type.lpszClassName = L"TuxGuitarVst3Requests";
+		RegisterClassW(&type);
+		HWND window = CreateWindowExW(0, type.lpszClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, type.hInstance, nullptr);
+		SetWindowLongPtrW(window, GWLP_USERDATA, (LONG_PTR) this);
+		wire.listen([window] { SendNotifyMessageW(window, kHeard, 0, 0); });
+		return window;
+	}
+#endif
+
+	// whether code the thread dispatched or waits in may still be running under this request (a plugin's: its plugin or
+	// view must not go now)
+	bool underway() const { return busy > 1; }
+
+	// the plugins and editors closed while code was underway go once nothing is
+	void finishClosing() {
+		if (busy > 0) {
+			return;
+		}
+		std::set<int32_t> editors;
+		std::vector<std::unique_ptr<Instance>> plugins;
+		editors.swap(editorsClosing);
+		plugins.swap(closing);
+		for (int32_t id : editors) {
+			auto found = instances.find(id);
+			if (found != instances.end()) {
+				found->second->closeEditor();
+			}
+		}
+	}
+
+	// reads a request and answers it; false at the end of the input
+	bool serveOne() {
+		try {
+			int32_t operation;
+			bool served = wire.readInt(operation);
+			if (served) {
+				answer(operation);
+			}
+			return served;
+		} catch (const WireClosed&) {
+			return false;
+		}
+	}
+
 	void answer(int32_t operation) {
 		try {
 			wire.writeInt(0);
@@ -97,9 +188,10 @@ private:
 			case kSetState: return setState();
 			case kReset: return instance().reset();
 			case kListeners: return wire.writeInt(networkListeners(wire.readLong()));
-			case kOpenEditor: return wire.writeInt(instance().openEditor() ? 1 : 0);
-			case kCloseEditor: return instance().closeEditor();
+			case kOpenEditor: return openEditor();
+			case kCloseEditor: return closeEditor();
 			case kMessage: return message();
+			case kEditorWindow: return editorWindow();
 			default: throw Failure{"unknown operation " + std::to_string(operation)};
 		}
 	}
@@ -197,7 +289,20 @@ private:
 	void close() {
 		int32_t id = wire.readInt();
 		collect(instance(id));
+		if (underway()) {
+			closing.push_back(std::move(instances[id]));
+		}
 		instances.erase(id);
+	}
+
+	void closeEditor() {
+		int32_t id = wire.readInt();
+		Instance& closed = instance(id);
+		if (underway()) {
+			editorsClosing.insert(id);
+		} else {
+			closed.closeEditor();
+		}
 	}
 
 	void process() {
@@ -261,6 +366,33 @@ private:
 		writeTiming(restored);
 	}
 
+	// the editor: none of its own (0), opened in a window of its own (1), or in a window the owner window owns (2)
+	void openEditor() {
+		int32_t id = wire.readInt();
+		Instance& edited = instance(id);
+		int64_t owner = wire.readLong();
+		std::string title = wire.readString();
+		editorsClosing.erase(id);
+		bool opened = edited.openEditor(owner, title);
+		bool owned = (opened && owner != 0 && edited.editorWindow().owner == owner);
+		wire.writeInt(opened ? (owned ? 2 : 1) : 0);
+	}
+
+	void editorWindow() {
+		EditorWindow facts = instance().editorWindow();
+		wire.writeLong(facts.window);
+		wire.writeLong(facts.owner);
+		wire.writeInt(facts.shown ? 1 : 0);
+		wire.writeInt(facts.front ? 1 : 0);
+		for (int32_t value : {facts.left, facts.top, facts.right, facts.bottom, facts.width, facts.height}) {
+			wire.writeInt(value);
+		}
+		wire.writeString(facts.title);
+		wire.writeInt(facts.dpi);
+		wire.writeInt(facts.perMonitorDpiAware ? 1 : 0);
+		wire.writeInt(facts.resizable ? 1 : 0);
+	}
+
 	// a message to the plugin's controller, with integer and binary attributes; the reply holds its report
 	void message() {
 		Instance& told = instance();
@@ -315,11 +447,30 @@ private:
 	std::map<int32_t, std::unique_ptr<Instance>> instances;
 	std::vector<std::pair<int32_t, Notification>> pending;
 	int32_t next = 1;
+	// how deep the thread is in what it dispatches and serves (0: waiting in its own loop)
+	int busy = 0;
+	// closed while code was underway: the plugins, and the instances whose editors close (finishClosing)
+	std::vector<std::unique_ptr<Instance>> closing;
+	std::set<int32_t> editorsClosing;
 };
+
+#ifdef _WIN32
+LRESULT CALLBACK heardProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	if (message == kHeard) {
+		reinterpret_cast<Host*>(GetWindowLongPtrW(window, GWLP_USERDATA))->serve();
+		return 0;
+	}
+	return DefWindowProcW(window, message, wParam, lParam);
+}
+#endif
 
 }  // namespace TuxGuitar
 
 int main() {
+#ifdef _WIN32
+	// before any window: each window is drawn at its own screen's DPI (plugin views are told its scale), not scaled up
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+#endif
 	TuxGuitar::Host host(TuxGuitar::Wire::claimStandardStreams());
 	return host.run();
 }

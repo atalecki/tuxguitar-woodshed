@@ -28,6 +28,7 @@ import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.log.TGLogRecorder;
+import app.tuxguitar.vst3.TGVst3EditorWindow;
 import app.tuxguitar.vst3.TGVst3EffectProcessor;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
@@ -164,6 +165,18 @@ public class TestLivePlugins {
 		assertEquals("true false", same + " " + (gain("effect-1") == running));
 	}
 
+	// the window given (in the app TuxGuitar's main window; here the window of the other effect's editor) owns the
+	// plugin's own editor, titled as given; given none (0), the editor is in a window of its own
+	@Test
+	public void aPluginsOwnEditorOpensInAWindowTheWindowGivenOwnsTitledAsGiven() throws TGVst3Exception {
+		this.addGain();
+		this.live.openEditor(this.guitar.getChannelId(), "effect-2", 0, "");
+		long owner = gain("effect-2").getEditorWindow().getWindow();
+		this.live.openEditor(this.guitar.getChannelId(), "effect-1", owner, "Test Gain – Guitar");
+		TGVst3EditorWindow editor = gain("effect-1").getEditorWindow();
+		assertEquals(owner + " 0 Test Gain – Guitar", editor.getOwner() + " " + gain("effect-2").getEditorWindow().getOwner() + " " + editor.getTitle());
+	}
+
 	// the chain loaded again (as each time the song starts playing) keeps the plugin, and its editor; the channel closed
 	// ends both
 	@Test
@@ -171,7 +184,7 @@ public class TestLivePlugins {
 		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
 		TGSynthChannel channel = playLive(synthesizer);
 		TGVst3Instance running = running(channel, "effect-1");
-		this.live.openEditor(this.guitar.getChannelId(), "effect-1");
+		this.live.openEditor(this.guitar.getChannelId(), "effect-1", 0, "");
 		TGMidiTaps.sendParameters(synthesizer, this.fixture.songManager, this.fixture.song, this.guitar.getChannelId());
 		String reloaded = (running(channel, "effect-1") == running) + " " + (this.live.getEditor(this.guitar.getChannelId(), "effect-1") != null);
 		synthesizer.closeChannel(channel);
@@ -199,7 +212,7 @@ public class TestLivePlugins {
 	// gesture in the song each fail quietly as before, and each failure is logged with the host's reason
 	@Test
 	public void aKeptPluginWhoseHostIsGoneIsLoggedWhenAskedReadAndDrained() throws Exception {
-		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "effect-1");
+		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "effect-1", 0, "");
 		gestureLater(gain("effect-1"), 3.0);
 		this.live.poll();
 		ProcessHandle host = ProcessHandle.of(gain("effect-1").getHost().getPid()).get();
@@ -237,8 +250,8 @@ public class TestLivePlugins {
 		this.addEffect("Test Clip 0.5");
 		gain("effect-2").setParameter(1, 0.25);
 		String unopened = String.valueOf(this.live.parameterEditor(this.guitar, 2));
-		this.live.openEditor(this.guitar.getChannelId(), "effect-1");
-		this.live.openEditor(this.guitar.getChannelId(), "effect-2");
+		this.live.openEditor(this.guitar.getChannelId(), "effect-1", 0, "");
+		this.live.openEditor(this.guitar.getChannelId(), "effect-2", 0, "");
 		TGPluginEditor clip = this.live.parameterEditor(this.guitar, 2);
 		TGPluginParameterRow row = clip.getRows().get(0);
 		assertEquals("null null null | 1 Ceiling 0.25 250 [Ceiling]", unopened + " " + this.live.parameterEditor(this.guitar, 1) + " " + this.live.parameterEditor(this.guitar, 3)
@@ -252,7 +265,7 @@ public class TestLivePlugins {
 		this.addEffect("Test Clip 0.5");
 		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
 		playLive(synthesizer);
-		TGPluginEditor clip = this.live.openEditor(this.guitar.getChannelId(), "effect-2");
+		TGPluginEditor clip = this.live.openEditor(this.guitar.getChannelId(), "effect-2", 0, "");
 		int[] told = new int[1];
 		clip.watch(() -> told[0]++);
 		TGUndoableModifyChannel undoable = TGUndoableModifyChannel.startUndo(this.fixture.context, this.guitar.getChannelId());
@@ -277,7 +290,7 @@ public class TestLivePlugins {
 	public void anEditorWhosePluginStopsRunningIsClosedAndSaysSo() throws Exception {
 		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
 		TGSynthChannel channel = playLive(synthesizer);
-		TGPluginEditor gain = this.live.openEditor(this.guitar.getChannelId(), "effect-1");
+		TGPluginEditor gain = this.live.openEditor(this.guitar.getChannelId(), "effect-1", 0, "");
 		int[] told = new int[2];
 		gain.watch(() -> told[0]++);
 		boolean running = gain.isOpen();
@@ -314,7 +327,7 @@ public class TestLivePlugins {
 	// cannot be opened
 	private TGPluginEditor edit(String element, long wait) {
 		try {
-			return this.live.openEditor(this.guitar.getChannelId(), element, wait);
+			return this.live.openEditor(this.guitar.getChannelId(), element, 0, "", wait);
 		} catch (TGVst3Exception e) {
 			return null;
 		}

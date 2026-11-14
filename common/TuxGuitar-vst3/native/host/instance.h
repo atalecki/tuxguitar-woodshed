@@ -51,6 +51,26 @@ struct Transport {
 	int64 samples;
 };
 
+// the window of a plugin's own editor as the system shows it (for checks); all 0 when no editor is open
+struct EditorWindow {
+	int64 window;  // native handles
+	int64 owner;
+	bool shown;
+	bool front;    // in front of the process's other shown windows
+	int32 left, top, right, bottom;  // its frame on the screen
+	int32 width, height;             // inside the frame
+	std::string title;               // its caption, UTF-8
+	int32 dpi;                       // of its screen
+	bool perMonitorDpiAware;         // per monitor, version 2
+	bool resizable;                  // a border the user can drag
+};
+
+#ifdef _WIN32
+// shows the editor windows opened since in front, once the reply is sent: showing an owned window waits on the thread
+// of the window owning it, TuxGuitar's UI thread, which waits for that reply
+void doEditorWindowWork();
+#endif
+
 struct ParameterInfo {
 	int32 id;
 	std::string title;
@@ -82,8 +102,19 @@ public:
 	std::vector<char> controllerState();
 	void setState(const std::vector<char>& component, const std::vector<char>& controller);
 	void reset();
-	bool openEditor();
+	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
+	// no window: none), its caption the title (UTF-8); false when it has none for this platform
+	bool openEditor(int64 owner, const std::string& title);
 	void closeEditor();
+	EditorWindow editorWindow();
+	// tells the editor's view the scale of its screen (its DPI over 96), when the view takes one
+	void scaleView(double factor);
+	// what the view asks (IPlugFrame.resizeView): its window's inside takes that size; false when it has no window
+	bool resizeView(int32 width, int32 height);
+	// the window's inside took that size: the view is told
+	void viewSized(int32 width, int32 height);
+	// the size nearest to that one the view accepts, when it can be resized (else false, the size as it was)
+	bool constrainView(int32& width, int32& height);
 	// sends the controller a message with the integer and binary attributes; answers its binary attribute "report"
 	std::vector<char> message(const std::string& id, const std::vector<std::pair<std::string, int64>>& integers,
 	                          const std::vector<std::pair<std::string, std::vector<char>>>& binaries);
@@ -98,6 +129,7 @@ private:
 	bool loadController(FUnknown* host);
 	void setupBuses();
 	bool start(double sampleRate, std::string& error);
+	bool createEditor(int64 owner);
 	void stop();
 	void copyIn(int32 frames);
 	void copyOut(int32 frames);
@@ -114,6 +146,8 @@ private:
 	bool separateController = false;
 	IPtr<Vst::IComponentHandler> handler;
 	IPtr<IPlugView> view;
+	// what the view asks of its window
+	IPtr<IPlugFrame> frame;
 	void* window = nullptr;
 	int32 inputChannels = 0;
 	int32 outputChannels = 0;

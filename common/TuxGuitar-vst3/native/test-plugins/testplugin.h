@@ -37,6 +37,21 @@ struct PluginSpec {
 	std::vector<PresetSpec> presets;
 };
 
+// what a test plugin knows of its editor's view: the view and the window it is in, while it is in one, the content
+// scale and the size its host last gave it, and whether the views it makes can be resized (by the user, down to
+// kSmallestView)
+struct ViewState {
+	void* view = nullptr;
+	void* window = nullptr;
+	double scale = 0.0;
+	int32 width = 0;
+	int32 height = 0;
+	bool resizable = false;
+};
+
+const int32 kSmallestViewWidth = 150;
+const int32 kSmallestViewHeight = 80;
+
 // the parameter that selects a preset
 const ParamID kPresetParam = 1000;
 // the size of every test plugin's state
@@ -45,6 +60,7 @@ const int32 kStateBytes = 1024;
 class TestPlugin : public SingleComponentEffect {
 public:
 	explicit TestPlugin(PluginSpec spec);
+	~TestPlugin() override;
 
 	tresult PLUGIN_API initialize(FUnknown* context) SMTG_OVERRIDE;
 	tresult PLUGIN_API setActive(TBool state) SMTG_OVERRIDE;
@@ -90,6 +106,8 @@ private:
 	void gesture(ParamID id, const std::vector<double>& values);
 	void gestureNow();
 	static std::vector<double> doubles(IAttributeList* attributes);
+	tresult viewMessage(FIDString id, IAttributeList* attributes);
+	tresult sizeMessage(FIDString id, IAttributeList* attributes);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
 
@@ -100,6 +118,8 @@ private:
 	// the gesture of a "TG.gesture-later" not done yet: its parameter and values
 	ParamID laterParam = 0;
 	std::vector<double> later;
+	// its editor's view, as the test messages read and play it
+	ViewState view;
 };
 
 }  // namespace TuxGuitar

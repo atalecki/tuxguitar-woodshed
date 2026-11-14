@@ -37,6 +37,15 @@ editor reads its plugin again each time the chain runs again (a change, an undo,
 takes an enabled running plugin's state. An editor that cannot open is refused saying why, naming the element (a
 `TGActionException`, which the desktop shows in an error message): a source that is no VST3 plugin, a plugin the host
 cannot open (with the host's reason, which `TGVst3PluginProcessor.getProblem` keeps), an editor the host fails to open.
+A plugin's own editor is a window of the host process, shown in front, sized for the plugin's view; on Windows the window
+given to `TGOpenPluginEditorAction` (`ATTRIBUTE_OWNER`: the desktop gives its main window) owns it, so it stays in front
+of TuxGuitar, minimises with it and has no taskbar button; Edit on an open editor brings it to the front, and its close
+box hides it. Its caption names the plugin and the track it was opened for ("Test Gain – Track 1"). The host is
+per-monitor DPI aware: the view is told its screen's scale, also when the window goes to another screen; a view can ask
+for another size (IPlugFrame), and only a view that can be resized gets a border to drag, within the sizes it accepts.
+The host dispatches its windows' messages and still answers while a plugin's editor runs a loop of its own (a file
+dialog) or waits on TuxGuitar's window; a plugin or editor closed meanwhile goes once that loop has returned. Linux and
+macOS open no editor of a plugin's own yet.
 `TGLiveAudio.load` also configures VST3 hosting (the host process in
 the native folder, the system's VST3 folders, `TGVst3Folders.standard`). `TGLiveAudio.scanPlugins` scans them and keeps
 the report the user sees (`TGPluginScan`): the effects and instruments found, the NAM captures (`.nam`) in the folders

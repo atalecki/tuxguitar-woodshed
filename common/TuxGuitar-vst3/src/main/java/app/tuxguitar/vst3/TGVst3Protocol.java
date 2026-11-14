@@ -8,7 +8,7 @@ package app.tuxguitar.vst3;
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 2;
+	static final int VERSION = 3;
 
 	// -> version, process id
 	static final int HELLO = 1;
@@ -35,13 +35,20 @@ final class TGVst3Protocol {
 	static final int RESET = 10;
 	// process id -> network sockets it listens on (-1: unknown)
 	static final int LISTENERS = 11;
-	// instance -> opened (1) or not (0)
+	// instance, owner window (a native window handle; 0: none), title of the window -> the editor: none of its own (0),
+	// opened in a window of its own (1), or in a window the owner window owns (2); shown in front either way, an editor
+	// already open too, and titled
 	static final int OPEN_EDITOR = 12;
 	// instance
 	static final int CLOSE_EDITOR = 13;
 	// instance, message id, integers (count, then key and long), binaries (count, then key and bytes) -> report, latency,
 	// tail
 	static final int MESSAGE = 14;
+	// (for checks) instance -> its editor's window and that window's owner (native handles; 0: none), shown (1 or 0), in
+	// front of the host's other shown windows (1 or 0), its frame on the screen (left, top, right, bottom), the size
+	// inside the frame (width, height), its title, the DPI of its screen, whether it is per-monitor DPI aware (1 or 0),
+	// whether it has a border the user can drag (1 or 0)
+	static final int EDITOR_WINDOW = 15;
 
 	private TGVst3Protocol() {
 	}
