@@ -88,6 +88,17 @@ public class TestVst3Log {
 	}
 
 	@Test
+	public void aPluginWhoseHostIsGoneIsClosedAndLoggedAtDebug() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		TestPlugins.kill(this.host.getPid());
+		gain.close();
+
+		List<String> logged = logged("DEBUG VST3 plugin Test Gain");
+		assertEquals(1, logged.size(), this.recorder.recorded().toString());
+		assertTrue(logged.get(0).startsWith("DEBUG VST3 plugin Test Gain: not closed in its host, which is gone: the VST3 host stopped"), logged.get(0));
+	}
+
+	@Test
 	public void aPluginOpenedAndClosedIsLoggedByItsName() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
 		gain.close();

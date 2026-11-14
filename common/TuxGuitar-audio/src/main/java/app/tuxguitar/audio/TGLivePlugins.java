@@ -23,6 +23,7 @@ import app.tuxguitar.midi.synth.TGSynthChannelListener;
 import app.tuxguitar.midi.synth.TGSynthChannelProcessor;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
@@ -51,6 +52,8 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	// how long an editor waits at most for the live synthesizer to run a plugin just added (it loads in a few hundred
 	// milliseconds; the app opens editors on its UI thread, which waits meanwhile)
 	static final long LOAD_WAIT = 5000;
+
+	private static final TGLog LOG = TGLog.get(TGLivePlugins.class);
 
 	private final TGContext context;
 	private final boolean live;
@@ -201,6 +204,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			instance.getParameter(parameter);
 		} catch (TGVst3Exception e) {
 			// its host stopped: there is nothing more to hear from it
+			LOG.debug("a VST3 plugin kept open was not asked: " + e.getMessage());
 		}
 	}
 
@@ -235,6 +239,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			this.kept(channel, element, instance);
 		} catch (TGVst3Exception | TGActionException e) {
 			// the plugin is gone, or the song refused the change: the song stays as it was
+			LOG.warn("the state of the VST3 plugin of " + element + " on channel " + channel + " was not kept: " + e.getMessage());
 		}
 	}
 

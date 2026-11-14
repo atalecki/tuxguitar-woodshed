@@ -221,6 +221,7 @@ public final class TGVst3Instance implements AutoCloseable {
 			}
 		} catch (TGVst3Exception e) {
 			// the host is gone, and the plugin with it
+			LOG.debug(this.label + ": not closed in its host, which is gone: " + e.getMessage());
 		}
 		this.host.closed(this.id);
 		this.blocks.close();

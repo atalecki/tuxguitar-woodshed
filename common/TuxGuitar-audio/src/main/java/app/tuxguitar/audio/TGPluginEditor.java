@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Exception;
 
 /**
@@ -13,6 +14,8 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * an undo, a redo; the rows are read again on refresh) and once the editor closes; on any thread.
  */
 public final class TGPluginEditor {
+
+	private static final TGLog LOG = TGLog.get(TGPluginEditor.class);
 
 	// the rows as the plugin holds its values now
 	interface Rows {
@@ -50,6 +53,7 @@ public final class TGPluginEditor {
 			this.rows = this.plugin.read();
 		} catch (TGVst3Exception e) {
 			// its host stopped: nothing more to read
+			LOG.debug("a VST3 plugin's parameters were not read again: " + e.getMessage());
 		}
 	}
 
