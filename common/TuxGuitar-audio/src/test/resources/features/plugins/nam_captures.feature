@@ -4,8 +4,9 @@ Feature: Dropping a NAM capture on a track
   through the capture: TuxGuitar adds the capture player, the VST3 effect that plays NAM captures, at the end of the
   track's sound chain with the capture loaded, or gives the capture to the capture player the track already has, so
   trying one tone after another is one drop each. Each drop is one undo step. Which installed plugin is the capture
-  player is a TuxGuitar setting, "Neural Amp Modeler" by default; the scenarios set it to the test plugin
-  "Test Capture".
+  player is a TuxGuitar setting, by default the first installed of the capture players TuxGuitar recognises
+  (TGCapturePlayer: Gateway, the TONE3000 plugin, the old Neural Amp Modeler); the scenarios set it to the test
+  plugin "Test Capture".
 
   Background:
     Given a new song with one guitar track and 4 measures of 4/4 at 120 bpm

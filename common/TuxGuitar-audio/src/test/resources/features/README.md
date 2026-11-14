@@ -40,7 +40,9 @@ cannot open (with the host's reason, which `TGVst3PluginProcessor.getProblem` ke
 `TGLiveAudio.load` also configures VST3 hosting (the host process in
 the native folder, the system's VST3 folders, `TGVst3Folders.standard`). `TGLiveAudio.scanPlugins` scans them and keeps
 the report the user sees (`TGPluginScan`): the effects and instruments found, the NAM captures (`.nam`) in the folders
-with which plugin plays them, each module the host refused with its reason (`TGVst3Hosting.getSkipped`), the folders.
+with which plugin plays them (the capture players it recognises, `TGCapturePlayer`: Gateway, the TONE3000 plugin, the
+old Neural Amp Modeler, by name only, since a scan reads no vendor; only the old one's name is confirmed), each module
+the host refused with its reason (`TGVst3Hosting.getSkipped`), the folders.
 The desktop maps the sound-chain actions,
 offers Tools > Sound Chain... (`TGSoundChainRows`; its status shows the last scan's report), scans the VST3 folders at
 startup and drains gestures every 50 ms;
@@ -83,8 +85,8 @@ it ends. The whole chain on this machine's real devices is an opt-in
 test: `mvn test -Dtest=TestRealDevice -Dtg.audio.native=<TuxGuitar-audio-device's native-build/lib>` (skipped, saying
 so, without it).
 Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
-TuxGuitar gives a capture to the real "Neural Amp Modeler" (its VST3 state holds the capture's path; no public
-format), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
+TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
+path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
 impulse response (`.wav`) dropped the same way goes to the capture player's IR slot.
 
 The conventions are those of `common/TuxGuitar-editor-utils/src/test/resources/features/README.md`: first person, in

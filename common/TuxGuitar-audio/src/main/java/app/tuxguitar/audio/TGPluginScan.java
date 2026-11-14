@@ -12,13 +12,11 @@ import app.tuxguitar.vst3.TGVst3SkippedModule;
 /**
  * What a scan of the VST3 folders found, as an app shows it to the user, a line each: how many VST3 effects and VST3
  * instruments; when the folders hold NAM captures (CAPTURE files: models of an amp or pedal, which are not plugins),
- * that the Neural Amp Modeler plugin plays them, and whether it is installed; each module it skipped, and why (long:
+ * which plugin plays them, and whether one is installed (TGCapturePlayer); each module it skipped, and why (long:
  * after the hint); last, the folders scanned.
  */
 public final class TGPluginScan {
 
-	// the plugin that plays NAM captures, named without regard to spaces and case (it installs as "NeuralAmpModeler")
-	public static final String CAPTURE_PLAYER = "Neural Amp Modeler";
 	// what the name of a NAM capture's file ends with
 	public static final String CAPTURE = ".nam";
 	public static final TGPluginScan NONE = new TGPluginScan(Collections.singletonList("The VST3 folders have not been scanned yet."));
@@ -47,13 +45,9 @@ public final class TGPluginScan {
 	}
 
 	private static String captures(int count, List<TGVst3Plugin> plugins) {
-		String player = (plugins.stream().anyMatch(TGPluginScan::playsCaptures) ? ". Add it" : ", and it is not installed. Install it, add it");
-		return "NAM captures found: " + count + ". A NAM capture is not a plugin: the " + CAPTURE_PLAYER + " plugin plays it" + player
+		String player = (TGCapturePlayer.installed(plugins).isEmpty() ? ", and it is not installed. Install it, add it" : ". Add it");
+		return "NAM captures found: " + count + ". A NAM capture is not a plugin: " + TGCapturePlayer.NEURAL_AMP_MODELER.getLabel() + " plays it" + player
 			+ " as a VST3 effect, then load the capture in its editor.";
-	}
-
-	private static boolean playsCaptures(TGVst3Plugin plugin) {
-		return plugin.getName().replace(" ", "").equalsIgnoreCase(CAPTURE_PLAYER.replace(" ", ""));
 	}
 
 	public List<String> getLines() {

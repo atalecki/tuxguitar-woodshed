@@ -6,6 +6,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,11 @@ class TestPluginScan {
 	private static final List<File> FOLDERS = Arrays.asList(new File("common"), new File("local"));
 	private static final List<File> NO_CAPTURES = Collections.<File>emptyList();
 	private static final List<TGVst3SkippedModule> NONE_SKIPPED = Collections.<TGVst3SkippedModule>emptyList();
+	// the captures' hint when no plugin that plays them is installed, and when one is
+	private static final String NOT_INSTALLED = "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it, and it is not installed."
+		+ " Install it, add it as a VST3 effect, then load the capture in its editor.";
+	private static final String INSTALLED = "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it."
+		+ " Add it as a VST3 effect, then load the capture in its editor.";
 
 	private static TGVst3Plugin plugin(String name, boolean instrument) {
 		return new TGVst3Plugin(name + ".vst3", "class", name, instrument);
@@ -57,16 +63,37 @@ class TestPluginScan {
 	// a capture is a model of an amp or pedal, not a plugin: the user learns which plugin plays it
 	@Test
 	void nAMCapturesInTheFoldersAreSaidToBePlayedByTheNeuralAmpModelerWhichIsNotInstalled() {
-		assertEquals("NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it, and it is not installed."
-			+ " Install it, add it as a VST3 effect, then load the capture in its editor.", captureLine(Arrays.asList(plugin("Neural Amp", false))));
+		assertEquals(NOT_INSTALLED, captureLine(Arrays.asList(plugin("Neural Amp", false))));
 	}
 
-	// the plugin installs as "NeuralAmpModeler"; its name is matched without spaces and case
+	// the old plugin installs as "NeuralAmpModeler"; its name is matched without spaces and case
 	@Test
 	void withTheNeuralAmpModelerInstalledTheUserIsToldToLoadTheCaptureInIt() {
-		String installed = "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it."
-			+ " Add it as a VST3 effect, then load the capture in its editor.";
-		assertEquals(installed + " | " + installed, captureLine(Arrays.asList(plugin("NeuralAmpModeler", false))) + " | " + captureLine(Arrays.asList(plugin("Gain", false), plugin("neural amp modeler", false))));
+		assertEquals(INSTALLED + " | " + INSTALLED, captureLine(Arrays.asList(plugin("NeuralAmpModeler", false))) + " | " + captureLine(Arrays.asList(plugin("Gain", false), plugin("neural amp modeler", false))));
+	}
+
+	// the hint of two captures with each plugin named installed beside a "Gain", one after the other
+	private static String captureLines(String... names) {
+		return Arrays.stream(names).map(name -> captureLine(Arrays.asList(plugin("Gain", false), plugin(name, false)))).collect(Collectors.joining(" | "));
+	}
+
+	private static String times(int count, String line) {
+		return String.join(" | ", Collections.nCopies(count, line));
+	}
+
+	// TONE3000's player plugin: its exact VST3 name is not known, so any name holding TONE3000, whatever case and spacing
+	@Test
+	void theTone3000PluginPlaysCapturesWhateverTheCaseAndSpacingOfItsName() {
+		assertEquals(times(3, INSTALLED), captureLines("TONE3000", "Tone 3000 Player", "tone3000-nam"));
+	}
+
+	// Gateway is the Neural Amp Modeler's new name; the scan reads no vendor and a noise gate may well be called Gateway,
+	// so the name must say NAM, Neural Amp Modeler or Atkinson as well; and those words without Gateway play nothing
+	@Test
+	void gatewayPlaysCapturesOnlyWhenItsNameAlsoSaysNamNeuralAmpModelerOrAtkinson() {
+		assertEquals(times(4, INSTALLED) + " / " + times(4, NOT_INSTALLED),
+			captureLines("NAM Gateway", "Gateway (NAM)", "Gateway Neural Amp Modeler", "Atkinson Gateway") + " / "
+			+ captureLines("Gateway", "Dynamic Gateway", "Atkinson Tuner", "Neural Amp Modeler Tuner"));
 	}
 
 	@Test
