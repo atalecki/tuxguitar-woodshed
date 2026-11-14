@@ -154,15 +154,27 @@ public class PluginSteps {
 		world.executeUndoable(action, new TGUndoableOnSuccess(new TGUndoableModifyChannelController()));
 	}
 
+	private void add(TGVst3Plugin effect, int track) {
+		world.fixture().actionContext.setAttribute(TGAddVst3EffectAction.ATTRIBUTE_PLUGIN, effect);
+		change(track, new TGAddVst3EffectAction(world.fixture().context));
+	}
+
 	@When("I add the VST3 effect {string} to track {int}")
 	public void addTheVst3Effect(String name, int track) {
-		world.fixture().actionContext.setAttribute(TGAddVst3EffectAction.ATTRIBUTE_PLUGIN, plugin(name));
-		change(track, new TGAddVst3EffectAction(world.fixture().context));
+		add(plugin(name), track);
 	}
 
 	@Given("I have added the VST3 effect {string} to track {int}")
 	public void haveAddedTheVst3Effect(String name, int track) {
 		addTheVst3Effect(name, track);
+		assertTrue(world.succeeded());
+	}
+
+	// as a song made where the plugin is installed names it: by a module that is not on this computer (Test Gain's class)
+	@Given("I have added the VST3 effect {string} to track {int} on a computer where it is installed")
+	public void haveAddedAnEffectInstalledElsewhere(String name, int track) {
+		File module = new File(new File(nativeBuild(), "not-installed"), name + ".vst3");
+		add(new TGVst3Plugin(module.getPath(), plugin("Test Gain").getClassId(), name, false), track);
 		assertTrue(world.succeeded());
 	}
 

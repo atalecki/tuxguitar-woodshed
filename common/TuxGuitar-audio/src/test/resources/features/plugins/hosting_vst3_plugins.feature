@@ -348,6 +348,31 @@ Feature: Hosting VST3 plugins
     Then TuxGuitar's parameter editor of VST3 effect 1 of track 1 is open
     And the parameters of VST3 effect 1 of track 1 read "Ceiling"
 
+  # an app shows a refusal's text to the user (the desktop: in an error message)
+  Scenario Outline: opening the editor of a source that is no VST3 plugin is refused, saying so
+    Given I have added an audio track recording input channel 1
+    When I open the editor of the source of track <track>
+    Then the action is refused
+    And the refusal reads "<refusal>"
+
+    Examples:
+      | track | refusal                                                                         |
+      | 1     | Distortion Electric Guitar is not a VST3 plugin: it has no editor to open        |
+      | 2     | takes is not a VST3 plugin: it has no editor to open                             |
+
+  Scenario: opening the editor of a VST3 plugin that cannot be opened is refused, naming the plugin and the host's reason
+    Given I have added the VST3 effect "Missing Amp" to track 1 on a computer where it is installed
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "The VST3 plugin Missing Amp could not be opened: not a VST3 module: "
+
+  Scenario: opening the editor of a VST3 plugin whose host process stopped is refused, naming the plugin
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the host process of VST3 effect 1 of track 1 has stopped
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "The editor of the VST3 plugin Test Gain could not be opened: the VST3 host stopped"
+
   Scenario: a change made in a plugin's editor changes the sound
     Given I have added an audio track recording input channel 1
     And track 2 has a take of a 440 Hz tone peaking at 0.1 from measure 1 beat 1 to measure 2 beat 1

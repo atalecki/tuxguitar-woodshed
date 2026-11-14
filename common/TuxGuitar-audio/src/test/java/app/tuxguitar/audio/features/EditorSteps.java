@@ -66,12 +66,29 @@ public class EditorSteps {
 		return live().get(channel(track).getChannelId(), effect(effect, track).getId());
 	}
 
-	@When("I open the editor of VST3 effect {int} of track {int}")
-	public void openTheEditor(int effect, int track) {
+	// the effect by its number, the source by none (null)
+	private void openTheEditor(Integer effect, int track) {
 		world.fixture().actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, channel(track));
 		world.fixture().actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, effect);
-		world.execute(new TGOpenPluginEditorAction(world.fixture().context));
-		assertTrue(world.succeeded());
+		world.attempt(new TGOpenPluginEditorAction(world.fixture().context));
+	}
+
+	@When("I open the editor of VST3 effect {int} of track {int}")
+	public void openTheEditorOfAnEffect(int effect, int track) {
+		openTheEditor(effect, track);
+	}
+
+	@When("I open the editor of the source of track {int}")
+	public void openTheEditorOfTheSource(int track) {
+		openTheEditor(null, track);
+	}
+
+	// as a crash ends it
+	@Given("the host process of VST3 effect {int} of track {int} has stopped")
+	public void theHostProcessHasStopped(int effect, int track) throws TGVst3Exception {
+		ProcessHandle process = ProcessHandle.of(running(effect, track).getHost().getPid()).get();
+		process.destroyForcibly();
+		process.onExit().join();
 	}
 
 	private TGPluginEditor editor(int effect, int track) {
