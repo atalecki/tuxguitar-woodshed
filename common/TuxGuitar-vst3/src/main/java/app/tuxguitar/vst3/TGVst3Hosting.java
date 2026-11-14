@@ -22,6 +22,7 @@ public final class TGVst3Hosting {
 	private File executable;
 	private List<File> folders = Collections.emptyList();
 	private List<TGVst3Plugin> plugins = Collections.emptyList();
+	private List<TGVst3SkippedModule> skipped = Collections.emptyList();
 	private final List<String> stops = new ArrayList<String>();
 	// the host processes of the plugins opened, until each is closed or found stopped
 	private final List<TGVst3Host> hosts = new ArrayList<TGVst3Host>();
@@ -85,9 +86,10 @@ public final class TGVst3Hosting {
 	}
 
 	// the plugins of every VST3 module in the folders; a module the host refuses (not a VST3 module, or one that takes
-	// the host down) is left out
+	// the host down) is left out, and kept with the reason (getSkipped)
 	public synchronized List<TGVst3Plugin> scan() throws TGVst3Exception {
 		List<TGVst3Plugin> found = new ArrayList<TGVst3Plugin>();
+		List<TGVst3SkippedModule> skipped = new ArrayList<TGVst3SkippedModule>();
 		TGVst3Host scanner = null;
 		try {
 			for (File module : TGVst3Folders.modules(this.folders)) {
@@ -95,7 +97,7 @@ public final class TGVst3Hosting {
 				try {
 					found.addAll(scanner.scan(module));
 				} catch (TGVst3Exception refused) {
-					// not a plugin TuxGuitar can use
+					skipped.add(new TGVst3SkippedModule(module, refused.getMessage()));
 				}
 			}
 		} finally {
@@ -105,7 +107,13 @@ public final class TGVst3Hosting {
 		}
 		found.sort(Comparator.comparing(TGVst3Plugin::getName));
 		this.plugins = Collections.unmodifiableList(found);
+		this.skipped = Collections.unmodifiableList(skipped);
 		return this.plugins;
+	}
+
+	// the modules the last scan left out, in the order it met them
+	public synchronized List<TGVst3SkippedModule> getSkipped() {
+		return this.skipped;
 	}
 
 	// as the last scan found them

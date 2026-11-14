@@ -8,15 +8,19 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGAudioProcessor;
@@ -90,6 +94,22 @@ public class TestVst3Processors {
 		assertEquals(Arrays.asList("Test Click (instrument)", "Test Clip 0.5", "Test Drone", "Test Echo", "Test Gain", "Test Hang", "Test Latency",
 			"Test Sine (instrument)", "Test Stereo", "Test Tempo"), read);
 		assertNull(this.hosting.find("Old Amp"));
+	}
+
+	// a module the host refuses (here a folder named like a bundle that holds no plugin, as NAM captures are kept in) is
+	// left out of the plugins and kept with the host's reason, until the next scan
+	@Test
+	public void aModuleTheHostRefusesIsSkippedWithTheHostsReason(@TempDir File folder) throws TGVst3Exception {
+		File refused = new File(folder, "NamModels.vst3");
+		refused.mkdir();
+		this.hosting.configure(TestPlugins.host(), Arrays.asList(folder, TestPlugins.folder()));
+		assertEquals(10, this.hosting.scan().size());
+		List<TGVst3SkippedModule> skipped = this.hosting.getSkipped();
+		assertEquals(Arrays.asList(refused), skipped.stream().map(TGVst3SkippedModule::getModule).collect(Collectors.toList()));
+		assertTrue(skipped.get(0).getReason().startsWith("not a VST3 module: " + refused.getPath()), skipped.get(0).getReason());
+		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder()));
+		this.hosting.scan();
+		assertEquals(Collections.emptyList(), this.hosting.getSkipped());
 	}
 
 	@Test
