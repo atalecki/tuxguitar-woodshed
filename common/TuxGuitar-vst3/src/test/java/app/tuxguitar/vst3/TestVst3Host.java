@@ -107,6 +107,15 @@ public class TestVst3Host {
 		assertTrue(refused.getMessage().startsWith("not a VST3 module"), refused.getMessage());
 	}
 
+	// the host's reason is one line, as an app shows it (Windows ends its system messages with a line break)
+	@Test
+	public void aRefusalReadsOnOneLine() {
+		File missing = new File(TestPlugins.vst2Folder(), "Missing.vst3");
+		String refused = assertThrows(TGVst3Exception.class, () -> this.host.scan(missing)).getMessage();
+		assertEquals("not a VST3 module: " + missing.getPath() + " (" + " | false | false | true", refused.substring(0, ("not a VST3 module: " + missing.getPath() + " (").length()) + " | "
+			+ (refused.contains("\n") || refused.contains("\r")) + " | " + refused.contains(" )") + " | " + refused.endsWith(")"));
+	}
+
 	@Test
 	public void anEffectProcessesABlockThroughTheSharedFile() throws TGVst3Exception {
 		float[][] block = process(open("Test Gain"), block(0.25f, -0.1f));

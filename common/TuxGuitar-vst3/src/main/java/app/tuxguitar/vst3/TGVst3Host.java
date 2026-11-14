@@ -259,10 +259,10 @@ public final class TGVst3Host implements AutoCloseable {
 		return (cause instanceof TGVst3Exception ? (TGVst3Exception) cause : this.stopped(cause));
 	}
 
-	// on the reader thread
+	// on the reader thread; a refusal's reason on one line (a system message may hold line breaks)
 	private <T> Answer<T> answer(TGVst3Request.Reply<T> reply) throws IOException, TGVst3Exception {
 		if (this.replies.readInt() != 0) {
-			TGVst3Exception refused = new TGVst3Exception(TGVst3Request.readString(this.replies));
+			TGVst3Exception refused = new TGVst3Exception(TGVst3Request.readString(this.replies).replaceAll("\\s*[\\r\\n]+\\s*", " ").replace(" )", ")"));
 			return new Answer<T>(null, refused, this.readNotices());
 		}
 		T value = reply.read(this.replies);

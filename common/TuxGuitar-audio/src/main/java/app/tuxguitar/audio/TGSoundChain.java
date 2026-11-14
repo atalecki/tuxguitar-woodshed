@@ -72,11 +72,22 @@ public final class TGSoundChain {
 		return chain;
 	}
 
-	// the VST3 plugin of the chain: an effect by its number from 1, or, without one, the source; null when that is no
-	// VST3 plugin
+	// the element of the chain: an effect by its number from 1, or, without one, the source
+	private static TGProgramElement at(TGProgram chain, Integer effect) {
+		return (effect != null ? chain.getOutput(effect - 1) : chain.getReceiver());
+	}
+
+	// the VST3 plugin of the chain (an effect by its number, or the source); null when that is no VST3 plugin
 	public static TGProgramElement plugin(TGProgram chain, Integer effect) {
-		TGProgramElement element = (effect != null ? chain.getOutput(effect - 1) : chain.getReceiver());
+		TGProgramElement element = at(chain, effect);
 		return (element != null && TGVst3Element.isVst3(element) ? element : null);
+	}
+
+	// the name of the channel's chain's element (an effect by its number, or the source), as the reading names it; an
+	// effect not there by its number
+	public static String name(TGProgram chain, Integer effect, TGChannel channel) {
+		TGProgramElement element = at(chain, effect);
+		return (element != null ? name(element, channel) : "effect " + effect);
 	}
 
 	// the element of the chain with the id, or null

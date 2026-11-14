@@ -111,6 +111,8 @@ public class AudioWorld {
 	private Heard exported;
 	// the TuxGuitar file saved last
 	private byte[] saved;
+	// what the last action run by attempt said when it refused (null: it did not say)
+	private String refusal;
 
 	public AudioWorld() {
 		this.fixture.map(new TGAddTrackAction(this.fixture.context), new TGRemoveTrackAction(this.fixture.context),
@@ -250,6 +252,20 @@ public class AudioWorld {
 	public void execute(TGActionBase action) {
 		this.fixture.actionContext.setAttribute(TGActionBase.ATTRIBUTE_SUCCESS, null);
 		this.fixture.execute(action);
+	}
+
+	// the action, which may refuse saying why (a TGActionException, whose message the app shows): its message is kept
+	public void attempt(TGActionBase action) {
+		this.refusal = null;
+		try {
+			this.execute(action);
+		} catch (TGActionException refused) {
+			this.refusal = refused.getMessage();
+		}
+	}
+
+	String refusal() {
+		return this.refusal;
 	}
 
 	public void executeUndoable(TGActionBase action, TGUndoableActionController controller) {

@@ -1,6 +1,7 @@
 package app.tuxguitar.audio.action;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -9,6 +10,7 @@ import java.util.StringJoiner;
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.SongActionFixture;
@@ -128,17 +130,20 @@ public class TestSoundChainActions {
 		return run(guitar, new TGSetPluginStateAction(fixture.context));
 	}
 
-	// the editor of what is no VST3 plugin, or of a plugin that cannot be opened (no host here), does not open
+	// what the refusal to open the effect's editor says
+	private String editorRefusal(Integer effect) {
+		fixture.actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, effect);
+		return assertThrows(TGActionException.class, () -> run(guitar, new TGOpenPluginEditorAction(fixture.context))).getMessage();
+	}
+
+	// the editor of an effect not there, or of a plugin that cannot be opened (no host here), is refused saying why,
+	// naming it, and nothing changes (the General MIDI source's name needs the app's messages: the features name it)
 	@Test
-	public void theEditorOfNoPluginOrOfOneThatCannotOpenIsRefused() {
+	public void theEditorOfNoPluginOrOfOneThatCannotOpenIsRefusedSayingWhy() {
 		TGVst3Processors.install(fixture.context);
 		add(GAIN);
-		String refused = "";
-		for (Integer effect : new Integer[] {null, 2, 1}) {
-			fixture.actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, effect);
-			refused += run(guitar, new TGOpenPluginEditorAction(fixture.context)) + " | ";
-		}
-		assertEquals("gervill > Gain | gervill > Gain | gervill > Gain | ", refused);
+		assertEquals("effect 2 is not a VST3 plugin: it has no editor to open | The VST3 plugin Gain could not be opened: no VST3 host is configured | gervill > Gain",
+			editorRefusal(2) + " | " + editorRefusal(1) + " | " + read(guitar));
 	}
 
 	@Test

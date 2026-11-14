@@ -156,15 +156,16 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return kept.instance;
 	}
 
-	// as the TuxGuitar Synthesizer opens it, at the audio device's rate
+	// as the TuxGuitar Synthesizer opens it, at the audio device's rate; refused naming the plugin and the host's reason
 	private Kept open(int channel, TGProgram chain, TGProgramElement element) throws TGVst3Exception {
 		TGAudioProcessor processor = TGPluginStates.processor(this.context, element, chain);
 		processor.setSampleRate(TGAudioSaving.sampleRate(this.context));
 		processor.restoreParameters(element.getParameters());
-		TGVst3Instance instance = ((TGVst3PluginProcessor) processor).getInstance();
+		TGVst3PluginProcessor plugin = (TGVst3PluginProcessor) processor;
+		TGVst3Instance instance = plugin.getInstance();
 		if (instance == null) {
 			processor.close();
-			throw new TGVst3Exception("the VST3 plugin " + TGVst3Element.getName(element) + " could not be opened");
+			throw new TGVst3Exception("The VST3 plugin " + TGVst3Element.getName(element) + " could not be opened: " + plugin.getProblem());
 		}
 		return new Kept(processor, this.listened(channel, element.getId(), instance), element.getParameters());
 	}
@@ -258,9 +259,19 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			this.await(end - System.currentTimeMillis());
 		}
 		TGVst3Instance instance = this.get(channel, element);
-		TGPluginEditor editor = new TGPluginEditor(instance.openEditor(), () -> rows(instance));
+		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element), () -> rows(instance));
 		this.editors.put(key(channel, element), new Editor(editor, instance));
 		return editor;
+	}
+
+	// whether the plugin opened an editor of its own; refused naming the plugin and the reason
+	private boolean ownEditor(TGVst3Instance instance, int channel, String element) throws TGVst3Exception {
+		try {
+			return instance.openEditor();
+		} catch (TGVst3Exception e) {
+			String plugin = TGVst3Element.getName(TGSoundChain.element(this.chain(channel), element));
+			throw new TGVst3Exception("The editor of the VST3 plugin " + plugin + " could not be opened: " + e.getMessage(), e);
+		}
 	}
 
 	// until the chain changes or the milliseconds pass (at least one: no wait without end); interrupted, the editor waits

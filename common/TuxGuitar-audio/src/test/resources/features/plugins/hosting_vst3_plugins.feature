@@ -23,6 +23,20 @@ Feature: Hosting VST3 plugins
     Then neither the VST3 effects nor the VST3 instruments name "Old Amp"
     And the VST3 effects read "Test Clip 0.5, Test Drone, Test Echo, Test Gain, Test Hang, Test Latency, Test Stereo, Test Tempo"
 
+  # what a scan reports, an app shows the user (the desktop: in the Sound Chain dialog)
+  Scenario: the scan reports how many VST3 effects and VST3 instruments it found, and where it looked
+    When I scan the VST3 folders
+    Then the scan reports "VST3 effects found: 8. VST3 instruments found: 2."
+    And the scan reports a line starting "Folders scanned: "
+
+  Scenario: a folder of NAM captures named like a VST3 plugin is skipped, and the scan reports why and which plugin plays the captures
+    Given the VST3 folders also hold a folder "NamModels.vst3" holding the NAM capture "Clean.nam"
+    And the VST3 folders also hold the NAM capture "MRSH Lead.nam"
+    When I scan the VST3 folders
+    Then the scan reports a line starting "Skipped NamModels.vst3: not a VST3 module: "
+    And the scan reports "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it, and it is not installed. Install it, add it as a VST3 effect, then load the capture in its editor."
+    And the VST3 effects read "Test Clip 0.5, Test Drone, Test Echo, Test Gain, Test Hang, Test Latency, Test Stereo, Test Tempo"
+
   Scenario: VST3 plugins run in a process apart from TuxGuitar, and nothing listens on a network port
     Given I have added the VST3 effect "Test Gain" to track 1
     When I play the song from measure 1 beat 1
@@ -347,6 +361,31 @@ Feature: Hosting VST3 plugins
     When I open the editor of VST3 effect 1 of track 1
     Then TuxGuitar's parameter editor of VST3 effect 1 of track 1 is open
     And the parameters of VST3 effect 1 of track 1 read "Ceiling"
+
+  # an app shows a refusal's text to the user (the desktop: in an error message)
+  Scenario Outline: opening the editor of a source that is no VST3 plugin is refused, saying so
+    Given I have added an audio track recording input channel 1
+    When I open the editor of the source of track <track>
+    Then the action is refused
+    And the refusal reads "<refusal>"
+
+    Examples:
+      | track | refusal                                                                         |
+      | 1     | Distortion Electric Guitar is not a VST3 plugin: it has no editor to open        |
+      | 2     | takes is not a VST3 plugin: it has no editor to open                             |
+
+  Scenario: opening the editor of a VST3 plugin that cannot be opened is refused, naming the plugin and the host's reason
+    Given I have added the VST3 effect "Missing Amp" to track 1 on a computer where it is installed
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "The VST3 plugin Missing Amp could not be opened: not a VST3 module: "
+
+  Scenario: opening the editor of a VST3 plugin whose host process stopped is refused, naming the plugin
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the host process of VST3 effect 1 of track 1 has stopped
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "The editor of the VST3 plugin Test Gain could not be opened: the VST3 host stopped"
 
   Scenario: a change made in a plugin's editor changes the sound
     Given I have added an audio track recording input channel 1

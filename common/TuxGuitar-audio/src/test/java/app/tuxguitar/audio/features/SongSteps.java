@@ -65,6 +65,17 @@ public class SongSteps {
 		assertFalse(world.succeeded());
 	}
 
+	@Then("the refusal reads {string}")
+	public void theRefusalReads(String refusal) {
+		assertEquals(refusal, world.refusal());
+	}
+
+	// a refusal that goes on with what may differ from one computer to another (a path)
+	@Then("the refusal starts with {string}")
+	public void theRefusalStartsWith(String start) {
+		assertTrue(String.valueOf(world.refusal()).startsWith(start), world.refusal());
+	}
+
 	@Then("the song has {int} channel(s)")
 	public void theSongHasChannels(int count) {
 		assertEquals(count, world.song().countChannels());

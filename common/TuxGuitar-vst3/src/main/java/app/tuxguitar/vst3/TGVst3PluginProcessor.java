@@ -7,4 +7,7 @@ public interface TGVst3PluginProcessor {
 
 	// null while no plugin is open
 	TGVst3Instance getInstance();
+
+	// why no plugin is open: the host's refusal, or its stop; null while one is open
+	String getProblem();
 }

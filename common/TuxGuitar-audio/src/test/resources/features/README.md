@@ -34,9 +34,16 @@ An installed app's synthesizer runs VST3 effects and instruments and tells `TGLi
 changes (synth-core's `TGSynthChannelListener`), so editors open on the plugin that sounds (an editor opened before
 the synthesizer runs a plugin just added waits for it, at most 5 s) and close when it stops; TuxGuitar's parameter
 editor reads its plugin again each time the chain runs again (a change, an undo, a redo) and tells its watcher; saving
-takes an enabled running plugin's state. `TGLiveAudio.load` also configures VST3 hosting (the host process in
-the native folder, the system's VST3 folders, `TGVst3Folders.standard`). The desktop maps the sound-chain actions,
-offers Tools > Sound Chain... (`TGSoundChainRows`), scans the VST3 folders at startup and drains gestures every 50 ms;
+takes an enabled running plugin's state. An editor that cannot open is refused saying why, naming the element (a
+`TGActionException`, which the desktop shows in an error message): a source that is no VST3 plugin, a plugin the host
+cannot open (with the host's reason, which `TGVst3PluginProcessor.getProblem` keeps), an editor the host fails to open.
+`TGLiveAudio.load` also configures VST3 hosting (the host process in
+the native folder, the system's VST3 folders, `TGVst3Folders.standard`). `TGLiveAudio.scanPlugins` scans them and keeps
+the report the user sees (`TGPluginScan`): the effects and instruments found, the NAM captures (`.nam`) in the folders
+with which plugin plays them, each module the host refused with its reason (`TGVst3Hosting.getSkipped`), the folders.
+The desktop maps the sound-chain actions,
+offers Tools > Sound Chain... (`TGSoundChainRows`; its status shows the last scan's report), scans the VST3 folders at
+startup and drains gestures every 50 ms;
 Tools > Record and Audio Track Settings... grey when they cannot apply (a core enabled check on custom tools). Its
 parameter window (a slider per parameter, for a plugin without its own editor) follows that editor: it shows the
 values again after an undo or redo, and closes once the plugin no longer runs. The Metronome
@@ -110,7 +117,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `tracks/audio_tracks` | audio tracks: adding, channels, cloning, removing, which MIDI Port they need |
 | `recording/recording_line_in` | arming, input channels and level, Count In, monitoring, recording at another Percentage of Tempo |
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
-| `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain |
+| `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain; what a scan reports, and why an editor does not open |
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
@@ -385,8 +392,10 @@ for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Ga
 it from its own editor, as one gesture (begin edit, changes, end edit). The helper process reports its process id and
 open sockets, so "runs apart" and "listens on no network port" can be checked.
 
-`Old Amp` is a VST 2 plugin placed in the VST3 folders by a scenario. `Test MIDI Out` is a MIDI Port other than the
-TuxGuitar Synthesizer.
+`Old Amp` is a VST 2 plugin placed in the VST3 folders by a scenario. `Missing Amp` is no plugin at all: a scenario's
+song names it by a module that is not on this computer (as a song made where it is installed would). The NAM captures
+a scenario places in the VST3 folders (`.nam`, loose or in a folder named like a bundle, `NamModels.vst3`) hold
+nothing a scan reads. `Test MIDI Out` is a MIDI Port other than the TuxGuitar Synthesizer.
 
 `Test Interface` (and `Other Interface`) are audio devices with the sample rate and input channels a scenario gives
 them (44100 Hz and 2 by default). Each delivers the input late by its input latency and sounds the output late by its
