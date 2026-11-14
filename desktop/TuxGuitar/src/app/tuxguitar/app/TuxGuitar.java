@@ -16,6 +16,7 @@ import app.tuxguitar.app.synchronizer.TGSynchronizerControllerImpl;
 import app.tuxguitar.app.system.config.TGConfigKeys;
 import app.tuxguitar.app.system.config.TGConfigManager;
 import app.tuxguitar.app.system.error.TGErrorAdapter;
+import app.tuxguitar.app.system.log.TGLogAdapter;
 import app.tuxguitar.app.system.icons.TGIconManager;
 import app.tuxguitar.app.system.icons.TGSkinManager;
 import app.tuxguitar.app.system.keybindings.KeyBindingActionManager;
@@ -105,6 +106,7 @@ public class TuxGuitar {
 	}
 
 	private void createMainContext() {
+		TGLogAdapter.start();
 		TGThreadManager.getInstance(this.context).setThreadHandler(new TGMultiThreadHandler());
 		TGResourceManager.getInstance(this.context).setResourceLoader(TGClassLoader.getInstance(this.context));
 		TGFileUtils.loadLibraries(this.context);
@@ -112,6 +114,7 @@ public class TuxGuitar {
 		TGErrorAdapter.initialize(this.context);
 		TGPropertiesAdapter.initialize(this.context);
 		TGVarAdapter.initialize(this.context);
+		TGLogAdapter.applySettings(this.context);
 	}
 
 	private void createUIContext(final URL url) {
