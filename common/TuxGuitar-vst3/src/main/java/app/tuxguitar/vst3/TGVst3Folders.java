@@ -9,7 +9,8 @@ import java.util.Map;
 
 /**
  * The VST3 modules in folders: every file or bundle named *.vst3, in any subfolder (a bundle's own content is not
- * searched), folder by folder, in name order.
+ * searched), folder by folder, in name order. Other files in them (NAM captures, *.nam) are found the same way: a file
+ * or folder named so is one found, and what it holds is not searched.
  */
 public final class TGVst3Folders {
 
@@ -45,24 +46,29 @@ public final class TGVst3Folders {
 	}
 
 	public static List<File> modules(List<File> folders) {
-		List<File> modules = new ArrayList<File>();
-		for (File folder : folders) {
-			collect(folder, modules);
-		}
-		return modules;
+		return find(folders, EXTENSION);
 	}
 
-	private static void collect(File folder, List<File> modules) {
+	// the files and folders named *<extension> (lower case; any case matches)
+	public static List<File> find(List<File> folders, String extension) {
+		List<File> found = new ArrayList<File>();
+		for (File folder : folders) {
+			collect(folder, extension, found);
+		}
+		return found;
+	}
+
+	private static void collect(File folder, String extension, List<File> found) {
 		File[] children = folder.listFiles();
 		if (children == null) {
 			return;
 		}
 		Arrays.sort(children);
 		for (File child : children) {
-			if (child.getName().toLowerCase(Locale.ROOT).endsWith(EXTENSION)) {
-				modules.add(child);
+			if (child.getName().toLowerCase(Locale.ROOT).endsWith(extension)) {
+				found.add(child);
 			} else if (child.isDirectory()) {
-				collect(child, modules);
+				collect(child, extension, found);
 			}
 		}
 	}
