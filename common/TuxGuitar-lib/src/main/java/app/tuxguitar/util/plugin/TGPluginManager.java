@@ -3,6 +3,7 @@ package app.tuxguitar.util.plugin;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Predicate;
 
 import app.tuxguitar.resource.TGResourceManager;
 import app.tuxguitar.util.TGContext;
@@ -58,17 +59,11 @@ public class TGPluginManager {
 	}
 
 	public void disconnectAll(){
-		for(TGPlugin plugin : this.plugins) {
-			this.disconnectPlugin(plugin);
-		}
+		this.changeAll(plugin -> true, this::disconnectPlugin, "plugins disconnected: ");
 	}
 
 	public void connectEnabled() {
-		for(TGPlugin plugin : this.plugins) {
-			if( this.isEnabled(plugin.getModuleId()) ) {
-				this.connectPlugin(plugin);
-			}
-		}
+		this.changeAll(plugin -> this.isEnabled(plugin.getModuleId()), this::connectPlugin, "plugins connected: ");
 	}
 
 	public void earlyInitPlugins() {
@@ -79,35 +74,41 @@ public class TGPluginManager {
 		}
 	}
 	public void connectPlugins(String moduleId) {
-		for(TGPlugin plugin : this.plugins) {
-			if( plugin.getModuleId().equals(moduleId) ) {
-				this.connectPlugin(plugin);
-			}
-		}
+		this.changeAll(plugin -> plugin.getModuleId().equals(moduleId), this::connectPlugin, "plugins of module " + moduleId + " connected: ");
 	}
 
 	public void disconnectPlugins(String moduleId) {
+		this.changeAll(plugin -> plugin.getModuleId().equals(moduleId), this::disconnectPlugin, "plugins of module " + moduleId + " disconnected: ");
+	}
+
+	// changes the chosen plugins one by one, then logs how many it changed (each at DEBUG, the count at INFO)
+	private void changeAll(Predicate<TGPlugin> chosen, Predicate<TGPlugin> change, String summary) {
+		int changed = 0;
 		for(TGPlugin plugin : this.plugins) {
-			if( plugin.getModuleId().equals(moduleId) ) {
-				this.disconnectPlugin(plugin);
+			if( chosen.test(plugin) && change.test(plugin) ) {
+				changed ++;
 			}
 		}
+		LOG.info(summary + changed);
 	}
 
-	public void connectPlugin(TGPlugin tgPlugin) {
-		this.change(tgPlugin, " connected: ", PLUGIN_ERROR_ON_CONNECT, plugin -> plugin.connect(this.context));
+	// whether it connected
+	public boolean connectPlugin(TGPlugin tgPlugin) {
+		return this.change(tgPlugin, " connected: ", PLUGIN_ERROR_ON_CONNECT, plugin -> plugin.connect(this.context));
 	}
 
-	// the plugin connected or disconnected, logged; its failure handled as it is, an unexpected one wrapped
-	private void change(TGPlugin tgPlugin, String done, String failure, Change change) {
+	// whether the plugin connected or disconnected, logged; its failure handled as it is, an unexpected one wrapped
+	private boolean change(TGPlugin tgPlugin, String done, String failure, Change change) {
 		try {
 			change.apply(tgPlugin);
-			LOG.info("plugin " + tgPlugin.getModuleId() + done + tgPlugin.getClass().getName());
+			LOG.debug("plugin " + tgPlugin.getModuleId() + done + tgPlugin.getClass().getName());
+			return true;
 		} catch(TGPluginException exception) {
 			TGErrorManager.getInstance(this.context).handleError(exception);
 		} catch(Throwable throwable) {
 			TGErrorManager.getInstance(this.context).handleError(new TGPluginException(failure, throwable));
 		}
+		return false;
 	}
 
 	private interface Change {
@@ -126,8 +127,9 @@ public class TGPluginManager {
 		}
 	}
 
-	public void disconnectPlugin(TGPlugin tgPlugin) {
-		this.change(tgPlugin, " disconnected: ", PLUGIN_ERROR_ON_DISCONNECT, plugin -> plugin.disconnect(this.context));
+	// whether it disconnected
+	public boolean disconnectPlugin(TGPlugin tgPlugin) {
+		return this.change(tgPlugin, " disconnected: ", PLUGIN_ERROR_ON_DISCONNECT, plugin -> plugin.disconnect(this.context));
 	}
 
 	public void updatePluginStatus(String moduleId, boolean enabled) {
