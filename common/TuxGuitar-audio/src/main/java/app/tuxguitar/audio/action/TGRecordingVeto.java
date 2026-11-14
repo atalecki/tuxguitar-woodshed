@@ -14,6 +14,7 @@ import app.tuxguitar.editor.action.track.TGMoveTrackDownAction;
 import app.tuxguitar.editor.action.track.TGMoveTrackUpAction;
 import app.tuxguitar.editor.action.transport.TGTransportModeAction;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 /**
@@ -28,6 +29,8 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
  * first asked for.
  */
 public final class TGRecordingVeto implements TGActionInterceptor {
+
+	private static final TGLog LOG = TGLog.get(TGRecordingVeto.class);
 
 	private final TGAudioSession session;
 	private final Set<String> refused = ConcurrentHashMap.newKeySet();
@@ -62,6 +65,10 @@ public final class TGRecordingVeto implements TGActionInterceptor {
 	}
 
 	public boolean intercept(String id, TGActionContext context) {
-		return (this.session.isRecording() && this.rule.test(id));
+		boolean refuses = (this.session.isRecording() && this.rule.test(id));
+		if (refuses) {
+			LOG.info("action " + id + " refused: a recording is under way");
+		}
+		return refuses;
 	}
 }

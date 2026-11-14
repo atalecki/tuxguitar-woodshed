@@ -3,6 +3,7 @@ package app.tuxguitar.audio.action;
 import java.util.List;
 
 import app.tuxguitar.action.TGActionContext;
+import app.tuxguitar.audio.TGAudioDevice;
 import app.tuxguitar.audio.TGAudioSession;
 import app.tuxguitar.audio.TGLiveDevice;
 import app.tuxguitar.audio.TGLiveRecording;
@@ -15,6 +16,7 @@ import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 
 /**
  * Records the armed tracks while the song plays from a position until another one is reached in the last pass, or
@@ -29,6 +31,8 @@ import app.tuxguitar.util.TGContext;
  * running on for one round trip, and returns then; the app runs it on a thread of its own.
  */
 public class TGRecordAction extends TGActionBase {
+
+	private static final TGLog LOG = TGLog.get(TGRecordAction.class);
 
 	public static final String NAME = "action.audio.record";
 
@@ -49,18 +53,33 @@ public class TGRecordAction extends TGActionBase {
 		TGAudioSession session = TGAudioSession.getInstance(getContext());
 		MidiPlayer player = MidiPlayer.getInstance(getContext());
 		List<TGTrack> tracks = session.getArmedTracks(song);
-		if (tracks.isEmpty() || !player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY) || session.getDevice() == null) {
+		String refusal = refusal(tracks, player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY), session.getDevice());
+		if (refusal != null) {
+			LOG.warn("recording refused: " + refusal);
 			return;
 		}
 		TGRecordingVeto.getInstance(getContext());
 		session.setRecording(true);
 		try {
+			LOG.info("recording started: " + tracks.size() + " armed tracks, from tick " + context.getAttribute(ATTRIBUTE_START));
 			int takes = (session.getDevice() instanceof TGLiveDevice ? this.recordLive(context, song, (TGLiveDevice) session.getDevice(), player, tracks) : this.record(context, song, session, tracks));
+			LOG.info("recording ended: " + takes + " takes");
 			context.setAttribute(ATTRIBUTE_TAKES, takes);
 			context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
 		} finally {
 			session.setRecording(false);
 		}
+	}
+
+	// why a recording cannot start, or null when it can
+	static String refusal(List<TGTrack> tracks, boolean synthesizerPort, TGAudioDevice device) {
+		if (tracks.isEmpty()) {
+			return "no track is armed";
+		}
+		if (!synthesizerPort) {
+			return "the MIDI port is not the TuxGuitar Synthesizer";
+		}
+		return (device == null ? "no live audio device" : null);
 	}
 
 	private int record(TGActionContext context, TGSong song, TGAudioSession session, List<TGTrack> tracks) {

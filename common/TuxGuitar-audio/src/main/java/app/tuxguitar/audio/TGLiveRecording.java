@@ -12,6 +12,7 @@ import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 
 /**
  * A recording live, on the live audio device. From its start it keeps every frame the device's input channels deliver
@@ -29,6 +30,7 @@ public final class TGLiveRecording implements TGLiveDevice.Listener {
 	private static final long LOOK = TimeUnit.MILLISECONDS.toNanos(5);
 	// how long the device may deliver nothing before its stream is taken as ended: a block lasts some milliseconds
 	private static final long STALL = TimeUnit.SECONDS.toNanos(1);
+	private static final TGLog LOG = TGLog.get(TGLiveRecording.class);
 
 	private final TGContext context;
 	private final TGLiveDevice device;
@@ -97,15 +99,18 @@ public final class TGLiveRecording implements TGLiveDevice.Listener {
 	public int end(TGSongManager songManager, TGSong song, List<TGTrack> tracks) {
 		MidiPlayer player = MidiPlayer.getInstance(this.context);
 		if (this.stalls(player)) {
+			LOG.warn("the audio device delivered nothing for " + TimeUnit.NANOSECONDS.toMillis(STALL) + " ms: the recording ends there");
 			player.stop();
 		}
 		this.device.removeListener(this);
 		TGAudioSession session = TGAudioSession.getInstance(this.context);
 		int takes = 0;
-		for (Part part : new ArrayList<Part>(this.parts)) {
+		List<Part> parts = new ArrayList<Part>(this.parts);
+		for (Part part : parts) {
 			TGTimeline timeline = part.timeline.until(part.frames);
 			takes += new TGRecording(songManager, song, session, new Kept(part.start - timeline.getClock()), part.compensation).takes(tracks, timeline);
 		}
+		LOG.info("live recording ended: " + parts.size() + " parts, " + takes + " takes");
 		return takes;
 	}
 

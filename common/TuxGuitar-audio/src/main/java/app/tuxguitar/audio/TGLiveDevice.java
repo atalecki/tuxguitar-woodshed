@@ -10,6 +10,8 @@ import app.tuxguitar.audio.device.TGAudioStream;
 import app.tuxguitar.midi.synth.TGAudioBufferProcessor;
 import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.player.base.MidiTransport;
+import app.tuxguitar.util.log.TGLog;
+import app.tuxguitar.util.log.TGLogRate;
 
 /**
  * The audio device live: a stream of the audio backend on the chosen devices, at the output device's sample rate, in
@@ -25,6 +27,10 @@ public final class TGLiveDevice implements TGAudioDevice, TGAudioCallback, AutoC
 
 	private static final MidiTransport STOPPED = new MidiTransport();
 	private static final float[][] SILENCE = new float[2][TGBlocks.FRAMES];
+	private static final TGLog LOG = TGLog.get(TGLiveDevice.class);
+
+	// the blocks logged at TRACE: the device's thread only uses it
+	private final TGLogRate traced = new TGLogRate(1000);
 
 	private final TGAudioStream stream;
 	// per input channel, a ring of the frames delivered: frame f of the clock at f % its length
@@ -102,13 +108,26 @@ public final class TGLiveDevice implements TGAudioDevice, TGAudioCallback, AutoC
 		return this.kept.length;
 	}
 
+	// the frames of each block the device asks for
+	public int getBlock() {
+		return this.stream.getBlock();
+	}
+
 	// on the device's thread
 	public void process(float[][] input, float[][] output, int frames) {
+		this.trace(frames);
 		this.keep(input, frames);
 		this.delivered += frames;
 		this.render(output, frames);
 		this.listeners.forEach(listener -> listener.played(this.clock, frames));
 		this.clock += frames;
+	}
+
+	// at TRACE only, one block a second at most: the level is checked before anything else is done
+	private void trace(int frames) {
+		if (LOG.isTraceEnabled() && this.traced.allow(System.nanoTime())) {
+			LOG.trace("audio device block at frame " + this.clock + ": " + frames + " frames, " + this.traced.takeHeldBack() + " blocks since the last one logged");
+		}
 	}
 
 	private void keep(float[][] input, int frames) {
