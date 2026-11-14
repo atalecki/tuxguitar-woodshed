@@ -108,6 +108,7 @@ public class TestLogSetup {
 		assertTrue(text.contains(" - log file " + current.getAbsolutePath() + " (5 files of 5120 KB)"), text);
 		assertTrue(text.contains(" WARN  [") && text.contains(" - a warning"), text);
 		assertFalse(text.contains("some news"), text);
+		assertFalse(text.contains("unknown log level"), text);
 	}
 
 	@Test
@@ -144,7 +145,7 @@ public class TestLogSetup {
 		log.warn("second session");
 
 		String text = file("tuxguitar-0.log");
-		assertTrue(text.indexOf("first session") < text.indexOf("second session"), text);
+		assertTrue(text.indexOf("first session") >= 0 && text.indexOf("first session") < text.indexOf("second session"), text);
 		assertFalse(text.contains("between sessions"), text);
 	}
 

@@ -70,9 +70,21 @@ public class TestVst3Log {
 	public void aHostStartedAndClosedIsLoggedByItsPid() throws TGVst3Exception {
 		long pid = start().getPid();
 		this.host.close();
+		assertFalse(this.host.isRunning());
 
 		assertEquals(Arrays.asList("INFO VST3 host started: pid " + pid + ", " + TestPlugins.host().getAbsolutePath()), logged("INFO VST3 host started"));
 		assertEquals(Arrays.asList("INFO VST3 host pid " + pid + " closed (exit code 0)"), logged("INFO VST3 host pid " + pid + " closed"));
+		assertEquals(Arrays.asList(), logged("WARN"), "a host TuxGuitar closed is no stop");
+	}
+
+	@Test
+	public void aHostThatDoesNotStartIsLoggedWithWhy() {
+		File missing = new File("target/no-such-vst3-host.exe");
+		assertThrows(TGVst3Exception.class, () -> TGVst3Host.start(missing));
+
+		List<String> logged = logged("WARN");
+		assertEquals(1, logged.size(), logged.toString());
+		assertTrue(logged.get(0).startsWith("WARN the VST3 host did not start: " + missing + " (java.io.IOException: "), logged.get(0));
 	}
 
 	@Test
@@ -157,6 +169,6 @@ public class TestVst3Log {
 		assertEquals(Arrays.asList("INFO VST3 module skipped: " + refused + ": " + skipped.getReason()), logged("INFO VST3 module skipped"));
 		List<String> done = logged("INFO VST3 scan done");
 		assertEquals(1, done.size());
-		assertTrue(done.get(0).startsWith("INFO VST3 scan done: 10 plugins in 10 modules, 1 skipped, in "), done.get(0));
+		assertTrue(done.get(0).matches("INFO VST3 scan done: 10 plugins in 10 modules, 1 skipped, in \\d{1,5} ms"), done.get(0));
 	}
 }

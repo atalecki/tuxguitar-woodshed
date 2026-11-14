@@ -54,12 +54,13 @@ public class TestLogLineStream {
 		this.stream.write("abc".getBytes(StandardCharsets.UTF_8));
 		assertEquals(Collections.emptyList(), this.recorder.recorded());
 
-		this.stream.write("def\nghi".getBytes(StandardCharsets.UTF_8));
+		this.stream.write("def\ng".getBytes(StandardCharsets.UTF_8));
 		this.stream.flush();
 		assertEquals(Arrays.asList("WARN abcdef"), this.recorder.recorded());
 
 		this.stream.close();
-		assertEquals(Arrays.asList("WARN abcdef", "WARN ghi"), this.recorder.recorded());
+		this.stream.close();
+		assertEquals(Arrays.asList("WARN abcdef", "WARN g"), this.recorder.recorded());
 	}
 
 	@Test
