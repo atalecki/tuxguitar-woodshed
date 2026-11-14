@@ -237,10 +237,13 @@ public class TGSoundChainDialog {
 		this.change(processor);
 	}
 
-	// the picked plugin's own editor opens (a window of its host process), or else TuxGuitar's parameter editor here
+	// the picked plugin's own editor opens (a window of its host process, owned by TuxGuitar's main window: it stays in
+	// front of it), or else TuxGuitar's parameter editor here
 	private void openEditor() {
 		Integer effect = TGSoundChainRows.effect(TGSoundChainRows.row(this.rows.getSelectedValue()));
-		this.change(this.onPicked(TGOpenPluginEditorAction.NAME), () -> this.showParameters(effect));
+		TGActionProcessor processor = this.onPicked(TGOpenPluginEditorAction.NAME);
+		processor.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER, TGNativeWindow.handle(TGWindow.getInstance(this.context).getWindow()));
+		this.change(processor, () -> this.showParameters(effect));
 	}
 
 	private void showParameters(Integer effect) {
