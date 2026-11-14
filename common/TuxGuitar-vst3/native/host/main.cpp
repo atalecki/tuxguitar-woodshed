@@ -24,7 +24,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 2;
+const int32_t kProtocolVersion = 3;
 
 enum Operation {
 	kHello = 1,
@@ -41,6 +41,7 @@ enum Operation {
 	kOpenEditor = 12,
 	kCloseEditor = 13,
 	kMessage = 14,
+	kEditorWindow = 15,
 };
 
 struct Failure {
@@ -97,9 +98,10 @@ private:
 			case kSetState: return setState();
 			case kReset: return instance().reset();
 			case kListeners: return wire.writeInt(networkListeners(wire.readLong()));
-			case kOpenEditor: return wire.writeInt(instance().openEditor() ? 1 : 0);
+			case kOpenEditor: return openEditor();
 			case kCloseEditor: return instance().closeEditor();
 			case kMessage: return message();
+			case kEditorWindow: return editorWindow();
 			default: throw Failure{"unknown operation " + std::to_string(operation)};
 		}
 	}
@@ -259,6 +261,26 @@ private:
 		std::vector<char> controller = wire.readBytes();
 		restored.setState(component, controller);
 		writeTiming(restored);
+	}
+
+	// the editor: none of its own (0), opened in a window of its own (1), or in a window the owner window owns (2)
+	void openEditor() {
+		Instance& edited = instance();
+		int64_t owner = wire.readLong();
+		bool opened = edited.openEditor(owner);
+		bool owned = (opened && owner != 0 && edited.editorWindow().owner == owner);
+		wire.writeInt(opened ? (owned ? 2 : 1) : 0);
+	}
+
+	void editorWindow() {
+		EditorWindow facts = instance().editorWindow();
+		wire.writeLong(facts.window);
+		wire.writeLong(facts.owner);
+		wire.writeInt(facts.shown ? 1 : 0);
+		wire.writeInt(facts.front ? 1 : 0);
+		for (int32_t value : {facts.left, facts.top, facts.right, facts.bottom, facts.width, facts.height}) {
+			wire.writeInt(value);
+		}
 	}
 
 	// a message to the plugin's controller, with integer and binary attributes; the reply holds its report

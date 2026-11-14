@@ -382,7 +382,24 @@ bool Instance::hasEditor() {
 }
 
 #ifdef _WIN32
-bool Instance::openEditor() {
+namespace {
+
+// the shown top-level window of this process in front of its others, or none
+HWND frontWindow() {
+	for (HWND window = GetTopWindow(nullptr); window; window = GetWindow(window, GW_HWNDNEXT)) {
+		DWORD process = 0;
+		GetWindowThreadProcessId(window, &process);
+		if (process == GetCurrentProcessId() && IsWindowVisible(window)) {
+			return window;
+		}
+	}
+	return nullptr;
+}
+
+}  // namespace
+
+// an owner that is no window (0, or a window closed since) owns nothing: the editor opens in a window of its own
+bool Instance::openEditor(int64 owner) {
 	closeEditor();
 	view = owned(controller->createView(ViewType::kEditor));
 	if (!view || view->isPlatformTypeSupported(kPlatformTypeHWND) != kResultTrue) {
@@ -391,7 +408,8 @@ bool Instance::openEditor() {
 	}
 	ViewRect size = {0, 0, 400, 300};
 	view->getSize(&size);
-	window = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, size.getWidth(), size.getHeight(), nullptr,
+	HWND ownerWindow = (IsWindow((HWND) (intptr_t) owner) ? (HWND) (intptr_t) owner : nullptr);
+	window = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, size.getWidth(), size.getHeight(), ownerWindow,
 	                         nullptr, GetModuleHandleW(nullptr), nullptr);
 	if (!window || view->attached(window, kPlatformTypeHWND) != kResultOk) {
 		closeEditor();
@@ -410,11 +428,33 @@ void Instance::closeEditor() {
 		window = nullptr;
 	}
 }
+
+EditorWindow Instance::editorWindow() {
+	EditorWindow facts = {};
+	HWND shown = (HWND) window;
+	RECT frame = {};
+	RECT inside = {};
+	if (shown && GetWindowRect(shown, &frame) && GetClientRect(shown, &inside)) {
+		facts.window = (int64) (intptr_t) shown;
+		facts.owner = (int64) (intptr_t) GetWindow(shown, GW_OWNER);
+		facts.shown = (IsWindowVisible(shown) != FALSE);
+		facts.front = (frontWindow() == shown);
+		facts.left = frame.left;
+		facts.top = frame.top;
+		facts.right = frame.right;
+		facts.bottom = frame.bottom;
+		facts.width = inside.right;
+		facts.height = inside.bottom;
+	}
+	return facts;
+}
 #else
 // editor windows need the platform's window system: only Windows so far
-bool Instance::openEditor() { return false; }
+bool Instance::openEditor(int64) { return false; }
 
 void Instance::closeEditor() { view = nullptr; }
+
+EditorWindow Instance::editorWindow() { return EditorWindow{}; }
 #endif
 
 std::vector<char> Instance::message(const std::string& id, const std::vector<std::pair<std::string, int64>>& integers,

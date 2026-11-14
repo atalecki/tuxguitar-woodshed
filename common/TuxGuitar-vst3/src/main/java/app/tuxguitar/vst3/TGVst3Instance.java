@@ -23,6 +23,9 @@ public final class TGVst3Instance implements AutoCloseable {
 	// the flag of a parameter that chooses the plugin's presets (Vst::ParameterInfo::kIsProgramChange)
 	private static final int PROGRAM_CHANGE = 1 << 15;
 
+	// what the reply to an open editor request says (see TGVst3Protocol), as the log says it
+	private static final String[] EDITOR_OPENED = {": no editor of its own", ": editor opened, unowned", ": editor opened, owned by TuxGuitar's window"};
+
 	private static final TGLog LOG = TGLog.get(TGVst3Instance.class);
 
 	private final TGVst3Host host;
@@ -178,11 +181,18 @@ public final class TGVst3Instance implements AutoCloseable {
 		this.host.call(this.request(TGVst3Protocol.RESET), in -> null);
 	}
 
-	// the plugin's own editor, in a window of the host process; false when it has none (or the platform is not supported)
-	public boolean openEditor() throws TGVst3Exception {
-		boolean own = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR), in -> in.readInt() == 1);
-		LOG.debug(this.label + (own ? ": editor opened" : ": no editor of its own"));
-		return own;
+	// the plugin's own editor, shown in front in a window of the host process that the owner window owns (a native window
+	// handle; 0, or a handle that is no window: none), so it stays in front of that window and minimises with it; one
+	// already open is brought to the front. False when it has none (or the platform is not supported)
+	public boolean openEditor(long owner) throws TGVst3Exception {
+		int opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner), in -> in.readInt());
+		LOG.debug(this.label + EDITOR_OPENED[opened]);
+		return (opened != 0);
+	}
+
+	// its own editor's window as the system shows it (for checks)
+	public TGVst3EditorWindow getEditorWindow() throws TGVst3Exception {
+		return this.host.call(this.request(TGVst3Protocol.EDITOR_WINDOW), TGVst3EditorWindow::read);
 	}
 
 	public void closeEditor() throws TGVst3Exception {

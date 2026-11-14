@@ -272,7 +272,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	// whether the plugin opened an editor of its own; refused naming the plugin and the reason
 	private boolean ownEditor(TGVst3Instance instance, int channel, String element) throws TGVst3Exception {
 		try {
-			return instance.openEditor();
+			return instance.openEditor(0);
 		} catch (TGVst3Exception e) {
 			String plugin = TGVst3Element.getName(TGSoundChain.element(this.chain(channel), element));
 			throw new TGVst3Exception("The editor of the VST3 plugin " + plugin + " could not be opened: " + e.getMessage(), e);

@@ -51,6 +51,16 @@ struct Transport {
 	int64 samples;
 };
 
+// the window of a plugin's own editor as the system shows it (for checks); all 0 when no editor is open
+struct EditorWindow {
+	int64 window;  // native handles
+	int64 owner;
+	bool shown;
+	bool front;    // in front of the process's other shown windows
+	int32 left, top, right, bottom;  // its frame on the screen
+	int32 width, height;             // inside the frame
+};
+
 struct ParameterInfo {
 	int32 id;
 	std::string title;
@@ -82,8 +92,11 @@ public:
 	std::vector<char> controllerState();
 	void setState(const std::vector<char>& component, const std::vector<char>& controller);
 	void reset();
-	bool openEditor();
+	// the plugin's own editor in a window the owner window owns (a native handle; 0, or a handle that is no window: none);
+	// false when it has none for this platform
+	bool openEditor(int64 owner);
 	void closeEditor();
+	EditorWindow editorWindow();
 	// sends the controller a message with the integer and binary attributes; answers its binary attribute "report"
 	std::vector<char> message(const std::string& id, const std::vector<std::pair<std::string, int64>>& integers,
 	                          const std::vector<std::pair<std::string, std::vector<char>>>& binaries);

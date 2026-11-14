@@ -73,7 +73,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 3, not 2", refused.getMessage());
+		assertEquals("the VST3 host speaks version 4, not 3", refused.getMessage());
 	}
 
 	@Test
@@ -285,7 +285,7 @@ public class TestVst3Host {
 
 	@Test
 	public void theEditorOfAPluginWithoutOneDoesNotOpen() throws TGVst3Exception {
-		assertFalse(open("Test Clip 0.5").openEditor());
+		assertFalse(open("Test Clip 0.5").openEditor(0));
 	}
 
 	@Test
@@ -421,9 +421,51 @@ public class TestVst3Host {
 	@Test
 	public void anEditorOpensAgainOnceClosed() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		assertTrue(gain.openEditor());
+		assertTrue(gain.openEditor(0));
 		gain.closeEditor();
-		assertTrue(gain.openEditor());
+		assertTrue(gain.openEditor(0));
+	}
+
+	// the window of a Test Gain editor open in another host process, as TuxGuitar's window is a window of another process
+	private static long windowOfAnotherProcess(TGVst3Host other) throws TGVst3Exception {
+		TGVst3Instance gain = other.open(other.scan(TestPlugins.bundle("Test Gain")).get(0), 44100f, FRAMES);
+		gain.openEditor(0);
+		return gain.getEditorWindow().getWindow();
+	}
+
+	// owned, it stays in front of that window, minimises with it and has no taskbar button of its own
+	@Test
+	public void anEditorOpensInAWindowOwnedByTheWindowGiven() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			long owner = windowOfAnotherProcess(other);
+			TGVst3Instance gain = open("Test Gain");
+			assertTrue(gain.openEditor(owner));
+			TGVst3EditorWindow editor = gain.getEditorWindow();
+			assertNotEquals(0L, owner);
+			assertNotEquals(0L, editor.getWindow());
+			assertEquals(owner, editor.getOwner());
+		}
+	}
+
+	// a handle that is no window any more (that window closed) is no owner
+	@Test
+	public void anEditorGivenNoWindowOrOneThatIsGoneOpensInAWindowOfItsOwn() throws TGVst3Exception {
+		long gone;
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			gone = windowOfAnotherProcess(other);
+		}
+		TGVst3Instance unowned = open("Test Gain");
+		TGVst3Instance stale = open("Test Gain");
+		assertTrue(unowned.openEditor(0));
+		assertTrue(stale.openEditor(gone));
+		assertEquals("0 0", unowned.getEditorWindow().getOwner() + " " + stale.getEditorWindow().getOwner());
+		assertNotEquals(0L, stale.getEditorWindow().getWindow());
+	}
+
+	@Test
+	public void aPluginWithoutAnEditorOpenHasNoEditorWindow() throws TGVst3Exception {
+		TGVst3EditorWindow none = open("Test Gain").getEditorWindow();
+		assertEquals("0 0 false", none.getWindow() + " " + none.getOwner() + " " + none.isShown());
 	}
 
 	@Test
