@@ -19,6 +19,7 @@ import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGDuration;
+import app.tuxguitar.vst3.TGVst3EditorWindow;
 import app.tuxguitar.vst3.TGVst3EffectProcessor;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
@@ -42,6 +43,8 @@ public class EditorSteps {
 	private final RecordingSteps recording;
 	// the state of a plugin before the plugin loaded a preset
 	private byte[] beforePreset;
+	// the native handle of TuxGuitar's window, once a step opened one
+	private long tuxGuitarsWindow;
 
 	public EditorSteps(AudioWorld world, PlaySteps play, RecordingSteps recording) {
 		this.world = world;
@@ -83,6 +86,22 @@ public class EditorSteps {
 		openTheEditor(null, track);
 	}
 
+	// TuxGuitar's window: the window of a Test Gain editor in a host process of its own (the hosts close after the
+	// scenario)
+	private long tuxGuitarsWindow() throws TGVst3Exception {
+		TGVst3Hosting hosting = TGVst3Hosting.getInstance(world.fixture().context);
+		TGVst3Instance window = hosting.open(hosting.find("Test Gain"), 44100f, 512);
+		window.openEditor(0);
+		this.tuxGuitarsWindow = window.getEditorWindow().getWindow();
+		return this.tuxGuitarsWindow;
+	}
+
+	@When("I open the editor of VST3 effect {int} of track {int} from TuxGuitar's window")
+	public void openTheEditorFromTuxGuitarsWindow(int effect, int track) throws TGVst3Exception {
+		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER, tuxGuitarsWindow());
+		openTheEditor(effect, track);
+	}
+
 	// as a crash ends it
 	@Given("the host process of VST3 effect {int} of track {int} has stopped")
 	public void theHostProcessHasStopped(int effect, int track) throws TGVst3Exception {
@@ -98,6 +117,17 @@ public class EditorSteps {
 	@Then("the plugin's own editor of VST3 effect {int} of track {int} is open")
 	public void itsOwnEditorIsOpen(int effect, int track) {
 		assertTrue(editor(effect, track).isOwn());
+	}
+
+	@Then("the plugin's own editor of VST3 effect {int} of track {int} is in a window of its own")
+	public void itsOwnEditorIsInAWindowOfItsOwn(int effect, int track) throws TGVst3Exception {
+		TGVst3EditorWindow editor = running(effect, track).getEditorWindow();
+		assertEquals("true 0", (editor.getWindow() != 0) + " " + editor.getOwner());
+	}
+
+	@Then("the plugin's own editor of VST3 effect {int} of track {int} is in a window TuxGuitar's window owns")
+	public void itsOwnEditorIsInAWindowTuxGuitarsWindowOwns(int effect, int track) throws TGVst3Exception {
+		assertEquals(this.tuxGuitarsWindow, running(effect, track).getEditorWindow().getOwner());
 	}
 
 	@Then("TuxGuitar's parameter editor of VST3 effect {int} of track {int} is open")

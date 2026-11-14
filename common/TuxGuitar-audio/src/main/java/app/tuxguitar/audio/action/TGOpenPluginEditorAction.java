@@ -16,11 +16,15 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * Opens the editor of a VST3 plugin of the context's channel's sound chain: an effect by its number
  * (TGEffectAction.ATTRIBUTE_EFFECT), or, without one, the VST3 instrument that is the source. It changes nothing in the
  * song. Refused, saying why (a TGActionException, whose message an app shows), when that is no VST3 plugin, or the
- * plugin or its editor cannot be opened: the message names it.
+ * plugin or its editor cannot be opened: the message names it. The plugin's own editor is in a window the window given
+ * (ATTRIBUTE_OWNER: TuxGuitar's main window) owns, or, without one, in a window of its own.
  */
 public class TGOpenPluginEditorAction extends TGActionBase {
 
 	public static final String NAME = "action.audio.sound-chain.open-plugin-editor";
+	// the window that owns the plugin's own editor (a Long, its native handle: TuxGuitar's main window), so the editor
+	// stays in front of it; without one, the editor is in a window of its own
+	public static final String ATTRIBUTE_OWNER = "ownerWindow";
 
 	public TGOpenPluginEditorAction(TGContext context) {
 		super(context, NAME);
@@ -34,8 +38,9 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 		if (plugin == null) {
 			throw new TGActionException(TGSoundChain.name(chain, effect, channel) + " is not a VST3 plugin: it has no editor to open");
 		}
+		Long owner = context.getAttribute(ATTRIBUTE_OWNER);
 		try {
-			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId());
+			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), (owner != null ? owner : 0));
 			context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
