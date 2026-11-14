@@ -626,6 +626,48 @@ public class TestVst3Host {
 		assertEquals("true " + (editor.getDpi() / 96.0), editor.isPerMonitorDpiAware() + " " + view(gain)[0]);
 	}
 
+	private static Map<String, Long> size(long width, long height) {
+		Map<String, Long> size = new java.util.HashMap<String, Long>();
+		size.put("width", width);
+		size.put("height", height);
+		return size;
+	}
+
+	// what the window and the view say of the size: the window's inside, the view's size, whether the window has a
+	// border the user can drag
+	private static String sizes(TGVst3Instance plugin) throws TGVst3Exception {
+		TGVst3EditorWindow editor = plugin.getEditorWindow();
+		double[] view = view(plugin);
+		return editor.getInside() + " " + (int) view[1] + "x" + (int) view[2] + " " + editor.isResizable();
+	}
+
+	// a view that asks its host for another size (IPlugFrame.resizeView) gets it: the window's inside takes it, and the
+	// view is told it; a view that cannot be resized gives its window no border to drag
+	// the sizes once the test message ("TG.resize", "TG.drag-to") of that size is played
+	private static String sizesAfter(TGVst3Instance plugin, String message, long width, long height) throws TGVst3Exception {
+		plugin.message(message, size(width, height), Collections.<String, byte[]>emptyMap());
+		return sizes(plugin);
+	}
+
+	@Test
+	public void aViewThatAsksForAnotherSizeGetsItsWindowResized() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		String before = sizes(gain);
+		assertEquals("200x100 200x100 false | 300x150 300x150 false", before + " | " + sizesAfter(gain, "TG.resize", 300, 150));
+	}
+
+	// a view that can be resized has a window with a border the user can drag; the view is told each size, down to the
+	// smallest it accepts (Test Gain's made resizable: 150 by 80)
+	@Test
+	public void aResizableViewsWindowIsResizedByTheUserWithinWhatTheViewAccepts() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.message("TG.resizable", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		gain.openEditor(0, "");
+		String larger = sizesAfter(gain, "TG.drag-to", 260, 140);
+		assertEquals("260x140 260x140 true | 150x80 150x80 true", larger + " | " + sizesAfter(gain, "TG.drag-to", 100, 40));
+	}
+
 	// a window gone to a screen of another DPI takes the frame Windows suggests, and its view is told the new scale
 	@Test
 	public void anEditorsWindowGoneToAScreenOfAnotherDpiTakesTheFrameSuggestedAndTellsItsView() throws TGVst3Exception {

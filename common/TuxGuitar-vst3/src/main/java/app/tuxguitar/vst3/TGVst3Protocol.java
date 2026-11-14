@@ -46,7 +46,8 @@ final class TGVst3Protocol {
 	static final int MESSAGE = 14;
 	// (for checks) instance -> its editor's window and that window's owner (native handles; 0: none), shown (1 or 0), in
 	// front of the host's other shown windows (1 or 0), its frame on the screen (left, top, right, bottom), the size
-	// inside the frame (width, height), its title, the DPI of its screen, and whether it is per-monitor DPI aware (1 or 0)
+	// inside the frame (width, height), its title, the DPI of its screen, whether it is per-monitor DPI aware (1 or 0),
+	// whether it has a border the user can drag (1 or 0)
 	static final int EDITOR_WINDOW = 15;
 
 	private TGVst3Protocol() {

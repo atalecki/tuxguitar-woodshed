@@ -37,14 +37,20 @@ struct PluginSpec {
 	std::vector<PresetSpec> presets;
 };
 
-// what a test plugin knows of its editor's view: the window it is in, while it is in one, the content scale its host
-// last gave it, and the size its host last gave it
+// what a test plugin knows of its editor's view: the view and the window it is in, while it is in one, the content
+// scale and the size its host last gave it, and whether the views it makes can be resized (by the user, down to
+// kSmallestView)
 struct ViewState {
+	void* view = nullptr;
 	void* window = nullptr;
 	double scale = 0.0;
 	int32 width = 0;
 	int32 height = 0;
+	bool resizable = false;
 };
+
+const int32 kSmallestViewWidth = 150;
+const int32 kSmallestViewHeight = 80;
 
 // the parameter that selects a preset
 const ParamID kPresetParam = 1000;
@@ -101,6 +107,7 @@ private:
 	void gestureNow();
 	static std::vector<double> doubles(IAttributeList* attributes);
 	tresult viewMessage(FIDString id, IAttributeList* attributes);
+	tresult sizeMessage(FIDString id, IAttributeList* attributes);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
 

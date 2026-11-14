@@ -390,6 +390,7 @@ private:
 		wire.writeString(facts.title);
 		wire.writeInt(facts.dpi);
 		wire.writeInt(facts.perMonitorDpiAware ? 1 : 0);
+		wire.writeInt(facts.resizable ? 1 : 0);
 	}
 
 	// a message to the plugin's controller, with integer and binary attributes; the reply holds its report

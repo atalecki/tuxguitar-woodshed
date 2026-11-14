@@ -7,6 +7,7 @@
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -77,6 +78,18 @@ std::vector<double> changeDpi(void* parent, int64 dpi) {
 	SendMessageW(window, WM_DPICHANGED, MAKEWPARAM(dpi, dpi), (LPARAM) &suggested);
 	return std::vector<double>{(double) suggested.left, (double) suggested.top, (double) suggested.right, (double) suggested.bottom};
 }
+
+// as the user drags the border of the window the editor is in until the inside is that size
+void dragTo(void* parent, int64 width, int64 height) {
+	HWND window = (HWND) parent;
+	RECT frame = {};
+	RECT inside = {};
+	GetWindowRect(window, &frame);
+	GetClientRect(window, &inside);
+	int extraWidth = (frame.right - frame.left) - inside.right;
+	int extraHeight = (frame.bottom - frame.top) - inside.bottom;
+	SetWindowPos(window, nullptr, 0, 0, (int) width + extraWidth, (int) height + extraHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
 #else
 const bool inModal = false;
 
@@ -85,6 +98,8 @@ void startModal(int64, int64) {}
 void closeWindow(void*) {}
 
 std::vector<double> changeDpi(void*, int64) { return std::vector<double>(); }
+
+void dragTo(void*, int64, int64) {}
 #endif
 
 tresult reportDoubles(IAttributeList* attributes, const std::vector<double>& values) {
@@ -101,18 +116,36 @@ void going() {
 }
 
 // an editor with nothing on it: enough for a host to open it in a window of its own. The plugin knows the window it is
-// in and the content scale its host gave it (ViewState)
+// in and the content scale and size its host gave it (ViewState); it can ask its host for another size, and, made
+// resizable, the user can resize it down to kSmallestView
 class TestView : public CPluginView, public IPlugViewContentScaleSupport {
 public:
-	explicit TestView(ViewState* state) : CPluginView(nullptr), state(state) {
+	explicit TestView(ViewState* state) : CPluginView(nullptr), state(state), resizable(state->resizable) {
 		ViewRect size(0, 0, 200, 100);
 		setRect(size);
 	}
 
 	tresult PLUGIN_API attached(void* parent, FIDString type) SMTG_OVERRIDE {
+		state->view = this;
 		state->window = parent;
 		sized(getRect());
 		return CPluginView::attached(parent, type);
+	}
+
+	// as an editor that asks its host for another size (its own layout changed, or the user chose a larger one)
+	void askSize(int64 width, int64 height) {
+		ViewRect size(0, 0, (int32) width, (int32) height);
+		if (plugFrame) {
+			plugFrame->resizeView(this, &size);
+		}
+	}
+
+	tresult PLUGIN_API canResize() SMTG_OVERRIDE { return (resizable ? kResultTrue : kResultFalse); }
+
+	tresult PLUGIN_API checkSizeConstraint(ViewRect* rect) SMTG_OVERRIDE {
+		rect->right = rect->left + std::max(rect->getWidth(), kSmallestViewWidth);
+		rect->bottom = rect->top + std::max(rect->getHeight(), kSmallestViewHeight);
+		return kResultTrue;
 	}
 
 	tresult PLUGIN_API onSize(ViewRect* newSize) SMTG_OVERRIDE {
@@ -121,6 +154,7 @@ public:
 	}
 
 	tresult PLUGIN_API removed() SMTG_OVERRIDE {
+		state->view = nullptr;
 		state->window = nullptr;
 		going();
 		return CPluginView::removed();
@@ -150,6 +184,7 @@ private:
 	}
 
 	ViewState* state;
+	bool resizable;
 };
 
 SpeakerArrangement arrangement(int32 channels) {
@@ -335,7 +370,8 @@ IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 
 // the test messages on the editor's view and window (kNotImplemented for others): "TG.close-window" clicks the close
 // box of the window the editor is in; "TG.view" answers the view's content scale, width and height (doubles);
-// "TG.dpi-changed" tells the window it went to a screen of that "dpi", as Windows does, and answers the frame suggested
+// "TG.dpi-changed" tells the window it went to a screen of that "dpi", as Windows does, and answers the frame suggested;
+// "TG.resizable" makes the views made from now on resizable; and those on its size (sizeMessage)
 tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "TG.close-window") == 0) {
 		closeWindow(view.window);
@@ -348,6 +384,28 @@ tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
 		int64 dpi = 96;
 		attributes->getInt("dpi", dpi);
 		return reportDoubles(attributes, changeDpi(view.window, dpi));
+	}
+	if (std::strcmp(id, "TG.resizable") == 0) {
+		view.resizable = true;
+		return kResultOk;
+	}
+	return sizeMessage(id, attributes);
+}
+
+// "TG.resize": the view asks its host for that "width" and "height"; "TG.drag-to": the user drags the window's border
+// until its inside is that "width" and "height" (kNotImplemented for others)
+tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
+	int64 width = 0;
+	int64 height = 0;
+	attributes->getInt("width", width);
+	attributes->getInt("height", height);
+	if (std::strcmp(id, "TG.resize") == 0 && view.view) {
+		static_cast<TestView*>(view.view)->askSize(width, height);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.drag-to") == 0) {
+		dragTo(view.window, width, height);
+		return kResultOk;
 	}
 	return kNotImplemented;
 }

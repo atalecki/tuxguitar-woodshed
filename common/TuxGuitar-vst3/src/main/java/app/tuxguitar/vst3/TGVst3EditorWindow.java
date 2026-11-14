@@ -19,6 +19,7 @@ public final class TGVst3EditorWindow {
 	private final String title;
 	private final int dpi;
 	private final boolean perMonitorDpiAware;
+	private final boolean resizable;
 
 	// the fields in the order of the reply
 	private TGVst3EditorWindow(DataInputStream in) throws IOException {
@@ -31,6 +32,12 @@ public final class TGVst3EditorWindow {
 		this.title = TGVst3Request.readString(in);
 		this.dpi = in.readInt();
 		this.perMonitorDpiAware = (in.readInt() == 1);
+		this.resizable = (in.readInt() == 1);
+	}
+
+	// whether it has a border the user can drag (its view can be resized)
+	public boolean isResizable() {
+		return this.resizable;
 	}
 
 	// the reply to an editor window request (see TGVst3Protocol)

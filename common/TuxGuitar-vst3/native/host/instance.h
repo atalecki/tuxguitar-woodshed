@@ -62,6 +62,7 @@ struct EditorWindow {
 	std::string title;               // its caption, UTF-8
 	int32 dpi;                       // of its screen
 	bool perMonitorDpiAware;         // per monitor, version 2
+	bool resizable;                  // a border the user can drag
 };
 
 #ifdef _WIN32
@@ -108,6 +109,12 @@ public:
 	EditorWindow editorWindow();
 	// tells the editor's view the scale of its screen (its DPI over 96), when the view takes one
 	void scaleView(double factor);
+	// what the view asks (IPlugFrame.resizeView): its window's inside takes that size; false when it has no window
+	bool resizeView(int32 width, int32 height);
+	// the window's inside took that size: the view is told
+	void viewSized(int32 width, int32 height);
+	// the size nearest to that one the view accepts, when it can be resized (else false, the size as it was)
+	bool constrainView(int32& width, int32& height);
 	// sends the controller a message with the integer and binary attributes; answers its binary attribute "report"
 	std::vector<char> message(const std::string& id, const std::vector<std::pair<std::string, int64>>& integers,
 	                          const std::vector<std::pair<std::string, std::vector<char>>>& binaries);
@@ -139,6 +146,8 @@ private:
 	bool separateController = false;
 	IPtr<Vst::IComponentHandler> handler;
 	IPtr<IPlugView> view;
+	// what the view asks of its window
+	IPtr<IPlugFrame> frame;
 	void* window = nullptr;
 	int32 inputChannels = 0;
 	int32 outputChannels = 0;

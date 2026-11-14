@@ -39,6 +39,19 @@ private:
 	Instance* instance;
 };
 
+// what an editor's view asks of the window it is in: another size
+class PlugFrame : public U::Implements<U::Directly<IPlugFrame>> {
+public:
+	explicit PlugFrame(Instance* instance) : instance(instance) {}
+
+	tresult PLUGIN_API resizeView(IPlugView*, ViewRect* newSize) override {
+		return (newSize && instance->resizeView(newSize->getWidth(), newSize->getHeight()) ? kResultTrue : kResultFalse);
+	}
+
+private:
+	Instance* instance;
+};
+
 // a stream over bytes in memory
 class ByteStream : public U::Implements<U::Directly<IBStream>> {
 public:
@@ -397,15 +410,35 @@ HWND frontWindow() {
 	return nullptr;
 }
 
-// a caption with a close box, no resizing (the view keeps the size it asked for)
+// a caption with a close box; a border to drag only when the view can be resized
 const DWORD kEditorStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
 
-// the instance whose editor is in the window
+// the instance whose editor is in the window (none while the window is being made)
 Instance* editing(HWND window) { return reinterpret_cast<Instance*>(GetWindowLongPtrW(window, GWLP_USERDATA)); }
+
+// the frame of a window of that style whose inside is that size, at that DPI
+SIZE frameFor(DWORD style, LONG width, LONG height, UINT dpi) {
+	RECT frame = {0, 0, width, height};
+	AdjustWindowRectExForDpi(&frame, style, FALSE, 0, dpi);
+	return SIZE{frame.right - frame.left, frame.bottom - frame.top};
+}
+
+DWORD styleOf(HWND window) { return (DWORD) GetWindowLongPtrW(window, GWL_STYLE); }
+
+// a new size of the window, as the user drags its border: the inside is the size nearest to it the view accepts
+void constrain(HWND window, WINDOWPOS* position) {
+	SIZE border = frameFor(styleOf(window), 0, 0, GetDpiForWindow(window));
+	int32 width = position->cx - border.cx;
+	int32 height = position->cy - border.cy;
+	if (!(position->flags & SWP_NOSIZE) && editing(window) && editing(window)->constrainView(width, height)) {
+		position->cx = width + border.cx;
+		position->cy = height + border.cy;
+	}
+}
 
 // closing an editor's window (its close box, Alt+F4) hides it, the plugin's view still in it: Edit shows it again. The
 // window is destroyed when TuxGuitar closes the editor. Gone to a screen of another DPI, it tells the view that screen's
-// scale and takes the frame Windows suggests
+// scale and takes the frame Windows suggests. Resized, it tells the view, within the sizes the view accepts
 LRESULT CALLBACK editorProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	if (message == WM_CLOSE) {
 		ShowWindow(window, SW_HIDE);
@@ -416,6 +449,12 @@ LRESULT CALLBACK editorProcedure(HWND window, UINT message, WPARAM wParam, LPARA
 		editing(window)->scaleView(HIWORD(wParam) / (double) USER_DEFAULT_SCREEN_DPI);
 		SetWindowPos(window, nullptr, frame->left, frame->top, frame->right - frame->left, frame->bottom - frame->top, SWP_NOZORDER | SWP_NOACTIVATE);
 		return 0;
+	}
+	if (message == WM_WINDOWPOSCHANGING) {
+		constrain(window, reinterpret_cast<WINDOWPOS*>(lParam));
+	}
+	if (message == WM_SIZE && editing(window)) {
+		editing(window)->viewSized(LOWORD(lParam), HIWORD(lParam));
 	}
 	return DefWindowProcW(window, message, wParam, lParam);
 }
@@ -516,14 +555,14 @@ bool Instance::createEditor(int64 owner) {
 	HWND ownerWindow = (IsWindow((HWND) (intptr_t) owner) ? (HWND) (intptr_t) owner : nullptr);
 	UINT dpi = (ownerWindow ? GetDpiForWindow(ownerWindow) : GetDpiForSystem());
 	scaleView(dpi / (double) USER_DEFAULT_SCREEN_DPI);
+	frame = owned(new PlugFrame(this));
+	view->setFrame(frame);
 	ViewRect size = {0, 0, 400, 300};
 	view->getSize(&size);
-	RECT frame = {0, 0, size.getWidth(), size.getHeight()};
-	AdjustWindowRectExForDpi(&frame, kEditorStyle, FALSE, 0, dpi);
-	LONG width = frame.right - frame.left;
-	LONG height = frame.bottom - frame.top;
-	POINT at = editorPosition(ownerWindow, width, height);
-	window = CreateWindowExW(0, editorClass(), L"", kEditorStyle, at.x, at.y, width, height, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
+	DWORD style = kEditorStyle | (view->canResize() == kResultTrue ? WS_THICKFRAME : 0);
+	SIZE outside = frameFor(style, size.getWidth(), size.getHeight(), dpi);
+	POINT at = editorPosition(ownerWindow, outside.cx, outside.cy);
+	window = CreateWindowExW(0, editorClass(), L"", style, at.x, at.y, outside.cx, outside.cy, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
 	if (window) {
 		SetWindowLongPtrW((HWND) window, GWLP_USERDATA, (LONG_PTR) this);
 	}
@@ -534,11 +573,24 @@ bool Instance::createEditor(int64 owner) {
 	return true;
 }
 
+bool Instance::resizeView(int32 width, int32 height) {
+	HWND sized = (HWND) window;
+	if (!sized) {
+		return false;
+	}
+	SIZE outside = frameFor(styleOf(sized), width, height, GetDpiForWindow(sized));
+	return (SetWindowPos(sized, nullptr, 0, 0, outside.cx, outside.cy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) != FALSE);
+}
+
 void Instance::closeEditor() {
 	if (view && window) {
 		view->removed();
 	}
+	if (view) {
+		view->setFrame(nullptr);
+	}
 	view = nullptr;
+	frame = nullptr;
 	if (window) {
 		DestroyWindow((HWND) window);
 		window = nullptr;
@@ -564,6 +616,7 @@ EditorWindow Instance::editorWindow() {
 		facts.title = caption(shown);
 		facts.dpi = (int32) GetDpiForWindow(shown);
 		facts.perMonitorDpiAware = (AreDpiAwarenessContextsEqual(GetWindowDpiAwarenessContext(shown), DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) != FALSE);
+		facts.resizable = ((GetWindowLongPtrW(shown, GWL_STYLE) & WS_THICKFRAME) != 0);
 	}
 	return facts;
 }
@@ -574,7 +627,27 @@ bool Instance::openEditor(int64, const std::string&) { return false; }
 void Instance::closeEditor() { view = nullptr; }
 
 EditorWindow Instance::editorWindow() { return EditorWindow{}; }
+
+bool Instance::resizeView(int32, int32) { return false; }
 #endif
+
+void Instance::viewSized(int32 width, int32 height) {
+	if (view) {
+		ViewRect size(0, 0, width, height);
+		view->onSize(&size);
+	}
+}
+
+bool Instance::constrainView(int32& width, int32& height) {
+	if (!view || view->canResize() != kResultTrue) {
+		return false;
+	}
+	ViewRect size(0, 0, width, height);
+	view->checkSizeConstraint(&size);
+	width = size.getWidth();
+	height = size.getHeight();
+	return true;
+}
 
 void Instance::scaleView(double factor) {
 	FUnknownPtr<IPlugViewContentScaleSupport> scaled(view);
