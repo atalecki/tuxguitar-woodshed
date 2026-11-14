@@ -16,11 +16,14 @@ import javax.sound.sampled.AudioInputStream;
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGMidiProcessor;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 
 import media.sound.AudioSynthesizer;
 import media.sound.SoftSynthesizer;
 
 public class GervillProcessor implements TGMidiProcessor {
+
+	private static final TGLog LOG = TGLog.get(GervillProcessor.class);
 
 	private static final String SYNTH_PROGRAM_PARAM = "gervil.program";
 	private static final String SYNTH_CHANNEL_MODE_PARAM = "gervil.channel.mode";
@@ -228,7 +231,7 @@ public class GervillProcessor implements TGMidiProcessor {
 
 			this.loadProgram(this.followed(program));
 		} catch (RuntimeException e) {
-			e.printStackTrace();
+			LOG.warn("the Gervill parameters " + parameters + " are not a program", e);
 		}
 	}
 
