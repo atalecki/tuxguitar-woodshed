@@ -27,6 +27,8 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	private float sampleRate = TGAudioBuffer.SAMPLE_RATE;
 	private TGVst3Plugin plugin;
 	private TGVst3Instance instance;
+	// why no plugin is open (null while one is, and before the first)
+	private String problem;
 	// the state the plugin opened with
 	private TGVst3State opened;
 
@@ -48,7 +50,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 			}
 			this.restore(parameters);
 		} catch (TGVst3Exception e) {
-			this.lost();
+			this.lost(e);
 		}
 	}
 
@@ -60,8 +62,12 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	private void open(TGVst3Plugin wanted) throws TGVst3Exception {
 		this.close();
 		this.plugin = wanted;
-		this.instance = (wanted != null ? this.hosting.open(wanted, this.sampleRate, FRAMES) : null);
-		this.opened = (this.instance != null ? this.instance.getState() : null);
+		if (wanted == null) {
+			throw new TGVst3Exception("the element names no VST3 plugin");
+		}
+		this.instance = this.hosting.open(wanted, this.sampleRate, FRAMES);
+		this.opened = this.instance.getState();
+		this.problem = null;
 	}
 
 	// the element's state, else the one the plugin opened with (a plugin running the element again goes back to it)
@@ -82,7 +88,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 				TGVst3Element.store(parameters, this.plugin, this.instance.getState());
 			}
 		} catch (TGVst3Exception e) {
-			this.lost();
+			this.lost(e);
 		}
 	}
 
@@ -110,7 +116,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 				return;
 			}
 		} catch (TGVst3Exception e) {
-			this.lost();
+			this.lost(e);
 		}
 		for (float[] side : samples) {
 			java.util.Arrays.fill(side, 0f);
@@ -136,9 +142,15 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		return Collections.emptyList();
 	}
 
-	// the host process stopped and the plugin with it (or refused it): closed, it is silent until opened again
-	private void lost() {
+	// the host process stopped and the plugin with it (or refused it): closed, it is silent until opened again, and the
+	// reason kept
+	private void lost(TGVst3Exception reason) {
+		this.problem = reason.getMessage();
 		this.close();
+	}
+
+	public String getProblem() {
+		return this.problem;
 	}
 
 	public int getLatency() {

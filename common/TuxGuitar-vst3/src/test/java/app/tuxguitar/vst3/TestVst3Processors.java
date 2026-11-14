@@ -384,6 +384,7 @@ public class TestVst3Processors {
 		processor.process(block);
 		assertEquals(0f, block[0][0]);
 		assertFalse(processor.isOpen());
+		assertTrue(((TGVst3PluginProcessor) processor).getProblem().startsWith("the VST3 host stopped"), ((TGVst3PluginProcessor) processor).getProblem());
 		assertEquals(0, processor.getLatency());
 		processor.storeParameters(new HashMap<String, String>());
 		effect(element("Test Gain")).process(block = level(0.25f));
@@ -451,6 +452,20 @@ public class TestVst3Processors {
 		assertEquals(0f, block[1][0]);
 		assertFalse(processor.isOpen());
 		assertFalse(processor.isBusy());
+		assertEquals("the element names no VST3 plugin", ((TGVst3PluginProcessor) processor).getProblem());
+	}
+
+	// a plugin that cannot be opened (its module is not installed on this computer) sounds nothing, and its processor
+	// tells the host's reason; a processor whose plugin is open tells none
+	@Test
+	public void anElementWhosePluginCannotBeOpenedTellsTheHostsReason(@TempDir File folder) {
+		File missing = new File(folder, "Missing Amp.vst3");
+		TGVst3Plugin gain = this.hosting.find("Test Gain");
+		TGAudioProcessor processor = effect(TGVst3Element.create("e1", new TGVst3Plugin(missing.getPath(), gain.getClassId(), "Missing Amp", false)));
+		assertFalse(processor.isOpen());
+		String problem = ((TGVst3PluginProcessor) processor).getProblem();
+		assertTrue(problem.startsWith("not a VST3 module: " + missing.getPath()), problem);
+		assertNull(((TGVst3PluginProcessor) effect(element("Test Gain"))).getProblem());
 	}
 
 	// the state a plugin holds replaces the parameters set on the element before it
