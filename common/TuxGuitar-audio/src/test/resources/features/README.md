@@ -75,7 +75,10 @@ a crossfade, for now. Live scenarios that play passes turn Play looped off durin
 it ends. The whole chain on this machine's real devices is an opt-in
 test: `mvn test -Dtest=TestRealDevice -Dtg.audio.native=<TuxGuitar-audio-device's native-build/lib>` (skipped, saying
 so, without it).
-No scenario is `@planned` any more.
+Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
+TuxGuitar gives a capture to the real "Neural Amp Modeler" (its VST3 state holds the capture's path; no public
+format), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
+impulse response (`.wav`) dropped the same way goes to the capture player's IR slot.
 
 The conventions are those of `common/TuxGuitar-editor-utils/src/test/resources/features/README.md`: first person, in
 the words of someone using TuxGuitar; behaviour, never the GUI; the action under test is the one `When`; earlier actions
@@ -108,6 +111,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `recording/recording_line_in` | arming, input channels and level, Count In, monitoring, recording at another Percentage of Tempo |
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
 | `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain |
+| `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
@@ -374,6 +378,7 @@ These features change how TuxGuitar works today. They are requirements, not side
 | `Test Tempo` | VST3 effect | passes the signal and records the tempo, time signature, play state and musical position it is given | 0 | 0 |
 | `Test Sine` | VST3 instrument | a sine at each note's pitch, peaking at 0.5 × velocity / 127, following per-note tuning | 0 | 0 |
 | `Test Click` | VST3 instrument | a click of +0.5 at the start of each note, delayed by its parameter `Latency` (0 by default) | `Latency` | 0 |
+| `Test Capture` (planned) | VST3 effect | a capture player: multiplies the signal by the gain its NAM capture holds (1.0 with none), and reports the capture it plays; the capture's path is in its state | 0 | 0 |
 
 Each test plugin keeps a state of 1 KB that changes with its parameters and its preset, so saving can be checked byte
 for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
