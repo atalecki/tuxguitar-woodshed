@@ -95,14 +95,23 @@ public class TGPluginManager {
 	}
 
 	public void connectPlugin(TGPlugin tgPlugin) {
+		this.change(tgPlugin, " connected: ", PLUGIN_ERROR_ON_CONNECT, plugin -> plugin.connect(this.context));
+	}
+
+	// the plugin connected or disconnected, logged; its failure handled as it is, an unexpected one wrapped
+	private void change(TGPlugin tgPlugin, String done, String failure, Change change) {
 		try {
-			tgPlugin.connect(this.context);
-			LOG.info("plugin " + tgPlugin.getModuleId() + " connected: " + tgPlugin.getClass().getName());
+			change.apply(tgPlugin);
+			LOG.info("plugin " + tgPlugin.getModuleId() + done + tgPlugin.getClass().getName());
 		} catch(TGPluginException exception) {
 			TGErrorManager.getInstance(this.context).handleError(exception);
 		} catch(Throwable throwable) {
-			TGErrorManager.getInstance(this.context).handleError(new TGPluginException(PLUGIN_ERROR_ON_CONNECT, throwable));
+			TGErrorManager.getInstance(this.context).handleError(new TGPluginException(failure, throwable));
 		}
+	}
+
+	private interface Change {
+		void apply(TGPlugin plugin) throws TGPluginException;
 	}
 
 	public void earlyInitPlugin(TGEarlyInitPlugin tgPlugin) {
@@ -118,14 +127,7 @@ public class TGPluginManager {
 	}
 
 	public void disconnectPlugin(TGPlugin tgPlugin) {
-		try {
-			tgPlugin.disconnect(this.context);
-			LOG.info("plugin " + tgPlugin.getModuleId() + " disconnected: " + tgPlugin.getClass().getName());
-		} catch(TGPluginException exception) {
-			TGErrorManager.getInstance(this.context).handleError(exception);
-		} catch(Throwable throwable) {
-			TGErrorManager.getInstance(this.context).handleError(new TGPluginException(PLUGIN_ERROR_ON_DISCONNECT, throwable));
-		}
+		this.change(tgPlugin, " disconnected: ", PLUGIN_ERROR_ON_DISCONNECT, plugin -> plugin.disconnect(this.context));
 	}
 
 	public void updatePluginStatus(String moduleId, boolean enabled) {
