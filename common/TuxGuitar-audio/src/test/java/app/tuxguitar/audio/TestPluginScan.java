@@ -46,6 +46,14 @@ class TestPluginScan {
 			TGPluginScan.of(FOLDERS, plugins, skipped, NO_CAPTURES).getLines());
 	}
 
+	// what the user most likely looks for comes first: the captures' hint before the long reasons of the modules skipped
+	@Test
+	void theCapturesHintComesBeforeTheModulesSkipped() {
+		List<TGVst3SkippedModule> skipped = Arrays.asList(new TGVst3SkippedModule(new File("local", "NamModels.vst3"), "not a VST3 module"));
+		List<String> lines = TGPluginScan.of(FOLDERS, Collections.<TGVst3Plugin>emptyList(), skipped, captures(1)).getLines();
+		assertEquals("NAM captures found: 1. | Skipped NamModels.vst3: not a VST3 module", lines.get(1).substring(0, lines.get(1).indexOf('.') + 1) + " | " + lines.get(2));
+	}
+
 	// a capture is a model of an amp or pedal, not a plugin: the user learns which plugin plays it
 	@Test
 	void nAMCapturesInTheFoldersAreSaidToBePlayedByTheNeuralAmpModelerWhichIsNotInstalled() {

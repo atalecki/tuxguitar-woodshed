@@ -11,9 +11,9 @@ import app.tuxguitar.vst3.TGVst3SkippedModule;
 
 /**
  * What a scan of the VST3 folders found, as an app shows it to the user, a line each: how many VST3 effects and VST3
- * instruments; each module it skipped, and why; when the folders hold NAM captures (CAPTURE files: models of an amp or
- * pedal, which are not plugins), that the Neural Amp Modeler plugin plays them, and whether it is installed; last, the
- * folders scanned.
+ * instruments; when the folders hold NAM captures (CAPTURE files: models of an amp or pedal, which are not plugins),
+ * that the Neural Amp Modeler plugin plays them, and whether it is installed; each module it skipped, and why (long:
+ * after the hint); last, the folders scanned.
  */
 public final class TGPluginScan {
 
@@ -34,10 +34,10 @@ public final class TGPluginScan {
 		List<String> lines = new ArrayList<String>();
 		long instruments = plugins.stream().filter(TGVst3Plugin::isInstrument).count();
 		lines.add("VST3 effects found: " + (plugins.size() - instruments) + ". VST3 instruments found: " + instruments + ".");
-		skipped.forEach(module -> lines.add("Skipped " + module.getModule().getName() + ": " + module.getReason()));
 		if (!captures.isEmpty()) {
 			lines.add(captures(captures.size(), plugins));
 		}
+		skipped.forEach(module -> lines.add("Skipped " + module.getModule().getName() + ": " + module.getReason()));
 		lines.add("Folders scanned: " + folders.stream().map(File::getPath).collect(Collectors.joining(", ")));
 		return new TGPluginScan(lines);
 	}
