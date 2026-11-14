@@ -29,12 +29,12 @@ Feature: Hosting VST3 plugins
     Then the scan reports "VST3 effects found: 8. VST3 instruments found: 2."
     And the scan reports a line starting "Folders scanned: "
 
-  Scenario: a folder of NAM captures named like a VST3 plugin is skipped, and the scan reports why and which plugin plays the captures
+  Scenario: a folder of NAM captures named like a VST3 plugin is skipped, and the scan reports why and which plugins play the captures
     Given the VST3 folders also hold a folder "NamModels.vst3" holding the NAM capture "Clean.nam"
     And the VST3 folders also hold the NAM capture "MRSH Lead.nam"
     When I scan the VST3 folders
     Then the scan reports a line starting "Skipped NamModels.vst3: not a VST3 module: "
-    And the scan reports "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it, and it is not installed. Install it, add it as a VST3 effect, then load the capture in its editor."
+    And the scan reports "NAM captures found: 2. A .nam capture is a model of an amp or pedal, not a plugin: a NAM capture player plays it, and the scan recognised none. Install Gateway (the official Neural Amp Modeler plugin, free from the Neural Amp Modeler website) or the TONE3000 plugin (free from tone3000.com); A2 captures need one of these two. Add the player to the track as a VST3 effect after the instrument, then load the capture in its editor."
     And the VST3 effects read "Test Clip 0.5, Test Drone, Test Echo, Test Gain, Test Hang, Test Latency, Test Stereo, Test Tempo"
 
   Scenario: VST3 plugins run in a process apart from TuxGuitar, and nothing listens on a network port

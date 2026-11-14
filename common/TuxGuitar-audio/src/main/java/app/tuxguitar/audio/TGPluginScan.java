@@ -19,6 +19,10 @@ public final class TGPluginScan {
 
 	// what the name of a NAM capture's file ends with
 	public static final String CAPTURE = ".nam";
+	// the captures' hint when no capture player is installed: the two to choose from (both play A2 captures)
+	private static final String NO_PLAYER = "a NAM capture player plays it, and the scan recognised none. Install "
+		+ TGCapturePlayer.GATEWAY.getLabel() + " (the official Neural Amp Modeler plugin, free from the Neural Amp Modeler website) or "
+		+ TGCapturePlayer.TONE3000.getLabel() + " (free from tone3000.com); A2 captures need one of these two. Add the player";
 	public static final TGPluginScan NONE = new TGPluginScan(Collections.singletonList("The VST3 folders have not been scanned yet."));
 
 	private final List<String> lines;
@@ -44,10 +48,12 @@ public final class TGPluginScan {
 		return new TGPluginScan(Collections.singletonList("The VST3 folders could not be scanned: " + reason));
 	}
 
+	// what a capture is, which player plays it (or which to install), and where the player goes
 	private static String captures(int count, List<TGVst3Plugin> plugins) {
-		String player = (TGCapturePlayer.installed(plugins).isEmpty() ? ", and it is not installed. Install it, add it" : ". Add it");
-		return "NAM captures found: " + count + ". A NAM capture is not a plugin: " + TGCapturePlayer.NEURAL_AMP_MODELER.getLabel() + " plays it" + player
-			+ " as a VST3 effect, then load the capture in its editor.";
+		String players = TGCapturePlayer.installed(plugins).stream().map(TGCapturePlayer::getLabel).collect(Collectors.joining(" or "));
+		String player = (players.isEmpty() ? NO_PLAYER : players + " plays it. Add " + players);
+		return "NAM captures found: " + count + ". A .nam capture is a model of an amp or pedal, not a plugin: " + player
+			+ " to the track as a VST3 effect after the instrument, then load the capture in its editor.";
 	}
 
 	public List<String> getLines() {

@@ -22,11 +22,18 @@ class TestPluginScan {
 	private static final List<File> FOLDERS = Arrays.asList(new File("common"), new File("local"));
 	private static final List<File> NO_CAPTURES = Collections.<File>emptyList();
 	private static final List<TGVst3SkippedModule> NONE_SKIPPED = Collections.<TGVst3SkippedModule>emptyList();
-	// the captures' hint when no plugin that plays them is installed, and when one is
-	private static final String NOT_INSTALLED = "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it, and it is not installed."
-		+ " Install it, add it as a VST3 effect, then load the capture in its editor.";
-	private static final String INSTALLED = "NAM captures found: 2. A NAM capture is not a plugin: the Neural Amp Modeler plugin plays it."
-		+ " Add it as a VST3 effect, then load the capture in its editor.";
+	// the captures' hint when no plugin that plays them is installed: what a capture is, the two players to choose from,
+	// and where the player goes
+	private static final String NOT_INSTALLED = "NAM captures found: 2. A .nam capture is a model of an amp or pedal, not a plugin:"
+		+ " a NAM capture player plays it, and the scan recognised none. Install Gateway (the official Neural Amp Modeler plugin,"
+		+ " free from the Neural Amp Modeler website) or the TONE3000 plugin (free from tone3000.com); A2 captures need one of"
+		+ " these two. Add the player to the track as a VST3 effect after the instrument, then load the capture in its editor.";
+
+	// the captures' hint when the players named are installed
+	private static String installed(String players) {
+		return "NAM captures found: 2. A .nam capture is a model of an amp or pedal, not a plugin: " + players + " plays it. Add "
+			+ players + " to the track as a VST3 effect after the instrument, then load the capture in its editor.";
+	}
 
 	private static TGVst3Plugin plugin(String name, boolean instrument) {
 		return new TGVst3Plugin(name + ".vst3", "class", name, instrument);
@@ -69,7 +76,7 @@ class TestPluginScan {
 	// the old plugin installs as "NeuralAmpModeler"; its name is matched without spaces and case
 	@Test
 	void withTheNeuralAmpModelerInstalledTheUserIsToldToLoadTheCaptureInIt() {
-		assertEquals(INSTALLED + " | " + INSTALLED, captureLine(Arrays.asList(plugin("NeuralAmpModeler", false))) + " | " + captureLine(Arrays.asList(plugin("Gain", false), plugin("neural amp modeler", false))));
+		assertEquals(times(2, installed("the Neural Amp Modeler plugin")), captureLine(Arrays.asList(plugin("NeuralAmpModeler", false))) + " | " + captureLine(Arrays.asList(plugin("Gain", false), plugin("neural amp modeler", false))));
 	}
 
 	// the hint of two captures with each plugin named installed beside a "Gain", one after the other
@@ -84,16 +91,23 @@ class TestPluginScan {
 	// TONE3000's player plugin: its exact VST3 name is not known, so any name holding TONE3000, whatever case and spacing
 	@Test
 	void theTone3000PluginPlaysCapturesWhateverTheCaseAndSpacingOfItsName() {
-		assertEquals(times(3, INSTALLED), captureLines("TONE3000", "Tone 3000 Player", "tone3000-nam"));
+		assertEquals(times(3, installed("the TONE3000 plugin")), captureLines("TONE3000", "Tone 3000 Player", "tone3000-nam"));
 	}
 
 	// Gateway is the Neural Amp Modeler's new name; the scan reads no vendor and a noise gate may well be called Gateway,
 	// so the name must say NAM, Neural Amp Modeler or Atkinson as well; and those words without Gateway play nothing
 	@Test
 	void gatewayPlaysCapturesOnlyWhenItsNameAlsoSaysNamNeuralAmpModelerOrAtkinson() {
-		assertEquals(times(4, INSTALLED) + " / " + times(4, NOT_INSTALLED),
+		assertEquals(times(4, installed("Gateway")) + " / " + times(4, NOT_INSTALLED),
 			captureLines("NAM Gateway", "Gateway (NAM)", "Gateway Neural Amp Modeler", "Atkinson Gateway") + " / "
 			+ captureLines("Gateway", "Dynamic Gateway", "Atkinson Tuner", "Neural Amp Modeler Tuner"));
+	}
+
+	// several players installed: each named once, in the order TuxGuitar prefers them, whatever order the scan found them
+	@Test
+	void withSeveralCapturePlayersInstalledEachIsNamedOnceGatewayFirst() {
+		assertEquals(installed("Gateway or the TONE3000 plugin"),
+			captureLine(Arrays.asList(plugin("TONE3000", false), plugin("NAM Gateway", false), plugin("Gateway NAM", false))));
 	}
 
 	@Test
