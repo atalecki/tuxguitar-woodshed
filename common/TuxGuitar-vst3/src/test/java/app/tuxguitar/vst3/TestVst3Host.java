@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.LockSupport;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -337,19 +338,36 @@ public class TestVst3Host {
 		assertEquals(Collections.nCopies(10, true) + " true", answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("millis", 3000L)));
 	}
 
+	// the plugin opened in the other host, its editor open
+	private static TGVst3Instance withItsEditor(TGVst3Host other, String name) throws TGVst3Exception {
+		TGVst3Instance plugin = other.open(other.scan(TestPlugins.bundle(name)).get(0), 44100f, FRAMES);
+		plugin.openEditor(0);
+		return plugin;
+	}
+
+	// its host's thread hangs in a block for 5 s from now (that block's reply is owed): its windows answer no messages
+	private static void hangItsHost(TGVst3Instance hang) throws TGVst3Exception {
+		hang.setParameter(hang.findParameter("Hang at"), 0);
+		hang.setParameter(hang.findParameter("Hang for"), 5000);
+		process(hang, block(0.25f, 0.25f));
+		assertTrue(hang.getHost().isLate());
+	}
+
+	// the window of a Test Hang editor in the other host, whose thread then hangs
+	private static long windowOfAHungHost(TGVst3Host other) throws TGVst3Exception {
+		TGVst3Instance hang = withItsEditor(other, "Test Hang");
+		long window = hang.getEditorWindow().getWindow();
+		hangItsHost(hang);
+		return window;
+	}
+
 	// nor does a wait on a window of another process that does not answer yet, as an editor TuxGuitar's window owns
 	// waits on it while TuxGuitar waits for a reply (here the window of an editor whose host hangs in a block)
 	@Test
 	public void theHostAnswersInTimeWhileItWaitsOnAWindowOfAnotherProcess() throws TGVst3Exception {
 		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
-			TGVst3Instance hang = other.open(other.scan(TestPlugins.bundle("Test Hang")).get(0), 44100f, FRAMES);
-			hang.openEditor(0);
-			long window = hang.getEditorWindow().getWindow();
-			hang.setParameter(hang.findParameter("Hang at"), 0);
-			hang.setParameter(hang.findParameter("Hang for"), 5000);
-			process(hang, block(0.25f, 0.25f));
-			boolean hung = other.isLate();
-			assertEquals("true " + Collections.nCopies(10, true) + " true", hung + " " + answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("window", window)));
+			long window = windowOfAHungHost(other);
+			assertEquals(Collections.nCopies(10, true) + " true", answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("window", window)));
 		}
 	}
 
@@ -471,23 +489,91 @@ public class TestVst3Host {
 	}
 
 	// the window of a Test Gain editor open in another host process, as TuxGuitar's window is a window of another process
-	private static long windowOfAnotherProcess(TGVst3Host other) throws TGVst3Exception {
-		TGVst3Instance gain = other.open(other.scan(TestPlugins.bundle("Test Gain")).get(0), 44100f, FRAMES);
-		gain.openEditor(0);
-		return gain.getEditorWindow().getWindow();
+	private static TGVst3EditorWindow editorOfAnotherProcess(TGVst3Host other) throws TGVst3Exception {
+		return withItsEditor(other, "Test Gain").getEditorWindow();
 	}
 
-	// owned, it stays in front of that window, minimises with it and has no taskbar button of its own
+	private static long windowOfAnotherProcess(TGVst3Host other) throws TGVst3Exception {
+		return editorOfAnotherProcess(other).getWindow();
+	}
+
+	// its editor's window once the host has shown it in front (it does so right after its reply to Edit), or as it is
+	// after 2 s
+	private static TGVst3EditorWindow inFront(TGVst3Instance plugin) throws TGVst3Exception {
+		long end = System.currentTimeMillis() + 2000;
+		TGVst3EditorWindow editor = plugin.getEditorWindow();
+		while (!(editor.isShown() && editor.isFront()) && System.currentTimeMillis() < end) {
+			LockSupport.parkNanos(5000000);
+			editor = plugin.getEditorWindow();
+		}
+		return editor;
+	}
+
+	// owned, it stays in front of that window, minimises with it and has no taskbar button of its own; it opens centred on
+	// that window (here a window of the same size: the same frame)
 	@Test
-	public void anEditorOpensInAWindowOwnedByTheWindowGiven() throws TGVst3Exception {
+	public void anEditorOpensInAWindowOwnedByTheWindowGivenCentredOnIt() throws TGVst3Exception {
 		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
-			long owner = windowOfAnotherProcess(other);
+			TGVst3EditorWindow owner = editorOfAnotherProcess(other);
 			TGVst3Instance gain = open("Test Gain");
-			assertTrue(gain.openEditor(owner));
-			TGVst3EditorWindow editor = gain.getEditorWindow();
-			assertNotEquals(0L, owner);
+			assertTrue(gain.openEditor(owner.getWindow()));
+			TGVst3EditorWindow editor = inFront(gain);
+			assertNotEquals(0L, owner.getWindow());
 			assertNotEquals(0L, editor.getWindow());
-			assertEquals(owner, editor.getOwner());
+			assertEquals(owner.getWindow(), editor.getOwner());
+			assertEquals(owner.getFrame(), editor.getFrame());
+		}
+	}
+
+	// the inside of its window is the size of the plugin's view (Test Gain's: 200 by 100)
+	@Test
+	public void anEditorOpensShownInFrontSizedForThePluginsView() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0);
+		TGVst3EditorWindow editor = inFront(gain);
+		assertEquals("true true 200x100", editor.isShown() + " " + editor.isFront() + " " + editor.getInside());
+	}
+
+	// Edit on an editor that is open brings that window to the front rather than opening another
+	@Test
+	public void anEditorOpenedAgainIsTheSameWindowBroughtToTheFront() throws TGVst3Exception {
+		TGVst3Instance first = open("Test Gain");
+		TGVst3Instance second = open("Test Gain");
+		first.openEditor(0);
+		long window = inFront(first).getWindow();
+		second.openEditor(0);
+		inFront(second);
+		boolean behind = first.getEditorWindow().isFront();
+		assertTrue(first.openEditor(0));
+		TGVst3EditorWindow again = inFront(first);
+		assertEquals("false true true false", behind + " " + (again.getWindow() == window) + " " + again.isFront() + " " + second.getEditorWindow().isFront());
+	}
+
+	// Edit is answered at once while the thread of the owner window answers no messages, as TuxGuitar's UI thread waits
+	// for that reply: the window is shown in front once the reply is sent (here the owner is the window of an editor
+	// whose host hangs in a block)
+	@Test
+	public void anEditorOwnedByAWindowWhoseThreadIsBusyOpensAtOnce() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			long owner = windowOfAHungHost(other);
+			TGVst3Instance gain = open("Test Gain");
+			boolean opened = assertTimeoutPreemptively(Duration.ofMillis(1000), () -> gain.openEditor(owner));
+			assertEquals("true " + owner, opened + " " + gain.getEditorWindow().getOwner());
+		}
+	}
+
+	// closing an editor shown in front (the active window when Windows let the host make it so) is answered at once
+	// while the thread of the owner window answers no messages: the window is destroyed once the reply is sent
+	@Test
+	public void anEditorInFrontOwnedByAWindowWhoseThreadIsBusyClosesAtOnce() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			TGVst3Instance hang = withItsEditor(other, "Test Hang");
+			TGVst3Instance gain = open("Test Gain");
+			gain.openEditor(hang.getEditorWindow().getWindow());
+			inFront(gain);
+			hangItsHost(hang);
+			assertTimeoutPreemptively(Duration.ofMillis(1000), gain::closeEditor);
+			assertEquals(0L, gain.getEditorWindow().getWindow());
 		}
 	}
 

@@ -396,11 +396,58 @@ HWND frontWindow() {
 	return nullptr;
 }
 
+// a caption with a close box, no resizing (the view keeps the size it asked for)
+const DWORD kEditorStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
+
+// where a window of that size opens: centred on the owner window, within the work area of the screen that window is
+// on; without an owner, where the system places a new window
+POINT editorPosition(HWND owner, LONG width, LONG height) {
+	RECT area = {};
+	MONITORINFO screen = {sizeof(MONITORINFO)};
+	if (!owner || !GetWindowRect(owner, &area) || !GetMonitorInfoW(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST), &screen)) {
+		return POINT{CW_USEDEFAULT, CW_USEDEFAULT};
+	}
+	const RECT& work = screen.rcWork;
+	LONG x = area.left + (area.right - area.left - width) / 2;
+	LONG y = area.top + (area.bottom - area.top - height) / 2;
+	return POINT{std::max(work.left, std::min(x, work.right - width)), std::max(work.top, std::min(y, work.bottom - height))};
+}
+
+// the editor windows to show in front once the reply is sent (doEditorWindowWork): showing an owned window waits on the
+// thread of the window owning it (TuxGuitar's UI thread, which waits for the reply meanwhile)
+std::vector<HWND> toShow;
+
+// shown, in front of the other windows, and the active window when Windows lets this process make it so
+void showInFront(HWND window) {
+	ShowWindow(window, SW_SHOWNORMAL);
+	SetWindowPos(window, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+	SetForegroundWindow(window);
+}
+
 }  // namespace
 
-// an owner that is no window (0, or a window closed since) owns nothing: the editor opens in a window of its own
+// the list is taken first: a request answered while this work waits on another thread does its own work (a window
+// closed meanwhile is no window: Windows refuses to show it)
+void doEditorWindowWork() {
+	std::vector<HWND> shown;
+	shown.swap(toShow);
+	for (HWND window : shown) {
+		showInFront(window);
+	}
+}
+
+// an editor already open is shown and brought to the front as it is (its owner stays the one it opened with)
 bool Instance::openEditor(int64 owner) {
-	closeEditor();
+	if (!window && !createEditor(owner)) {
+		return false;
+	}
+	toShow.push_back((HWND) window);
+	return true;
+}
+
+// a hidden window whose inside is the size of the view, attached to it; an owner that is no window (0, or a window
+// closed since) owns nothing: the editor opens in a window of its own
+bool Instance::createEditor(int64 owner) {
 	view = owned(controller->createView(ViewType::kEditor));
 	if (!view || view->isPlatformTypeSupported(kPlatformTypeHWND) != kResultTrue) {
 		view = nullptr;
@@ -409,8 +456,12 @@ bool Instance::openEditor(int64 owner) {
 	ViewRect size = {0, 0, 400, 300};
 	view->getSize(&size);
 	HWND ownerWindow = (IsWindow((HWND) (intptr_t) owner) ? (HWND) (intptr_t) owner : nullptr);
-	window = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, size.getWidth(), size.getHeight(), ownerWindow,
-	                         nullptr, GetModuleHandleW(nullptr), nullptr);
+	RECT frame = {0, 0, size.getWidth(), size.getHeight()};
+	AdjustWindowRectEx(&frame, kEditorStyle, FALSE, 0);
+	LONG width = frame.right - frame.left;
+	LONG height = frame.bottom - frame.top;
+	POINT at = editorPosition(ownerWindow, width, height);
+	window = CreateWindowExW(0, L"STATIC", L"", kEditorStyle, at.x, at.y, width, height, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
 	if (!window || view->attached(window, kPlatformTypeHWND) != kResultOk) {
 		closeEditor();
 		return false;

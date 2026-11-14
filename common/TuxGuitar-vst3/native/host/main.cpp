@@ -87,6 +87,7 @@ public:
 				PostQuitMessage(0);
 				return;
 			}
+			doEditorWindowWork();
 		}
 	}
 #endif

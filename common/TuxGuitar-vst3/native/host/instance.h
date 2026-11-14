@@ -61,6 +61,12 @@ struct EditorWindow {
 	int32 width, height;             // inside the frame
 };
 
+#ifdef _WIN32
+// shows the editor windows opened since in front, once the reply is sent: showing an owned window waits on the thread
+// of the window owning it, TuxGuitar's UI thread, which waits for that reply
+void doEditorWindowWork();
+#endif
+
 struct ParameterInfo {
 	int32 id;
 	std::string title;
@@ -92,8 +98,8 @@ public:
 	std::vector<char> controllerState();
 	void setState(const std::vector<char>& component, const std::vector<char>& controller);
 	void reset();
-	// the plugin's own editor in a window the owner window owns (a native handle; 0, or a handle that is no window: none);
-	// false when it has none for this platform
+	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
+	// no window: none); false when it has none for this platform
 	bool openEditor(int64 owner);
 	void closeEditor();
 	EditorWindow editorWindow();
@@ -111,6 +117,7 @@ private:
 	bool loadController(FUnknown* host);
 	void setupBuses();
 	bool start(double sampleRate, std::string& error);
+	bool createEditor(int64 owner);
 	void stop();
 	void copyIn(int32 frames);
 	void copyOut(int32 frames);
