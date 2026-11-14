@@ -11,9 +11,61 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace TuxGuitar {
 
 namespace {
+
+#ifdef _WIN32
+// a loop of the editor's own, as a file dialog runs one, or Windows while the user drags a window: it dispatches the
+// thread's messages until its time is up. Or, given a window of another thread, a wait for that window to answer a
+// message, as Windows waits on the window owning an editor (TuxGuitar's). It starts at the first timer tick, so once its
+// host waits for messages.
+DWORD modalMillis = 0;
+HWND waitOn = nullptr;
+bool inModal = false;
+
+void loopFor(DWORD millis) {
+	DWORD end = GetTickCount() + millis;
+	MSG message;
+	for (DWORD now = GetTickCount(); now < end; now = GetTickCount()) {
+		if (!PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+			MsgWaitForMultipleObjects(0, nullptr, FALSE, end - now, QS_ALLINPUT);
+		} else if (message.message == WM_QUIT) {
+			PostQuitMessage((int) message.wParam);
+			break;
+		} else {
+			TranslateMessage(&message);
+			DispatchMessageW(&message);
+		}
+	}
+}
+
+void CALLBACK runModal(HWND, UINT, UINT_PTR timer, DWORD) {
+	KillTimer(nullptr, timer);
+	inModal = true;
+	if (waitOn) {
+		SendMessageW(waitOn, WM_NULL, 0, 0);
+	} else {
+		loopFor(modalMillis);
+	}
+	inModal = false;
+}
+
+void startModal(int64 millis, int64 window) {
+	modalMillis = (DWORD) millis;
+	waitOn = (HWND) (intptr_t) window;
+	SetTimer(nullptr, 0, 1, runModal);
+}
+#else
+const bool inModal = false;
+
+void startModal(int64, int64) {}
+#endif
 
 // an editor with nothing on it: enough for a host to open it in a window of its own
 class TestView : public CPluginView {
@@ -208,10 +260,24 @@ IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 // the test messages play the plugin's own editor: "TG.gesture" moves a parameter through values in one gesture,
 // "TG.gesture-later" does it at the plugin's next call from its host (a process, or a parameter read), as an editor
 // does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
-// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error
+// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
+// "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
+// "window" of another thread to answer a message, and "TG.in-modal" answers 1 while it does (0 else)
 tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
+	if (std::strcmp(id, "TG.modal") == 0) {
+		int64 millis = 0;
+		int64 window = 0;
+		attributes->getInt("millis", millis);
+		attributes->getInt("window", window);
+		startModal(millis, window);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.in-modal") == 0) {
+		char running = (inModal ? 1 : 0);
+		return attributes->setBinary("report", &running, 1);
+	}
 	if (std::strcmp(id, "TG.gesture") == 0) {
 		int64 param = 0;
 		attributes->getInt("id", param);

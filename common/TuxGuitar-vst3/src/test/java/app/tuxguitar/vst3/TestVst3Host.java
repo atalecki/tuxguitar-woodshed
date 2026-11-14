@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -307,6 +308,49 @@ public class TestVst3Host {
 		assertEquals("the VST3 host stopped (exit code 70)", crashed.getMessage());
 		assertFalse(this.host.isRunning());
 		assertEquals(crashed.getMessage(), this.host.getExitReport());
+	}
+
+	private static boolean inALoopOfItsOwn(TGVst3Instance plugin) throws TGVst3Exception {
+		return plugin.message("TG.in-modal", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap())[0] == 1;
+	}
+
+	// whether each of 10 blocks played while the plugin's editor runs a loop of its own or waits (as the message says)
+	// is answered in time, then whether it still runs or waits
+	private static String answeredWhileItsEditorWaits(TGVst3Instance plugin, Map<String, Long> wait) throws TGVst3Exception {
+		plugin.message("TG.modal", wait, Collections.<String, byte[]>emptyMap());
+		assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
+			while (!inALoopOfItsOwn(plugin)) {
+				Thread.sleep(5);
+			}
+		});
+		List<Boolean> answered = new ArrayList<Boolean>();
+		for (int i = 0; i < 10; i++) {
+			answered.add(plugin.process(block(0.25f, 0.25f), FRAMES, TGVst3Transport.STOPPED, Collections.<TGVst3NoteEvent>emptyList()));
+		}
+		return answered + " " + inALoopOfItsOwn(plugin);
+	}
+
+	// a plugin's editor that runs a loop of its own (a file dialog, its window dragged) does not keep the host from
+	// answering: the blocks played meanwhile are answered in time
+	@Test
+	public void theHostAnswersInTimeWhileAPluginsEditorRunsALoopOfItsOwn() throws TGVst3Exception {
+		assertEquals(Collections.nCopies(10, true) + " true", answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("millis", 3000L)));
+	}
+
+	// nor does a wait on a window of another process that does not answer yet, as an editor TuxGuitar's window owns
+	// waits on it while TuxGuitar waits for a reply (here the window of an editor whose host hangs in a block)
+	@Test
+	public void theHostAnswersInTimeWhileItWaitsOnAWindowOfAnotherProcess() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			TGVst3Instance hang = other.open(other.scan(TestPlugins.bundle("Test Hang")).get(0), 44100f, FRAMES);
+			hang.openEditor(0);
+			long window = hang.getEditorWindow().getWindow();
+			hang.setParameter(hang.findParameter("Hang at"), 0);
+			hang.setParameter(hang.findParameter("Hang for"), 5000);
+			process(hang, block(0.25f, 0.25f));
+			boolean hung = other.isLate();
+			assertEquals("true " + Collections.nCopies(10, true) + " true", hung + " " + answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("window", window)));
+		}
 	}
 
 	private static float[][] play(TGVst3Instance instrument, TGVst3NoteEvent... events) throws TGVst3Exception {

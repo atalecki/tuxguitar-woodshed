@@ -48,23 +48,81 @@ struct Failure {
 	std::string reason;
 };
 
+#ifdef _WIN32
+const UINT kHeard = WM_APP + 1;
+
+LRESULT CALLBACK heardProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+#endif
+
 class Host {
 public:
 	explicit Host(Wire wire) : wire(wire), application(owned(new Vst::HostApplication())) {}
 
+	// answers each request as it comes, until the input ends. On Windows the process's thread waits for its windows'
+	// messages and dispatches them (plugin editors paint and react), and is told when a request comes
 	int run() {
-		try {
-			int32_t operation;
-			while (wire.readInt(operation)) {
-				answer(operation);
-			}
-		} catch (const WireClosed&) {
+#ifdef _WIN32
+		HWND heard = listenInWindow();
+		MSG message;
+		while (GetMessageW(&message, nullptr, 0, 0) > 0) {
+			TranslateMessage(&message);
+			DispatchMessageW(&message);
 		}
+		DestroyWindow(heard);
+#else
+		while (serveOne()) {
+		}
+#endif
 		instances.clear();
 		return 0;
 	}
 
+#ifdef _WIN32
+	// answers the requests that came; at the end of the input, the message loop ends. TuxGuitar sends a request once the
+	// last one is answered: one that comes while the thread dispatches messages inside a request (a plugin's loop) finds
+	// no input, so a reply being written is never mixed with another
+	void serve() {
+		while (wire.hasInput()) {
+			if (!serveOne()) {
+				PostQuitMessage(0);
+				return;
+			}
+		}
+	}
+#endif
+
 private:
+#ifdef _WIN32
+	// a message-only window, told with a sent message each time the input's listening thread reads bytes: a thread
+	// handles sent messages whenever it waits for messages, in its own loop, in a loop a plugin runs (a file dialog, a
+	// window dragged), and while it waits on a window of another thread
+	HWND listenInWindow() {
+		WNDCLASSW type = {};
+		type.lpfnWndProc = heardProcedure;
+		type.hInstance = GetModuleHandleW(nullptr);
+		type.lpszClassName = L"TuxGuitarVst3Requests";
+		RegisterClassW(&type);
+		HWND window = CreateWindowExW(0, type.lpszClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, type.hInstance, nullptr);
+		SetWindowLongPtrW(window, GWLP_USERDATA, (LONG_PTR) this);
+		wire.listen([window] { SendNotifyMessageW(window, kHeard, 0, 0); });
+		return window;
+	}
+#endif
+
+	// reads a request and answers it; false at the end of the input
+	bool serveOne() {
+		try {
+			int32_t operation;
+			bool served = wire.readInt(operation);
+			if (served) {
+				answer(operation);
+			}
+			return served;
+		} catch (const WireClosed&) {
+			return false;
+		}
+	}
+
 	void answer(int32_t operation) {
 		try {
 			wire.writeInt(0);
@@ -338,6 +396,16 @@ private:
 	std::vector<std::pair<int32_t, Notification>> pending;
 	int32_t next = 1;
 };
+
+#ifdef _WIN32
+LRESULT CALLBACK heardProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	if (message == kHeard) {
+		reinterpret_cast<Host*>(GetWindowLongPtrW(window, GWLP_USERDATA))->serve();
+		return 0;
+	}
+	return DefWindowProcW(window, message, wParam, lParam);
+}
+#endif
 
 }  // namespace TuxGuitar
 
