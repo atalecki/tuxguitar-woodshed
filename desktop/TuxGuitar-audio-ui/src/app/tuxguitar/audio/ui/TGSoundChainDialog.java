@@ -28,6 +28,7 @@ import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.widget.UIButton;
 import app.tuxguitar.ui.widget.UIDropDownSelect;
 import app.tuxguitar.ui.widget.UIListBoxSelect;
+import app.tuxguitar.ui.widget.UIReadOnlyTextBox;
 import app.tuxguitar.ui.widget.UISelectItem;
 import app.tuxguitar.ui.widget.UIWindow;
 import app.tuxguitar.util.TGContext;
@@ -40,8 +41,10 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * changes of it, each one undo step (the sound chain actions): add a VST3 effect, make a VST3 instrument or the General
  * MIDI program the source, move the picked effect up, remove it, enable or disable it, open the picked plugin's editor
  * (its own, else TuxGuitar's parameter editor, TGPluginParametersDialog). The plugins offered are those the last scan of
- * the VST3 folders found; Scan again scans them off the UI thread, then offers what it found. What can be done with the
- * row picked is decided there; the rows are read again after each change.
+ * the VST3 folders found, and the status under them says what that scan found and skipped, and why (TGPluginScan); Scan
+ * again scans them off the UI thread, then offers what it found. What can be done with the row picked is decided there;
+ * the rows are read again after each change. An editor that cannot open is refused by its action, whose message the
+ * app shows as it shows every action's error.
  */
 public class TGSoundChainDialog {
 
@@ -60,6 +63,8 @@ public class TGSoundChainDialog {
 	private UIButton enable;
 	private UIButton edit;
 	private UIButton scan;
+	// what the last scan found, skipped and why (TGPluginScan)
+	private UIReadOnlyTextBox status;
 
 	public TGSoundChainDialog(TGContext context, TGTrack track) {
 		this.context = context;
@@ -83,8 +88,10 @@ public class TGSoundChainDialog {
 		this.remove = this.button(5, 2, "audio.sound-chain.remove", () -> this.changeEffect(TGRemoveEffectAction.NAME));
 		this.enable = this.button(5, 3, "audio.sound-chain.disable", this::toggleEnabled);
 		this.edit = this.button(5, 4, "audio.sound-chain.edit", this::openEditor);
-		this.scan = this.button(6, 1, "audio.sound-chain.scan", this::scanAgain);
-		this.button(6, 4, "close", this.dialog::dispose);
+		this.status = this.factory.createReadOnlyTextBox(this.dialog, true, false);
+		this.layout().set(this.status, 6, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 4, 360f, 120f, null);
+		this.scan = this.button(7, 1, "audio.sound-chain.scan", this::scanAgain);
+		this.button(7, 4, "close", this.dialog::dispose);
 		this.showPlugins();
 		this.refresh();
 		TGDialogUtil.openDialog(this.dialog, TGDialogUtil.OPEN_STYLE_CENTER | TGDialogUtil.OPEN_STYLE_PACK);
@@ -103,11 +110,12 @@ public class TGSoundChainDialog {
 		return select;
 	}
 
-	// the drop-downs offer the plugins the last scan found, each its first picked
+	// the drop-downs offer the plugins the last scan found, each its first picked; the status says what it found
 	private void showPlugins() {
 		List<TGVst3Plugin> plugins = TGVst3Hosting.getInstance(this.context).getPlugins();
 		offer(this.effects, TGSoundChainRows.effects(plugins));
 		offer(this.instruments, TGSoundChainRows.instruments(plugins));
+		this.status.setText(TGLiveAudio.getInstance(this.context).getPluginScan().toString());
 	}
 
 	private static void offer(UIDropDownSelect<TGVst3Plugin> select, List<TGVst3Plugin> plugins) {
