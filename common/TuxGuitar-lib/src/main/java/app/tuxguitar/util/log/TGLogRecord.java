@@ -15,6 +15,8 @@ public class TGLogRecord extends LogRecord {
 		super(level.toJul(), message);
 		this.setThrown(thrown);
 		this.setLoggerName(loggerName);
+		// no caller lookup: a record is known by its logger
+		this.setSourceClassName(null);
 		this.threadName = Thread.currentThread().getName();
 	}
 

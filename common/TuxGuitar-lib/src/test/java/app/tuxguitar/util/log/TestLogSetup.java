@@ -59,6 +59,31 @@ public class TestLogSetup {
 	}
 
 	@Test
+	public void withoutAFileTheMessagesTheLevelShowsGoToTheConsoleOneLineEach() throws IOException {
+		java.io.PrintStream systemErr = System.err;
+		java.io.ByteArrayOutputStream console = new java.io.ByteArrayOutputStream();
+		System.setErr(new java.io.PrintStream(console, true, "UTF-8"));
+		try {
+			TGLogSetup setup = setup(null);
+			TGLog log = new TGLog(this.logger);
+			log.warn("before the file");
+			log.info("some news");
+			setup.openFile(this.folder.toFile());
+			log.warn("in the file");
+			setup.closeFile();
+			log.warn("after the file");
+		} finally {
+			System.setErr(systemErr);
+		}
+
+		String text = new String(console.toByteArray(), StandardCharsets.UTF_8);
+		String[] lines = text.split(System.lineSeparator());
+		assertEquals(2, lines.length, text);
+		assertTrue(lines[0].endsWith(" WARN  [" + Thread.currentThread().getName() + "] " + this.logger.getName() + " - before the file"), text);
+		assertTrue(lines[1].endsWith(" - after the file"), text);
+	}
+
+	@Test
 	public void theCommandLineLevelHoldsWhateverTheSettingsSay() {
 		TGLogSetup setup = setup("trace");
 		setup.setSettingsLevel(TGLogLevel.ERROR);

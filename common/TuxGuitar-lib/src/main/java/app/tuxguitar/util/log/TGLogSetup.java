@@ -2,6 +2,7 @@ package app.tuxguitar.util.log;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -12,7 +13,8 @@ import app.tuxguitar.util.TGVersion;
 /**
  * TuxGuitar's log as a whole: the level of every TuxGuitar logger ("app.tuxguitar" and below), chosen by
  * {@link TGLogChoice}, and the rotating file it is written to once the application opens it. Until then (and in
- * headless modules that never open it) warnings and errors go to the console.
+ * headless modules that never open it) what the level shows goes to the console (System.err as it was when this was
+ * set up), one line each.
  *
  * The file is written after what is there: tuxguitar-0.log, which moves to tuxguitar-1.log when full, and so on, up to
  * FILE_COUNT files of FILE_LIMIT bytes. Each session starts with the versions, the level and the file's path; each
@@ -30,6 +32,7 @@ public final class TGLogSetup {
 
 	private final Logger root;
 	private final String commandLine;
+	private final Handler console;
 	private TGLogLevel settings;
 	private boolean debugHelper;
 	private Handler file;
@@ -38,6 +41,11 @@ public final class TGLogSetup {
 	TGLogSetup(Logger root, String commandLine) {
 		this.root = root;
 		this.commandLine = commandLine;
+		this.console = new ConsoleHandler();
+		this.console.setFormatter(new TGLogFormatter());
+		this.console.setLevel(Level.ALL);
+		this.root.setUseParentHandlers(false);
+		this.root.addHandler(this.console);
 		this.apply();
 	}
 
@@ -73,8 +81,8 @@ public final class TGLogSetup {
 		handler.setFormatter(new TGLogFormatter());
 		handler.setLevel(Level.ALL);
 		this.file = handler;
+		this.root.removeHandler(this.console);
 		this.root.addHandler(handler);
-		this.root.setUseParentHandlers(false);
 
 		File current = new File(folder, FILE_NAME.replace("%g", "0")).getAbsoluteFile();
 		this.write(session());
@@ -90,7 +98,7 @@ public final class TGLogSetup {
 			this.root.removeHandler(this.file);
 			this.file.close();
 			this.file = null;
-			this.root.setUseParentHandlers(true);
+			this.root.addHandler(this.console);
 		}
 	}
 
