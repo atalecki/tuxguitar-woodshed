@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.event.TGEvent;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 
 /**
  * Pins how TGActionManager executes an action: an unmapped id is ignored; an interceptor that claims the id stops
@@ -105,6 +107,53 @@ public class TestActionManager {
 
 		assertSame(failure, thrown.getCause());
 		assertEquals(List.of("pre play", "error play broken"), this.journal);
+	}
+
+	private List<String> logged(TGLogLevel level, Runnable run) {
+		TGLogRecorder recorder = TGLogRecorder.attach(level);
+		try {
+			run.run();
+		} catch (TGActionException expected) {
+			// the failure is what is logged
+		} finally {
+			recorder.detach();
+		}
+		return recorder.recorded();
+	}
+
+	@Test
+	public void eachActionRunIsLoggedAtDebugByItsName() {
+		mapRecordingAction("play");
+
+		assertEquals(List.of("DEBUG action play"), logged(TGLogLevel.DEBUG, () -> this.manager.execute("play", this.context)));
+		assertEquals(List.of(), logged(TGLogLevel.INFO, () -> this.manager.execute("play", this.context)));
+	}
+
+	@Test
+	public void anInterceptedOrUnknownActionIsLoggedAtTrace() {
+		mapRecordingAction("play");
+		intercept(true);
+
+		assertEquals(List.of("TRACE action play intercepted", "TRACE action missing is not mapped"), logged(TGLogLevel.TRACE, () -> {
+			this.manager.execute("play", this.context);
+			this.manager.execute("missing", this.context);
+		}));
+	}
+
+	@Test
+	public void aRefusedActionIsLoggedAtWarnWithItsReason() {
+		mapFailingAction("edit", new TGActionException("The editor of the VST3 plugin Gain could not be opened"));
+
+		assertEquals(List.of("DEBUG action edit", "WARN action edit failed: The editor of the VST3 plugin Gain could not be opened"),
+				logged(TGLogLevel.DEBUG, () -> this.manager.execute("edit", this.context)));
+	}
+
+	@Test
+	public void anUnexpectedFailureIsLoggedAtWarnWithItsStackTrace() {
+		mapFailingAction("edit", new IllegalStateException("broken"));
+
+		assertEquals(List.of("WARN action edit failed: java.lang.IllegalStateException: broken (java.lang.IllegalStateException: broken)"),
+				logged(TGLogLevel.WARN, () -> this.manager.execute("edit", this.context)));
 	}
 
 	@Test

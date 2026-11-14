@@ -8,10 +8,13 @@ import app.tuxguitar.resource.TGResourceManager;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGServiceReader;
 import app.tuxguitar.util.error.TGErrorManager;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGPluginManager {
+
+	private static final TGLog LOG = TGLog.get(TGPluginManager.class);
 
 	private static final String PLUGIN_ERROR_ON_LOOKUP = "An error occurred when trying to lookup plugin";
 	private static final String PLUGIN_ERROR_ON_CONNECT = "An error occurred when trying to connect plugin";
@@ -94,6 +97,7 @@ public class TGPluginManager {
 	public void connectPlugin(TGPlugin tgPlugin) {
 		try {
 			tgPlugin.connect(this.context);
+			LOG.info("plugin " + tgPlugin.getModuleId() + " connected: " + tgPlugin.getClass().getName());
 		} catch(TGPluginException exception) {
 			TGErrorManager.getInstance(this.context).handleError(exception);
 		} catch(Throwable throwable) {
@@ -116,6 +120,7 @@ public class TGPluginManager {
 	public void disconnectPlugin(TGPlugin tgPlugin) {
 		try {
 			tgPlugin.disconnect(this.context);
+			LOG.info("plugin " + tgPlugin.getModuleId() + " disconnected: " + tgPlugin.getClass().getName());
 		} catch(TGPluginException exception) {
 			TGErrorManager.getInstance(this.context).handleError(exception);
 		} catch(Throwable throwable) {

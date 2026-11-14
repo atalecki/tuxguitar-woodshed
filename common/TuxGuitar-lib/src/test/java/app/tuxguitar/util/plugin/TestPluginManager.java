@@ -22,6 +22,8 @@ import app.tuxguitar.resource.TGResourceLoader;
 import app.tuxguitar.resource.TGResourceManager;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.error.TGErrorManager;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 import app.tuxguitar.util.properties.MapProperties;
 import app.tuxguitar.util.properties.TGPropertiesException;
 import app.tuxguitar.util.properties.TGPropertiesManager;
@@ -308,6 +310,22 @@ public class TestPluginManager {
 				"An error occurred when trying to initialize plugin early: java.lang.IllegalStateException",
 				"refused: -",
 				"An error occurred when trying to disconnect plugin: java.lang.IllegalStateException"), this.errors);
+	}
+
+	@Test
+	public void eachPluginConnectedOrDisconnectedIsLoggedAtInfo() throws IOException {
+		disabled("beta");
+		TGPluginManager manager = managerOf(Alpha.class.getName(), Beta.class.getName());
+		TGLogRecorder recorder = TGLogRecorder.attach(TGLogLevel.INFO);
+		try {
+			manager.connectEnabled();
+			manager.disconnectPlugins("beta");
+		} finally {
+			recorder.detach();
+		}
+
+		assertEquals(List.of("INFO plugin alpha connected: " + Alpha.class.getName(),
+				"INFO plugin beta disconnected: " + Beta.class.getName()), recorder.recorded());
 	}
 
 	@Test

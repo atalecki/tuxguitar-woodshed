@@ -4,10 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGErrorManager {
+
+	private static final TGLog LOG = TGLog.get(TGErrorManager.class);
 
 	private List<TGErrorHandler> errorHandlers;
 
@@ -15,7 +18,9 @@ public class TGErrorManager {
 		this.errorHandlers = new ArrayList<TGErrorHandler>();
 	}
 
+	// logs the error with its stack trace, then hands it to each handler
 	public void handleError(Throwable throwable){
+		LOG.error(throwable.getMessage() != null ? throwable.getMessage() : throwable.getClass().getName(), throwable);
 		for(TGErrorHandler tgErrorHandler : this.errorHandlers) {
 			tgErrorHandler.handleError(throwable);
 		}
