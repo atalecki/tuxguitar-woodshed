@@ -312,17 +312,35 @@ public class TestPluginManager {
 				"An error occurred when trying to disconnect plugin: java.lang.IllegalStateException"), this.errors);
 	}
 
+	// a failed one is not counted (its error is logged on its own)
 	@Test
-	public void eachPluginConnectedOrDisconnectedIsLoggedAtInfo() throws IOException {
+	public void eachTimePluginsAreConnectedOrDisconnectedOneInfoLineCountsThem() throws IOException {
 		disabled("beta");
-		TGPluginManager manager = managerOf(Alpha.class.getName(), Beta.class.getName());
+		TGPluginManager manager = managerOf(Alpha.class.getName(), Beta.class.getName(), AlphaToo.class.getName(), Refusing.class.getName());
 		TGLogRecorder recorder = TGLogRecorder.during(TGLogLevel.INFO, () -> {
 			manager.connectEnabled();
+			manager.updatePluginStatus("beta", true);
+			manager.disconnectPlugins("alpha");
+			manager.disconnectPlugins("gamma");
+			manager.disconnectAll();
+		});
+
+		assertEquals(List.of("INFO plugins connected: 2", "INFO plugins of module beta connected: 1", "INFO plugins of module alpha disconnected: 2",
+				"INFO plugins of module gamma disconnected: 0", "INFO plugins disconnected: 3"),
+				recorder.recorded().stream().filter(line -> line.startsWith("INFO")).collect(Collectors.toList()));
+	}
+
+	@Test
+	public void eachPluginConnectedOrDisconnectedIsLoggedAtDebug() throws IOException {
+		TGPluginManager manager = managerOf(Alpha.class.getName(), Beta.class.getName(), AlphaToo.class.getName());
+		TGLogRecorder recorder = TGLogRecorder.during(TGLogLevel.DEBUG, () -> {
+			manager.connectPlugins("alpha");
 			manager.disconnectPlugins("beta");
 		});
 
-		assertEquals(List.of("INFO plugin alpha connected: " + Alpha.class.getName(),
-				"INFO plugin beta disconnected: " + Beta.class.getName()), recorder.recorded());
+		assertEquals(List.of("DEBUG plugin alpha connected: " + Alpha.class.getName(), "DEBUG plugin alpha connected: " + AlphaToo.class.getName(),
+				"INFO plugins of module alpha connected: 2", "DEBUG plugin beta disconnected: " + Beta.class.getName(),
+				"INFO plugins of module beta disconnected: 1"), recorder.recorded());
 	}
 
 	@Test
