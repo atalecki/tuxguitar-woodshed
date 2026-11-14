@@ -45,6 +45,7 @@ const int32 kStateBytes = 1024;
 class TestPlugin : public SingleComponentEffect {
 public:
 	explicit TestPlugin(PluginSpec spec);
+	~TestPlugin() override;
 
 	tresult PLUGIN_API initialize(FUnknown* context) SMTG_OVERRIDE;
 	tresult PLUGIN_API setActive(TBool state) SMTG_OVERRIDE;

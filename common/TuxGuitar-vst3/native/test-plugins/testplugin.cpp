@@ -72,6 +72,15 @@ void startModal(int64, int64) {}
 void closeWindow(void*) {}
 #endif
 
+// the test plugins of this module alive, and whether one, or its editor's view, went while the editor's loop ran (its
+// code still running: a host must not take a plugin away under it)
+int32 livePlugins = 0;
+bool goneInLoop = false;
+
+void going() {
+	goneInLoop = (goneInLoop || inModal);
+}
+
 // an editor with nothing on it: enough for a host to open it in a window of its own; while it is in one, the plugin
 // knows that window
 class TestView : public CPluginView {
@@ -88,6 +97,7 @@ public:
 
 	tresult PLUGIN_API removed() SMTG_OVERRIDE {
 		*window = nullptr;
+		going();
 		return CPluginView::removed();
 	}
 
@@ -111,6 +121,12 @@ TestPlugin::TestPlugin(PluginSpec spec) : spec(spec), preset(0), reportedLatency
 	for (const ParamSpec& param : this->spec.params) {
 		this->values.push_back(param.def);
 	}
+	livePlugins++;
+}
+
+TestPlugin::~TestPlugin() {
+	livePlugins--;
+	going();
 }
 
 tresult PLUGIN_API TestPlugin::initialize(FUnknown* context) {
@@ -281,8 +297,9 @@ IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 // does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
 // the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
 // "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
-// "window" of another thread to answer a message, and "TG.in-modal" answers 1 while it does (0 else); "TG.close-window"
-// clicks the close box of the window the editor is in
+// "window" of another thread to answer a message, and "TG.in-modal" answers three bytes: 1 while it does (0 else), 1 once
+// a plugin of the module or an editor's view went while it did, and how many plugins of the module are alive;
+// "TG.close-window" clicks the close box of the window the editor is in
 tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
@@ -299,8 +316,8 @@ tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 		return kResultOk;
 	}
 	if (std::strcmp(id, "TG.in-modal") == 0) {
-		char running = (inModal ? 1 : 0);
-		return attributes->setBinary("report", &running, 1);
+		char state[3] = {(char) (inModal ? 1 : 0), (char) (goneInLoop ? 1 : 0), (char) livePlugins};
+		return attributes->setBinary("report", state, 3);
 	}
 	if (std::strcmp(id, "TG.gesture") == 0) {
 		int64 param = 0;

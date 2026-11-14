@@ -312,24 +312,61 @@ public class TestVst3Host {
 		assertEquals(crashed.getMessage(), this.host.getExitReport());
 	}
 
+	// what the test plugins' module says of an editor's loop of its own: whether it runs (1), whether a plugin or an
+	// editor's view went while it ran (1), how many plugins of the module are alive
+	private static byte[] loopState(TGVst3Instance plugin) throws TGVst3Exception {
+		return plugin.message("TG.in-modal", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+	}
+
 	private static boolean inALoopOfItsOwn(TGVst3Instance plugin) throws TGVst3Exception {
-		return plugin.message("TG.in-modal", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap())[0] == 1;
+		return loopState(plugin)[0] == 1;
+	}
+
+	// until the loop runs, or no longer does (at most 3 s)
+	private static void awaitLoop(TGVst3Instance plugin, boolean running) {
+		assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
+			while (inALoopOfItsOwn(plugin) != running) {
+				Thread.sleep(5);
+			}
+		});
 	}
 
 	// whether each of 10 blocks played while the plugin's editor runs a loop of its own or waits (as the message says)
 	// is answered in time, then whether it still runs or waits
 	private static String answeredWhileItsEditorWaits(TGVst3Instance plugin, Map<String, Long> wait) throws TGVst3Exception {
 		plugin.message("TG.modal", wait, Collections.<String, byte[]>emptyMap());
-		assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
-			while (!inALoopOfItsOwn(plugin)) {
-				Thread.sleep(5);
-			}
-		});
+		awaitLoop(plugin, true);
 		List<Boolean> answered = new ArrayList<Boolean>();
 		for (int i = 0; i < 10; i++) {
 			answered.add(plugin.process(block(0.25f, 0.25f), FRAMES, TGVst3Transport.STOPPED, Collections.<TGVst3NoteEvent>emptyList()));
 		}
 		return answered + " " + inALoopOfItsOwn(plugin);
+	}
+
+	// closing a plugin's editor, or the plugin, while an editor runs a loop of its own (a file dialog) is answered at
+	// once, but the view and the plugin go only once that loop has returned: their code may be running in it. An editor
+	// closed and opened again meanwhile stays open
+	@Test
+	public void aPluginClosedWhileAnEditorRunsALoopOfItsOwnGoesOnceTheLoopReturns() throws TGVst3Exception {
+		TGVst3Instance closed = open("Test Gain");
+		TGVst3Instance editorClosed = open("Test Gain");
+		TGVst3Instance reopened = open("Test Gain");
+		closed.openEditor(0);
+		editorClosed.openEditor(0);
+		reopened.openEditor(0);
+		closed.message("TG.modal", Collections.singletonMap("millis", 1500L), Collections.<String, byte[]>emptyMap());
+		awaitLoop(reopened, true);
+		assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+			closed.closeEditor();
+			closed.close();
+			editorClosed.closeEditor();
+			reopened.closeEditor();
+			reopened.openEditor(0);
+		});
+		String during = Arrays.toString(loopState(reopened)) + " " + (editorClosed.getEditorWindow().getWindow() != 0);
+		awaitLoop(reopened, false);
+		String after = Arrays.toString(loopState(reopened)) + " " + (editorClosed.getEditorWindow().getWindow() != 0) + " " + (reopened.getEditorWindow().getWindow() != 0);
+		assertEquals("[1, 0, 3] true | [0, 0, 2] false true", during + " | " + after);
 	}
 
 	// a plugin's editor that runs a loop of its own (a file dialog, its window dragged) does not keep the host from
@@ -583,18 +620,19 @@ public class TestVst3Host {
 	}
 
 	// closing an editor shown in front (the active window when Windows let the host make it so) is answered at once
-	// while the thread of the owner window answers no messages: the window is destroyed once the reply is sent
+	// while the thread of the owner window answers no messages; the window goes once nothing waits on that thread (here
+	// once the owner's host has ended)
 	@Test
 	public void anEditorInFrontOwnedByAWindowWhoseThreadIsBusyClosesAtOnce() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
 		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
 			TGVst3Instance hang = withItsEditor(other, "Test Hang");
-			TGVst3Instance gain = open("Test Gain");
 			gain.openEditor(hang.getEditorWindow().getWindow());
 			inFront(gain);
 			hangItsHost(hang);
 			assertTimeoutPreemptively(Duration.ofMillis(1000), gain::closeEditor);
-			assertEquals(0L, gain.getEditorWindow().getWindow());
 		}
+		assertEquals(0L, once(gain, editor -> editor.getWindow() == 0).getWindow());
 	}
 
 	// a handle that is no window any more (that window closed) is no owner
