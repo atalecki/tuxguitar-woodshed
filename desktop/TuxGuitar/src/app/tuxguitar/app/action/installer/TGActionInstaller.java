@@ -57,6 +57,7 @@ import app.tuxguitar.app.action.impl.file.TGSaveAsFileAction;
 import app.tuxguitar.app.action.impl.file.TGSaveFileAction;
 import app.tuxguitar.app.action.impl.file.TGWriteFileAction;
 import app.tuxguitar.app.action.impl.help.TGHelpGoHomeAction;
+import app.tuxguitar.app.action.impl.help.TGOpenLogFolderAction;
 import app.tuxguitar.app.action.impl.help.TGOpenAboutDialogAction;
 import app.tuxguitar.app.action.impl.help.TGOpenDocumentationDialogAction;
 import app.tuxguitar.app.action.impl.insert.TGOpenChordDialogAction;
@@ -591,6 +592,7 @@ public class TGActionInstaller {
 		installAction(new TGOpenDocumentationDialogAction(context));
 		installAction(new TGOpenAboutDialogAction(context));
 		installAction(new TGHelpGoHomeAction(context));
+		installAction(new TGOpenLogFolderAction(context));
 		
 		installAction(new TGOpenMainToolBarSettingsDialogAction(context));
 	}

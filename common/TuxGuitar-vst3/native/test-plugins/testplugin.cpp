@@ -7,6 +7,7 @@
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -207,7 +208,7 @@ IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 // the test messages play the plugin's own editor: "TG.gesture" moves a parameter through values in one gesture,
 // "TG.gesture-later" does it at the plugin's next call from its host (a process, or a parameter read), as an editor
 // does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
-// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does
+// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error
 tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
@@ -231,6 +232,8 @@ tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 		return kResultOk;
 	}
 	if (std::strcmp(id, "TG.crash") == 0) {
+		std::fputs("Test plugin: crashing as asked\n", stderr);
+		std::fflush(stderr);
 		std::_Exit(70);
 	}
 	if (std::strcmp(id, "TG.report") == 0) {

@@ -9,6 +9,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import app.tuxguitar.util.log.TGLog;
+
 /**
  * A plugin open in the VST3 host process: it processes blocks of up to the maximum block agreed when it opened, keeps
  * the latency and tail it last reported, and hands what it tells its host (edits from its own editor, restarts) to its
@@ -21,8 +23,12 @@ public final class TGVst3Instance implements AutoCloseable {
 	// the flag of a parameter that chooses the plugin's presets (Vst::ParameterInfo::kIsProgramChange)
 	private static final int PROGRAM_CHANGE = 1 << 15;
 
+	private static final TGLog LOG = TGLog.get(TGVst3Instance.class);
+
 	private final TGVst3Host host;
 	private final TGVst3SharedBlocks blocks;
+	// "VST3 plugin name", as the log names it
+	private final String label;
 	private final int id;
 	private final int inputs;
 	private final int outputs;
@@ -33,9 +39,10 @@ public final class TGVst3Instance implements AutoCloseable {
 	private volatile int tail;
 	private TGVst3Listener listener;
 
-	private TGVst3Instance(TGVst3Host host, TGVst3SharedBlocks blocks, int id, int inputs, int outputs, boolean editor, List<TGVst3Parameter> parameters) {
+	private TGVst3Instance(TGVst3Host host, TGVst3SharedBlocks blocks, String name, int id, int inputs, int outputs, boolean editor, List<TGVst3Parameter> parameters) {
 		this.host = host;
 		this.blocks = blocks;
+		this.label = "VST3 plugin " + name;
 		this.id = id;
 		this.inputs = inputs;
 		this.outputs = outputs;
@@ -43,8 +50,8 @@ public final class TGVst3Instance implements AutoCloseable {
 		this.parameters = parameters;
 	}
 
-	// reads the reply to an open request
-	static TGVst3Instance opened(TGVst3Host host, TGVst3SharedBlocks blocks, DataInputStream in) throws IOException {
+	// reads the reply to an open request of the plugin of that name
+	static TGVst3Instance opened(TGVst3Host host, TGVst3SharedBlocks blocks, String name, DataInputStream in) throws IOException {
 		int id = in.readInt();
 		int inputs = in.readInt();
 		int outputs = in.readInt();
@@ -53,7 +60,7 @@ public final class TGVst3Instance implements AutoCloseable {
 		for (int count = in.readInt(); count > 0; count--) {
 			parameters.add(new TGVst3Parameter(in.readInt(), TGVst3Request.readString(in), in.readDouble(), in.readDouble(), in.readDouble(), in.readInt(), (in.readInt() & PROGRAM_CHANGE) != 0));
 		}
-		TGVst3Instance instance = new TGVst3Instance(host, blocks, id, inputs, outputs, editor, Collections.unmodifiableList(parameters));
+		TGVst3Instance instance = new TGVst3Instance(host, blocks, name, id, inputs, outputs, editor, Collections.unmodifiableList(parameters));
 		instance.readTiming(in);
 		host.opened(id, instance);
 		return instance;
@@ -173,11 +180,14 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	// the plugin's own editor, in a window of the host process; false when it has none (or the platform is not supported)
 	public boolean openEditor() throws TGVst3Exception {
-		return this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR), in -> in.readInt() == 1);
+		boolean own = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR), in -> in.readInt() == 1);
+		LOG.debug(this.label + (own ? ": editor opened" : ": no editor of its own"));
+		return own;
 	}
 
 	public void closeEditor() throws TGVst3Exception {
 		this.host.call(this.request(TGVst3Protocol.CLOSE_EDITOR), in -> null);
+		LOG.debug(this.label + ": editor closed");
 	}
 
 	// a message to the plugin's controller; its answer (the binary attribute "report"), empty when it gave none
@@ -211,9 +221,11 @@ public final class TGVst3Instance implements AutoCloseable {
 			}
 		} catch (TGVst3Exception e) {
 			// the host is gone, and the plugin with it
+			LOG.debug(this.label + ": not closed in its host, which is gone: " + e.getMessage());
 		}
 		this.host.closed(this.id);
 		this.blocks.close();
+		LOG.info(this.label + " closed");
 	}
 
 	// values as a plugin reads them from a binary attribute: doubles in the machine's byte order

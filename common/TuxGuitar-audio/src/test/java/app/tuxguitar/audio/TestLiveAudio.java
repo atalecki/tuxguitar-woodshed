@@ -36,6 +36,8 @@ import app.tuxguitar.player.base.MidiSynthesizer;
 import app.tuxguitar.song.models.TGAudioInput;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Folders;
 import app.tuxguitar.vst3.TGVst3Hosting;
@@ -292,6 +294,82 @@ class TestLiveAudio {
 	void installedTheSynthesizerRunsVst3EffectsAndInstruments() {
 		TGSynthManager manager = TGSynthManager.getInstance(this.fixture.context);
 		assertEquals("true true", (manager.findAudioProcessorFactory(TGVst3Element.EFFECT) != null) + " " + (manager.findMidiProcessorFactory(TGVst3Element.INSTRUMENT) != null));
+	}
+
+	private List<String> logged(Runnable code) {
+		return TGLogRecorder.during(TGLogLevel.INFO, code).recorded();
+	}
+
+	@Test
+	void aBackendThatDoesNotLoadIsLoggedWithWhy() {
+		File folder = new File("target/no-native-library");
+		List<String> logged = logged(() -> this.audio.load(folder));
+		assertEquals(1, logged.size(), logged.toString());
+		assertTrue(logged.get(0).startsWith("WARN the native audio library did not load from " + folder.getAbsolutePath() + ": "), logged.get(0));
+	}
+
+	@Test
+	void theDevicesOpenedAreLoggedWithTheirRateBlockAndLatencies() {
+		assertEquals(Arrays.asList("INFO audio devices opened: input Interface (ASIO), 4 channels; output Interface (ASIO); 44100 Hz, blocks of 512 frames, latency in 0 out 300 frames"),
+				logged(() -> this.open(settings("ASIO", "Interface", 4, 0))));
+	}
+
+	@Test
+	void devicesThatDoNotOpenAreLoggedWithWhy() {
+		this.backend.list(0, 5, new TGAudioDeviceInfo(0, "Mic", "MME", 2, 0, 44100));
+		assertEquals(Arrays.asList("WARN audio devices did not open: no output device 5"), logged(() -> this.open(settings("", "", 2, 0))));
+	}
+
+	@Test
+	void whatTheSynthesizerPlaysThroughIsLogged() {
+		this.open(settings("ASIO", "Interface", 4, 0));
+		List<String> live = logged(this::openPort);
+		this.player.closeOutputPort();
+		this.backend.list(0, 5, new TGAudioDeviceInfo(0, "Mic", "MME", 2, 0, 44100));
+		this.open(settings("", "", 2, 0));
+		List<String> own = logged(this::openPort);
+
+		assertEquals(Arrays.asList("INFO the TuxGuitar Synthesizer plays through Interface (ASIO) at 44100 Hz"), live);
+		assertEquals(Arrays.asList("INFO the TuxGuitar Synthesizer plays through its own output (Java Sound on the desktop): no output device 5"), own);
+	}
+
+	@Test
+	void aClosedDeviceIsLogged() {
+		this.open(settings("ASIO", "Interface", 4, 0));
+		assertEquals(Arrays.asList("INFO audio devices closed: Interface (ASIO)"), logged(this.audio::close));
+		assertEquals(Arrays.asList(), logged(this.audio::close));
+	}
+
+	@Test
+	void aRefusedRecordingIsLoggedWithWhy() {
+		this.audio.load(new File("target/no-native-library"));
+		this.audio.open(settings("", "", 2, 0));
+		TGTrack track = this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1));
+		this.fixture.actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 960L);
+		Runnable record = () -> this.fixture.execute(new TGRecordAction(this.fixture.context));
+		List<String> unarmed = logged(record);
+		this.session.arm(track);
+		List<String> portless = logged(record);
+		openPort();
+		List<String> deviceless = logged(record);
+
+		assertEquals(Arrays.asList("WARN recording refused: no track is armed"), unarmed);
+		assertEquals(Arrays.asList("WARN recording refused: the MIDI port is not the TuxGuitar Synthesizer"), portless);
+		assertEquals(Arrays.asList("WARN recording refused: no live audio device"), deviceless);
+	}
+
+	@Test
+	void aDeviceIsNamedWithItsHostApiAndNoDeviceIsNone() {
+		assertEquals("Mic (MME) Interface (ASIO) none none", TGLiveAudio.named(this.backend, 0) + " " + TGLiveAudio.named(this.backend, 1) + " "
+				+ TGLiveAudio.named(this.backend, -1) + " " + TGLiveAudio.named(this.backend, 2));
+	}
+
+	@Test
+	void anActionRefusedDuringARecordingIsLogged() {
+		this.session.setRecording(true);
+		TGRecordingVeto veto = TGRecordingVeto.getInstance(this.fixture.context);
+		assertEquals(Arrays.asList("INFO action refused refused: a recording is under way"), logged(() -> veto.intercept("refused", null)));
+		assertEquals(Arrays.asList(), logged(() -> veto.intercept("allowed", null)));
 	}
 
 	@Test

@@ -2,11 +2,14 @@ package app.tuxguitar.vst3;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.lang.ProcessBuilder.Redirect;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +21,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import app.tuxguitar.util.log.TGLog;
 
 /**
  * The process that runs VST3 plugins apart from TuxGuitar (native/host), so a plugin that crashes takes only that process
@@ -45,7 +50,11 @@ public final class TGVst3Host implements AutoCloseable {
 	private static final String STOPPED = "the VST3 host stopped";
 	private static final String SILENT = "the VST3 host did not answer for " + (SILENT_MILLIS / 1000) + " s";
 
+	private static final TGLog LOG = TGLog.get(TGVst3Host.class);
+
 	private final Process process;
+	// "VST3 host pid n", as the log names it
+	private final String label;
 	private final OutputStream requests;
 	private final DataInputStream replies;
 	private final File shared;
@@ -73,19 +82,42 @@ public final class TGVst3Host implements AutoCloseable {
 		this.requests = new BufferedOutputStream(process.getOutputStream());
 		this.replies = new DataInputStream(new BufferedInputStream(process.getInputStream()));
 		this.shared = shared;
+		this.label = "VST3 host pid " + process.pid();
 	}
 
-	// the process, started and greeted; its errors go to TuxGuitar's
+	// the process, started and greeted; what it prints to its standard error goes to TuxGuitar's log
 	public static TGVst3Host start(File executable) throws TGVst3Exception {
 		try {
-			Process process = new ProcessBuilder(executable.getAbsolutePath()).redirectError(Redirect.INHERIT).start();
+			Process process = new ProcessBuilder(executable.getAbsolutePath()).start();
 			File shared = Files.createTempDirectory("tuxguitar-vst3-").toFile();
 			shared.deleteOnExit();
 			TGVst3Host host = new TGVst3Host(process, shared);
+			host.logErrors();
 			host.hello();
+			LOG.info("VST3 host started: pid " + process.pid() + ", " + executable.getAbsolutePath());
 			return host;
 		} catch (IOException e) {
+			LOG.warn("the VST3 host did not start: " + executable, e);
 			throw new TGVst3Exception("the VST3 host did not start: " + executable, e);
+		}
+	}
+
+	// on a thread of its own until the process ends: each line it prints to its standard error is logged
+	private void logErrors() {
+		Thread thread = new Thread(() -> logLines(this.process.getErrorStream(), this.label + ": "), "tuxguitar-vst3-stderr");
+		thread.setDaemon(true);
+		thread.start();
+	}
+
+	// each line read, in the system's encoding, logged at INFO after the prefix, until the stream ends or breaks
+	static void logLines(InputStream in, String prefix) {
+		Charset encoding = Charset.forName(System.getProperty("native.encoding", Charset.defaultCharset().name()));
+		try (BufferedReader lines = new BufferedReader(new InputStreamReader(in, encoding))) {
+			for (String line = lines.readLine(); line != null; line = lines.readLine()) {
+				LOG.info(prefix + line);
+			}
+		} catch (IOException e) {
+			// the process is gone: nothing more to read
 		}
 	}
 
@@ -115,9 +147,21 @@ public final class TGVst3Host implements AutoCloseable {
 	// why the host stopped, or null while it runs
 	public synchronized String getExitReport() {
 		if (this.exitReport == null && !this.process.isAlive()) {
-			this.exitReport = STOPPED + " (exit code " + this.process.exitValue() + ")";
+			String report = STOPPED + this.exitCode();
+			this.exitReport = (this.closed ? report : this.stoppedFor(report));
 		}
 		return this.exitReport;
+	}
+
+	// " (exit code n)" once the process ended, else nothing
+	private String exitCode() {
+		return (this.process.isAlive() ? "" : " (exit code " + this.process.exitValue() + ")");
+	}
+
+	// a stop TuxGuitar did not ask for, logged
+	private String stoppedFor(String report) {
+		LOG.warn(this.label + ": " + report);
+		return report;
 	}
 
 	// the effects and instruments of a module (a .vst3 bundle or file); refused when it is not a VST3 module
@@ -138,10 +182,12 @@ public final class TGVst3Host implements AutoCloseable {
 		TGVst3Request request = new TGVst3Request(TGVst3Protocol.OPEN).writeString(plugin.getModule()).writeString(plugin.getClassId())
 			.writeDouble(sampleRate).writeInt(maxBlock).writeString(blocks.getPath());
 		try {
-			TGVst3Instance instance = this.call(request, in -> TGVst3Instance.opened(this, blocks, in));
+			TGVst3Instance instance = this.call(request, in -> TGVst3Instance.opened(this, blocks, plugin.getName(), in));
 			this.opened.add(plugin.getName());
+			LOG.info("VST3 plugin " + plugin.getName() + " opened in host pid " + this.process.pid());
 			return instance;
 		} catch (TGVst3Exception e) {
+			LOG.warn("VST3 plugin " + plugin.getName() + " did not open in host pid " + this.process.pid() + ": " + e.getMessage());
 			blocks.close();
 			throw e;
 		}
@@ -285,7 +331,7 @@ public final class TGVst3Host implements AutoCloseable {
 	// the pipe broke: the process is gone (or going: it is ended)
 	private TGVst3Exception stopped(Throwable cause) {
 		this.end();
-		this.exitReport = STOPPED + (this.process.isAlive() ? "" : " (exit code " + this.process.exitValue() + ")");
+		this.exitReport = this.stoppedFor(STOPPED + this.exitCode());
 		return new TGVst3Exception(this.exitReport, cause);
 	}
 
@@ -293,6 +339,7 @@ public final class TGVst3Host implements AutoCloseable {
 	private TGVst3Exception silent() {
 		this.end();
 		this.exitReport = SILENT;
+		LOG.warn(this.label + ": " + SILENT + ", ended");
 		return new TGVst3Exception(SILENT);
 	}
 
@@ -311,7 +358,8 @@ public final class TGVst3Host implements AutoCloseable {
 
 	// the process ends when its input closes, or is ended if it has not within 5 seconds (at once while it owes a reply)
 	public synchronized void close() {
-		this.closed = this.closed || this.isRunning();
+		boolean running = this.isRunning();
+		this.closed = this.closed || running;
 		try {
 			if (this.owed == null) {
 				this.requests.close();
@@ -324,6 +372,9 @@ public final class TGVst3Host implements AutoCloseable {
 		}
 		this.end();
 		this.instances.clear();
+		if (running) {
+			LOG.info(this.label + " closed" + this.exitCode());
+		}
 	}
 
 	// a reply as the reader thread read it: the request's value or the host's refusal, and what the plugins told the

@@ -22,6 +22,7 @@ import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.midi.synth.TGSynthOutput;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Folders;
@@ -41,6 +42,8 @@ public final class TGLiveAudio implements TGSynthOutput {
 
 	// the system property an app gives the folder of the native libraries with
 	public static final String NATIVE_PATH = "tuxguitar.audio.native.path";
+
+	private static final TGLog LOG = TGLog.get(TGLiveAudio.class);
 
 	private final TGContext context;
 	private TGAudioBackend backend;
@@ -123,8 +126,11 @@ public final class TGLiveAudio implements TGSynthOutput {
 		TGVst3Hosting.getInstance(this.context).configure(TGVst3Hosting.executable(folder, os), TGVst3Folders.standard(os, env, new File(system.getProperty("user.home", "."))));
 		try {
 			this.use(TGPortAudio.load(folder));
+			LOG.info("audio backend loaded from " + folder.getAbsolutePath() + ": host APIs " + this.backend.getHostApis() + ", " + this.backend.getDevices().size() + " devices");
 		} catch (TGAudioDeviceException | LinkageError e) {
-			this.fail("the native audio library did not load from " + folder.getAbsolutePath() + ": " + e.getMessage());
+			String problem = "the native audio library did not load from " + folder.getAbsolutePath() + ": " + e.getMessage();
+			LOG.warn(problem, e);
+			this.fail(problem);
 		}
 	}
 
@@ -161,6 +167,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 			this.start(this.backend, settings);
 		} catch (TGAudioDeviceException e) {
 			this.problem = e.getMessage();
+			LOG.warn("audio devices did not open: " + this.problem);
 		}
 		this.reopenSynthesizer();
 	}
@@ -172,11 +179,22 @@ public final class TGLiveAudio implements TGSynthOutput {
 		int input = settings.chooseInput(backend);
 		int output = settings.chooseOutput(backend);
 		this.device = TGLiveDevice.open(backend, input, settings.countInputChannels(backend, input), output, TGAudioBuffer.SAMPLE_RATE);
-		TGAudioDeviceInfo chosen = backend.getDevices().get(output);
-		this.output = chosen.getName() + " (" + chosen.getHostApi() + ")";
+		this.output = named(backend, output);
 		this.input = TGLiveInput.install(this.context, this.device);
 		TGAudioSession.getInstance(this.context).setDevice(this.device);
 		this.problem = null;
+		LOG.info("audio devices opened: input " + named(backend, input) + ", " + this.device.getInputChannels() + " channels; output "
+				+ this.output + "; " + this.device.getSampleRate() + " Hz, blocks of " + this.device.getBlock() + " frames, latency in "
+				+ this.device.getInputLatency() + " out " + this.device.getOutputLatency() + " frames");
+	}
+
+	// the backend's device "<name> (<host API>)"; "none" for an index that is no device (no default input, say)
+	static String named(TGAudioBackend backend, int index) {
+		List<TGAudioDeviceInfo> devices = backend.getDevices();
+		if (index < 0 || index >= devices.size()) {
+			return "none";
+		}
+		return devices.get(index).getName() + " (" + devices.get(index).getHostApi() + ")";
 	}
 
 	private void reopenSynthesizer() {
@@ -200,6 +218,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 			this.device.close();
 			TGAudioSession.getInstance(this.context).setDevice(null);
 			this.device = null;
+			LOG.info("audio devices closed: " + this.output);
 		}
 	}
 
@@ -218,9 +237,11 @@ public final class TGLiveAudio implements TGSynthOutput {
 	public synchronized boolean play(TGSynthModel synthesizer) {
 		synthesizer.addChannelListener(TGLivePlugins.getInstance(this.context));
 		if (this.device == null) {
+			LOG.info("the TuxGuitar Synthesizer plays through its own output (Java Sound on the desktop): " + this.problem);
 			return false;
 		}
 		this.device.play(synthesizer);
+		LOG.info("the TuxGuitar Synthesizer plays through " + this.output + " at " + this.device.getSampleRate() + " Hz");
 		return true;
 	}
 

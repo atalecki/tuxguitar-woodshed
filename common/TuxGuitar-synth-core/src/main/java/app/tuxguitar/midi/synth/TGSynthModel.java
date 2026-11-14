@@ -14,6 +14,8 @@ import app.tuxguitar.player.base.MidiSampleClock;
 import app.tuxguitar.player.base.MidiSynthesizer;
 import app.tuxguitar.player.base.MidiTransport;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
+import app.tuxguitar.util.log.TGLogRate;
 
 /**
  * The TuxGuitar Synthesizer's channels and programs. It is a sample clock: whoever renders it a block at a time runs
@@ -25,6 +27,11 @@ public class TGSynthModel implements MidiSynthesizer, MidiSampleClock{
 
 	public static final int BANKS_LENGTH = 129;
 	public static final int PROGRAMS_LENGTH = 128;
+
+	private static final TGLog LOG = TGLog.get(TGSynthModel.class);
+
+	// the listener's failures logged, one each 5 seconds at most: the audio thread only uses it
+	private final TGLogRate failures = new TGLogRate(5000);
 
 	private TGContext context;
 	private float sampleRate;
@@ -208,8 +215,14 @@ public class TGSynthModel implements MidiSynthesizer, MidiSampleClock{
 			try {
 				listener.beforeBlock(this, frames);
 			} catch (MidiPlayerException | RuntimeException exception) {
-				exception.printStackTrace();
+				this.failed(exception);
 			}
+		}
+	}
+
+	private void failed(Exception exception) {
+		if( this.failures.allow(System.nanoTime()) ) {
+			LOG.warn("the synthesizer's listener failed before a block; " + this.failures.takeHeldBack() + " more failures since the last one logged", exception);
 		}
 	}
 

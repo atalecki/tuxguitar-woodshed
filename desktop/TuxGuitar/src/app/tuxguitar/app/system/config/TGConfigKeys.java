@@ -24,6 +24,7 @@ public class TGConfigKeys {
 	public static final String LAYOUT_STYLE = "layout.style";
 	public static final String LAYOUT_SCALE = "layout.scale";
 	public static final String LANGUAGE = "language";
+	public static final String LOG_LEVEL = "log.level";
 	public static final String EDITOR_MOUSE_MODE = "editor.mouse.mode";
 	public static final String EDITOR_NATURAL_KEY_MODE = "editor.natural.key.mode";
 	public static final String FONT_DEFAULT = "font.default";

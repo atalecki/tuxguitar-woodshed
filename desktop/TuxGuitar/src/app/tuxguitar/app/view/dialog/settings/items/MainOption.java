@@ -15,10 +15,13 @@ import app.tuxguitar.ui.UIFactory;
 import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.toolbar.UIToolBar;
 import app.tuxguitar.ui.widget.UICheckBox;
+import app.tuxguitar.ui.widget.UIDropDownSelect;
 import app.tuxguitar.ui.widget.UILayoutContainer;
 import app.tuxguitar.ui.widget.UIPanel;
+import app.tuxguitar.ui.widget.UISelectItem;
 import app.tuxguitar.ui.widget.UITextField;
 import app.tuxguitar.util.TGSynchronizer;
+import app.tuxguitar.util.log.TGLogLevel;
 
 public class MainOption extends TGSettingsOption {
 
@@ -34,6 +37,7 @@ public class MainOption extends TGSettingsOption {
 	private UICheckBox autoSizeTable;
 	private UICheckBox playWhenMoving;
 	private UITextField windowTitle;
+	private UIDropDownSelect<TGLogLevel> logLevel;
 
 	public MainOption(TGSettingsEditor configEditor, UIToolBar toolBar, UILayoutContainer parent){
 		super(configEditor,toolBar,parent,TuxGuitar.getProperty("settings.config.main"));
@@ -99,7 +103,31 @@ public class MainOption extends TGSettingsOption {
 		this.playWhenMoving.setText(TuxGuitar.getProperty("settings.config.main.play-when-moving"));
 		optionsLayout.set(this.playWhenMoving, 3, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, true);
 
+		this.createLogLevel(uiFactory);
+
 		this.loadConfig();
+	}
+
+	private void createLogLevel(UIFactory uiFactory) {
+		showLabel(getPanel(), TuxGuitar.getProperty("settings.config.main.log-level"), true, 5, 1);
+
+		UITableLayout logLevelLayout = new UITableLayout();
+		UIPanel logLevelPanel = uiFactory.createPanel(getPanel(), false);
+		logLevelPanel.setLayout(logLevelLayout);
+		this.indent(logLevelPanel, 6, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false);
+
+		this.logLevel = uiFactory.createDropDownSelect(logLevelPanel);
+		for(TGLogLevel level : TGLogLevel.values()) {
+			this.logLevel.addItem(new UISelectItem<TGLogLevel>(level.name().charAt(0) + level.name().substring(1).toLowerCase(), level));
+		}
+		logLevelLayout.set(this.logLevel, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, true);
+	}
+
+	// the level chosen, kept by name
+	private void updateLogLevel(TGLogLevel level) {
+		if( level != null ){
+			getConfig().setValue(TGConfigKeys.LOG_LEVEL, level.name());
+		}
 	}
 
 	protected void loadConfig(){
@@ -109,6 +137,7 @@ public class MainOption extends TGSettingsOption {
 				final boolean showSplash = getConfig().getBooleanValue(TGConfigKeys.SHOW_SPLASH);
 				final boolean autoSizeTable = getConfig().getBooleanValue(TGConfigKeys.TABLE_AUTO_SIZE);
 				final boolean playWhenMoving = getConfig().getBooleanValue(TGConfigKeys.PLAY_WHEN_MOVING);
+				final TGLogLevel logLevel = TGLogLevel.parse(getConfig().getStringValue(TGConfigKeys.LOG_LEVEL));
 				TGSynchronizer.getInstance(getViewContext().getContext()).executeLater(new Runnable() {
 					public void run() {
 						if(!isDisposed()){
@@ -116,6 +145,7 @@ public class MainOption extends TGSettingsOption {
 							MainOption.this.showSplash.setSelected(showSplash);
 							MainOption.this.autoSizeTable.setSelected(autoSizeTable);
 							MainOption.this.playWhenMoving.setSelected(playWhenMoving);
+							MainOption.this.logLevel.setSelectedValue(logLevel);
 							MainOption.this.initialized = true;
 							MainOption.this.pack();
 						}
@@ -131,6 +161,7 @@ public class MainOption extends TGSettingsOption {
 			getConfig().setValue(TGConfigKeys.SHOW_SPLASH,this.showSplash.isSelected());
 			getConfig().setValue(TGConfigKeys.TABLE_AUTO_SIZE,this.autoSizeTable.isSelected());
 			getConfig().setValue(TGConfigKeys.PLAY_WHEN_MOVING, this.playWhenMoving.isSelected());
+			this.updateLogLevel(this.logLevel.getSelectedValue());
 		}
 	}
 
@@ -140,6 +171,7 @@ public class MainOption extends TGSettingsOption {
 			getConfig().setValue(TGConfigKeys.SHOW_SPLASH, getDefaults().getValue(TGConfigKeys.SHOW_SPLASH));
 			getConfig().setValue(TGConfigKeys.TABLE_AUTO_SIZE, getDefaults().getValue(TGConfigKeys.TABLE_AUTO_SIZE));
 			getConfig().setValue(TGConfigKeys.PLAY_WHEN_MOVING, getDefaults().getValue(TGConfigKeys.PLAY_WHEN_MOVING));
+			getConfig().setValue(TGConfigKeys.LOG_LEVEL, getDefaults().getValue(TGConfigKeys.LOG_LEVEL));
 		}
 	}
 

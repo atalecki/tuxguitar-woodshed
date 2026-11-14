@@ -2,6 +2,7 @@ package app.tuxguitar.app.view.menu.impl;
 
 import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.action.impl.help.TGHelpGoHomeAction;
+import app.tuxguitar.app.action.impl.help.TGOpenLogFolderAction;
 import app.tuxguitar.app.action.impl.help.TGOpenAboutDialogAction;
 import app.tuxguitar.app.action.impl.help.TGOpenDocumentationDialogAction;
 import app.tuxguitar.app.system.icons.TGIconManager;
@@ -16,6 +17,7 @@ public class HelpMenuItem extends TGMenuItem{
 	private UIMenuActionItem doc;
 	private UIMenuActionItem about;
 	private UIMenuActionItem goHome;
+	private UIMenuActionItem openLogFolder;
 
 	public HelpMenuItem(UIMenu parent) {
 		this.helpMenuItem = parent.createSubMenuItem();
@@ -34,6 +36,10 @@ public class HelpMenuItem extends TGMenuItem{
 		this.goHome = this.helpMenuItem.getMenu().createActionItem();
 		this.goHome.addSelectionListener(this.createActionProcessor(TGHelpGoHomeAction.NAME));
 
+		// -- OPEN LOG FOLDER --
+		this.openLogFolder = this.helpMenuItem.getMenu().createActionItem();
+		this.openLogFolder.addSelectionListener(this.createActionProcessor(TGOpenLogFolderAction.NAME));
+
 		this.loadIcons();
 		this.loadProperties();
 	}
@@ -43,6 +49,7 @@ public class HelpMenuItem extends TGMenuItem{
 		this.setMenuItemTextAndAccelerator(this.doc, "help.doc", TGOpenDocumentationDialogAction.NAME);
 		this.setMenuItemTextAndAccelerator(this.about, "help.about", TGOpenAboutDialogAction.NAME);
 		this.setMenuItemTextAndAccelerator(this.goHome, "help.goHome", TGHelpGoHomeAction.NAME);
+		this.setMenuItemTextAndAccelerator(this.openLogFolder, "help.open-log-folder", TGOpenLogFolderAction.NAME);
 	}
 
 	public void loadIcons(){

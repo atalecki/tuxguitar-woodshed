@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 import app.tuxguitar.util.properties.TGProperties;
 import app.tuxguitar.util.properties.TGPropertiesManager;
 
@@ -403,6 +405,36 @@ public class TestGervillProcessor {
 		GervillProcessor processor = loaded("0:80", null, "x");
 		processor.sendNoteOn(69, 127, 0, false);
 		assertEquals(0, peak(render(processor, 4)), 0);
+	}
+
+	// a soundbank that does not load is logged, with why, where it was printed before; the instrument then fails on
+	// the missing soundbank (pinned as it is: a NullPointerException, printed before too)
+	@Test
+	public void aSoundbankThatDoesNotLoadIsLoggedWithWhy() throws InterruptedException {
+		TGLogRecorder recorder = TGLogRecorder.attach(TGLogLevel.WARN);
+		try {
+			loaded("0:80", null, "x");
+		} finally {
+			recorder.detach();
+		}
+		java.util.List<String> logged = recorder.recorded();
+		assertEquals(2, logged.size(), logged.toString());
+		assertTrue(logged.get(0).startsWith("WARN the soundbank x did not load (java.io.FileNotFoundException: x"), logged.get(0));
+		assertTrue(logged.get(1).startsWith("WARN the instrument of program 0:80 did not load (java.lang.NullPointerException"), logged.get(1));
+	}
+
+	// parameters that are no program are logged and leave the processor as it was
+	@Test
+	public void parametersThatAreNoProgramAreLoggedWithWhy() throws InterruptedException {
+		GervillProcessor processor = loaded("0:25", null);
+		String before = stored(processor).toString();
+		Map<String, String> parameters = new HashMap<String, String>();
+		parameters.put("gervil.program", "a:b");
+		TGLogRecorder recorder = TGLogRecorder.during(TGLogLevel.WARN, () -> processor.restoreParameters(parameters));
+
+		assertEquals(java.util.Arrays.asList("WARN the Gervill parameters {gervil.program=a:b} are not a program (java.lang.NumberFormatException: For input string: \"a\")"),
+				recorder.recorded());
+		assertEquals(before, stored(processor).toString());
 	}
 
 	@Test

@@ -16,6 +16,8 @@ import app.tuxguitar.player.base.MidiSampleClock;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiReceiver;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 
 /**
  * The synthesizer is a sample clock: before it renders each block of 512 frames it runs its listener (the sequencer
@@ -59,6 +61,22 @@ public class TestSynthClock {
 		model.setListener(null);
 		model.beforeBlock(512);
 		assertEquals("true false false", told + " " + untold + " " + model.getTransport().get(0).isPlaying());
+	}
+
+	// a listener that fails does not stop the rendering; on the audio thread its failure is logged once in a while,
+	// saying how many went unlogged, not each block
+	@Test
+	public void aListenerThatFailsIsLoggedOnceInAWhile() {
+		TGSynthModel model = new TGSynthModel(new TGContext());
+		model.setListener((clock, frames) -> {
+			throw new IllegalStateException("broken");
+		});
+		List<String> logged = TGLogRecorder.during(TGLogLevel.WARN, () -> {
+			for (int i = 0; i < 3; i++) {
+				model.beforeBlock(512);
+			}
+		}).recorded();
+		assertEquals(Collections.singletonList("WARN the synthesizer's listener failed before a block; 0 more failures since the last one logged (java.lang.IllegalStateException: broken)"), logged);
 	}
 
 	@Test

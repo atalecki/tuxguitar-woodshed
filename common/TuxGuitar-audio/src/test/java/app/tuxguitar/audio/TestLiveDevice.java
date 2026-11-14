@@ -17,6 +17,8 @@ import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 import app.tuxguitar.util.properties.TGPropertiesManager;
 
 /**
@@ -77,6 +79,19 @@ class TestLiveDevice {
 		try (TGLiveDevice device = open(new TestBackend(RAMPS, 200, 300))) {
 			device.play(synthesizer);
 			assertEquals(300, synthesizer.getSoundingDelay() - synthesizer.getLatency());
+		}
+	}
+
+	// the device's thread logs nothing at the levels below TRACE; at TRACE one block a second at most, saying how many
+	// went unlogged since
+	@Test
+	void atTraceTheBlocksAreLoggedOneASecondAtMost() throws TGAudioDeviceException {
+		TestBackend backend = new TestBackend(RAMPS, 0, 0);
+		try (TGLiveDevice device = open(backend)) {
+			List<String> debug = TGLogRecorder.during(TGLogLevel.DEBUG, () -> backend.getStream().run(10)).recorded();
+			List<String> trace = TGLogRecorder.during(TGLogLevel.TRACE, () -> backend.getStream().run(100)).recorded();
+			assertEquals(Arrays.asList(), debug);
+			assertEquals(Arrays.asList("TRACE audio device block at frame 5120: 512 frames, 0 blocks since the last one logged"), trace);
 		}
 	}
 

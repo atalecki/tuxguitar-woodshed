@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 
 /**
  * A recording live on the live device (TestBackend), of LiveSong: unless a test says otherwise its sequencer starts
@@ -128,11 +130,12 @@ class TestLiveRecording {
 	}
 
 	// the device's callbacks stop before the run-on (its stream ended), the player still running: the recording ends
-	// by itself, stops the player and keeps what was delivered
+	// by itself, stops the player and keeps what was delivered, logging why it ended and what it made
 	@Test
 	void aRecordingWhoseDeviceStopsEndsByItselfKeepingWhatWasDelivered() throws Exception {
 		MidiPlayer player = MidiPlayer.getInstance(this.song.context);
 		AtomicInteger takes = new AtomicInteger();
+		TGLogRecorder recorder = TGLogRecorder.attach(TGLogLevel.INFO);
 		try (TGLiveDevice device = open()) {
 			TGLiveRecording recording = this.song.play(device, 1, this::block);
 			player.setRunning(true);
@@ -140,9 +143,13 @@ class TestLiveRecording {
 			ending.setDaemon(true);
 			ending.start();
 			assertFalse(isAliveAfter(ending, 5000), "the recording did not end once the device stopped");
+		} finally {
+			recorder.detach();
 		}
 		assertEquals("1 false", takes.get() + " " + player.isRunning());
 		assertKeptWhatWasDelivered();
+		assertEquals(Arrays.asList("WARN the audio device delivered nothing for 1000 ms: the recording ends there", "INFO live recording ended: 1 parts, 1 takes"),
+				recorder.recorded());
 	}
 
 	// a recording offset can make the round trip shorter than nothing: before the recording started is silence

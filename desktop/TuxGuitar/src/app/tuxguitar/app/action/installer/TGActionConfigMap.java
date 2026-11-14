@@ -56,6 +56,7 @@ import app.tuxguitar.app.action.impl.file.TGSaveAsFileAction;
 import app.tuxguitar.app.action.impl.file.TGSaveFileAction;
 import app.tuxguitar.app.action.impl.file.TGWriteFileAction;
 import app.tuxguitar.app.action.impl.help.TGHelpGoHomeAction;
+import app.tuxguitar.app.action.impl.help.TGOpenLogFolderAction;
 import app.tuxguitar.app.action.impl.help.TGOpenAboutDialogAction;
 import app.tuxguitar.app.action.impl.help.TGOpenDocumentationDialogAction;
 import app.tuxguitar.app.action.impl.insert.TGOpenChordDialogAction;
@@ -661,6 +662,7 @@ public class TGActionConfigMap extends TGActionMap<TGActionConfig> {
 		this.map(TGOpenDocumentationDialogAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);
 		this.map(TGOpenAboutDialogAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);
 		this.map(TGHelpGoHomeAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);
+		this.map(TGOpenLogFolderAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);
 		this.map(TGOpenMainToolBarSettingsDialogAction.NAME, LOCKABLE | SYNC_THREAD | DISABLE_ON_PLAY);
 	}
 

@@ -11,6 +11,7 @@ import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGSynchronizer;
 import app.tuxguitar.util.configuration.TGConfigManager;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.plugin.TGPlugin;
 
 /**
@@ -25,6 +26,8 @@ import app.tuxguitar.util.plugin.TGPlugin;
 public class TGAudioPlugin implements TGPlugin {
 
 	public static final String MODULE_ID = "tuxguitar-audio";
+
+	private static final TGLog LOG = TGLog.get(TGAudioPlugin.class);
 
 	private static final long DRAIN_MILLISECONDS = 50;
 	// how often the plugins kept open that nothing else calls (their element runs in no render) are asked
@@ -42,7 +45,7 @@ public class TGAudioPlugin implements TGPlugin {
 		audio.load(TGLiveAudio.nativeFolder(System.getProperties()));
 		open(context, TGAudioSettings.read(config(context)));
 		this.plugins = scheduler("TuxGuitar VST3 plugins");
-		this.plugins.execute(() -> System.err.println(audio.scanPlugins()));
+		this.plugins.execute(() -> LOG.info(audio.scanPlugins()));
 		this.plugins.scheduleWithFixedDelay(() -> drainLater(context), DRAIN_MILLISECONDS, DRAIN_MILLISECONDS, TimeUnit.MILLISECONDS);
 		this.plugins.scheduleWithFixedDelay(TGLivePlugins.getInstance(context)::poll, POLL_MILLISECONDS, POLL_MILLISECONDS, TimeUnit.MILLISECONDS);
 	}
@@ -60,7 +63,7 @@ public class TGAudioPlugin implements TGPlugin {
 	static void open(TGContext context, TGAudioSettings settings) {
 		TGLiveAudio audio = TGLiveAudio.getInstance(context);
 		audio.open(settings);
-		System.err.println(audio.describe());
+		LOG.info(audio.describe());
 	}
 
 	// one daemon thread running tasks in turn

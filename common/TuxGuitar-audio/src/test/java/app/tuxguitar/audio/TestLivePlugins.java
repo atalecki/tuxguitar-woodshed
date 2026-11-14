@@ -26,6 +26,8 @@ import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.util.log.TGLogLevel;
+import app.tuxguitar.util.log.TGLogRecorder;
 import app.tuxguitar.vst3.TGVst3EffectProcessor;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
@@ -191,6 +193,27 @@ public class TestLivePlugins {
 		boolean polled = this.live.hasEnded();
 		this.live.drain();
 		assertEquals("false true 3.0", unpolled + " " + polled + " " + songGain("effect-1"));
+	}
+
+	// a kept plugin whose host process is gone after a gesture: asking it, reading its editor again and keeping its
+	// gesture in the song each fail quietly as before, and each failure is logged with the host's reason
+	@Test
+	public void aKeptPluginWhoseHostIsGoneIsLoggedWhenAskedReadAndDrained() throws Exception {
+		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "effect-1");
+		gestureLater(gain("effect-1"), 3.0);
+		this.live.poll();
+		ProcessHandle host = ProcessHandle.of(gain("effect-1").getHost().getPid()).get();
+		host.destroyForcibly();
+		host.onExit().join();
+		List<String> logged = TGLogRecorder.during(TGLogLevel.DEBUG, () -> {
+			this.live.poll();
+			editor.refresh();
+			this.live.drain();
+		}).recorded();
+		String stopped = ": the VST3 host stopped (exit code ";
+		assertEquals("[DEBUG a VST3 plugin kept open was not asked" + stopped + ", DEBUG a VST3 plugin's parameters were not read again" + stopped
+				+ ", WARN the state of the VST3 plugin of effect-1 on channel " + this.guitar.getChannelId() + " was not kept" + stopped + "]",
+				logged.stream().filter(line -> !line.contains("VST3 host pid")).map(line -> line.replaceAll("\\(exit code -?\\d+\\)", "(exit code ")).collect(java.util.stream.Collectors.toList()).toString());
 	}
 
 	// a plugin kept before its element ran live is no longer the element's: it is not asked (its editor closed); an
@@ -365,8 +388,9 @@ public class TestLivePlugins {
 		ProcessHandle host = ProcessHandle.of(running(channel, "effect-1").getHost().getPid()).get();
 		host.destroyForcibly();
 		host.onExit().join();
-		TGPluginStates.store(this.fixture.context, this.fixture.song, this.fixture.songManager.getFactory(), 44100f);
+		List<String> logged = TGLogRecorder.during(TGLogLevel.DEBUG, () -> TGPluginStates.store(this.fixture.context, this.fixture.song, this.fixture.songManager.getFactory(), 44100f)).recorded();
 		Map<String, String> saved = TGSoundChain.element(TGSoundChain.get(this.guitar), "effect-1").getParameters();
 		assertEquals("true false 3.0", saved.containsKey("vst3.state") + " " + saved.containsKey("vst3.parameter.1") + " " + songGain("effect-1"));
+		assertEquals(1, logged.stream().filter(line -> line.startsWith("DEBUG the running VST3 plugin of effect-1 is gone, its state is read from a fresh one: the VST3 host stopped")).count(), logged.toString());
 	}
 }

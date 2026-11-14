@@ -33,6 +33,7 @@ import app.tuxguitar.ui.widget.UISelectItem;
 import app.tuxguitar.ui.widget.UIWindow;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGSynchronizer;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
@@ -47,6 +48,8 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * app shows as it shows every action's error.
  */
 public class TGSoundChainDialog {
+
+	private static final TGLog LOG = TGLog.get(TGSoundChainDialog.class);
 
 	private final TGContext context;
 	private final TGTrack track;
@@ -128,7 +131,7 @@ public class TGSoundChainDialog {
 	private void scanAgain() {
 		this.scan.setEnabled(false);
 		Thread scanning = new Thread(() -> {
-			System.err.println(TGLiveAudio.getInstance(this.context).scanPlugins());
+			LOG.info(TGLiveAudio.getInstance(this.context).scanPlugins());
 			this.later(this::scanned);
 		}, "TuxGuitar VST3 scan");
 		scanning.setDaemon(true);

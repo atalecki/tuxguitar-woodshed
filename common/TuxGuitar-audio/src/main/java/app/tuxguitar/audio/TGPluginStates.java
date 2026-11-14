@@ -14,6 +14,7 @@ import app.tuxguitar.song.factory.TGFactory;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Instance;
@@ -25,6 +26,8 @@ import app.tuxguitar.vst3.TGVst3Instance;
  * holds, and closes again (a disabled effect gives its state too). A channel without VST3 plugins is left as it is.
  */
 final class TGPluginStates {
+
+	private static final TGLog LOG = TGLog.get(TGPluginStates.class);
 
 	private TGPluginStates() {
 	}
@@ -58,6 +61,7 @@ final class TGPluginStates {
 			TGVst3Element.setState(plugin, running.getState());
 			return true;
 		} catch (TGVst3Exception e) {
+			LOG.debug("the running VST3 plugin of " + plugin.getId() + " is gone, its state is read from a fresh one: " + e.getMessage());
 			return false;
 		}
 	}

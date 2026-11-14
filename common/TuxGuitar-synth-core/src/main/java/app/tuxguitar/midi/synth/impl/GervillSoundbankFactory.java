@@ -9,6 +9,7 @@ import javax.sound.midi.Soundbank;
 
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGExpressionResolver;
+import app.tuxguitar.util.log.TGLog;
 
 import media.sound.EmergencySoundbank;
 import media.sound.ModelPatch;
@@ -16,6 +17,8 @@ import media.sound.SF2Instrument;
 import media.sound.DLSInstrument;
 
 public class GervillSoundbankFactory {
+
+	private static final TGLog LOG = TGLog.get(GervillSoundbankFactory.class);
 
 	private static Instrument[][] defaultInstruments;
 
@@ -32,7 +35,7 @@ public class GervillSoundbankFactory {
 				try {
 					createInstrument(context, program, callback);
 				} catch (Exception e) {
-					e.printStackTrace();
+					LOG.warn("the instrument of program " + program.getBank() + ":" + program.getProgram() + " did not load", e);
 				} finally {
 					GervillSoundbankFactory.this.locks --;
 				}
@@ -109,7 +112,7 @@ public class GervillSoundbankFactory {
 		try {
 			return MidiSystem.getSoundbank(new File(TGExpressionResolver.getInstance(context).resolve(soundbankPath)));
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOG.warn("the soundbank " + soundbankPath + " did not load", e);
 		}
 		return null;
 	}

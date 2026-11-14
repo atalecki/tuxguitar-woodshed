@@ -8,10 +8,14 @@ import java.util.Map;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.event.TGEventManager;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
+import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGActionManager {
+
+	private static final TGLog LOG = TGLog.get(TGActionManager.class);
 
 	private TGContext context;
 	private Map<String, TGAction> actions;
@@ -59,24 +63,39 @@ public class TGActionManager {
 
 	public void execute(String id, TGActionContext context) throws TGActionException{
 		try {
-			TGAction action = getAction(id);
-			if( action != null ){
-				if(!this.intercept(id, context)){
-					this.doPreExecution(id, context);
-
-					action.execute(context);
-
-					this.doPostExecution(id, context);
-				}
-			}
+			this.run(id, context);
 		} catch (TGActionException tgActionException) {
+			log(TGLogLevel.WARN, id, " failed: " + tgActionException.getMessage(), null);
 			this.fireErrorEvent(id, context, tgActionException);
 
 			throw tgActionException;
 		} catch (Throwable throwable) {
+			log(TGLogLevel.WARN, id, " failed: " + throwable, throwable);
 			this.fireErrorEvent(id, context, throwable);
 
 			throw new TGActionException(throwable);
+		}
+	}
+
+	private void run(String id, TGActionContext context) throws TGActionException{
+		TGAction action = getAction(id);
+		if( action == null ){
+			log(TGLogLevel.TRACE, id, " is not mapped", null);
+		} else if( this.intercept(id, context) ){
+			log(TGLogLevel.TRACE, id, " intercepted", null);
+		} else {
+			log(TGLogLevel.DEBUG, id, "", null);
+			this.doPreExecution(id, context);
+
+			action.execute(context);
+
+			this.doPostExecution(id, context);
+		}
+	}
+
+	private static void log(TGLogLevel level, String id, String what, Throwable thrown) {
+		if( LOG.isEnabled(level) ){
+			LOG.log(level, "action " + id + what, thrown);
 		}
 	}
 
