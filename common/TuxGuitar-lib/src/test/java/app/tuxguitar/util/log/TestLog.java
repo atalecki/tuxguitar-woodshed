@@ -8,11 +8,14 @@ import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class TestLog {
+
+	@RegisterExtension
+	final RecordedLogger recorded = new RecordedLogger();
 
 	private Logger logger;
 	private TGLogRecorder recorder;
@@ -20,16 +23,9 @@ public class TestLog {
 
 	@BeforeEach
 	public void setUp() {
-		this.logger = Logger.getLogger("test.log." + System.nanoTime());
-		this.logger.setUseParentHandlers(false);
-		this.recorder = new TGLogRecorder();
-		this.logger.addHandler(this.recorder);
+		this.logger = this.recorded.logger;
+		this.recorder = this.recorded.recorder;
 		this.log = new TGLog(this.logger);
-	}
-
-	@AfterEach
-	public void tearDown() {
-		this.logger.removeHandler(this.recorder);
 	}
 
 	private void logAtEachLevel() {

@@ -2,30 +2,24 @@ package app.tuxguitar.util.log;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 
 public class TestLogChoice {
 
-	@Test
-	public void theCommandLineLevelWinsOverTheSettingsAndTheDebugHelper() {
-		assertEquals("ERROR (-Dtuxguitar.log.level)", TGLogChoice.resolve(TGLogLevel.ERROR, TGLogLevel.TRACE, true).toString());
+	private static String chosen(TGLogLevel commandLine, TGLogLevel settings, boolean debugHelper) {
+		return TGLogChoice.resolve(commandLine, settings, debugHelper).toString();
 	}
 
+	// the command line wins over the settings and the debug helper; the helper raises a quieter level (or none set) to
+	// DEBUG and leaves a more verbose one as it is; without the command line and the helper the settings' level holds
 	@Test
-	public void theDebugHelperRaisesAQuieterLevelToDebug() {
-		assertEquals("DEBUG (debug helper plugin)", TGLogChoice.resolve(null, TGLogLevel.WARN, true).toString());
-		assertEquals("DEBUG (debug helper plugin)", TGLogChoice.resolve(null, null, true).toString());
-	}
-
-	@Test
-	public void theDebugHelperLeavesAMoreVerboseSettingAsItIs() {
-		assertEquals("TRACE (settings)", TGLogChoice.resolve(null, TGLogLevel.TRACE, true).toString());
-		assertEquals("DEBUG (settings)", TGLogChoice.resolve(null, TGLogLevel.DEBUG, true).toString());
-	}
-
-	@Test
-	public void withoutTheCommandLineAndTheHelperTheSettingsLevelHolds() {
-		assertEquals("INFO (settings)", TGLogChoice.resolve(null, TGLogLevel.INFO, false).toString());
+	public void theCommandLineWinsThenTheHelperRaisesToDebugThenTheSettingsHold() {
+		assertEquals(Arrays.asList("ERROR (-Dtuxguitar.log.level)", "DEBUG (debug helper plugin)", "DEBUG (debug helper plugin)",
+				"TRACE (settings)", "DEBUG (settings)", "INFO (settings)"),
+				Arrays.asList(chosen(TGLogLevel.ERROR, TGLogLevel.TRACE, true), chosen(null, TGLogLevel.WARN, true), chosen(null, null, true),
+						chosen(null, TGLogLevel.TRACE, true), chosen(null, TGLogLevel.DEBUG, true), chosen(null, TGLogLevel.INFO, false)));
 	}
 
 	@Test

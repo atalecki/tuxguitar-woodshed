@@ -12,11 +12,14 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class TestLogLineStream {
+
+	@RegisterExtension
+	final RecordedLogger recorded = new RecordedLogger();
 
 	private final ByteArrayOutputStream console = new ByteArrayOutputStream();
 	private Logger logger;
@@ -25,17 +28,10 @@ public class TestLogLineStream {
 
 	@BeforeEach
 	public void setUp() {
-		this.logger = Logger.getLogger("test.lines." + System.nanoTime());
-		this.logger.setUseParentHandlers(false);
+		this.logger = this.recorded.logger;
 		this.logger.setLevel(TGLogLevel.TRACE.toJul());
-		this.recorder = new TGLogRecorder();
-		this.logger.addHandler(this.recorder);
+		this.recorder = this.recorded.recorder;
 		this.stream = new TGLogLineStream(this.console, new TGLog(this.logger), TGLogLevel.WARN, StandardCharsets.UTF_8);
-	}
-
-	@AfterEach
-	public void tearDown() {
-		this.logger.removeHandler(this.recorder);
 	}
 
 	@Test
