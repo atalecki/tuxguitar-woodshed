@@ -316,13 +316,10 @@ public class TestPluginManager {
 	public void eachPluginConnectedOrDisconnectedIsLoggedAtInfo() throws IOException {
 		disabled("beta");
 		TGPluginManager manager = managerOf(Alpha.class.getName(), Beta.class.getName());
-		TGLogRecorder recorder = TGLogRecorder.attach(TGLogLevel.INFO);
-		try {
+		TGLogRecorder recorder = TGLogRecorder.during(TGLogLevel.INFO, () -> {
 			manager.connectEnabled();
 			manager.disconnectPlugins("beta");
-		} finally {
-			recorder.detach();
-		}
+		});
 
 		assertEquals(List.of("INFO plugin alpha connected: " + Alpha.class.getName(),
 				"INFO plugin beta disconnected: " + Beta.class.getName()), recorder.recorded());

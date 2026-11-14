@@ -36,6 +36,17 @@ public class TGLogRecorder extends Handler {
 		return recorder;
 	}
 
+	// what TuxGuitar logs at that level while the code runs
+	public static TGLogRecorder during(TGLogLevel level, Runnable code) {
+		TGLogRecorder recorder = attach(level);
+		try {
+			code.run();
+		} finally {
+			recorder.detach();
+		}
+		return recorder;
+	}
+
 	// stops recording, and puts TuxGuitar's log level back
 	public void detach() {
 		this.attachedTo.removeHandler(this);

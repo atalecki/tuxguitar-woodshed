@@ -110,15 +110,13 @@ public class TestActionManager {
 	}
 
 	private List<String> logged(TGLogLevel level, Runnable run) {
-		TGLogRecorder recorder = TGLogRecorder.attach(level);
-		try {
-			run.run();
-		} catch (TGActionException expected) {
-			// the failure is what is logged
-		} finally {
-			recorder.detach();
-		}
-		return recorder.recorded();
+		return TGLogRecorder.during(level, () -> {
+			try {
+				run.run();
+			} catch (TGActionException expected) {
+				// the failure is what is logged
+			}
+		}).recorded();
 	}
 
 	@Test

@@ -17,13 +17,7 @@ public class TestErrorManager {
 	private final TGErrorManager manager = TGErrorManager.getInstance(new TGContext());
 
 	private TGLogRecorder handled(Throwable error) {
-		TGLogRecorder recorder = TGLogRecorder.attach(TGLogLevel.ERROR);
-		try {
-			this.manager.handleError(error);
-		} finally {
-			recorder.detach();
-		}
-		return recorder;
+		return TGLogRecorder.during(TGLogLevel.ERROR, () -> this.manager.handleError(error));
 	}
 
 	@Test
