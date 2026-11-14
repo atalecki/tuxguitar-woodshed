@@ -7,8 +7,11 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
@@ -18,6 +21,8 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
  * down (each stop is reported), and one for a scan, ended when it is done.
  */
 public final class TGVst3Hosting {
+
+	private static final TGLog LOG = TGLog.get(TGVst3Hosting.class);
 
 	private File executable;
 	private List<File> folders = Collections.emptyList();
@@ -88,17 +93,16 @@ public final class TGVst3Hosting {
 	// the plugins of every VST3 module in the folders; a module the host refuses (not a VST3 module, or one that takes
 	// the host down) is left out, and kept with the reason (getSkipped)
 	public synchronized List<TGVst3Plugin> scan() throws TGVst3Exception {
+		long start = System.nanoTime();
+		LOG.info("VST3 scan of " + this.folders.size() + " folders: " + this.folders.stream().map(File::getPath).collect(Collectors.joining(", ")));
+		List<File> modules = TGVst3Folders.modules(this.folders);
 		List<TGVst3Plugin> found = new ArrayList<TGVst3Plugin>();
 		List<TGVst3SkippedModule> skipped = new ArrayList<TGVst3SkippedModule>();
 		TGVst3Host scanner = null;
 		try {
-			for (File module : TGVst3Folders.modules(this.folders)) {
+			for (File module : modules) {
 				scanner = this.running(scanner);
-				try {
-					found.addAll(scanner.scan(module));
-				} catch (TGVst3Exception refused) {
-					skipped.add(new TGVst3SkippedModule(module, refused.getMessage()));
-				}
+				scan(scanner, module, found, skipped);
 			}
 		} finally {
 			if (scanner != null) {
@@ -108,7 +112,21 @@ public final class TGVst3Hosting {
 		found.sort(Comparator.comparing(TGVst3Plugin::getName));
 		this.plugins = Collections.unmodifiableList(found);
 		this.skipped = Collections.unmodifiableList(skipped);
+		LOG.info("VST3 scan done: " + found.size() + " plugins in " + (modules.size() - skipped.size()) + " modules, " + skipped.size()
+				+ " skipped, in " + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) + " ms");
 		return this.plugins;
+	}
+
+	// the plugins of the module are found, or the module is skipped with the host's reason
+	private static void scan(TGVst3Host scanner, File module, List<TGVst3Plugin> found, List<TGVst3SkippedModule> skipped) {
+		try {
+			List<TGVst3Plugin> plugins = scanner.scan(module);
+			found.addAll(plugins);
+			LOG.debug("VST3 module " + module + ": " + plugins.stream().map(TGVst3Plugin::getName).collect(Collectors.joining(", ")));
+		} catch (TGVst3Exception refused) {
+			skipped.add(new TGVst3SkippedModule(module, refused.getMessage()));
+			LOG.info("VST3 module skipped: " + module + ": " + refused.getMessage());
+		}
 	}
 
 	// the modules the last scan left out, in the order it met them
