@@ -35,4 +35,10 @@ class TestVst3Folders {
 	void onWindowsAFolderWhoseVariableIsMissingIsLeftOut() {
 		assertEquals("/local/Programs/Common/VST3 | /common/VST3 | ", folders("Windows 10", Map.of("LOCALAPPDATA", "/local")) + " | " + folders("Windows 10", Map.of("COMMONPROGRAMFILES", "/common")) + " | " + folders("Windows 10", Collections.<String, String>emptyMap()));
 	}
+
+	// Windows sets CommonProgramFiles in that case, and Java's System.getenv() map does not ignore the case of names
+	@Test
+	void onWindowsTheVariablesAreFoundInAnyCase() {
+		assertEquals("/common/VST3, /local/Programs/Common/VST3", folders("Windows 11", Map.of("CommonProgramFiles", "/common", "LocalAppData", "/local")));
+	}
 }
