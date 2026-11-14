@@ -59,6 +59,7 @@ struct EditorWindow {
 	bool front;    // in front of the process's other shown windows
 	int32 left, top, right, bottom;  // its frame on the screen
 	int32 width, height;             // inside the frame
+	std::string title;               // its caption, UTF-8
 };
 
 #ifdef _WIN32
@@ -99,8 +100,8 @@ public:
 	void setState(const std::vector<char>& component, const std::vector<char>& controller);
 	void reset();
 	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
-	// no window: none); false when it has none for this platform
-	bool openEditor(int64 owner);
+	// no window: none), its caption the title (UTF-8); false when it has none for this platform
+	bool openEditor(int64 owner, const std::string& title);
 	void closeEditor();
 	EditorWindow editorWindow();
 	// sends the controller a message with the integer and binary attributes; answers its binary attribute "report"

@@ -371,8 +371,9 @@ private:
 		int32_t id = wire.readInt();
 		Instance& edited = instance(id);
 		int64_t owner = wire.readLong();
+		std::string title = wire.readString();
 		editorsClosing.erase(id);
-		bool opened = edited.openEditor(owner);
+		bool opened = edited.openEditor(owner, title);
 		bool owned = (opened && owner != 0 && edited.editorWindow().owner == owner);
 		wire.writeInt(opened ? (owned ? 2 : 1) : 0);
 	}
@@ -386,6 +387,7 @@ private:
 		for (int32_t value : {facts.left, facts.top, facts.right, facts.bottom, facts.width, facts.height}) {
 			wire.writeInt(value);
 		}
+		wire.writeString(facts.title);
 	}
 
 	// a message to the plugin's controller, with integer and binary attributes; the reply holds its report

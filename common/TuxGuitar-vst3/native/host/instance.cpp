@@ -449,6 +449,27 @@ void showInFront(HWND window) {
 	SetForegroundWindow(window);
 }
 
+// UTF-8 as Windows' UTF-16, and back
+std::wstring wide(const std::string& text) {
+	int count = MultiByteToWideChar(CP_UTF8, 0, text.data(), (int) text.size(), nullptr, 0);
+	std::wstring converted((size_t) count, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, text.data(), (int) text.size(), &converted[0], count);
+	return converted;
+}
+
+std::string narrow(const std::wstring& text) {
+	int count = WideCharToMultiByte(CP_UTF8, 0, text.data(), (int) text.size(), nullptr, 0, nullptr, nullptr);
+	std::string converted((size_t) count, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, text.data(), (int) text.size(), &converted[0], count, nullptr, nullptr);
+	return converted;
+}
+
+std::string caption(HWND window) {
+	std::wstring text((size_t) GetWindowTextLengthW(window) + 1, L'\0');
+	text.resize((size_t) GetWindowTextW(window, &text[0], (int) text.size()));
+	return narrow(text);
+}
+
 }  // namespace
 
 // the list is taken first: a request answered while this work waits on another thread does its own work (a window
@@ -461,11 +482,13 @@ void doEditorWindowWork() {
 	}
 }
 
-// an editor already open is shown and brought to the front as it is (its owner stays the one it opened with)
-bool Instance::openEditor(int64 owner) {
+// an editor already open is shown and brought to the front as it is (its owner stays the one it opened with), titled
+// anew
+bool Instance::openEditor(int64 owner, const std::string& title) {
 	if (!window && !createEditor(owner)) {
 		return false;
 	}
+	SetWindowTextW((HWND) window, wide(title).c_str());
 	toShow.push_back((HWND) window);
 	return true;
 }
@@ -521,12 +544,13 @@ EditorWindow Instance::editorWindow() {
 		facts.bottom = frame.bottom;
 		facts.width = inside.right;
 		facts.height = inside.bottom;
+		facts.title = caption(shown);
 	}
 	return facts;
 }
 #else
 // editor windows need the platform's window system: only Windows so far
-bool Instance::openEditor(int64) { return false; }
+bool Instance::openEditor(int64, const std::string&) { return false; }
 
 void Instance::closeEditor() { view = nullptr; }
 

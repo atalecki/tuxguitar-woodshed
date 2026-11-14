@@ -288,7 +288,7 @@ public class TestVst3Host {
 
 	@Test
 	public void theEditorOfAPluginWithoutOneDoesNotOpen() throws TGVst3Exception {
-		assertFalse(open("Test Clip 0.5").openEditor(0));
+		assertFalse(open("Test Clip 0.5").openEditor(0, ""));
 	}
 
 	@Test
@@ -351,9 +351,9 @@ public class TestVst3Host {
 		TGVst3Instance closed = open("Test Gain");
 		TGVst3Instance editorClosed = open("Test Gain");
 		TGVst3Instance reopened = open("Test Gain");
-		closed.openEditor(0);
-		editorClosed.openEditor(0);
-		reopened.openEditor(0);
+		closed.openEditor(0, "");
+		editorClosed.openEditor(0, "");
+		reopened.openEditor(0, "");
 		closed.message("TG.modal", Collections.singletonMap("millis", 1500L), Collections.<String, byte[]>emptyMap());
 		awaitLoop(reopened, true);
 		assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
@@ -361,7 +361,7 @@ public class TestVst3Host {
 			closed.close();
 			editorClosed.closeEditor();
 			reopened.closeEditor();
-			reopened.openEditor(0);
+			reopened.openEditor(0, "");
 		});
 		String during = Arrays.toString(loopState(reopened)) + " " + (editorClosed.getEditorWindow().getWindow() != 0);
 		awaitLoop(reopened, false);
@@ -379,7 +379,7 @@ public class TestVst3Host {
 	// the plugin opened in the other host, its editor open
 	private static TGVst3Instance withItsEditor(TGVst3Host other, String name) throws TGVst3Exception {
 		TGVst3Instance plugin = other.open(other.scan(TestPlugins.bundle(name)).get(0), 44100f, FRAMES);
-		plugin.openEditor(0);
+		plugin.openEditor(0, "");
 		return plugin;
 	}
 
@@ -521,9 +521,9 @@ public class TestVst3Host {
 	@Test
 	public void anEditorOpensAgainOnceClosed() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		assertTrue(gain.openEditor(0));
+		assertTrue(gain.openEditor(0, ""));
 		gain.closeEditor();
-		assertTrue(gain.openEditor(0));
+		assertTrue(gain.openEditor(0, ""));
 	}
 
 	// the window of a Test Gain editor open in another host process, as TuxGuitar's window is a window of another process
@@ -556,12 +556,12 @@ public class TestVst3Host {
 	@Test
 	public void anEditorClosedByItsCloseBoxIsHiddenUntilEditShowsItAgain() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		gain.openEditor(0);
+		gain.openEditor(0, "");
 		long window = inFront(gain).getWindow();
 		gain.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
 		boolean hidden = !once(gain, editor -> !editor.isShown()).isShown();
 		boolean stays = !gain.getEditorWindow().isShown();
-		gain.openEditor(0);
+		gain.openEditor(0, "");
 		TGVst3EditorWindow again = inFront(gain);
 		assertEquals("true true true true", hidden + " " + stays + " " + (again.getWindow() == window) + " " + again.isShown());
 	}
@@ -573,7 +573,7 @@ public class TestVst3Host {
 		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
 			TGVst3EditorWindow owner = editorOfAnotherProcess(other);
 			TGVst3Instance gain = open("Test Gain");
-			assertTrue(gain.openEditor(owner.getWindow()));
+			assertTrue(gain.openEditor(owner.getWindow(), ""));
 			TGVst3EditorWindow editor = inFront(gain);
 			assertNotEquals(0L, owner.getWindow());
 			assertNotEquals(0L, editor.getWindow());
@@ -586,9 +586,19 @@ public class TestVst3Host {
 	@Test
 	public void anEditorOpensShownInFrontSizedForThePluginsView() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		gain.openEditor(0);
+		gain.openEditor(0, "");
 		TGVst3EditorWindow editor = inFront(gain);
 		assertEquals("true true 200x100", editor.isShown() + " " + editor.isFront() + " " + editor.getInside());
+	}
+
+	// its window's caption is the title given (any text: UTF-8 on the wire), and Edit again gives it the title then
+	@Test
+	public void anEditorsWindowIsTitledAsEditSays() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "Test Gain – Track 1");
+		String first = gain.getEditorWindow().getTitle();
+		gain.openEditor(0, "Test Gain – Lead é");
+		assertEquals("Test Gain – Track 1 | Test Gain – Lead é", first + " | " + gain.getEditorWindow().getTitle());
 	}
 
 	// Edit on an editor that is open brings that window to the front rather than opening another
@@ -596,12 +606,12 @@ public class TestVst3Host {
 	public void anEditorOpenedAgainIsTheSameWindowBroughtToTheFront() throws TGVst3Exception {
 		TGVst3Instance first = open("Test Gain");
 		TGVst3Instance second = open("Test Gain");
-		first.openEditor(0);
+		first.openEditor(0, "");
 		long window = inFront(first).getWindow();
-		second.openEditor(0);
+		second.openEditor(0, "");
 		inFront(second);
 		boolean behind = first.getEditorWindow().isFront();
-		assertTrue(first.openEditor(0));
+		assertTrue(first.openEditor(0, ""));
 		TGVst3EditorWindow again = inFront(first);
 		assertEquals("false true true false", behind + " " + (again.getWindow() == window) + " " + again.isFront() + " " + second.getEditorWindow().isFront());
 	}
@@ -614,7 +624,7 @@ public class TestVst3Host {
 		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
 			long owner = windowOfAHungHost(other);
 			TGVst3Instance gain = open("Test Gain");
-			boolean opened = assertTimeoutPreemptively(Duration.ofMillis(1000), () -> gain.openEditor(owner));
+			boolean opened = assertTimeoutPreemptively(Duration.ofMillis(1000), () -> gain.openEditor(owner, ""));
 			assertEquals("true " + owner, opened + " " + gain.getEditorWindow().getOwner());
 		}
 	}
@@ -627,7 +637,7 @@ public class TestVst3Host {
 		TGVst3Instance gain = open("Test Gain");
 		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
 			TGVst3Instance hang = withItsEditor(other, "Test Hang");
-			gain.openEditor(hang.getEditorWindow().getWindow());
+			gain.openEditor(hang.getEditorWindow().getWindow(), "");
 			inFront(gain);
 			hangItsHost(hang);
 			assertTimeoutPreemptively(Duration.ofMillis(1000), gain::closeEditor);
@@ -644,8 +654,8 @@ public class TestVst3Host {
 		}
 		TGVst3Instance unowned = open("Test Gain");
 		TGVst3Instance stale = open("Test Gain");
-		assertTrue(unowned.openEditor(0));
-		assertTrue(stale.openEditor(gone));
+		assertTrue(unowned.openEditor(0, ""));
+		assertTrue(stale.openEditor(gone, ""));
 		assertEquals("0 0", unowned.getEditorWindow().getOwner() + " " + stale.getEditorWindow().getOwner());
 		assertNotEquals(0L, stale.getEditorWindow().getWindow());
 	}

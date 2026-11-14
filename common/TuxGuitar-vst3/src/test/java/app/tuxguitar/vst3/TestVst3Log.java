@@ -118,12 +118,12 @@ public class TestVst3Log {
 	@Test
 	public void aPluginsEditorIsLoggedAtDebug() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		gain.openEditor(0);
+		gain.openEditor(0, "");
 		TGVst3Instance owned = this.host.open(this.host.scan(TestPlugins.bundle("Test Gain")).get(0), 44100f, 512);
-		owned.openEditor(gain.getEditorWindow().getWindow());
+		owned.openEditor(gain.getEditorWindow().getWindow(), "");
 		gain.closeEditor();
 		TGVst3Instance clip = this.host.open(this.host.scan(TestPlugins.bundle("Test Clip 0.5")).get(0), 44100f, 512);
-		clip.openEditor(0);
+		clip.openEditor(0, "");
 
 		assertEquals(Arrays.asList("DEBUG VST3 plugin Test Gain: editor opened, unowned", "DEBUG VST3 plugin Test Gain: editor opened, owned by TuxGuitar's window",
 				"DEBUG VST3 plugin Test Gain: editor closed", "DEBUG VST3 plugin Test Clip 0.5: no editor of its own"), logged("DEBUG VST3 plugin"));

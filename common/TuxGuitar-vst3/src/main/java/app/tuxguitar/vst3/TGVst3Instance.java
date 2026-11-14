@@ -183,9 +183,10 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	// the plugin's own editor, shown in front in a window of the host process that the owner window owns (a native window
 	// handle; 0, or a handle that is no window: none), so it stays in front of that window and minimises with it; one
-	// already open is brought to the front. False when it has none (or the platform is not supported)
-	public boolean openEditor(long owner) throws TGVst3Exception {
-		int opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner), in -> in.readInt());
+	// already open is brought to the front. The window's caption is the title. False when it has none (or the platform
+	// is not supported)
+	public boolean openEditor(long owner, String title) throws TGVst3Exception {
+		int opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner).writeString(title), in -> in.readInt());
 		LOG.debug(this.label + EDITOR_OPENED[opened]);
 		return (opened != 0);
 	}

@@ -9,7 +9,9 @@ import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 
 /**
@@ -17,7 +19,8 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * (TGEffectAction.ATTRIBUTE_EFFECT), or, without one, the VST3 instrument that is the source. It changes nothing in the
  * song. Refused, saying why (a TGActionException, whose message an app shows), when that is no VST3 plugin, or the
  * plugin or its editor cannot be opened: the message names it. The plugin's own editor is in a window the window given
- * (ATTRIBUTE_OWNER: TuxGuitar's main window) owns, or, without one, in a window of its own.
+ * (ATTRIBUTE_OWNER: TuxGuitar's main window) owns, or, without one, in a window of its own; its caption names the
+ * plugin and the context's track (TGDocumentContextAttributes.ATTRIBUTE_TRACK), when there is one.
  */
 public class TGOpenPluginEditorAction extends TGActionBase {
 
@@ -39,11 +42,17 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 			throw new TGActionException(TGSoundChain.name(chain, effect, channel) + " is not a VST3 plugin: it has no editor to open");
 		}
 		Long owner = context.getAttribute(ATTRIBUTE_OWNER);
+		String title = title(plugin, context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK));
 		try {
-			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), (owner != null ? owner : 0));
+			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), (owner != null ? owner : 0), title);
 			context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
 		}
+	}
+
+	// the caption of the editor's window: the plugin's name, and the track's when the editor is opened for one
+	private static String title(TGProgramElement plugin, TGTrack track) {
+		return TGVst3Element.getName(plugin) + (track != null ? " – " + track.getName() : "");
 	}
 }
