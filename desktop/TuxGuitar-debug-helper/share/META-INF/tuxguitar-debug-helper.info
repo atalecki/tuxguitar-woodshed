@@ -1,5 +1,5 @@
 ### Plugin Information ###
 plugin.name=Debug helper plugin
-plugin.description=This plugin helps to find bugs in TuxGuitar.
+plugin.description=This plugin helps to find bugs in TuxGuitar: the log (Help > Open log folder) is written at the Debug level at least, with what TuxGuitar prints to the console.
 plugin.author=Julián Casadesús
 plugin.version=1.0
