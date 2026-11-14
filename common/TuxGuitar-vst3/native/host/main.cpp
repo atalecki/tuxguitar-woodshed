@@ -388,6 +388,8 @@ private:
 			wire.writeInt(value);
 		}
 		wire.writeString(facts.title);
+		wire.writeInt(facts.dpi);
+		wire.writeInt(facts.perMonitorDpiAware ? 1 : 0);
 	}
 
 	// a message to the plugin's controller, with integer and binary attributes; the reply holds its report
@@ -464,6 +466,10 @@ LRESULT CALLBACK heardProcedure(HWND window, UINT message, WPARAM wParam, LPARAM
 }  // namespace TuxGuitar
 
 int main() {
+#ifdef _WIN32
+	// before any window: each window is drawn at its own screen's DPI (plugin views are told its scale), not scaled up
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+#endif
 	TuxGuitar::Host host(TuxGuitar::Wire::claimStandardStreams());
 	return host.run();
 }

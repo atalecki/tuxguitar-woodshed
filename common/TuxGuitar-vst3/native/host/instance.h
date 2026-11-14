@@ -60,6 +60,8 @@ struct EditorWindow {
 	int32 left, top, right, bottom;  // its frame on the screen
 	int32 width, height;             // inside the frame
 	std::string title;               // its caption, UTF-8
+	int32 dpi;                       // of its screen
+	bool perMonitorDpiAware;         // per monitor, version 2
 };
 
 #ifdef _WIN32
@@ -104,6 +106,8 @@ public:
 	bool openEditor(int64 owner, const std::string& title);
 	void closeEditor();
 	EditorWindow editorWindow();
+	// tells the editor's view the scale of its screen (its DPI over 96), when the view takes one
+	void scaleView(double factor);
 	// sends the controller a message with the integer and binary attributes; answers its binary attribute "report"
 	std::vector<char> message(const std::string& id, const std::vector<std::pair<std::string, int64>>& integers,
 	                          const std::vector<std::pair<std::string, std::vector<char>>>& binaries);

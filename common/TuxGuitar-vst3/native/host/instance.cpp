@@ -3,6 +3,7 @@
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/ibstream.h"
+#include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/vst/ivstmessage.h"
 #include "pluginterfaces/vst/ivstnoteexpression.h"
 
@@ -399,11 +400,21 @@ HWND frontWindow() {
 // a caption with a close box, no resizing (the view keeps the size it asked for)
 const DWORD kEditorStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
 
+// the instance whose editor is in the window
+Instance* editing(HWND window) { return reinterpret_cast<Instance*>(GetWindowLongPtrW(window, GWLP_USERDATA)); }
+
 // closing an editor's window (its close box, Alt+F4) hides it, the plugin's view still in it: Edit shows it again. The
-// window is destroyed when TuxGuitar closes the editor
+// window is destroyed when TuxGuitar closes the editor. Gone to a screen of another DPI, it tells the view that screen's
+// scale and takes the frame Windows suggests
 LRESULT CALLBACK editorProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	if (message == WM_CLOSE) {
 		ShowWindow(window, SW_HIDE);
+		return 0;
+	}
+	if (message == WM_DPICHANGED) {
+		const RECT* frame = reinterpret_cast<const RECT*>(lParam);
+		editing(window)->scaleView(HIWORD(wParam) / (double) USER_DEFAULT_SCREEN_DPI);
+		SetWindowPos(window, nullptr, frame->left, frame->top, frame->right - frame->left, frame->bottom - frame->top, SWP_NOZORDER | SWP_NOACTIVATE);
 		return 0;
 	}
 	return DefWindowProcW(window, message, wParam, lParam);
@@ -494,22 +505,28 @@ bool Instance::openEditor(int64 owner, const std::string& title) {
 }
 
 // a hidden window whose inside is the size of the view, attached to it; an owner that is no window (0, or a window
-// closed since) owns nothing: the editor opens in a window of its own
+// closed since) owns nothing: the editor opens in a window of its own. The view is told the scale of the screen it opens
+// on (the owner's; else the main screen's) before it says its size
 bool Instance::createEditor(int64 owner) {
 	view = owned(controller->createView(ViewType::kEditor));
 	if (!view || view->isPlatformTypeSupported(kPlatformTypeHWND) != kResultTrue) {
 		view = nullptr;
 		return false;
 	}
+	HWND ownerWindow = (IsWindow((HWND) (intptr_t) owner) ? (HWND) (intptr_t) owner : nullptr);
+	UINT dpi = (ownerWindow ? GetDpiForWindow(ownerWindow) : GetDpiForSystem());
+	scaleView(dpi / (double) USER_DEFAULT_SCREEN_DPI);
 	ViewRect size = {0, 0, 400, 300};
 	view->getSize(&size);
-	HWND ownerWindow = (IsWindow((HWND) (intptr_t) owner) ? (HWND) (intptr_t) owner : nullptr);
 	RECT frame = {0, 0, size.getWidth(), size.getHeight()};
-	AdjustWindowRectEx(&frame, kEditorStyle, FALSE, 0);
+	AdjustWindowRectExForDpi(&frame, kEditorStyle, FALSE, 0, dpi);
 	LONG width = frame.right - frame.left;
 	LONG height = frame.bottom - frame.top;
 	POINT at = editorPosition(ownerWindow, width, height);
 	window = CreateWindowExW(0, editorClass(), L"", kEditorStyle, at.x, at.y, width, height, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
+	if (window) {
+		SetWindowLongPtrW((HWND) window, GWLP_USERDATA, (LONG_PTR) this);
+	}
 	if (!window || view->attached(window, kPlatformTypeHWND) != kResultOk) {
 		closeEditor();
 		return false;
@@ -545,6 +562,8 @@ EditorWindow Instance::editorWindow() {
 		facts.width = inside.right;
 		facts.height = inside.bottom;
 		facts.title = caption(shown);
+		facts.dpi = (int32) GetDpiForWindow(shown);
+		facts.perMonitorDpiAware = (AreDpiAwarenessContextsEqual(GetWindowDpiAwarenessContext(shown), DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) != FALSE);
 	}
 	return facts;
 }
@@ -556,6 +575,13 @@ void Instance::closeEditor() { view = nullptr; }
 
 EditorWindow Instance::editorWindow() { return EditorWindow{}; }
 #endif
+
+void Instance::scaleView(double factor) {
+	FUnknownPtr<IPlugViewContentScaleSupport> scaled(view);
+	if (scaled) {
+		scaled->setContentScaleFactor((IPlugViewContentScaleSupport::ScaleFactor) factor);
+	}
+}
 
 std::vector<char> Instance::message(const std::string& id, const std::vector<std::pair<std::string, int64>>& integers,
                                     const std::vector<std::pair<std::string, std::vector<char>>>& binaries) {

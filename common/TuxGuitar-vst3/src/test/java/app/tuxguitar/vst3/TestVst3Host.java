@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -599,6 +601,40 @@ public class TestVst3Host {
 		String first = gain.getEditorWindow().getTitle();
 		gain.openEditor(0, "Test Gain – Lead é");
 		assertEquals("Test Gain – Track 1 | Test Gain – Lead é", first + " | " + gain.getEditorWindow().getTitle());
+	}
+
+	// a test plugin's message on its editor's view, whose report is doubles
+	private static double[] viewMessage(TGVst3Instance plugin, String id, Map<String, Long> integers) throws TGVst3Exception {
+		ByteBuffer report = ByteBuffer.wrap(plugin.message(id, integers, Collections.<String, byte[]>emptyMap())).order(ByteOrder.nativeOrder());
+		double[] values = new double[report.remaining() / Double.BYTES];
+		report.asDoubleBuffer().get(values);
+		return values;
+	}
+
+	// what the view was last told: its content scale, width, height
+	private static double[] view(TGVst3Instance plugin) throws TGVst3Exception {
+		return viewMessage(plugin, "TG.view", Collections.<String, Long>emptyMap());
+	}
+
+	// the host is aware of each screen's own DPI (per monitor, version 2): the plugin's view is told the content scale of
+	// its window's screen (its DPI over 96)
+	@Test
+	public void aPluginsViewIsToldTheContentScaleOfItsWindowsScreen() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		TGVst3EditorWindow editor = gain.getEditorWindow();
+		assertEquals("true " + (editor.getDpi() / 96.0), editor.isPerMonitorDpiAware() + " " + view(gain)[0]);
+	}
+
+	// a window gone to a screen of another DPI takes the frame Windows suggests, and its view is told the new scale
+	@Test
+	public void anEditorsWindowGoneToAScreenOfAnotherDpiTakesTheFrameSuggestedAndTellsItsView() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		long dpi = inFront(gain).getDpi() + 48;
+		double[] suggested = viewMessage(gain, "TG.dpi-changed", Collections.singletonMap("dpi", dpi));
+		String frame = (int) suggested[0] + "," + (int) suggested[1] + " " + (int) suggested[2] + "," + (int) suggested[3];
+		assertEquals((dpi / 96.0) + " " + frame, view(gain)[0] + " " + gain.getEditorWindow().getFrame());
 	}
 
 	// Edit on an editor that is open brings that window to the front rather than opening another

@@ -37,6 +37,15 @@ struct PluginSpec {
 	std::vector<PresetSpec> presets;
 };
 
+// what a test plugin knows of its editor's view: the window it is in, while it is in one, the content scale its host
+// last gave it, and the size its host last gave it
+struct ViewState {
+	void* window = nullptr;
+	double scale = 0.0;
+	int32 width = 0;
+	int32 height = 0;
+};
+
 // the parameter that selects a preset
 const ParamID kPresetParam = 1000;
 // the size of every test plugin's state
@@ -91,6 +100,7 @@ private:
 	void gesture(ParamID id, const std::vector<double>& values);
 	void gestureNow();
 	static std::vector<double> doubles(IAttributeList* attributes);
+	tresult viewMessage(FIDString id, IAttributeList* attributes);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
 
@@ -101,8 +111,8 @@ private:
 	// the gesture of a "TG.gesture-later" not done yet: its parameter and values
 	ParamID laterParam = 0;
 	std::vector<double> later;
-	// the window its editor is in, while it is in one
-	void* editorWindow = nullptr;
+	// its editor's view, as the test messages read and play it
+	ViewState view;
 };
 
 }  // namespace TuxGuitar
