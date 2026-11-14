@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
@@ -54,6 +55,8 @@ public class PluginSteps {
 
 	private final AudioWorld world;
 	private List<TGVst3Plugin> scanned = new ArrayList<TGVst3Plugin>();
+	// a folder the scenario added to the VST3 folders, or null
+	private File extraFolder;
 	// a plugin a Then opened to look at its process (closed with the hosting)
 	private TGVst3Instance opened;
 
@@ -90,21 +93,64 @@ public class PluginSteps {
 		hosting().close();
 	}
 
-	@Given("the VST3 folders also hold the VST 2 plugin {string}")
-	public void theVst3FoldersAlsoHoldTheVst2Plugin(String name) throws IOException {
-		File folder = Files.createTempDirectory("vst3-folder-").toFile();
-		folder.deleteOnExit();
-		File plugin = new File(folder, name + ".dll");
-		Files.copy(new File(new File(nativeBuild(), "vst2"), name + ".dll").toPath(), plugin.toPath());
-		plugin.deleteOnExit();
-		List<File> folders = new ArrayList<File>(hosting().getFolders());
-		folders.add(folder);
-		hosting().configure(host(), folders);
+	// a folder the scenario adds to the VST3 folders, made the first time a step asks for it
+	private File extraFolder() throws IOException {
+		if (this.extraFolder == null) {
+			this.extraFolder = Files.createTempDirectory("vst3-folder-").toFile();
+			this.extraFolder.deleteOnExit();
+			List<File> folders = new ArrayList<File>(hosting().getFolders());
+			folders.add(this.extraFolder);
+			hosting().configure(host(), folders);
+		}
+		return this.extraFolder;
 	}
 
+	// a new file of the extra folder, at the path below it (the folders on the way made), deleted on exit after them
+	private File extraFile(String path) throws IOException {
+		File file = new File(extraFolder(), path);
+		if (file.getParentFile().mkdirs()) {
+			file.getParentFile().deleteOnExit();
+		}
+		file.deleteOnExit();
+		return file;
+	}
+
+	@Given("the VST3 folders also hold the VST 2 plugin {string}")
+	public void theVst3FoldersAlsoHoldTheVst2Plugin(String name) throws IOException {
+		Files.copy(new File(new File(nativeBuild(), "vst2"), name + ".dll").toPath(), extraFile(name + ".dll").toPath());
+	}
+
+	// a NAM capture is a model file, read by the plugin that plays it: any bytes do for a scan
+	@Given("the VST3 folders also hold the NAM capture {string}")
+	public void theVst3FoldersAlsoHoldTheNamCapture(String name) throws IOException {
+		Files.write(extraFile(name).toPath(), new byte[] {'{', '}'});
+	}
+
+	@Given("the VST3 folders also hold a folder {string} holding the NAM capture {string}")
+	public void theVst3FoldersAlsoHoldAFolderHoldingTheNamCapture(String folder, String name) throws IOException {
+		theVst3FoldersAlsoHoldTheNamCapture(folder + "/" + name);
+	}
+
+	// as the app scans them (TGLiveAudio), keeping what it reports
 	@When("I scan the VST3 folders")
-	public void scanTheVst3Folders() throws TGVst3Exception {
-		this.scanned = hosting().scan();
+	public void scanTheVst3Folders() {
+		TGLiveAudio.getInstance(world.fixture().context).scanPlugins();
+		this.scanned = hosting().getPlugins();
+	}
+
+	private List<String> reported() {
+		return TGLiveAudio.getInstance(world.fixture().context).getPluginScan().getLines();
+	}
+
+	@Then("the scan reports {string}")
+	public void theScanReports(String line) {
+		assertTrue(reported().contains(line), reported().toString());
+	}
+
+	// a line that goes on with what differs from one computer to another (a path)
+	@Then("the scan reports a line starting {string}")
+	public void theScanReportsALineStarting(String start) {
+		assertTrue(reported().stream().anyMatch(line -> line.startsWith(start)), reported().toString());
 	}
 
 	private String names(boolean instruments) {

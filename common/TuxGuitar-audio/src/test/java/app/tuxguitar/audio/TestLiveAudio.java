@@ -153,16 +153,25 @@ class TestLiveAudio {
 		assertEquals(new File(folder, "tuxguitar-vst3-host.exe") + " " + TGVst3Folders.standard("Windows 11", env, new File("/home/me")) + " | " + new File(folder, "tuxguitar-vst3-host") + " " + TGVst3Folders.standard("Linux", env, new File("/home/me")), windows + " | " + linux);
 	}
 
-	// a line for the log: how many plugins the scan of the VST3 folders found, or why none
+	// what the scan of the VST3 folders found (TGPluginScan), for the log and kept for the app to show: nothing before the
+	// first scan; the NAM captures in the folders counted; a scan that fails says why
 	@Test
-	void scanningTheVst3FoldersSaysWhatItFound() throws Exception {
+	void scanningTheVst3FoldersSaysWhatItFound(@TempDir File captures) throws Exception {
+		String before = this.audio.getPluginScan().toString();
 		TGVst3Hosting hosting = TestPluginHosting.host(this.fixture.context);
 		try {
+			Files.createFile(new File(captures, "Lead.nam").toPath());
+			List<File> folders = Arrays.asList(hosting.getFolders().get(0), captures);
+			hosting.configure(hosting.getExecutable(), folders);
 			String found = this.audio.scanPlugins();
-			List<File> folders = hosting.getFolders();
+			List<String> kept = this.audio.getPluginScan().getLines();
 			hosting.configure(new File("target/no-vst3-host.exe"), folders);
 			String refused = this.audio.scanPlugins();
-			assertEquals("TuxGuitar audio: 10 VST3 plugins in " + folders + " | TuxGuitar audio: no VST3 plugins (", found + " | " + refused.substring(0, refused.indexOf('(') + 1));
+			String failed = "TuxGuitar audio: The VST3 folders could not be scanned: the VST3 host did not start";
+			assertEquals("The VST3 folders have not been scanned yet. | TuxGuitar audio: VST3 effects found: 8. VST3 instruments found: 2. | NAM captures found: 1."
+				+ " | Folders scanned: " + folders.get(0) + ", " + captures + " | 3 | " + failed,
+				before + " | " + found.substring(0, found.indexOf('\n')) + " | " + kept.get(1).substring(0, kept.get(1).indexOf('.') + 1) + " | " + kept.get(2) + " | " + kept.size()
+				+ " | " + refused.substring(0, Math.min(refused.length(), failed.length())));
 		} finally {
 			hosting.close();
 		}

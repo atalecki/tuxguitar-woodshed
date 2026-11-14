@@ -26,6 +26,7 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Folders;
 import app.tuxguitar.vst3.TGVst3Hosting;
+import app.tuxguitar.vst3.TGVst3Plugin;
 import app.tuxguitar.vst3.TGVst3Processors;
 
 /**
@@ -49,6 +50,8 @@ public final class TGLiveAudio implements TGSynthOutput {
 	private String output;
 	private String problem;
 	private boolean installed;
+	// what the last scan of the VST3 folders found (a scan runs off the app's UI thread, which reads it)
+	private volatile TGPluginScan pluginScan = TGPluginScan.NONE;
 
 	private TGLiveAudio(TGContext context) {
 		this.context = context;
@@ -125,14 +128,24 @@ public final class TGLiveAudio implements TGSynthOutput {
 		}
 	}
 
-	// the VST3 folders scanned for plugins (it takes a while: an app runs it off its UI thread); a line for the log
+	// the VST3 folders scanned for plugins, and for NAM captures (it takes a while: an app runs it off its UI thread);
+	// what it found is kept (getPluginScan), and is the text for the log
 	public String scanPlugins() {
-		TGVst3Hosting hosting = TGVst3Hosting.getInstance(this.context);
+		this.pluginScan = scan(TGVst3Hosting.getInstance(this.context));
+		return "TuxGuitar audio: " + this.pluginScan;
+	}
+
+	private static TGPluginScan scan(TGVst3Hosting hosting) {
 		try {
-			return "TuxGuitar audio: " + hosting.scan().size() + " VST3 plugins in " + hosting.getFolders();
+			List<TGVst3Plugin> plugins = hosting.scan();
+			return TGPluginScan.of(hosting.getFolders(), plugins, hosting.getSkipped(), TGVst3Folders.find(hosting.getFolders(), TGPluginScan.CAPTURE));
 		} catch (TGVst3Exception e) {
-			return "TuxGuitar audio: no VST3 plugins (" + e.getMessage() + ")";
+			return TGPluginScan.failed(e.getMessage());
 		}
+	}
+
+	public TGPluginScan getPluginScan() {
+		return this.pluginScan;
 	}
 
 	// devices are chosen on this backend from now on
