@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * The VST3 modules in folders: every file or bundle named *.vst3, in any subfolder (a bundle's own content is not
@@ -21,15 +22,18 @@ public final class TGVst3Folders {
 
 	/**
 	 * The folders VST3 plugins are installed in on the system (os: its name, as os.name says it), in the order the VST3
-	 * SDK lists them: on Windows the common files' and the user's programs' (from the environment; a variable missing
-	 * leaves its folder out), on macOS the system's and the user's library, elsewhere the user's and the system's.
+	 * SDK lists them: on Windows the common files' and the user's programs' (from the environment, its names in any case
+	 * as Windows has them; a variable missing leaves its folder out), on macOS the system's and the user's library,
+	 * elsewhere the user's and the system's.
 	 */
 	public static List<File> standard(String os, Map<String, String> env, File home) {
 		String system = os.toLowerCase(Locale.ROOT);
 		if (system.startsWith("windows")) {
+			Map<String, String> variables = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+			variables.putAll(env);
 			List<File> folders = new ArrayList<File>();
-			under(folders, env.get("COMMONPROGRAMFILES"), "VST3");
-			under(folders, env.get("LOCALAPPDATA"), "Programs/Common/VST3");
+			under(folders, variables.get("COMMONPROGRAMFILES"), "VST3");
+			under(folders, variables.get("LOCALAPPDATA"), "Programs/Common/VST3");
 			return folders;
 		}
 		if (system.startsWith("mac")) {

@@ -129,18 +129,26 @@ public class TGSoundChainDialog {
 		this.scan.setEnabled(false);
 		Thread scanning = new Thread(() -> {
 			System.err.println(TGLiveAudio.getInstance(this.context).scanPlugins());
-			TGSynchronizer.getInstance(this.context).executeLater(this::scanned);
+			this.later(this::scanned);
 		}, "TuxGuitar VST3 scan");
 		scanning.setDaemon(true);
 		scanning.start();
 	}
 
 	private void scanned() {
-		if (!this.dialog.isDisposed()) {
-			this.showPlugins();
-			this.scan.setEnabled(true);
-			this.updateButtons();
-		}
+		this.showPlugins();
+		this.scan.setEnabled(true);
+		this.updateButtons();
+	}
+
+	// done on the UI thread once it gets there, unless the dialog was closed meanwhile (a scan, or a plugin loading
+	// or opening its editor, can take longer than the dialog stays open)
+	private void later(Runnable done) {
+		TGSynchronizer.getInstance(this.context).executeLater(() -> {
+			if (!this.dialog.isDisposed()) {
+				done.run();
+			}
+		});
 	}
 
 	private UIButton button(int row, int column, String key, Runnable action) {
@@ -182,14 +190,15 @@ public class TGSoundChainDialog {
 		this.edit.setEnabled(chain.canEdit(row));
 	}
 
-	// the change runs on the action's thread; the rows are read again on the UI thread once it is done
+	// the change runs on the action's thread; the rows are read again on the UI thread once it is done (the dialog still
+	// open)
 	private void change(TGActionProcessor processor) {
 		this.change(processor, this::refresh);
 	}
 
 	private void change(TGActionProcessor processor, Runnable done) {
 		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, this.channel());
-		processor.setOnFinish(() -> TGSynchronizer.getInstance(this.context).executeLater(done));
+		processor.setOnFinish(() -> this.later(done));
 		processor.process();
 	}
 

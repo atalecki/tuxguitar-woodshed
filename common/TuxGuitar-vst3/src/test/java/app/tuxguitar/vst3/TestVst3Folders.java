@@ -64,4 +64,10 @@ class TestVst3Folders {
 		assertEquals("one/Amp.vst3, one/NamModels.vst3, one/sub/Old.vst3 | one/Loose.NAM, one/NamModels.vst3/Clean.nam, two/Lead.nam",
 			found(folders, ".vst3", root) + " | " + found(folders, ".nam", root));
 	}
+
+	// Windows sets CommonProgramFiles in that case, and Java's System.getenv() map does not ignore the case of names
+	@Test
+	void onWindowsTheVariablesAreFoundInAnyCase() {
+		assertEquals("/common/VST3, /local/Programs/Common/VST3", folders("Windows 11", Map.of("CommonProgramFiles", "/common", "LocalAppData", "/local")));
+	}
 }
