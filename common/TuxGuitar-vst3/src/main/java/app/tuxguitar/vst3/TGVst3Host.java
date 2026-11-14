@@ -2,11 +2,14 @@ package app.tuxguitar.vst3;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.lang.ProcessBuilder.Redirect;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,19 +85,39 @@ public final class TGVst3Host implements AutoCloseable {
 		this.label = "VST3 host pid " + process.pid();
 	}
 
-	// the process, started and greeted; its errors go to TuxGuitar's
+	// the process, started and greeted; what it prints to its standard error goes to TuxGuitar's log
 	public static TGVst3Host start(File executable) throws TGVst3Exception {
 		try {
-			Process process = new ProcessBuilder(executable.getAbsolutePath()).redirectError(Redirect.INHERIT).start();
+			Process process = new ProcessBuilder(executable.getAbsolutePath()).start();
 			File shared = Files.createTempDirectory("tuxguitar-vst3-").toFile();
 			shared.deleteOnExit();
 			TGVst3Host host = new TGVst3Host(process, shared);
+			host.logErrors();
 			host.hello();
 			LOG.info("VST3 host started: pid " + process.pid() + ", " + executable.getAbsolutePath());
 			return host;
 		} catch (IOException e) {
 			LOG.warn("the VST3 host did not start: " + executable, e);
 			throw new TGVst3Exception("the VST3 host did not start: " + executable, e);
+		}
+	}
+
+	// on a thread of its own until the process ends: each line it prints to its standard error is logged
+	private void logErrors() {
+		Thread thread = new Thread(() -> logLines(this.process.getErrorStream(), this.label + ": "), "tuxguitar-vst3-stderr");
+		thread.setDaemon(true);
+		thread.start();
+	}
+
+	// each line read, in the system's encoding, logged at INFO after the prefix, until the stream ends or breaks
+	static void logLines(InputStream in, String prefix) {
+		Charset encoding = Charset.forName(System.getProperty("native.encoding", Charset.defaultCharset().name()));
+		try (BufferedReader lines = new BufferedReader(new InputStreamReader(in, encoding))) {
+			for (String line = lines.readLine(); line != null; line = lines.readLine()) {
+				LOG.info(prefix + line);
+			}
+		} catch (IOException e) {
+			// the process is gone: nothing more to read
 		}
 	}
 

@@ -24,7 +24,7 @@ import app.tuxguitar.util.log.TGLogRecorder;
 
 /**
  * What VST3 hosting writes to TuxGuitar's log, with the real host process and test plugins: each host process started
- * (its pid), closed, stopped (its exit code) or ended for hanging; each
+ * (its pid), closed, stopped (its exit code) or ended for hanging, with what it printed to its standard error; each
  * plugin opened, refused and closed, and its editor, by the plugin's name; each scan's folders, modules and counts.
  */
 public class TestVst3Log {
@@ -56,6 +56,14 @@ public class TestVst3Log {
 
 	private List<String> logged(String start) {
 		return this.recorder.recorded().stream().filter(line -> line.startsWith(start)).collect(Collectors.toList());
+	}
+
+	// what is logged with the text, waiting up to 5 s for it (the host's standard error is read on a thread of its own)
+	private List<String> awaitLogged(String text) throws InterruptedException {
+		for (int i = 0; i < 100 && !this.recorder.text().contains(text); i++) {
+			Thread.sleep(50);
+		}
+		return this.recorder.recorded().stream().filter(line -> line.contains(text)).collect(Collectors.toList());
 	}
 
 	@Test
@@ -97,11 +105,12 @@ public class TestVst3Log {
 	}
 
 	@Test
-	public void aHostThatCrashesIsLoggedWithItsExitCode() throws TGVst3Exception {
+	public void aHostThatCrashesIsLoggedWithItsExitCodeAndWhatItPrinted() throws TGVst3Exception, InterruptedException {
 		TGVst3Instance gain = open("Test Gain");
 		long pid = this.host.getPid();
 		assertThrows(TGVst3Exception.class, () -> gain.message("TG.crash", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()));
 
+		assertEquals(Arrays.asList("INFO VST3 host pid " + pid + ": Test plugin: crashing as asked"), awaitLogged("crashing as asked"));
 		assertEquals(Arrays.asList("WARN VST3 host pid " + pid + ": the VST3 host stopped (exit code 70)"), logged("WARN VST3 host"));
 	}
 
