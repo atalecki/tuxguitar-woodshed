@@ -11,9 +11,8 @@ import app.tuxguitar.audio.TGTurn;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerMode;
-import app.tuxguitar.practice.TGPracticeChooser;
+import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
-import app.tuxguitar.practice.TGPracticeSchedule;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
@@ -62,13 +61,16 @@ public class TGPractiseAction extends TGPlayAction {
 		MidiPlayer player = MidiPlayer.getInstance(context);
 		int sampleRate = TGAudioSession.getInstance(context).getDevice().getSampleRate();
 		ToIntFunction<TGMeasureHeader> clicks = player.getCountDown()::clicksBefore;
-		TGPracticeChooser chooser = session.chooser(seed);
-		TGPracticeSchedule schedule = session.schedule(clicks, TGTempoScale.percent(player.getMode().getStartPercent()));
+		return timeline(song, session.course(seed, clicks, TGTempoScale.percent(player.getMode().getStartPercent())), clicks, sampleRate);
+	}
+
+	// what the course plays, each turn planned as it starts, up to its last, its Count In clicks as the function says
+	private static TGTimeline timeline(TGSong song, TGPracticeCourse course, ToIntFunction<TGMeasureHeader> clicks, int sampleRate) {
 		List<TGTurn> turns = new ArrayList<TGTurn>();
 		long rest = 0;
 		TGPracticePlan plan;
 		do {
-			plan = schedule.plan(chooser.next());
+			plan = course.next();
 			turns.addAll(TGTurn.planned(song, plan, turns.size(), rest, clicks, sampleRate));
 			rest = plan.getBreakSeconds() * (long) sampleRate;
 		} while (!plan.isLast());

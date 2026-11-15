@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -14,8 +15,8 @@ import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeTurn;
-import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.practice.TGPracticeUnitKind;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -63,7 +64,8 @@ public class TestMidiPractice {
 	// the session as set, at the percent, started from tick 960; each turn added is kept, and written as practice() says
 	private MidiPractice practice(TGPracticeSettings settings, int percent) throws TGPracticeRefusal {
 		session = TGPracticeSession.start(settings, song);
-		MidiPractice practice = new MidiPractice(session.chooser(SEED), song, header -> header.getTimeSignature().getNumerator(), TGTempoScale.percent(percent));
+		ToIntFunction<TGMeasureHeader> clicks = header -> header.getTimeSignature().getNumerator();
+		MidiPractice practice = new MidiPractice(session.course(SEED, clicks, TGTempoScale.percent(percent)), song, clicks);
 		practice.start(960, (turn, setup) -> {
 			passes.add(turn);
 			added.add(turn.getFirst().getNumber() + "-" + turn.getLast().getNumber() + "@" + turn.getStart() + (setup ? " setup" : ""));
@@ -176,7 +178,7 @@ public class TestMidiPractice {
 	public void aFlagDuringACyclesLastTurnCountsFromTheNextCycle() throws TGPracticeRefusal {
 		MidiPractice practice = practice(10);
 		startEachTurn(practice, 4);
-		practice.getChooser().checkFlag(3, 3);
+		practice.getCourse().checkFlag(3, 3);
 		song.getMeasureHeader(2).setDifficulty(3);
 		startEachTurn(practice, 6);
 		assertEquals("[1, 3, 3, 3, 5, 7] 10", firsts(5, 10) + " " + added.size());
@@ -298,7 +300,7 @@ public class TestMidiPractice {
 	public void aFlagDuringABreakCountsFromTheCycleAfterTheOneItsTurnOpens() throws TGPracticeRefusal {
 		MidiPractice practice = this.practice(timedLines(10), 100);
 		IntStream.rangeClosed(1, 5).forEach(turn -> startTurn(practice, turn));
-		practice.getChooser().checkFlag(3, 3);
+		practice.getCourse().checkFlag(3, 3);
 		song.getMeasureHeader(2).setDifficulty(3);
 		IntStream.rangeClosed(6, 9).forEach(turn -> startTurn(practice, turn));
 		List<Integer> firsts = IntStream.rangeClosed(5, 8).mapToObj(turn -> passes.stream().filter(pass -> pass.getTurn() == turn).findFirst().get().getFirst().getNumber())

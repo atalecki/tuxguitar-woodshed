@@ -15,7 +15,7 @@ import app.tuxguitar.editor.undo.TGUndoableEdit;
 import app.tuxguitar.editor.undo.TGUndoableManager;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficulty;
 import app.tuxguitar.player.base.MidiPlayer;
-import app.tuxguitar.practice.TGPracticeChooser;
+import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.song.models.TGMeasureHeader;
@@ -66,7 +66,7 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 	}
 
 	private static boolean isUnderWay(TGContext context) {
-		return (TGPracticeUnderWay.getInstance(context).getChooser() != null);
+		return (TGPracticeUnderWay.getInstance(context).getCourse() != null);
 	}
 
 	// what a session lets through: a flag, and a move of the caret
@@ -87,19 +87,19 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 
 	// refuses a flag the session under way could not play; intercepts nothing
 	public boolean intercept(String id, TGActionContext actionContext) throws TGActionException {
-		TGPracticeChooser chooser = TGPracticeUnderWay.getInstance(this.context).getChooser();
-		Flag flag = (chooser != null ? this.flagOf(id, actionContext) : null);
+		TGPracticeCourse course = TGPracticeUnderWay.getInstance(this.context).getCourse();
+		Flag flag = (course != null ? this.flagOf(id, actionContext) : null);
 		if (flag != null) {
-			flag.check(chooser);
+			flag.check(course);
 		}
 		return false;
 	}
 
 	// an edit other than a flag's ends the session under way
 	private void edited(TGUndoableEdit edit) {
-		TGPracticeChooser chooser = TGPracticeUnderWay.getInstance(this.context).getChooser();
-		if (chooser != null && edit != null && !(edit instanceof TGUndoableDifficulty)) {
-			chooser.getSession().end();
+		TGPracticeCourse course = TGPracticeUnderWay.getInstance(this.context).getCourse();
+		if (course != null && edit != null && !(edit instanceof TGUndoableDifficulty)) {
+			course.end();
 		}
 	}
 
@@ -139,10 +139,10 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 		}
 
 		// a flag outside 1x to 5x is the flag action's to refuse
-		void check(TGPracticeChooser chooser) throws TGActionException {
+		void check(TGPracticeCourse course) throws TGActionException {
 			try {
 				if (TGMeasureHeader.isDifficulty(this.difficulty)) {
-					chooser.checkFlag(this.header.getNumber(), this.difficulty);
+					course.checkFlag(this.header.getNumber(), this.difficulty);
 				}
 			} catch (TGPracticeRefusal refusal) {
 				throw new TGActionException(refusal.getMessage());

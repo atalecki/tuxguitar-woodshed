@@ -6,56 +6,46 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
 
-import app.tuxguitar.practice.TGPracticeChooser;
+import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
-import app.tuxguitar.practice.TGPracticeSchedule;
-import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeTurn;
-import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
- * An interleaved practice session as the player plays it live: its turns one after the other in the sequence's ticks,
- * from where it starts, each its passes as the session's schedule plans it (MidiPracticeTurn: the first after the
- * break the turn before planned, each its Count In, if any, then its unit's measures), each turn at the tempo scale
- * its plan gives it. A turn is chosen ahead and laid, all its passes, once the turn before it has started (the first one when
- * the session starts); a turn starts with its break, and the chooser is told then, so a flag set before then counts from
- * its cycle when it opens one; after the turn the schedule plans last the sequence ends.
+ * A practice session as the player plays it live: its course's turns one after the other in the sequence's ticks,
+ * from where it starts, each its passes as the course plans it (MidiPracticeTurn: the first after the break the turn
+ * before planned, each its Count In, if any, then the measures its plan plays), each at the tempo scale its plan gives
+ * it. A turn is planned ahead and laid, all its passes, once the turn before it has started (the first one when the
+ * session starts); a turn starts with its break, and the course is told then (random practice: so a flag set before
+ * then counts from its cycle when it opens one); after the turn planned last the sequence ends.
  */
 final class MidiPractice {
 
 	private static final long SECOND = 1000000L;
 
-	private final TGPracticeChooser chooser;
+	private final TGPracticeCourse course;
 	private final TGSong song;
 	// the Count In clicks before a turn whose first measure is the header (0: none)
 	private final ToIntFunction<TGMeasureHeader> clicks;
-	// plans each turn chosen; one for the session, so a pause does not count in its time
-	private final TGPracticeSchedule schedule;
 	// the passes in the sequence, from its first
 	private final List<MidiPracticeTurn> turns = new ArrayList<MidiPracticeTurn>();
 	// the same, as read by other threads: a copy made each time a turn is laid (the player's thread lays them)
 	private volatile List<MidiPracticeTurn> laid = Collections.emptyList();
-	// the plans of the turns chosen, in order
+	// the plans of the turns laid, in order
 	private final List<TGPracticePlan> plans = new ArrayList<TGPracticePlan>();
 	// adds a pass to the sequence; true for its first
 	private BiConsumer<MidiPracticeTurn, Boolean> sequence;
 
-	// the session's turns planned at the tempo scale
-	MidiPractice(TGPracticeChooser chooser, TGSong song, ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {
-		this.chooser = chooser;
+	// the course's turns, one plan each; one course for the session, so a pause does not count in its time
+	MidiPractice(TGPracticeCourse course, TGSong song, ToIntFunction<TGMeasureHeader> clicks) {
+		this.course = course;
 		this.song = song;
 		this.clicks = clicks;
-		this.schedule = chooser.getSession().schedule(clicks, scale);
 	}
 
-	TGPracticeChooser getChooser() {
-		return this.chooser;
-	}
-
-	TGPracticeSession getSession() {
-		return this.chooser.getSession();
+	TGPracticeCourse getCourse() {
+		return this.course;
 	}
 
 	// the session's first turn, from the tick, into the sequence
@@ -88,11 +78,11 @@ final class MidiPractice {
 		this.publish();
 	}
 
-	// the sequence has played up to the tick: once the last turn laid has started (the chooser told), the next is laid,
+	// the sequence has played up to the tick: once the last turn laid has started (the course told), the next is laid,
 	// unless that was the last
 	void follow(long tick) {
 		if (tick >= this.opening().getStart()) {
-			this.chooser.started();
+			this.course.started();
 			this.addAfter();
 		}
 	}
@@ -138,8 +128,8 @@ final class MidiPractice {
 	TGPracticeTurn turn(long tick) {
 		MidiPracticeTurn pass = this.turns.get(this.indexAt(tick));
 		TGPracticePlan plan = this.plans.get(pass.getTurn() - 1);
-		if (!this.getSession().getClock().isPresent()) {
-			return new TGPracticeTurn(pass.getTurn(), this.getSession().getTurns(), plan);
+		if (!this.course.isTimed()) {
+			return new TGPracticeTurn(pass.getTurn(), this.course.getTurns(), plan);
 		}
 		if (pass.rests(tick)) {
 			return TGPracticeTurn.inBreak(pass.getTurn(), plan, seconds(pass.micros(tick, pass.getCountIn())));
@@ -166,10 +156,10 @@ final class MidiPractice {
 		return this.plans.get(this.plans.size() - 1);
 	}
 
-	// the next turn, chosen and planned, from the tick: its passes, the first after the break the turn before planned
+	// the next turn, as the course plans it, from the tick: its passes, the first after the break the turn before planned
 	private void add(long start) {
 		int rest = (this.plans.isEmpty() ? 0 : this.lastPlan().getBreakSeconds());
-		TGPracticePlan plan = this.schedule.plan(this.chooser.ahead());
+		TGPracticePlan plan = this.course.ahead();
 		this.plans.add(plan);
 		int turn = this.plans.size();
 		TGMeasureHeader first = this.song.getMeasureHeader(plan.getFirstMeasure() - 1);

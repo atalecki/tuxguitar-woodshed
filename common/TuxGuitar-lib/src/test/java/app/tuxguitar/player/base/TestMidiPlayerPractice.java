@@ -160,7 +160,7 @@ public class TestMidiPlayerPractice {
 	}
 
 	private String state() {
-		return player.isRunning() + " " + session.isEnded() + " " + (TGPracticeUnderWay.getInstance(fixture.context).getChooser() != null);
+		return player.isRunning() + " " + session.isEnded() + " " + (TGPracticeUnderWay.getInstance(fixture.context).getCourse() != null);
 	}
 
 	@Test

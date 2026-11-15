@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.event.TGEventListener;
@@ -194,15 +195,16 @@ public class MidiPlayer{
 		}
 		this.runLocked(() -> {
 			this.stop();
-			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore, TGTempoScale.percent(this.getMode().getStartPercent()));
-			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getChooser());
+			ToIntFunction<TGMeasureHeader> clicks = this.getCountDown()::clicksBefore;
+			this.practice = new MidiPractice(session.course(seed, clicks, TGTempoScale.percent(this.getMode().getStartPercent())), this.getSong(), clicks);
+			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getCourse());
 		});
 		this.play();
 	}
 
 	// whether a session is held, playing or paused (one that ended is not)
 	public boolean isPractising() {
-		return this.readLocked(() -> this.practice != null && !this.practice.getSession().isEnded());
+		return this.readLocked(() -> this.practice != null && !this.practice.getCourse().isEnded());
 	}
 
 	// whether Stop has anything to stop: the player running, or a session held
@@ -231,7 +233,7 @@ public class MidiPlayer{
 
 	// a session that ended while paused (an edit ends it) is left: the song plays from where the player paused
 	private void leaveEndedPractice() {
-		if( this.practice != null && this.practice.getSession().isEnded() ){
+		if( this.practice != null && this.practice.getCourse().isEnded() ){
 			this.tickPosition = this.practice.songTick(this.tickPosition);
 			this.practice = null;
 		}
@@ -240,7 +242,7 @@ public class MidiPlayer{
 	// the session playing ends (it stays ended); the song plays from now on
 	private void endPractice() {
 		if( this.practice != null ){
-			this.practice.getSession().end();
+			this.practice.getCourse().end();
 			this.practice = null;
 		}
 	}
@@ -414,7 +416,7 @@ public class MidiPlayer{
 	// a session that ended stops the player (an edit ends it); else its next turn is added once the one before has
 	// started
 	private void followPractice() throws MidiPlayerException {
-		if( this.practice != null && this.practice.getSession().isEnded() ){
+		if( this.practice != null && this.practice.getCourse().isEnded() ){
 			this.stop();
 		} else if( this.practice != null ){
 			this.practice.follow(this.getSequencer().getScheduledTickPosition());

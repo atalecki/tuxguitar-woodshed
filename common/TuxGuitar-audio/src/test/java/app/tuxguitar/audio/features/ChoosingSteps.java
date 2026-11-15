@@ -14,10 +14,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import app.tuxguitar.practice.TGPracticeChooser;
+import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
+import app.tuxguitar.practice.TGTempoScale;
 import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -63,8 +64,14 @@ public class ChoosingSteps {
 		return measures;
 	}
 
-	private List<Integer> choose(TGPracticeChooser chooser, int turns) {
-		return IntStream.range(0, turns).mapToObj(turn -> chooser.next().getNumber()).collect(Collectors.toCollection(ArrayList::new));
+	// the session's course from the seed (no Count In, at the written tempo)
+	private TGPracticeCourse course(int seed) {
+		return practice.session().course(seed, header -> 0, TGTempoScale.percent(100));
+	}
+
+	// the numbers of the units of so many turns of the course
+	private List<Integer> choose(TGPracticeCourse course, int turns) {
+		return IntStream.range(0, turns).mapToObj(turn -> course.next().getFrom().getNumber()).collect(Collectors.toCollection(ArrayList::new));
 	}
 
 	@When("interleaved practice chooses {int} turn(s), with every random seed from {int} to {int}")
@@ -72,7 +79,7 @@ public class ChoosingSteps {
 		practice.settings().setTurns(turns);
 		practice.start();
 		for (int seed = first; seed <= last; seed++) {
-			practice.runs().add(choose(practice.session().chooser(seed), turns));
+			practice.runs().add(choose(course(seed), turns));
 		}
 	}
 
@@ -82,15 +89,15 @@ public class ChoosingSteps {
 	}
 
 	// the session under way, as the app has it while it plays: the edit, made as the app makes it once the turn is
-	// chosen, is checked by its chooser (TGPracticeEdits), and may be refused saying why (the world's refusal)
+	// chosen, is checked by its course (TGPracticeEdits), and may be refused saying why (the world's refusal)
 	private void chooseWhile(int turns, int seed, int during, Runnable edit) {
 		practice.settings().setTurns(turns);
 		practice.start();
-		TGPracticeChooser chooser = practice.session().chooser(seed);
-		TGPracticeUnderWay.getInstance(world.fixture().context).begin(chooser);
-		List<Integer> chosen = choose(chooser, during);
+		TGPracticeCourse course = course(seed);
+		TGPracticeUnderWay.getInstance(world.fixture().context).begin(course);
+		List<Integer> chosen = choose(course, during);
 		practice.edit(edit);
-		chosen.addAll(choose(chooser, turns - during));
+		chosen.addAll(choose(course, turns - during));
 		practice.runs().add(chosen);
 	}
 

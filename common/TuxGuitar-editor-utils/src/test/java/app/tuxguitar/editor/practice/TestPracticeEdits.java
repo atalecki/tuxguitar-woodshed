@@ -24,11 +24,12 @@ import app.tuxguitar.editor.action.edit.TGUndoAction;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableTripletFeelController;
 import app.tuxguitar.player.base.MidiPlayer;
-import app.tuxguitar.practice.TGPracticeChooser;
+import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnderWay;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.util.TGContext;
 
@@ -62,9 +63,9 @@ public class TestPracticeEdits {
 			settings.setPool(1, last);
 			settings.setTurns(6);
 			session = TGPracticeSession.start(settings, fixture.song);
-			TGPracticeChooser chooser = session.chooser(1);
-			chooser.next();
-			TGPracticeUnderWay.getInstance(fixture.context).begin(chooser);
+			TGPracticeCourse course = session.course(1, header -> 0, TGTempoScale.percent(100));
+			course.next();
+			TGPracticeUnderWay.getInstance(fixture.context).begin(course);
 		}
 
 		void flag(int measure, int difficulty) {

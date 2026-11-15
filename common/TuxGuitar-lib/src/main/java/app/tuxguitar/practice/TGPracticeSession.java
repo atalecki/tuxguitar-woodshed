@@ -120,6 +120,12 @@ public final class TGPracticeSession {
 		return new TGPracticeChooser(this, seed);
 	}
 
+	// the session's course: its turns chosen from the seed (chooser), each planned as it is chosen (schedule) with as
+	// many Count In clicks as the function says, at the tempo scale
+	public TGPracticeCourse course(long seed, ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {
+		return new TGPracticeRandomCourse(this.chooser(seed), this.schedule(clicks, scale));
+	}
+
 	// plans the session's turns as they are chosen, its Count In clicks before a turn whose first measure is the header
 	// as the function says (0: none), each turn at the tempo scale
 	public TGPracticeSchedule schedule(ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {

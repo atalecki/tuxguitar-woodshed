@@ -20,7 +20,7 @@ public final class TGPracticeCaret {
 
 	// whether moving the caret moves the player too: while the song plays, outside a session
 	public static boolean movesPlayer(TGContext context) {
-		return (MidiPlayer.getInstance(context).isRunning() && TGPracticeUnderWay.getInstance(context).getChooser() == null);
+		return (MidiPlayer.getInstance(context).isRunning() && TGPracticeUnderWay.getInstance(context).getCourse() == null);
 	}
 
 	// whether the action moves the caret
