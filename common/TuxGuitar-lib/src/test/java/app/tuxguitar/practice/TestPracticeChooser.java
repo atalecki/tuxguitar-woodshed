@@ -254,13 +254,18 @@ public class TestPracticeChooser {
 		return (flagged.equals("flagged") && oneStartsTheNext && !repeats(turns) ? "ok" : turns + " " + flagged);
 	}
 
-	// one turn after the cycle under way is enough: the next cycle, as for a session, must be one that can be played
+	// one turn after the cycle under way is enough: the next cycle, as for a session, must be one that can be played;
+	// so is the session's last turn chosen ahead, opening a cycle of its own
 	@Test
 	public void aFlagIsRefusedWhenOnlyOneTurnOfTheNextCyclePlays() throws TGPracticeRefusal {
 		pool(1, 2, 3);
-		TGPracticeChooser chooser = chooser(1);
-		choose(chooser, 1);
-		assertEquals("Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row.", flagDuring(chooser, 2, 3));
+		TGPracticeChooser after = chooser(1);
+		choose(after, 1);
+		TGPracticeChooser ahead = chooser(1);
+		choose(ahead, 2);
+		ahead.ahead();
+		String refusal = "Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row.";
+		assertEquals(refusal + " | " + refusal, flagDuring(after, 2, 3) + " | " + flagDuring(ahead, 2, 3));
 	}
 
 	// the player chooses a turn ahead, while the turn before plays: a flag set during a cycle's last turn, after the next

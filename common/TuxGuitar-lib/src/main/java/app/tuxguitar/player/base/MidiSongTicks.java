@@ -22,21 +22,20 @@ public final class MidiSongTicks {
 		return (player.isPractising() ? tick : played(player, song, tick));
 	}
 
+	// a tick before the loop start is read as the loop start, which plays the loop's first measure from its start
 	private static long played(MidiPlayer player, TGSong song, long tick) {
 		long startPoint = startPoint(player);
-		Played played = find(player, song, startPoint, (header, at) -> tick >= at && tick < at + header.getLength());
-		if (played.found) {
-			return played.header.getStart() + (tick - played.at);
-		}
-		return (tick < startPoint ? startPoint : played.at);
+		long from = Math.max(tick, startPoint);
+		Played played = find(player, song, startPoint, (header, at) -> from >= at && from < at + header.getLength());
+		return (played.found ? played.header.getStart() + (from - played.at) : played.at);
 	}
 
 	// the player's tick that plays the song's tick, on the first pass that plays its measure; before the loop start,
 	// the loop start; in no measure played, the player's tick of the last measure played
 	public static long getTick(MidiPlayer player, TGSong song, long start) {
 		long startPoint = startPoint(player);
-		Played played = find(player, song, startPoint, (header, at) -> start >= header.getStart() && start < header.getStart() + header.getLength());
-		return (played.found || start >= startPoint ? played.at : startPoint);
+		long from = Math.max(start, startPoint);
+		return find(player, song, startPoint, (header, at) -> from >= header.getStart() && from < header.getStart() + header.getLength()).at;
 	}
 
 	private static long startPoint(MidiPlayer player) {

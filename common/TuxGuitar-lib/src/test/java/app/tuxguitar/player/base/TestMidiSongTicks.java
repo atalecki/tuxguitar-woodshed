@@ -40,8 +40,8 @@ public class TestMidiSongTicks {
 
 	@Test
 	public void aTickOfThePlayerIsTheSongsTickInTheMeasureThatPassPlays() {
-		assertEquals((fixture.start(1) + 5) + " " + (fixture.start(3) + 7) + " " + (fixture.start(2) + 9) + " " + (fixture.start(4) + MEASURE - 1),
-			start(played(1, 5)) + " " + start(played(3, 7)) + " " + start(played(4, 9)) + " " + start(played(6, MEASURE - 1)));
+		assertEquals((fixture.start(1) + 5) + " " + (fixture.start(3) + 7) + " " + fixture.start(2) + " " + (fixture.start(2) + 9) + " " + (fixture.start(4) + MEASURE - 1),
+			start(played(1, 5)) + " " + start(played(3, 7)) + " " + start(played(4, 0)) + " " + start(played(4, 9)) + " " + start(played(6, MEASURE - 1)));
 	}
 
 	// before the loop start: the loop start; past the end: the player's tick of the last measure played
@@ -67,5 +67,18 @@ public class TestMidiSongTicks {
 	public void theTicksCountFromTheLoopStart() {
 		fixture.loopMode(3, 4);
 		assertEquals(fixture.start(3) + " " + fixture.start(3), start(fixture.start(3)) + " " + tick(fixture.start(3)));
+	}
+
+	// while the player runs it plays the loop it started with: a loop over measures 1 to 3 turned off since, a tick past
+	// it is still past the end (the player's tick of the last measure played: the fifth, measure 3's second pass)
+	@Test
+	public void whileThePlayerRunsTheTicksFollowTheLoopItPlays() {
+		fixture.loopMode(1, 3);
+		start(0);
+		fixture.player.setRunning(true);
+		fixture.player.getMode().setLoop(false);
+		long past = start(played(6, 5));
+		fixture.player.setRunning(false);
+		assertEquals(played(5, 0), past);
 	}
 }
