@@ -102,7 +102,7 @@ public class TimedLiveSteps {
 
 	// the turn shown as the scenarios word it: the unit the turn sounds named so, else by its number
 	private String worded(TGPracticeTurn shown) {
-		return turnOrBreak(shown) + ", the " + shown.getUnit().getKind().getName() + " " + unit(shown) + ", " + seconds(shown.getSecondsLeft()) + " left";
+		return turnOrBreak(shown) + ", the " + shown.getFrom().getKind().getName() + " " + unit(shown) + ", " + seconds(shown.getSecondsLeft()) + " left";
 	}
 
 	private static String turnOrBreak(TGPracticeTurn shown) {
@@ -111,7 +111,7 @@ public class TimedLiveSteps {
 
 	// "turn N sounds" when turn N is heard sounding the unit, else its number
 	private String unit(TGPracticeTurn shown) {
-		return (shown.getUnit().getFirst() == heardMeasure(shown.getTurn()) ? "turn " + shown.getTurn() + " sounds" : shown.getUnit().getNumber() + "");
+		return (shown.getFrom().getFirst() == heardMeasure(shown.getTurn()) ? "turn " + shown.getTurn() + " sounds" : shown.getFrom().getNumber() + "");
 	}
 
 	private static String seconds(int seconds) {
@@ -136,7 +136,7 @@ public class TimedLiveSteps {
 	@Then("turn {int} sounds the measure TuxGuitar reported during that break")
 	public void soundsTheReportedMeasure(int turn) {
 		TGPracticeTurn shown = shownBefore.orElseThrow(() -> new AssertionError("no turn shown during the break"));
-		assertEquals("the break before turn " + turn + ": measure " + heardMeasure(turn), turnOrBreak(shown) + ": measure " + shown.getUnit().getFirst());
+		assertEquals("the break before turn " + turn + ": measure " + heardMeasure(turn), turnOrBreak(shown) + ": measure " + shown.getFrom().getFirst());
 	}
 
 	// the turn's measure, as heard: from Play, a Count In (its beats not read: a VST3 instrument ignores All Notes Off, so

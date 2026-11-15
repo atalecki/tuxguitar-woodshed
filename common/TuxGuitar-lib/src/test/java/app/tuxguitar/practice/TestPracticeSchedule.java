@@ -102,9 +102,17 @@ public class TestPracticeSchedule {
 		assertEquals("40 passes, last; ", clock(1, 10, 1).planned(TGPracticeUnitKind.MEASURE, 1, 3, 100, 1));
 	}
 
+	// line 2 is measures 5 to 8
 	@Test
-	public void aTurnIsPlannedAtTheSessionsTempoScale() throws TGPracticeRefusal {
-		assertEquals("1/2", schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 50).plan(unit(TGPracticeUnitKind.LINE, 1)).getScale().toString());
+	public void aTurnIsPlannedToPlayItsUnitAtTheSessionsTempoScale() throws TGPracticeRefusal {
+		TGPracticePlan plan = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 50).plan(unit(TGPracticeUnitKind.LINE, 2));
+		assertEquals("Line 2 Line 2 5-8 1/2", plan.getFrom() + " " + plan.getTo() + " " + plan.getFirstMeasure() + "-" + plan.getLastMeasure() + " " + plan.getScale());
+	}
+
+	@Test
+	public void aTimedTurnIsPlannedToPlayItsUnit() throws TGPracticeRefusal {
+		TGPracticePlan plan = clock(1, 10, 1).schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 3));
+		assertEquals("Line 3 Line 3 9-12", plan.getFrom() + " " + plan.getTo() + " " + plan.getFirstMeasure() + "-" + plan.getLastMeasure());
 	}
 
 	@Test

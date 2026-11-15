@@ -1,8 +1,8 @@
 package app.tuxguitar.practice;
 
 /**
- * A turn of an interleaved practice session as the app shows it: its number in the session (from 1) and the unit it
- * plays (its kind and number); without the interval clock, the session's number of turns; with it (timed), whether it is
+ * A turn of an interleaved practice session as the app shows it: its number in the session (from 1) and the units its
+ * plan plays, from one to another (their kind and numbers; the same unit, when it plays one); without the interval clock, the session's number of turns; with it (timed), whether it is
  * the break before the turn, and the seconds left to the turn's end or in the break, rounded up. The app words it in its
  * own language. Immutable.
  */
@@ -13,31 +13,33 @@ public final class TGPracticeTurn {
 
 	private final int turn;
 	private final int turns;
-	private final TGPracticeUnit unit;
+	private final TGPracticeUnit from;
+	private final TGPracticeUnit to;
 	private final boolean inBreak;
 	private final int secondsLeft;
 
-	// a turn of a session of so many turns
-	public TGPracticeTurn(int turn, int turns, TGPracticeUnit unit) {
-		this(turn, turns, unit, false, 0);
+	// a turn of a session of so many turns, as planned
+	public TGPracticeTurn(int turn, int turns, TGPracticePlan plan) {
+		this(turn, turns, plan, false, 0);
 	}
 
-	private TGPracticeTurn(int turn, int turns, TGPracticeUnit unit, boolean inBreak, int secondsLeft) {
+	private TGPracticeTurn(int turn, int turns, TGPracticePlan plan, boolean inBreak, int secondsLeft) {
 		this.turn = turn;
 		this.turns = turns;
-		this.unit = unit;
+		this.from = plan.getFrom();
+		this.to = plan.getTo();
 		this.inBreak = inBreak;
 		this.secondsLeft = secondsLeft;
 	}
 
-	// a turn of a timed session, so many seconds before its end
-	public static TGPracticeTurn timed(int turn, TGPracticeUnit unit, int secondsLeft) {
-		return new TGPracticeTurn(turn, TIMED, unit, false, secondsLeft);
+	// a turn of a timed session, as planned, so many seconds before its end
+	public static TGPracticeTurn timed(int turn, TGPracticePlan plan, int secondsLeft) {
+		return new TGPracticeTurn(turn, TIMED, plan, false, secondsLeft);
 	}
 
-	// the break before a turn of a timed session, so many seconds before its end
-	public static TGPracticeTurn inBreak(int turn, TGPracticeUnit unit, int secondsLeft) {
-		return new TGPracticeTurn(turn, TIMED, unit, true, secondsLeft);
+	// the break before a turn of a timed session, as planned, so many seconds before its end
+	public static TGPracticeTurn inBreak(int turn, TGPracticePlan plan, int secondsLeft) {
+		return new TGPracticeTurn(turn, TIMED, plan, true, secondsLeft);
 	}
 
 	public int getTurn() {
@@ -49,8 +51,14 @@ public final class TGPracticeTurn {
 		return this.turns;
 	}
 
-	public TGPracticeUnit getUnit() {
-		return this.unit;
+	// the first unit it plays
+	public TGPracticeUnit getFrom() {
+		return this.from;
+	}
+
+	// the last unit it plays (the first, when it plays one)
+	public TGPracticeUnit getTo() {
+		return this.to;
 	}
 
 	// whether the interval clock times the session

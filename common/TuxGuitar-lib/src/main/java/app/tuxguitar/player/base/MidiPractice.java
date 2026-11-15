@@ -11,7 +11,6 @@ import app.tuxguitar.practice.TGPracticePlan;
 import app.tuxguitar.practice.TGPracticeSchedule;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeTurn;
-import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -38,9 +37,8 @@ final class MidiPractice {
 	private final List<MidiPracticeTurn> turns = new ArrayList<MidiPracticeTurn>();
 	// the same, as read by other threads: a copy made each time a turn is laid (the player's thread lays them)
 	private volatile List<MidiPracticeTurn> laid = Collections.emptyList();
-	// the turns chosen, and the plan of the last
-	private int chosen;
-	private TGPracticePlan plan;
+	// the plans of the turns chosen, in order
+	private final List<TGPracticePlan> plans = new ArrayList<TGPracticePlan>();
 	// adds a pass to the sequence; true for its first
 	private BiConsumer<MidiPracticeTurn, Boolean> sequence;
 
@@ -100,7 +98,7 @@ final class MidiPractice {
 	}
 
 	private void addAfter() {
-		if (!this.plan.isLast()) {
+		if (!this.lastPlan().isLast()) {
 			this.add(this.last().getEnd());
 		}
 	}
@@ -135,20 +133,19 @@ final class MidiPractice {
 		return index;
 	}
 
-	// the session's turn the tick of the sequence is in, and the unit it plays; with the interval clock, the seconds left
-	// to its end, or in the break before it
+	// the session's turn the tick of the sequence is in, as planned; with the interval clock, the seconds left to its end,
+	// or in the break before it
 	TGPracticeTurn turn(long tick) {
 		MidiPracticeTurn pass = this.turns.get(this.indexAt(tick));
-		int first = pass.getFirst().getNumber();
-		TGPracticeUnit unit = this.getSession().getPool().stream().filter(pooled -> pooled.getFirst() == first).findFirst().get();
+		TGPracticePlan plan = this.plans.get(pass.getTurn() - 1);
 		if (!this.getSession().getClock().isPresent()) {
-			return new TGPracticeTurn(pass.getTurn(), this.getSession().getTurns(), unit);
+			return new TGPracticeTurn(pass.getTurn(), this.getSession().getTurns(), plan);
 		}
 		if (pass.rests(tick)) {
-			return TGPracticeTurn.inBreak(pass.getTurn(), unit, seconds(pass.micros(tick, pass.getCountIn())));
+			return TGPracticeTurn.inBreak(pass.getTurn(), plan, seconds(pass.micros(tick, pass.getCountIn())));
 		}
 		long left = this.turns.stream().filter(laid -> laid.getTurn() == pass.getTurn()).mapToLong(laid -> laid.micros(tick, laid.getEnd())).sum();
-		return TGPracticeTurn.timed(pass.getTurn(), unit, seconds(left));
+		return TGPracticeTurn.timed(pass.getTurn(), plan, seconds(left));
 	}
 
 	// whole seconds, rounded up
@@ -165,18 +162,22 @@ final class MidiPractice {
 		return this.turns.get(this.turns.size() - 1);
 	}
 
+	private TGPracticePlan lastPlan() {
+		return this.plans.get(this.plans.size() - 1);
+	}
+
 	// the next turn, chosen and planned, from the tick: its passes, the first after the break the turn before planned
 	private void add(long start) {
-		int rest = (this.plan != null ? this.plan.getBreakSeconds() : 0);
-		TGPracticeUnit unit = this.chooser.ahead();
-		this.plan = this.schedule.plan(unit);
-		this.chosen++;
-		TGMeasureHeader first = this.song.getMeasureHeader(unit.getFirst() - 1);
-		TGMeasureHeader last = this.song.getMeasureHeader(unit.getLast() - 1);
+		int rest = (this.plans.isEmpty() ? 0 : this.lastPlan().getBreakSeconds());
+		TGPracticePlan plan = this.schedule.plan(this.chooser.ahead());
+		this.plans.add(plan);
+		int turn = this.plans.size();
+		TGMeasureHeader first = this.song.getMeasureHeader(plan.getFirstMeasure() - 1);
+		TGMeasureHeader last = this.song.getMeasureHeader(plan.getLastMeasure() - 1);
 		int clicks = this.clicks.applyAsInt(first);
-		this.lay(MidiPracticeTurn.afterBreak(first, last, start, rest, this.plan.getScale(), clicks, this.chosen));
-		for (int pass = 1; pass < this.plan.getPasses(); pass++) {
-			this.lay(new MidiPracticeTurn(first, last, this.last().getEnd(), 0, (this.plan.isCountInEveryPass() ? clicks : 0), this.chosen, this.plan.getScale()));
+		this.lay(MidiPracticeTurn.afterBreak(first, last, start, rest, plan.getScale(), clicks, turn));
+		for (int pass = 1; pass < plan.getPasses(); pass++) {
+			this.lay(new MidiPracticeTurn(first, last, this.last().getEnd(), 0, (plan.isCountInEveryPass() ? clicks : 0), turn, plan.getScale()));
 		}
 		this.publish();
 	}

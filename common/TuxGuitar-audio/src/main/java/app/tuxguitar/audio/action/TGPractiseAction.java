@@ -15,7 +15,6 @@ import app.tuxguitar.practice.TGPracticeChooser;
 import app.tuxguitar.practice.TGPracticePlan;
 import app.tuxguitar.practice.TGPracticeSchedule;
 import app.tuxguitar.practice.TGPracticeSession;
-import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -69,9 +68,8 @@ public class TGPractiseAction extends TGPlayAction {
 		long rest = 0;
 		TGPracticePlan plan;
 		do {
-			TGPracticeUnit unit = chooser.next();
-			plan = schedule.plan(unit);
-			turns.addAll(TGTurn.planned(song, unit, plan, turns.size(), rest, clicks, sampleRate));
+			plan = schedule.plan(chooser.next());
+			turns.addAll(TGTurn.planned(song, plan, turns.size(), rest, clicks, sampleRate));
 			rest = plan.getBreakSeconds() * (long) sampleRate;
 		} while (!plan.isLast());
 		return TGTimeline.of(song, turns, sampleRate);

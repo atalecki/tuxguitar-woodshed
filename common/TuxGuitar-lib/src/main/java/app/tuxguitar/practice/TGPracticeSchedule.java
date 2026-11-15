@@ -33,11 +33,11 @@ public final class TGPracticeSchedule {
 	// the next turn, which plays the unit at the session's tempo scale
 	public TGPracticePlan plan(TGPracticeUnit unit) {
 		this.planned++;
-		return this.session.getClock().map(clock -> this.timed(clock, unit)).orElseGet(this::counted);
+		return this.session.getClock().map(clock -> this.timed(clock, unit)).orElseGet(() -> this.counted(unit));
 	}
 
-	private TGPracticePlan counted() {
-		return new TGPracticePlan(this.scale, 1, false, 0, this.planned >= this.session.getTurns());
+	private TGPracticePlan counted(TGPracticeUnit unit) {
+		return new TGPracticePlan(unit, unit, this.scale, 1, false, 0, this.planned >= this.session.getTurns());
 	}
 
 	private TGPracticePlan timed(TGPracticeClock clock, TGPracticeUnit unit) {
@@ -47,7 +47,7 @@ public final class TGPracticeSchedule {
 		long end = this.next + clock.length(countIn, pass);
 		boolean last = !clock.follows(end);
 		this.next = clock.after(end);
-		return new TGPracticePlan(this.scale, clock.passes(countIn, pass), clock.isCountInEveryPass(), (last ? 0 : clock.getBreakSeconds()), last);
+		return new TGPracticePlan(unit, unit, this.scale, clock.passes(countIn, pass), clock.isCountInEveryPass(), (last ? 0 : clock.getBreakSeconds()), last);
 	}
 
 	private TGMeasureHeader header(int number) {

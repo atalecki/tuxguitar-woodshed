@@ -54,19 +54,19 @@ public class TGPracticeTurnLabel implements TGEventListener {
 	// "Turn 3 of 12: Line 5": transport.practice.turn, the unit's kind by transport.practice.turn.<kind>
 	private static String counted(TGPracticeTurn turn) {
 		return TuxGuitar.getProperty("transport.practice.turn", new String[] {String.valueOf(turn.getTurn()), String.valueOf(turn.getTurns()), kind(turn),
-			String.valueOf(turn.getUnit().getNumber())});
+			String.valueOf(turn.getFrom().getNumber())});
 	}
 
 	// "Turn 3: Line 5, 1:42 left" (transport.practice.timed-turn) or "Break, 0:12 left. Next: Line 7"
 	// (transport.practice.break)
 	private static String timed(TGPracticeTurn turn) {
 		String key = (turn.isBreak() ? "transport.practice.break" : "transport.practice.timed-turn");
-		return TuxGuitar.getProperty(key, new String[] {String.valueOf(turn.getTurn()), kind(turn), String.valueOf(turn.getUnit().getNumber()),
+		return TuxGuitar.getProperty(key, new String[] {String.valueOf(turn.getTurn()), kind(turn), String.valueOf(turn.getFrom().getNumber()),
 			String.format("%d:%02d", turn.getSecondsLeft() / 60, turn.getSecondsLeft() % 60)});
 	}
 
 	private static String kind(TGPracticeTurn turn) {
-		return TuxGuitar.getProperty("transport.practice.turn." + turn.getUnit().getKind().getName());
+		return TuxGuitar.getProperty("transport.practice.turn." + turn.getFrom().getKind().getName());
 	}
 
 	// a text of another length lays the window out again

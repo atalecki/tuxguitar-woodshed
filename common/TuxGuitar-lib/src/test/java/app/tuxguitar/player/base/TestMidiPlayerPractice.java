@@ -318,7 +318,7 @@ public class TestMidiPlayerPractice {
 	// what the app shows: whether a session is held (playing or paused), whether there is anything to stop, the turn
 	// (its number, the session's turns, its unit's kind and number; nothing without a session)
 	private String shown() {
-		String turn = player.getPracticeTurn().map(shown -> shown.getTurn() + " of " + shown.getTurns() + ": " + shown.getUnit().getKind() + " " + shown.getUnit().getNumber())
+		String turn = player.getPracticeTurn().map(shown -> shown.getTurn() + " of " + shown.getTurns() + ": " + shown.getFrom().getKind() + " " + shown.getFrom().getNumber())
 			.orElse("");
 		return player.isPractising() + " " + player.isRunningOrPractising() + " " + turn;
 	}

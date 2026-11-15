@@ -238,8 +238,10 @@ public class TestMidiPractice {
 			IntStream.of(960 + 1920, 119999, 120000, 139200 - 960, 139200, 258239).mapToObj(tick -> shown(practice.turn(tick))).collect(Collectors.joining(", ")));
 	}
 
+	// "turn 1 5 61": a turn of one unit, by its first measure ("5-8 to 9-12" for a turn of several)
 	private static String shown(TGPracticeTurn turn) {
-		return (turn.isBreak() ? "break " : "turn ") + turn.getTurn() + " " + turn.getUnit().getFirst() + " " + turn.getSecondsLeft() + of(turn);
+		String units = (turn.getTo() == turn.getFrom() ? "" + turn.getFrom().getFirst() : turn.getFrom() + " to " + turn.getTo());
+		return (turn.isBreak() ? "break " : "turn ") + turn.getTurn() + " " + units + " " + turn.getSecondsLeft() + of(turn);
 	}
 
 	// " of" the session's turns, unless it is timed
