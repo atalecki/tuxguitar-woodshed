@@ -104,4 +104,29 @@ public class TestMidiPractice {
 				+ practice.songTick(0) + " " + practice.turnAt(0) + " " + practice.turnAt(secondStart - 1) + " " + practice.turnAt(secondStart) + " "
 				+ practice.turnAt(secondStart + 3 * MEASURE));
 	}
+
+	// each turn starts in turn: the next one is chosen and added as it does
+	private void startEachTurn(MidiPractice practice, int turns) {
+		for (int turn = 1; turn <= turns; turn++) {
+			String last = added.get(added.size() - 1);
+			practice.follow(Long.parseLong(last.replaceAll(".*@(\\d+).*", "$1")));
+		}
+	}
+
+	// the first measures of the turns added, from..to (from 1), sorted
+	private List<Integer> firsts(int from, int to) {
+		return added.subList(from - 1, to).stream().map(turn -> Integer.valueOf(turn.replaceAll("-.*", ""))).sorted().collect(Collectors.toList());
+	}
+
+	// the first turn of cycle 2 is chosen once turn 4, the last of cycle 1, starts: line 2 (measures 3 and 4) flagged 3x
+	// after that, before turn 5 starts, counts from cycle 2
+	@Test
+	public void aFlagDuringACyclesLastTurnCountsFromTheNextCycle() throws TGPracticeRefusal {
+		MidiPractice practice = practice(10);
+		startEachTurn(practice, 4);
+		practice.getChooser().checkFlag(3, 3);
+		song.getMeasureHeader(2).setDifficulty(3);
+		startEachTurn(practice, 6);
+		assertEquals("[1, 3, 3, 3, 5, 7] 10", firsts(5, 10) + " " + added.size());
+	}
 }

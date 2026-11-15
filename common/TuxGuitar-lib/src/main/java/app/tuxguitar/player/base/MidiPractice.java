@@ -13,9 +13,10 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * An interleaved practice session as the player plays it live: its turns one after the other in the sequence's ticks,
- * from where it starts, each its Count In then its unit's measures (MidiPracticeTurn). A turn is chosen and added to the
- * sequence once the turn before it has started (the first one when the session starts), so a flag set meanwhile counts
- * from the next cycle the chooser starts; after the last turn the sequence ends.
+ * from where it starts, each its Count In then its unit's measures (MidiPracticeTurn). A turn is chosen ahead and added
+ * to the sequence once the turn before it has started (the first one when the session starts), and the chooser is told
+ * when it starts, so a flag set before then counts from its cycle when it opens one; after the last turn the sequence
+ * ends.
  */
 final class MidiPractice {
 
@@ -47,10 +48,17 @@ final class MidiPractice {
 		this.add(tick);
 	}
 
-	// the sequence has played up to the tick: the next turn is added once the last one added has started
+	// the sequence has played up to the tick: once the last turn added has started (the chooser told), the next is added
 	void follow(long tick) {
 		MidiPracticeTurn last = this.last();
-		if (this.turns.size() < this.getSession().getTurns() && tick >= last.getStart()) {
+		if (tick >= last.getStart()) {
+			this.chooser.started();
+			this.addAfter(last);
+		}
+	}
+
+	private void addAfter(MidiPracticeTurn last) {
+		if (this.turns.size() < this.getSession().getTurns()) {
 			this.add(last.getEnd());
 		}
 	}
@@ -79,7 +87,7 @@ final class MidiPractice {
 	}
 
 	private void add(long start) {
-		TGPracticeUnit unit = this.chooser.next();
+		TGPracticeUnit unit = this.chooser.ahead();
 		TGMeasureHeader first = this.song.getMeasureHeader(unit.getFirst() - 1);
 		MidiPracticeTurn turn = new MidiPracticeTurn(first, this.song.getMeasureHeader(unit.getLast() - 1), start, this.clicks.applyAsInt(first));
 		this.turns.add(turn);

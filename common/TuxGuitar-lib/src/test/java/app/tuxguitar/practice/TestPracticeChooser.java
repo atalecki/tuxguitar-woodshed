@@ -263,6 +263,41 @@ public class TestPracticeChooser {
 		assertEquals("Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row.", flagDuring(chooser, 2, 3));
 	}
 
+	// the player chooses a turn ahead, while the turn before plays: a flag set during a cycle's last turn, after the next
+	// cycle's first turn was chosen and before it starts, counts from that cycle (none of its turns has started)
+	@Test
+	public void aFlagBeforeACyclesFirstTurnStartsCountsFromThatCycle() throws TGPracticeRefusal {
+		pool(1, 4, 10);
+		for (List<Integer> turns : withSeeds(200, chooser -> {
+			List<Integer> chosen = choose(chooser, 4);
+			chosen.add(chooser.ahead().getNumber());
+			assertEquals("flagged", flagDuring(chooser, 2, 3));
+			chooser.started();
+			chosen.addAll(choose(chooser, 5));
+			song.getMeasureHeader(1).setDifficulty(1);
+			return chosen;
+		})) {
+			assertEquals(Arrays.asList(1, 2, 2, 2, 3, 4), sorted(turns, 5, 10));
+			assertTrue(!repeats(turns), turns.toString());
+		}
+	}
+
+	// measures 1 to 3, the next cycle's first turn chosen ahead: measure 1 flagged 3x makes that cycle 1 x 1 y 1, which
+	// only a first turn of measure 1 can start; with another one chosen the flag is refused
+	@Test
+	public void aFlagTheCycleOfATurnChosenAheadCouldNotPlayIsRefused() throws TGPracticeRefusal {
+		pool(1, 3, 8);
+		for (String outcome : withSeeds(100, chooser -> {
+			choose(chooser, 3);
+			int ahead = chooser.ahead().getNumber();
+			String flagged = flagDuring(chooser, 1, 3);
+			song.getMeasureHeader(0).setDifficulty(1);
+			return (ahead == 1 ? "flagged" : "Measure 1 comes up 3 times in a cycle of 5 turns and would come twice in a row.").equals(flagged) ? "ok" : ahead + " " + flagged;
+		})) {
+			assertEquals("ok", outcome);
+		}
+	}
+
 	@Test
 	public void aTurnIsAUnitOfThePool() throws TGPracticeRefusal {
 		settings.setUnit(TGPracticeUnitKind.LINE);
