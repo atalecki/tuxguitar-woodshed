@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -15,8 +17,11 @@ import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.action.composition.TGChangeTripletFeelAction;
+import app.tuxguitar.editor.action.edit.TGRedoAction;
+import app.tuxguitar.editor.action.edit.TGUndoAction;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableTripletFeelController;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.practice.TGPracticeChooser;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
@@ -137,5 +142,45 @@ public class TestPracticeEdits {
 			reads("any other edit ends the session", "go on | 1 | 1 | 1 | 1 | true", NOTHING, 4, Edits::tripletFeel),
 			reads("undoing any other edit ends the session", "go on | 1 | 1 | 1 | 1 | true", Edits::tripletFeel, 4, Edits::undo),
 			reads("without a session under way a flag is not checked", "go on | 1 | 3 | 1 | 1 | true", NOTHING, 2, Edits::endedThenFlagged));
+	}
+
+	// which of a flag, triplet feel, undo and redo the app disables (as while playing) after the edits, with the player
+	// running or not, with a session under way or not: "flag triplet undo redo", each true or false
+	private static String disabled(Consumer<Edits> before, boolean running, boolean session) throws TGPracticeRefusal {
+		Edits edits = new Edits();
+		before.accept(edits);
+		if (session) {
+			edits.underWay(4);
+		}
+		MidiPlayer.getInstance(edits.fixture.context).setRunning(running);
+		return Stream.of(TGChangeDifficultyAction.NAME, TGChangeTripletFeelAction.NAME, TGUndoAction.NAME, TGRedoAction.NAME)
+			.map(id -> String.valueOf(TGPracticeEdits.disables(edits.fixture.context, id))).collect(Collectors.joining(" "));
+	}
+
+	private static DynamicTest disables(String name, String expected, Consumer<Edits> before, boolean running, boolean session) {
+		return DynamicTest.dynamicTest(name, () -> assertEquals(expected, disabled(before, running, session)));
+	}
+
+	// a flag undone: one to undo (flag 2) and one to redo (its undone flag)
+	private static void flaggedTwiceAndUndone(Edits edits) {
+		edits.flag(2, 2);
+		edits.flaggedAndUndone();
+	}
+
+	// a triplet feel set and undone, then set again: one to undo and one to redo, neither a flag
+	private static void tripletFeelTwiceAndUndone(Edits edits) {
+		edits.tripletFeel();
+		edits.tripletFeel();
+		edits.undo();
+	}
+
+	@TestFactory
+	public List<DynamicTest> whatTheAppDisables() {
+		return Arrays.asList(
+			disables("stopped, nothing is disabled", "false false false false", Edits::flaggedAndUndone, false, false),
+			disables("playing the song, every edit is", "true true true true", Edits::flaggedAndUndone, true, false),
+			disables("in a session, a flag and the undo and redo of a flag are not", "false true false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
+			disables("in a session, undo and redo of another edit are", "false true true true", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
+			disables("in a paused session, as in a playing one", "false true false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
 	}
 }

@@ -14,6 +14,7 @@ import app.tuxguitar.editor.action.edit.TGUndoAction;
 import app.tuxguitar.editor.undo.TGUndoableEdit;
 import app.tuxguitar.editor.undo.TGUndoableManager;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficulty;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.practice.TGPracticeChooser;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeUnderWay;
@@ -25,7 +26,8 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
  * What an edit does to the interleaved practice session under way (TGPracticeUnderWay). Flagging a measure, and undoing
  * or redoing a flag, goes on with it when its next cycles can play the weights that makes (the chooser checks it), and
  * counts from the next cycle; else the action is refused saying why (a TGActionException), and changes nothing. Any other
- * edit of the song (an undo step made, undone or redone) ends the session. One per context, installed by the app.
+ * edit of the song (an undo step made, undone or redone) ends the session. One per context, installed by the app,
+ * which also asks it which edits to refuse while playing (disables): during a session only flags go through.
  */
 public final class TGPracticeEdits implements TGActionInterceptor {
 
@@ -44,6 +46,26 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 		TGActionManager.getInstance(context).addInterceptor(edits);
 		TGUndoableManager.getInstance(context).addListener(edits::edited);
 		return edits;
+	}
+
+	// whether the app refuses the edit (one of the actions it refuses while playing) now: while the player runs or a
+	// session is under way, playing or paused, but for a flag and the undo or redo of a flag during a session
+	public static boolean disables(TGContext context, String id) {
+		if (TGPracticeUnderWay.getInstance(context).getChooser() != null) {
+			return !isFlag(context, id);
+		}
+		return MidiPlayer.getInstance(context).isRunning();
+	}
+
+	// whether the action sets a flag: flagging a measure, or undoing or redoing a flag
+	private static boolean isFlag(TGContext context, String id) {
+		TGUndoableManager undo = TGUndoableManager.getInstance(context);
+		return (TGChangeDifficultyAction.NAME.equals(id) || isFlag(id, TGUndoAction.NAME, undo.getEditToBeUndone())
+			|| isFlag(id, TGRedoAction.NAME, undo.getEditToBeRedone()));
+	}
+
+	private static boolean isFlag(String id, String action, TGUndoableEdit edit) {
+		return (action.equals(id) && edit instanceof TGUndoableDifficulty);
 	}
 
 	// refuses a flag the session under way could not play; intercepts nothing
