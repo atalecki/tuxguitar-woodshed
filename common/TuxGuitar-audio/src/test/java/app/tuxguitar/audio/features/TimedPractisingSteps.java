@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,13 +40,9 @@ public class TimedPractisingSteps {
 	// the passes of each turn, as indices of PractisingSteps.turns
 	private List<List<Integer>> turns() {
 		TGTimeline timeline = practising.heard().timeline();
-		List<List<Integer>> turns = new ArrayList<List<Integer>>();
-		for (int pass = 0; pass < timeline.turns(); pass++) {
-			if (timeline.opens(pass)) {
-				turns.add(new ArrayList<Integer>());
-			}
-			turns.get(turns.size() - 1).add(pass);
-		}
+		int[] opening = IntStream.concat(IntStream.range(0, timeline.turns()).filter(timeline::opens), IntStream.of(timeline.turns())).toArray();
+		List<List<Integer>> turns = IntStream.range(0, opening.length - 1).mapToObj(turn -> IntStream.range(opening[turn], opening[turn + 1]).boxed().collect(Collectors.toList()))
+			.collect(Collectors.toList());
 		assertFalse(turns.isEmpty(), "no turn played");
 		return turns;
 	}
@@ -87,6 +82,11 @@ public class TimedPractisingSteps {
 		for (int pass : turn) {
 			assertEquals(notes, PractisingSteps.notes(passes.get(pass)), name + ", pass " + pass);
 		}
+		assertBackToBack(passes, turn, name);
+	}
+
+	// each pass of the turn but the first starts where the one before ends
+	private void assertBackToBack(List<List<Note>> passes, List<Integer> turn, String name) {
 		for (int pass = firstPass(turn) + 1; pass <= lastPass(turn); pass++) {
 			assertEquals(end(passes, pass - 1), start(passes, pass), 1, name + ", pass " + pass + " after the one before");
 		}
@@ -133,8 +133,9 @@ public class TimedPractisingSteps {
 	// the turn's first pass after a Count In of so many clicks, the others after so many
 	private void assertCountIns(List<Integer> turn, int first, int others) {
 		List<List<Note>> passes = practising.turns();
-		for (int pass : turn) {
-			assertEquals(pass == firstPass(turn) ? first : others, practising.countIn(passes, pass).length, "pass " + pass + "'s Count In clicks");
+		assertEquals(first, practising.countIn(passes, firstPass(turn)).length, "pass " + firstPass(turn) + "'s Count In clicks");
+		for (int pass : turn.subList(1, turn.size())) {
+			assertEquals(others, practising.countIn(passes, pass).length, "pass " + pass + "'s Count In clicks");
 		}
 	}
 
@@ -211,13 +212,18 @@ public class TimedPractisingSteps {
 		practising.assertEcho(note, samples, end, next, "the break after turn " + turn);
 	}
 
+	// whether any of the samples is in the range (from its first to before its second)
+	private static boolean anyIn(long[] samples, long[] range) {
+		return Arrays.stream(samples).anyMatch(sample -> sample >= range[0] && sample < range[1]);
+	}
+
 	@Then("the output holds no Metronome click during the break")
 	public void noMetronomeInTheBreak() {
 		long[] clicks = practising.heard().metronome();
 		List<long[]> breaks = breaks();
 		assertFalse(breaks.isEmpty(), "no break");
 		for (long[] silence : breaks) {
-			assertTrue(Arrays.stream(clicks).noneMatch(click -> click >= silence[0] && click < silence[1]), "a click in the break " + Arrays.toString(silence));
+			assertFalse(anyIn(clicks, silence), "a click in the break " + Arrays.toString(silence));
 		}
 	}
 }

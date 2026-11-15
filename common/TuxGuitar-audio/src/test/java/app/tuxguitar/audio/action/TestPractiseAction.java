@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -86,12 +87,9 @@ public class TestPractiseAction {
 		List<String> starts = new ArrayList<String>();
 		long[] positions = timeline.getCountIn().positions();
 		for (int turn = 0; turn < timeline.turns(); turn++) {
-			int first = timeline.firstOf(turn);
-			measures.add(first < timeline.firstOf(turn + 1) ? "m" + timeline.get(first).getHeader().getNumber() : "-");
-			long from = timeline.turnStart(turn);
-			long to = timeline.turnEnd(turn);
-			clicks.add(Long.toString(java.util.Arrays.stream(positions).filter(position -> position >= from && position < to).count()));
-			starts.add(Long.toString(from));
+			measures.add(firstMeasure(timeline, turn));
+			clicks.add(Long.toString(clicks(positions, timeline.turnStart(turn), timeline.turnEnd(turn))));
+			starts.add(Long.toString(timeline.turnStart(turn)));
 		}
 		return String.join(" ", measures) + " | " + String.join(" ", clicks) + " | " + String.join(" ", starts) + " | " + timeline.length();
 	}
@@ -145,40 +143,58 @@ public class TestPractiseAction {
 		return practise(null, TestPractiseAction::readTurns);
 	}
 
+	// the turn's first measure; "-" when it has none
+	private static String firstMeasure(TGTimeline timeline, int turn) {
+		int first = timeline.firstOf(turn);
+		return (first < timeline.firstOf(turn + 1) ? "m" + timeline.get(first).getHeader().getNumber() : "-");
+	}
+
+	// the timeline's turns from each that opens a practice turn to the next (or the end)
 	private static String readTurns(TGTimeline timeline) {
+		int[] opening = IntStream.concat(IntStream.range(0, timeline.turns()).filter(timeline::opens), IntStream.of(timeline.turns())).toArray();
 		List<String> turns = new ArrayList<String>();
-		long[] positions = timeline.getCountIn().positions();
-		for (int turn = 0; turn < timeline.turns(); turn++) {
-			int passes = 1;
-			while (turn + passes < timeline.turns() && !timeline.opens(turn + passes)) {
-				passes++;
-			}
-			long from = timeline.turnStart(turn);
-			long to = timeline.turnEnd(turn + passes - 1);
-			long clicks = java.util.Arrays.stream(positions).filter(position -> position >= from && position < to).count();
-			turns.add("m" + timeline.get(timeline.firstOf(turn)).getHeader().getNumber() + " x" + passes + " " + clicks + " @" + from + " after "
-				+ (from - timeline.breakStart(turn)));
-			turn += passes - 1;
+		for (int turn = 0; turn + 1 < opening.length; turn++) {
+			turns.add(readTurn(timeline, opening[turn], opening[turn + 1]));
 		}
 		return String.join(", ", turns) + " | " + timeline.length();
 	}
 
-	// each turn loops its measure for 29 passes after one Count In (2 + 29 x 2 seconds); turn 2 starts after a break of
-	// 10 seconds (441000 samples) and is the last: 3087000 + 2646000 is past the session's 2 minutes
-	@Test
-	public void withTheIntervalClockEachTurnLoopsItsUnitAndABreakComesBetweenTurns() throws TGPracticeRefusal {
-		player.getCountDown().setEnabled(true);
-
-		String[] chosen = chosen(2).split(" ");
-		assertEquals(chosen[0] + " x29 4 @0 after 0, " + chosen[1] + " x29 4 @3087000 after 441000 | 5733000 | true success", practiseTimed(false));
+	// a practice turn: the timeline's turns from the first to before the end, its passes
+	private static String readTurn(TGTimeline timeline, int first, int end) {
+		long from = timeline.turnStart(first);
+		long clicks = clicks(timeline.getCountIn().positions(), from, timeline.turnEnd(end - 1));
+		return "m" + timeline.get(timeline.firstOf(first)).getHeader().getNumber() + " x" + (end - first) + " " + clicks + " @" + from + " after " + (from - timeline.breakStart(first))
+			+ " " + jumps(timeline, first, end) + " jumps";
 	}
 
-	// a Count In before every pass: 15 passes of 4 seconds, each after its 4 clicks
-	@Test
-	public void withACountInBeforeEveryPassEachPassHasOne() throws TGPracticeRefusal {
-		player.getCountDown().setEnabled(true);
+	// the timeline's turns from the first to before the end whose first measure is a jump in song time, in the pass the
+	// turn's number says
+	private static long jumps(TGTimeline timeline, int first, int end) {
+		return IntStream.range(first, end).filter(turn -> timeline.get(timeline.firstOf(turn)).isJump() && timeline.get(timeline.firstOf(turn)).getPass() == turn).count();
+	}
 
+	// the clicks from one sample to before another
+	private static long clicks(long[] positions, long from, long to) {
+		return java.util.Arrays.stream(positions).filter(position -> position >= from && position < to).count();
+	}
+
+	// with Count In on, two turns of the measures the seed chooses, each its passes and Count In clicks as read, every
+	// pass but the session's first a jump in song time; turn 2
+	// starts after a break of 10 seconds (441000 samples) and is the last: 3087000 + 2646000 is past the session's 2
+	// minutes
+	private String twoTimedTurns(String eachTurn, int passes) {
 		String[] chosen = chosen(2).split(" ");
-		assertEquals(chosen[0] + " x15 60 @0 after 0, " + chosen[1] + " x15 60 @3087000 after 441000 | 5733000 | true success", practiseTimed(true));
+		return chosen[0] + eachTurn + " @0 after 0 " + (passes - 1) + " jumps, " + chosen[1] + eachTurn + " @3087000 after 441000 " + passes + " jumps | 5733000 | true success";
+	}
+
+	// each turn loops its measure for 29 passes after one Count In (2 + 29 x 2 seconds); with a Count In before every
+	// pass, for 15 passes of 4 seconds, each after its 4 clicks (another fixture: a session plays once)
+	@Test
+	public void withTheIntervalClockEachTurnLoopsItsUnitAndABreakComesBetweenTurns() throws TGPracticeRefusal {
+		TestPractiseAction everyPass = new TestPractiseAction();
+		player.getCountDown().setEnabled(true);
+		everyPass.player.getCountDown().setEnabled(true);
+
+		assertEquals(List.of(twoTimedTurns(" x29 4", 29), twoTimedTurns(" x15 60", 15)), List.of(practiseTimed(false), everyPass.practiseTimed(true)));
 	}
 }

@@ -198,6 +198,14 @@ public class TestTimeline {
 			told(measures2And4(), 176400) + "| " + told(measures2And4(), 176000));
 	}
 
+	// played from beat 2 of measure 2: its beat 3 sounds a beat after playing starts
+	@Test
+	public void aTicksSampleCountsFromWherePlayingStarts() {
+		List<TGPlayedMeasure> played = TGSongTime.play(song, new MidiPlayerMode(), origin + BAR + QUARTER, Long.MAX_VALUE, 1);
+
+		assertEquals(22050, new TGTimeline(song, played, 44100).sampleAt(0, 2 * QUARTER));
+	}
+
 	@Test
 	public void withCountInOffTheFirstMeasureStartsPlaying() {
 		assertEquals("88200 | [] | m2:0-3840 m3:0-3840 m4:0-3840 | 264600", read(fromMeasure2()));
@@ -229,11 +237,8 @@ public class TestTimeline {
 
 	// where each turn's break starts, and whether it opens a turn of interleaved practice
 	private static String breaks(TGTimeline timeline) {
-		StringBuilder breaks = new StringBuilder();
-		for (int turn = 0; turn < timeline.turns(); turn++) {
-			breaks.append(" " + timeline.breakStart(turn) + (timeline.opens(turn) ? " opens" : " passes"));
-		}
-		return breaks.toString();
+		return java.util.stream.IntStream.range(0, timeline.turns()).mapToObj(turn -> " " + timeline.breakStart(turn) + (timeline.opens(turn) ? " opens" : " passes"))
+			.collect(java.util.stream.Collectors.joining());
 	}
 
 	// a break is silence before its turn: the turn starts after it, its Count In first, and the turn before ends where it

@@ -88,9 +88,14 @@ public class PractisingSteps {
 
 	// the clicks of the turn's Count In: from the end of the turn before (or the start) to its first measure
 	long[] countIn(List<List<Note>> turns, int turn) {
-		long from = (turn == 0 ? 0 : last(turns.get(turn - 1)).end());
+		long from = endBefore(turns, turn);
 		long to = first(turns.get(turn)).start;
 		return Arrays.stream(heard().countIn()).filter(click -> click >= from && click < to).toArray();
+	}
+
+	// where the turn before ends; the start, before the first
+	private static long endBefore(List<List<Note>> turns, int turn) {
+		return (turn == 0 ? 0 : last(turns.get(turn - 1)).end());
 	}
 
 	// the units of the pool, as the session groups the song
@@ -287,11 +292,18 @@ public class PractisingSteps {
 		long sample = from;
 		for (int beat = 0; beat < turn.size(); beat++) {
 			long length = world.song().getMeasureHeader(turn.get(beat).note - BASE - 1).getTimeSignature().getDenominator().getTime();
-			while (Math.floorDiv(reported.tickAt(sample) - ticks.get(beat), length) != 0) {
-				sample++;
-			}
+			sample = firstIn(reported, sample, ticks.get(beat), length);
 			assertEquals(turn.get(beat).start + delay(), sample, 1, "beat " + (beat + 1) + " of " + turn);
 		}
+	}
+
+	// the first sample of the clock, from the given one on, whose reported position is in the ticks from the tick
+	private static long firstIn(TGReportedPositions reported, long from, long tick, long length) {
+		long sample = from;
+		while (Math.floorDiv(reported.tickAt(sample) - tick, length) != 0) {
+			sample++;
+		}
+		return sample;
 	}
 
 	@Then("track {int} fades from {float} to {float} over the last 256 samples of turns {int} and {int}, within 1 sample")
@@ -359,9 +371,13 @@ public class PractisingSteps {
 		assertEquals(count, opening.length);
 		for (int turn : opening) {
 			long start = timeline.turnStart(turn);
-			boolean noted = !turns.get(turn).isEmpty() && first(turns.get(turn)).start == start;
-			assertTrue(noted || Arrays.stream(heard().countIn()).anyMatch(click -> click == start), "turn " + (turn + 1) + " started at " + start);
+			assertTrue(startsAt(turns.get(turn), start), "turn " + (turn + 1) + " started at " + start);
 		}
+	}
+
+	// the turn's first note or a Count In click is at the sample
+	private boolean startsAt(List<Note> turn, long start) {
+		return turn.stream().limit(1).anyMatch(note -> note.start == start) || Arrays.stream(heard().countIn()).anyMatch(click -> click == start);
 	}
 
 	@Then("interleaved practice has ended")
