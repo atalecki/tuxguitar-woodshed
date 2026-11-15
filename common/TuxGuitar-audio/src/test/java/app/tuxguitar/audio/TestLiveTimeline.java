@@ -34,7 +34,7 @@ public class TestLiveTimeline {
 	}
 
 	// the transport's span from the quarter note on
-	private static MidiTransport.Span at(double quarters) {
+	static MidiTransport.Span at(double quarters) {
 		MidiTransport transport = new MidiTransport();
 		transport.clear();
 		transport.add(0, true, 60, 4, 4, quarters, 0);
@@ -49,7 +49,7 @@ public class TestLiveTimeline {
 	}
 
 	// whether the last stretch followed started a timeline, how long that is, and the sample the stretch starts on
-	private static String read(TGLiveTimeline followed, boolean started) {
+	static String read(TGLiveTimeline followed, boolean started) {
 		return started + " " + followed.getTimeline().length() + " " + followed.getPosition();
 	}
 

@@ -93,6 +93,12 @@ public class LivePractisingSteps {
 		player.closeChannels();
 	}
 
+	// with no change: played on until the player stops by itself after the last turn
+	@When("I practise {int} turns live")
+	public void practiseLive(int turns) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		practiseLive(turns, 1, () -> { }, LONGEST);
+	}
+
 	// as the app moves it (TGTransport: the song's tick, here with no repeats)
 	@When("I practise {int} turns live, moving the position to {position} during turn {int}")
 	public void practiseLiveMoving(int turns, SongPosition to, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
@@ -173,6 +179,29 @@ public class LivePractisingSteps {
 		assertTrue(stopped >= 0, "the player never stopped");
 		long end = change + beats * beat() + world.chainDelay();
 		assertEquals(end, (stopped + 1L) * BLOCK, within, "turn " + turn + " ends, as heard, at sample " + end);
+	}
+
+	// where the turn (from 1) ends, as heard: where the next one starts
+	private int heardEnd(int turn) {
+		return (int) (planned.turnEnd(turn - 1) + world.chainDelay());
+	}
+
+	@Then("the output's right side fades from {float} to {float} over the last 256 samples of turns {int} and {int}, within 1 sample")
+	public void rightFadesAtTheEndOfTurns(float from, float to, int one, int other) {
+		for (int turn : new int[] {one, other}) {
+			ListeningSteps.assertTransition(world.live()[1], heardEnd(turn) - ListeningSteps.FADE, heardEnd(turn) - 1, from, to);
+		}
+	}
+
+	// as heard, where the turn's first measure starts: by how much the level rises from the sample before (the Count In
+	// click before it still rings a little on that side)
+	@Then("the output's right side steps up by {float} on the first sample of each turn")
+	public void rightStepsUpOnTheFirstSampleOfEachTurn(float step) {
+		float[] right = world.live()[1];
+		for (int turn = 0; turn < planned.turns(); turn++) {
+			int first = (int) (planned.start(planned.firstOf(turn)) + world.chainDelay());
+			assertEquals(step, right[first] - right[first - 1], step / 512, "turn " + (turn + 1) + " at sample " + first);
+		}
 	}
 
 	// the notes of the turn's measures (from 1)

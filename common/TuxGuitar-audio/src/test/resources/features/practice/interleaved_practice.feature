@@ -309,6 +309,20 @@ Feature: Interleaved practice
     Then track 2 fades from 0.4 to 0 over the last 256 samples of turns 1 and 2, within 1 sample
     And track 2's first sample of each turn is 0.4
 
+  # live, as offline: the takes follow the turns the player lays; they play late by plugin delay compensation, as the
+  # notes do, so what the output sounds is read as heard. Track 2 alone sounds on the output's right side, but for the
+  # Count In clicks, which start where a turn ends and still ring a little where its first measure starts
+  Scenario: live, an audio track's take fades out at the end of every turn but the last, and comes back at full level
+    Given I have turned Count In on
+    And I have set the Balance of track 1's channel to 0
+    And I have added an audio track recording input channel 1
+    And I have set the Balance of track 2's channel to 127
+    And track 2 has a take of a constant level of 0.4 from measure 1 beat 1 to the end of measure 64
+    And I have set interleaved practice to measures over measures 1 to 8
+    When I practise 3 turns live
+    Then the output's right side fades from 0.4 to 0 over the last 256 samples of turns 1 and 2, within 1 sample
+    And the output's right side steps up by 0.4 on the first sample of each turn
+
   Scenario: an effect's tail rings on into the next turn's Count In
     Given I have turned Count In on
     And I have added the VST3 effect "Test Echo" to track 1
