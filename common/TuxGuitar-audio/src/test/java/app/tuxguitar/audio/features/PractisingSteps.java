@@ -39,10 +39,12 @@ public class PractisingSteps {
 
 	private final AudioWorld world;
 	private final Practice practice;
+	private final LivePractisingSteps live;
 
-	public PractisingSteps(AudioWorld world, Practice practice) {
+	public PractisingSteps(AudioWorld world, Practice practice, LivePractisingSteps live) {
 		this.world = world;
 		this.practice = practice;
+		this.live = live;
 	}
 
 	@When("I practise {int} turns")
@@ -362,9 +364,13 @@ public class PractisingSteps {
 	}
 
 	// a turn starts with its Count In's first click, or its first note without one; with the interval clock its first
-	// pass opens it
+	// pass opens it. Played live, see LivePractisingSteps
 	@Then("the output holds {int} turn(s) started")
 	public void turnsStarted(int count) {
+		if (world.live() != null) {
+			live.assertTurnsStarted(count);
+			return;
+		}
 		TGTimeline timeline = heard().timeline();
 		List<List<Note>> turns = turns();
 		int[] opening = IntStream.range(0, timeline.turns()).filter(timeline::opens).toArray();

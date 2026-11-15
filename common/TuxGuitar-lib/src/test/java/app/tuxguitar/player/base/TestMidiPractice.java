@@ -70,15 +70,21 @@ public class TestMidiPractice {
 		return practice;
 	}
 
-	// lines 1 to 4 (or as many as given), timed: turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes; a Count
-	// In before every pass or the first only. At 120 bpm a line lasts 4 seconds (7680 ticks), a Count In 2 (3840)
-	private MidiPractice timed(int lines, boolean everyPass, int percent) throws TGPracticeRefusal {
+	// lines 1 to 4, timed: turns of 1 minute, breaks of 10 seconds, sessions of so many minutes
+	private static TGPracticeSettings timedLines(int sessionMinutes) {
 		TGPracticeSettings settings = lines();
-		settings.setPool(1, lines);
 		settings.setIntervalClock(true);
 		settings.setTurnMinutes(1);
 		settings.setBreakSeconds(10);
-		settings.setSessionMinutes(2);
+		settings.setSessionMinutes(sessionMinutes);
+		return settings;
+	}
+
+	// lines 1 to 4 (or as many as given), timed, sessions of 2 minutes; a Count In before every pass or the first only.
+	// At 120 bpm a line lasts 4 seconds (7680 ticks), a Count In 2 (3840)
+	private MidiPractice timed(int lines, boolean everyPass, int percent) throws TGPracticeRefusal {
+		TGPracticeSettings settings = timedLines(2);
+		settings.setPool(1, lines);
 		settings.setCountInEveryPass(everyPass);
 		return this.practice(settings, percent);
 	}
@@ -185,10 +191,11 @@ public class TestMidiPractice {
 		practice.follow(959);
 		int before = passes.size();
 		practice.follow(960);
+		int started = passes.size();
 		practice.follow(120000);
 		practice.follow(400000);
-		assertEquals("1:960+0/4, 1:12480+0/0, 1:112320+0/0 15 120000 | 15 | 2:120000+19200/4, 2:150720+0/0 30 258240",
-			first + " | " + before + " | " + passes(15, 16) + " " + passes.size() + " " + passes.get(29).getEnd());
+		assertEquals("1:960+0/4, 1:12480+0/0, 1:112320+0/0 15 120000 | 15 30 | 2:120000+19200/4, 2:150720+0/0 30 258240",
+			first + " | " + before + " " + started + " | " + passes(15, 16) + " " + passes.size() + " " + passes.get(29).getEnd());
 	}
 
 	// a Count In before every pass: 10 passes of 6 seconds
@@ -270,5 +277,28 @@ public class TestMidiPractice {
 		practice.follow(960);
 		practice.follow(1000000);
 		assertEquals("2:960+0/4, 2:12480+0/0 15 2", passes(0, 1) + " " + passes.size() + " " + practice.turnAt(960));
+	}
+
+	// the turn (from 1) starts: its first pass, from its break
+	private void startTurn(MidiPractice practice, int turn) {
+		practice.follow(passes.stream().filter(pass -> pass.getTurn() == turn).findFirst().get().getStart());
+	}
+
+	// timed, 10 minutes of turns of 1 minute and breaks of 10 seconds: 9 turns. Turn 5 opens cycle 2 and starts with its
+	// break: line 2 (measures 3 and 4) flagged 3x during that break counts from cycle 3, turns 5 to 8 play each line once
+	@Test
+	public void aFlagDuringABreakCountsFromTheCycleAfterTheOneItsTurnOpens() throws TGPracticeRefusal {
+		MidiPractice practice = this.practice(timedLines(10), 100);
+		for (int turn = 1; turn <= 5; turn++) {
+			startTurn(practice, turn);
+		}
+		practice.getChooser().checkFlag(3, 3);
+		song.getMeasureHeader(2).setDifficulty(3);
+		for (int turn = 6; turn <= 9; turn++) {
+			startTurn(practice, turn);
+		}
+		List<Integer> firsts = IntStream.rangeClosed(5, 8).mapToObj(turn -> passes.stream().filter(pass -> pass.getTurn() == turn).findFirst().get().getFirst().getNumber())
+			.sorted().collect(Collectors.toList());
+		assertEquals("[1, 3, 5, 7]", firsts.toString());
 	}
 }

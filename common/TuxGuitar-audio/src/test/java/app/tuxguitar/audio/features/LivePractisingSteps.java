@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -17,6 +19,7 @@ import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
 import app.tuxguitar.practice.TGPracticeRefusal;
+import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -31,11 +34,11 @@ public class LivePractisingSteps {
 
 	private static final int BASE = 35;
 	// the live device's blocks
-	private static final int BLOCK = 512;
+	static final int BLOCK = 512;
 	// the blocks played on once the change is made
-	private static final int AFTER = 400;
-	// the most blocks a session that stops by itself is played on for
-	private static final int LONGEST = 4000;
+	static final int AFTER = 400;
+	// the most blocks a session that stops by itself is played on for (a timed session of 5 minutes and more)
+	static final int LONGEST = 30000;
 	// clear of a beat's edges (and of where exactly a move lands in its block) when reading its note
 	private static final int EDGE = 2048;
 	// a note's tone sounds above SOUNDS; none above -60 dBFS is silent
@@ -46,12 +49,13 @@ public class LivePractisingSteps {
 	private final Practice practice;
 	private final SongSteps songSteps;
 	// the sample of the change (the first after the blocks played before it), the turn it was made in (from 1), and
-	// for each block whether the player ran after its turn of the play loop
+	// for each block whether the player ran after its turn of the play loop, and the turn it showed (none: empty)
 	private long change;
 	private int changedIn;
-	// what the session would play, offline, with the same seed: its turns
+	// what the session would play, offline, with the same seed: its turns (with the interval clock, its passes)
 	private TGTimeline planned;
 	private final List<Boolean> running = new ArrayList<Boolean>();
+	private final List<Optional<TGPracticeTurn>> shown = new ArrayList<Optional<TGPracticeTurn>>();
 
 	public LivePractisingSteps(AudioWorld world, Practice practice, SongSteps songSteps) {
 		this.world = world;
@@ -59,8 +63,34 @@ public class LivePractisingSteps {
 		this.songSteps = songSteps;
 	}
 
-	private MidiPlayer player() {
+	MidiPlayer player() {
 		return MidiPlayer.getInstance(world.fixture().context);
+	}
+
+	Practice practice() {
+		return practice;
+	}
+
+	// what the session would play, offline, with the same seed
+	TGTimeline planned() {
+		return planned;
+	}
+
+	// the sample of the change, as the player plays it
+	long change() {
+		return change;
+	}
+
+	// the turn the player showed after each block (none: empty)
+	List<Optional<TGPracticeTurn>> shown() {
+		return shown;
+	}
+
+	// the sample the player stopped at: the end of the first block after which it no longer ran
+	long stopped() {
+		int stopped = running.indexOf(Boolean.FALSE);
+		assertTrue(stopped >= 0, "the player never stopped");
+		return (stopped + 1L) * BLOCK;
 	}
 
 	// practises so many turns live (random seed 1), the change made half way through the turn (from 1), then plays on
@@ -72,11 +102,18 @@ public class LivePractisingSteps {
 	// as practiseLive, playing on for at most so many blocks, or until the player stops by itself
 	private void practiseLive(int turns, int during, Runnable changing, int after) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practice.settings().setTurns(turns);
+		changedIn = during;
+		practiseLive(timeline -> (timeline.turnStart(during - 1) + timeline.turnEnd(during - 1)) / 2, changing, after);
+	}
+
+	// practises the session as set live (random seed 1), the change made in the block of the sample the function finds
+	// in what the session plays (planned), then plays on for at most so many blocks, or until the player stops by itself;
+	// the player stopped then, the synthesizer's channels close
+	void practiseLive(ToLongFunction<TGTimeline> when, Runnable changing, int after) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practice.start();
 		planned = TGPractiseAction.timeline(world.fixture().context, world.song(), practice.session(), Practice.SEED);
-		int at = (int) ((planned.turnStart(during - 1) + planned.turnEnd(during - 1)) / 2 / BLOCK);
+		int at = (int) (when.applyAsLong(planned) / BLOCK);
 		change = (at + 1L) * BLOCK;
-		changedIn = during;
 		MidiPlayer player = player();
 		player.loadSequencer(new MidiSequencerImpl(world.fixture().context));
 		player.practise(practice.session(), Practice.SEED);
@@ -87,6 +124,7 @@ public class LivePractisingSteps {
 			}
 			boolean goesOn = player.runPlayLoopProcess();
 			running.add(player.isRunning());
+			shown.add(player.getPracticeTurn());
 			return goesOn && block < at + after;
 		}));
 		player.stop();
@@ -113,15 +151,18 @@ public class LivePractisingSteps {
 	// as the app pauses and plays again (TGTransport: no move during a session)
 	@When("I practise {int} turns live, pausing during turn {int} and playing again")
 	public void practiseLivePausing(int turns, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
-		practiseLive(turns, during, () -> {
-			player().pause();
-			try {
-				player().play();
-			} catch (MidiPlayerException e) {
-				throw new IllegalStateException(e);
-			}
-			world.threads().runStartHere();
-		}, LONGEST);
+		practiseLive(turns, during, this::pauseAndPlay, LONGEST);
+	}
+
+	// as the app pauses and plays again (TGTransport: no move during a session)
+	void pauseAndPlay() {
+		player().pause();
+		try {
+			player().play();
+		} catch (MidiPlayerException e) {
+			throw new IllegalStateException(e);
+		}
+		world.threads().runStartHere();
 	}
 
 	// as the app flags it: the flag action, checked by the session's chooser (TGPracticeEdits); the turns heard, by the
@@ -129,18 +170,29 @@ public class LivePractisingSteps {
 	@When("I practise {int} turns live, flagging measure {int} as {int}x difficult during turn {int}")
 	public void practiseLiveFlagging(int turns, int measure, int difficulty, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practiseLive(turns, during, () -> practice.edit(() -> practice.flag(measure, difficulty)), LONGEST);
-		practice.runs().add(IntStream.range(0, turns).map(turn -> heardMeasure(planned.turnStart(turn))).boxed().collect(Collectors.toList()));
+		addHeardRun();
+	}
+
+	// the turns heard, by the note each sounds on its first measure's first beat: the run the choosing steps read
+	void addHeardRun() {
+		int[] openings = openings();
+		practice.runs().add(IntStream.of(openings).map(turn -> heardMeasure(planned.start(planned.firstOf(turn)))).boxed().collect(Collectors.toList()));
+	}
+
+	// the turns of what the session plays that open its turns (with the interval clock, each turn's first pass)
+	int[] openings() {
+		return IntStream.range(0, planned.turns()).filter(planned::opens).toArray();
 	}
 
 	// the measure whose note the output sounds on the beat that starts at the player's sample (as heard, the chain
 	// delay later)
-	private int heardMeasure(long sample) {
+	int heardMeasure(long sample) {
 		long heard = sample + world.chainDelay();
 		return noteOver(heard + EDGE, heard + beat() - EDGE) - BASE;
 	}
 
 	// a beat of the Background (4/4 at 120 bpm), in samples
-	private static long beat() {
+	static long beat() {
 		return TestInterface.SAMPLE_RATE / 2;
 	}
 
@@ -175,10 +227,13 @@ public class LivePractisingSteps {
 	// the player stops by itself (no change does) at the first block after the session's last turn ends, as heard
 	@Then("the player stopped by itself within {int} samples of turn {int}'s end, {int} beats after Play")
 	public void stoppedAfter(int within, int turn, int beats) {
-		int stopped = running.indexOf(Boolean.FALSE);
-		assertTrue(stopped >= 0, "the player never stopped");
-		long end = change + beats * beat() + world.chainDelay();
-		assertEquals(end, (stopped + 1L) * BLOCK, within, "turn " + turn + " ends, as heard, at sample " + end);
+		assertStoppedAfter(within, beats * beat(), "turn " + turn);
+	}
+
+	// the player stopped at the first block after the turn ends so many samples after Play, as heard
+	void assertStoppedAfter(int within, long samples, String turn) {
+		long end = change + samples + world.chainDelay();
+		assertEquals(end, stopped(), within, turn + " ends, as heard, at sample " + end);
 	}
 
 	// where the turn (from 1) ends, as heard: where the next one starts
@@ -217,7 +272,7 @@ public class LivePractisingSteps {
 	}
 
 	// the level of the note's tone over the samples (Meters.level)
-	private double levelOf(int note, long from, long to) {
+	double levelOf(int note, long from, long to) {
 		return Meters.level(world.live()[0], (int) from, (int) to, HeardNotes.pitch(note), TestInterface.SAMPLE_RATE);
 	}
 
@@ -251,5 +306,17 @@ public class LivePractisingSteps {
 		long heard = change + world.chainDelay();
 		int before = noteOver(heard - 2 * EDGE, heard - EDGE / 2);
 		assertTrue(notesOf(turn).contains(before), "before the edit the output sounded " + before + ", not one of " + notesOf(turn));
+	}
+
+	// the session's turns whose first pass started before the player stopped, each heard sounding a measure of the song
+	// on its first measure's first beat
+	void assertTurnsStarted(int count) {
+		long stopped = stopped();
+		int[] started = IntStream.of(openings()).filter(turn -> planned.turnStart(turn) < stopped).toArray();
+		assertEquals(count, started.length, "turns started before the player stopped at " + stopped);
+		for (int turn : started) {
+			int measure = heardMeasure(planned.start(planned.firstOf(turn)));
+			assertTrue(measure >= 1 && measure <= world.song().countMeasureHeaders(), "the turn at " + turn + " sounds " + measure);
+		}
 	}
 }

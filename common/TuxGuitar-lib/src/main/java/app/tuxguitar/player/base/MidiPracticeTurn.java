@@ -27,7 +27,8 @@ public final class MidiPracticeTurn {
 		this(first, last, start, 0, clicks, 1);
 	}
 
-	MidiPracticeTurn(TGMeasureHeader first, TGMeasureHeader last, long start, long rest, int clicks, int turn) {
+	// a pass of the session's turn, after a break of so many ticks
+	public MidiPracticeTurn(TGMeasureHeader first, TGMeasureHeader last, long start, long rest, int clicks, int turn) {
 		this.first = first;
 		this.last = last;
 		this.start = start;

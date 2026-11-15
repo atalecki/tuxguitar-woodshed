@@ -9,9 +9,10 @@ import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
- * An interleaved practice session as it plays live: the turns its sequence holds so far (MidiPracticeTurn: one after the
+ * An interleaved practice session as it plays live: the passes its sequence holds so far (MidiPracticeTurn: one after the
  * other in the sequence's ticks, from its first), played as offline (TGTurn.unit: each its Count In, then its unit's
- * measures), on one timeline from the session's first turn. The transport tells where the sequence plays, in its
+ * measures; a turn's first pass after the break before it, the others continuing it), on one timeline from the
+ * session's first turn. The transport tells where the sequence plays, in its
  * quarter notes; a turn moves its measures there from where the song has them, so in its Count In the song's quarter
  * note runs back from its first measure, as the timeline tells it.
  */
@@ -20,14 +21,25 @@ final class TGLiveTurns {
 	private TGLiveTurns() {
 	}
 
-	// the turns played at the percent, from the timeline's sample 0
+	// the passes played at the percent, from the timeline's sample 0
 	static TGTimeline timeline(TGSong song, List<MidiPracticeTurn> laid, int percent, int sampleRate) {
 		List<TGTurn> turns = new ArrayList<TGTurn>();
-		for (int turn = 0; turn < laid.size(); turn++) {
-			MidiPracticeTurn played = laid.get(turn);
-			turns.add(TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), turn, percent, header -> played.getClicks(), sampleRate));
+		for (int index = 0; index < laid.size(); index++) {
+			turns.add(pass(song, laid, index, percent, sampleRate));
 		}
 		return TGTimeline.of(song, turns, sampleRate);
+	}
+
+	// the pass (by index) as a turn of the timeline: one that continues the turn of the pass before it, or one that opens
+	// a turn after its break, as long as the sequence's ticks of it last at its first measure's tempo
+	private static TGTurn pass(TGSong song, List<MidiPracticeTurn> laid, int index, int percent, int sampleRate) {
+		MidiPracticeTurn played = laid.get(index);
+		TGTurn unit = TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), index, percent, header -> played.getClicks(), sampleRate);
+		if (index > 0 && laid.get(index - 1).getTurn() == played.getTurn()) {
+			return TGTurn.pass(unit.getCountIn(), unit.getMeasures());
+		}
+		long rest = TGSampleTime.samples(played.getRest(), TGSampleTime.tempo(played.getFirst(), percent), sampleRate);
+		return TGTurn.afterBreak(rest, unit.getCountIn(), unit.getMeasures());
 	}
 
 	// the song's quarter note the sequence's plays (without turns, the song plays: the same one)

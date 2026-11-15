@@ -106,6 +106,35 @@ public class TestLiveSessionTimeline {
 		assertEquals("true 352800 121275", this.follow(5.5, 512));
 	}
 
+	// turn B after a break of a second (1920 ticks at 120 bpm, 44100 samples), from the sequence's quarter note 8 to 10:
+	// the timeline holds it before B's Count In; started half way through it, it plays from there
+	@Test
+	public void aBreakBeforeATurnIsOnTheTimeline() {
+		this.laid = Arrays.asList(this.turnA, afterBreak(this.turnB, 1920, 2));
+		String start = this.follow(0, 512);
+		this.followed.stop();
+
+		assertEquals("true 396900 0 | true 396900 198450", start + " | " + this.follow(9.0, 512));
+	}
+
+	// the same pass from its tick, after a break of so many ticks, of the session's turn
+	private static MidiPracticeTurn afterBreak(MidiPracticeTurn pass, long rest, int turn) {
+		return new MidiPracticeTurn(pass.getFirst(), pass.getLast(), pass.getStart(), rest, pass.getClicks(), turn);
+	}
+
+	// turn 1 plays A twice (its second pass without a Count In), then turn 2 B after a break: a pass of the same turn
+	// does not open a practice turn and has no Count In; the first after the break opens one, 44100 samples after it
+	@Test
+	public void aTurnsPassesAfterTheFirstContinueIt() {
+		MidiPracticeTurn again = new MidiPracticeTurn(this.turnA.getFirst(), this.turnA.getLast(), this.turnA.getEnd(), 0, 0, 1);
+		this.laid = Arrays.asList(this.turnA, again, new MidiPracticeTurn(this.turnB.getFirst(), this.turnB.getLast(), again.getEnd(), 1920, 4, 2));
+		this.follow(0, 512);
+		TGTimeline timeline = this.followed.getTimeline();
+
+		assertEquals("true false true 0 44100", timeline.opens(0) + " " + timeline.opens(1) + " " + timeline.opens(2) + " "
+			+ (timeline.start(timeline.firstOf(1)) - timeline.turnStart(1)) + " " + (timeline.turnStart(2) - timeline.breakStart(2)));
+	}
+
 	// a session laid while the song plays (from measure 3) starts the session's timeline, where the transport is in it
 	// (512 samples into turn B's Count In), though the transport goes on as the song's did
 	@Test

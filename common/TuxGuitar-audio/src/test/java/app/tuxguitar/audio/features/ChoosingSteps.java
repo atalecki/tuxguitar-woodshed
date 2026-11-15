@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -146,6 +147,11 @@ public class ChoosingSteps {
 		List<Integer> expected = pool();
 		Collections.addAll(expected, first, first, second, second);
 		eachRangeChooses(ranges, expected);
+	}
+
+	@Then("turns {int} and {int}, and turns {int} and {int}, choose measures {int} and {int} once each")
+	public void pairsChooseOnceEach(int one, int two, int three, int four, int first, int second) {
+		eachRangeChooses(Arrays.asList(new int[] {one, two}, new int[] {three, four}), new ArrayList<Integer>(Arrays.asList(first, second)));
 	}
 
 	@Then("turns {int} to {int} choose {choices}")

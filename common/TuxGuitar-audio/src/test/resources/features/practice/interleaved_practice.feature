@@ -483,7 +483,6 @@ Feature: Interleaved practice
     And the output holds 2 turns started
 
   # the time left is rounded up to the second, and counts to the turn's end (the pass under way included)
-  @planned
   Scenario: live, TuxGuitar reports the turn and the time left in it, and during a break the next turn and the time left in the break
     Given I have turned Count In on
     And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
@@ -499,7 +498,6 @@ Feature: Interleaved practice
 
   # live, the next turn is chosen when its break starts and shown all through it: a flag set during the break counts
   # from the cycle after the one that turn opens (turns 3 and 4 make the second cycle)
-  @planned
   Scenario: flagging a measure during a break keeps the turn shown, and changes the turns from the cycle after
     Given I have set interleaved practice to measures over measures 1 to 2
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 5 minutes
@@ -569,7 +567,6 @@ Feature: Interleaved practice
       | 1x   | on           | measures 1 to 2  | 2    | 10    | 1       | refused, saying "A session needs at least the minutes of one turn."                          |
       | 1x   | on           | measures 1 to 2  | 2    | 10    | 2       | accepted                                                                                     |
 
-  @planned
   Scenario: Pause during a timed turn keeps the session: Play plays the paused pass again from a Count In, then the turn's passes left
     Given I have turned Count In on
     And I have set interleaved practice to measures over measures 1 to 4
@@ -578,7 +575,6 @@ Feature: Interleaved practice
     Then after Play, the turn's measure sounds again after a Count In of 4 beats, then 26 more times back to back
     And the player stopped by itself within 512 samples of the turn's end, 56 seconds after Play
 
-  @planned
   Scenario: Pause during a break keeps the session: Play starts the next turn's Count In at once
     Given I have turned Count In on
     And I have set interleaved practice to measures over measures 1 to 4
@@ -587,7 +583,6 @@ Feature: Interleaved practice
     Then after Play, turn 2's Count In of 4 beats starts within 512 samples
     And the player stopped by itself within 512 samples of turn 2's end, 60 seconds after Play
 
-  @planned
   Scenario: Stop during a break ends the session
     Given I have turned Count In on
     And I have set interleaved practice to measures over measures 1 to 4
@@ -596,7 +591,6 @@ Feature: Interleaved practice
     Then the output holds 1 turn started
     And interleaved practice has ended
 
-  @planned
   Scenario: moving the position during a break ends the session, and the song plays on from there
     Given I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
