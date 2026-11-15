@@ -102,8 +102,23 @@ public class LivePractisingSteps {
 	// as practiseLive, playing on for at most so many blocks, or until the player stops by itself
 	private void practiseLive(int turns, int during, Runnable changing, int after) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practice.settings().setTurns(turns);
-		changedIn = during;
-		practiseLive(timeline -> (timeline.turnStart(during - 1) + timeline.turnEnd(during - 1)) / 2, changing, after);
+		practice.start();
+		practiseLive(sessionPlanned(), this::practise, during, changing, after);
+	}
+
+	/** Practice started live, as the app starts it. */
+	interface Starting {
+		void start(MidiPlayer player) throws MidiPlayerException, TGPracticeRefusal;
+	}
+
+	// what the session started would play, offline, with the same seed
+	private TGTimeline sessionPlanned() {
+		return TGPractiseAction.timeline(world.fixture().context, world.song(), practice.session(), Practice.SEED);
+	}
+
+	// the session started, live, random seed 1
+	private void practise(MidiPlayer player) throws MidiPlayerException, TGPracticeRefusal {
+		player.practise(practice.session(), Practice.SEED);
 	}
 
 	// practises the session as set live (random seed 1), the change made in the block of the sample the function finds
@@ -111,12 +126,27 @@ public class LivePractisingSteps {
 	// the player stopped then, the synthesizer's channels close
 	void practiseLive(ToLongFunction<TGTimeline> when, Runnable changing, int after) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practice.start();
-		planned = TGPractiseAction.timeline(world.fixture().context, world.song(), practice.session(), Practice.SEED);
+		practiseLive(sessionPlanned(), this::practise, when, changing, after);
+	}
+
+	// as practiseLive, what is planned started as the starting does, the change made half way through the turn (from 1)
+	// of what is planned
+	void practiseLive(TGTimeline planned, Starting starting, int during, Runnable changing, int after) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		changedIn = during;
+		practiseLive(planned, starting, timeline -> (timeline.turnStart(during - 1) + timeline.turnEnd(during - 1)) / 2, changing, after);
+	}
+
+	// practises live what is planned (what it would play, offline), started as the starting does, the change made in the
+	// block of the sample the function finds in what is planned, then plays on for at most so many blocks, or until the
+	// player stops by itself; the player stopped then, the synthesizer's channels close
+	void practiseLive(TGTimeline planned, Starting starting, ToLongFunction<TGTimeline> when, Runnable changing, int after)
+		throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		this.planned = planned;
 		int at = (int) (when.applyAsLong(planned) / BLOCK);
 		change = (at + 1L) * BLOCK;
 		MidiPlayer player = player();
 		player.loadSequencer(new MidiSequencerImpl(world.fixture().context));
-		player.practise(practice.session(), Practice.SEED);
+		starting.start(player);
 		world.threads().runStartHere();
 		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> playBlock(player, block, at, changing) && block < at + after));
 		player.stop();
@@ -251,7 +281,17 @@ public class LivePractisingSteps {
 
 	@Then("the output's right side fades from {float} to {float} over the last 256 samples of turns {int} and {int}, within 1 sample")
 	public void rightFadesAtTheEndOfTurns(float from, float to, int one, int other) {
-		for (int turn : new int[] {one, other}) {
+		assertRightFadesAtTheEndOf(from, to, new int[] {one, other});
+	}
+
+	@Then("the output's right side fades from {float} to {float} over the last 256 samples of steps {int} to {int}, within 1 sample")
+	public void rightFadesAtTheEndOfSteps(float from, float to, int first, int last) {
+		assertRightFadesAtTheEndOf(from, to, IntStream.rangeClosed(first, last).toArray());
+	}
+
+	// as heard, the right side fades over the last 256 samples of each of the turns (from 1)
+	private void assertRightFadesAtTheEndOf(float from, float to, int[] turns) {
+		for (int turn : turns) {
 			ListeningSteps.assertTransition(world.live()[1], heardEnd(turn) - ListeningSteps.FADE, heardEnd(turn) - 1, from, to);
 		}
 	}
@@ -259,6 +299,7 @@ public class LivePractisingSteps {
 	// as heard, where the turn's first measure starts: by how much the level rises from the sample before (the Count In
 	// click before it still rings a little on that side)
 	@Then("the output's right side steps up by {float} on the first sample of each turn")
+	@Then("the output's right side steps up by {float} on the first sample of each step")
 	public void rightStepsUpOnTheFirstSampleOfEachTurn(float step) {
 		float[] right = world.live()[1];
 		for (int turn = 0; turn < planned.turns(); turn++) {
@@ -306,6 +347,7 @@ public class LivePractisingSteps {
 
 	// the player stops at the first block after the edit; the output had sounded the turn's unit up to it
 	@Then("the player stopped within {int} samples of the edit, during turn {int}")
+	@Then("the player stopped within {int} samples of the edit, during step {int}")
 	public void stoppedWithin(int within, int turn) {
 		int stopped = running.indexOf(Boolean.FALSE);
 		assertTrue(stopped >= 0, "the player never stopped");

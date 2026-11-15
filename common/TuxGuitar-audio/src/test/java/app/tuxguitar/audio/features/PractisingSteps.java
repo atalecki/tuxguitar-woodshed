@@ -345,6 +345,11 @@ public class PractisingSteps {
 		assertFadesAtTheEndOf(number, from, to, new int[] {one - 1, other - 1});
 	}
 
+	@Then("track {int} fades from {float} to {float} over the last 256 samples of steps {int} to {int}, within 1 sample")
+	public void fadesAtTheEndOfSteps(int number, float from, float to, int first, int last) {
+		assertFadesAtTheEndOf(number, from, to, IntStream.range(first - 1, last).toArray());
+	}
+
 	// the track fades over the last 256 samples of each of the turns (from 0)
 	void assertFadesAtTheEndOf(int number, float from, float to, int[] which) {
 		List<List<Note>> turns = turns();
@@ -356,6 +361,7 @@ public class PractisingSteps {
 	}
 
 	@Then("track {int}'s first sample of each turn is {float}")
+	@Then("track {int}'s first sample of each step is {float}")
 	@Then("track {int}'s first sample of each pass is {float}")
 	public void firstSampleOfEachTurn(int number, float value) {
 		float[] tap = heard().tap(world.track(number));
@@ -398,6 +404,7 @@ public class PractisingSteps {
 	// a turn starts with its Count In's first click, or its first note without one; with the interval clock its first
 	// pass opens it. Played live, see LivePractisingSteps
 	@Then("the output holds {int} turn(s) started")
+	@Then("the output holds {int} steps started")
 	public void turnsStarted(int count) {
 		if (world.live() != null) {
 			live.assertTurnsStarted(count);

@@ -134,14 +134,18 @@ a crossfade, for now. Live scenarios that play passes turn Play looped off durin
 it ends. The whole chain on this machine's real devices is an opt-in
 test: `mvn test -Dtest=TestRealDevice -Dtg.audio.native=<TuxGuitar-audio-device's native-build/lib>` (skipped, saying
 so, without it).
-Interleaved click-up (`practice/interleaved_click_up`) is implemented up to playing it offline: lib's
+Interleaved click-up (`practice/interleaved_click_up`) is implemented but for the desktop's dialog and buttons: lib's
 `app.tuxguitar.practice` works the steps out once (`TGClickUpLadder.of`: the settings checked once, refused saying why,
 the ladder and its tail; `TGTempoScale`, a step's tempo as an exact fraction of the written one) and plays them as a
 course (`TGClickUpLadder.course`, a `TGPracticeCourse`: a turn per step, in order, each its sections' measures at its
-tempo scale for the passes set, no break, the last step the last turn; not timed; it takes any flag), which
-`TGPractiseAction` plays offline given the ladder (`ATTRIBUTE_CLICK_UP`) on the same timeline of turns as interleaved
-practice, the Percentage of Tempo and Training Mode taking no part. Still `@planned` in it: live, Pause, Repeat step and
-Previous step, Stop, moving the position, an edit or a flag during a session, and an audio track's takes. Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
+tempo scale for the passes set, no break, the last step the last turn; not timed; it takes any flag; its steps, which
+`TGPracticeSteps` goes back over: Repeat step and Previous step move its cursor), which `TGPractiseAction` plays
+offline given the ladder (`ATTRIBUTE_CLICK_UP`) on the same timeline of turns as interleaved practice, and the player
+live (`MidiPlayer.practise` of the course, started by editor-utils' `TGTransportClickUpAction`; Repeat step and
+Previous step are `TGTransportStepAction`'s, `MidiPlayer.repeatStep` and `previousStep`, which lay the step chosen again
+from its Count In as Play does after a pause), the Percentage of Tempo and Training Mode taking no part. Live, the takes
+follow the steps as they follow interleaved practice's turns. Live scenarios read a step played again by its notes'
+level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
 impulse response (`.wav`) dropped the same way goes to the capture player's IR slot.
@@ -182,7 +186,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
 | `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live) |
-| `practice/interleaved_click_up` | interleaved click-up: sections added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step (implemented: the steps, refusals and playing offline; planned: live, Pause, Repeat step and Previous step, takes) |
+| `practice/interleaved_click_up` | interleaved click-up: sections added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step, live and offline, takes |
 
 ## How the scenarios run
 
@@ -557,8 +561,11 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   keeps it and changes none of its steps. Stop, moving the position or an edit ends the session; Pause keeps it, and
   Play then plays the paused step again from its Count In. **Repeat step** plays the step under way again at once, from
   its Count In, and **Previous step** the step before it (during step 1, step 1 again); the steps then go on from
-  there. As for interleaved practice, only TuxGuitar's own sequencer can play a session. "Step 3" counts from 1, in the
-  order of the steps.
+  there. Paused, they choose the step Play plays from its Count In (Repeat step: the paused one, as Play would anyway).
+  They are there only while a click-up is under way, playing or paused; interleaved practice's turns are no steps. As
+  for interleaved practice, only TuxGuitar's own sequencer can play a session. "Step 3" counts from 1, in the order of
+  the steps. A VST3 instrument ignores All Notes Off, so the note sounding when a step is played again rings on through
+  its Count In until it is played again, as after a pause (a defect of playback, left as it is).
 - **Passage**: the sections of a click-up, a range of units such as `measures 9 to 11`, `lines 1 to 4`, `pages 1 to 2`,
   as interleaved practice's pool is (the same fixed groups). Its first unit is **section** 1, the next section 2, and so
   on; a section is a unit, not a marker's section of the song.

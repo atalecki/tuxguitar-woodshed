@@ -85,6 +85,11 @@ public class TGPractiseAction extends TGPlayAction {
 		return timeline(context, song, course(context, session, seed));
 	}
 
+	// what the click-up plays, its steps one after the other, with Count In as it is now
+	public static TGTimeline timeline(TGContext context, TGSong song, TGClickUpLadder clickUp) {
+		return timeline(context, song, clickUp.course());
+	}
+
 	// what the course plays, each turn planned as it starts, up to its last, with Count In as it is now
 	private static TGTimeline timeline(TGContext context, TGSong song, TGPracticeCourse course) {
 		int sampleRate = TGAudioSession.getInstance(context).getDevice().getSampleRate();

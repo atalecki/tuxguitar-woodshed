@@ -201,7 +201,6 @@ Feature: Interleaved click-up
     And during each step TuxGuitar reports each of its beats within 1 sample of the output sounding it
 
   # a step's end is a jump in song time: the take fades out before it, and starts at full level after it
-  @planned
   Scenario: an audio track's take fades out at the end of every step but the last, and comes back at full level
     Given I have turned Count In on
     And I have added an audio track recording input channel 1
@@ -215,7 +214,6 @@ Feature: Interleaved click-up
 
   # live, as offline: the takes follow the steps the player lays, each at its step's tempo. Track 2 alone sounds on the
   # output's right side
-  @planned
   Scenario: live, an audio track's take fades out at the end of every step but the last, and comes back at full level
     Given I have turned Count In on
     And I have set the Balance of track 1's channel to 0
@@ -227,7 +225,6 @@ Feature: Interleaved click-up
     Then the output's right side fades from 0.4 to 0 over the last 256 samples of steps 1 to 4, within 1 sample
     And the output's right side steps up by 0.4 on the first sample of each step
 
-  @planned
   Scenario: live, each step plays its sections at its tempo after a Count In at that tempo, and the session stops by itself
     Given I have turned Count In on
     And I have set interleaved click-up to measures over measures 9 to 11, from 50% to 100% by 25%
@@ -237,7 +234,6 @@ Feature: Interleaved click-up
     And the player stopped by itself within 512 samples of step 11's end
 
   # measures 9 to 10 from 50% to 100% by 50%: 9@50%, 9@100%, 9-10@50%, 10@100%, 9-10@100%
-  @planned
   Scenario: Pause keeps the session: Play plays the paused step again from its Count In, then the steps after it
     Given I have turned Count In on
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
@@ -247,15 +243,15 @@ Feature: Interleaved click-up
     And the player stopped by itself within 512 samples of step 5's end
 
   # Repeat step plays the step under way again at once, from its Count In; Previous step plays the step before it (or,
-  # during step 1, step 1 again); then the steps go on from there
-  @planned
+  # during step 1, step 1 again); then the steps go on from there. The player sees its end at the end of a block of 512
+  # samples, which falls up to two blocks after the step ends as heard, as the choice moves the steps against the blocks
   Scenario Outline: <command> during step <during> plays step <again> again from its Count In, then the steps after it
     Given I have turned Count In on
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, choosing <command> during step <during>'s first measure
     Then the steps the output holds started are <played>
     And step <again>'s second time starts with its Count In within 512 samples of choosing it
-    And the player stopped by itself within 512 samples of step 5's end
+    And the player stopped by itself within 1024 samples of step 5's end
 
     Examples:
       | command       | during | again | played              |
@@ -264,7 +260,6 @@ Feature: Interleaved click-up
       | Previous step | 1      | 1     | 1, 1, 2, 3, 4, 5    |
       | Repeat step   | 5      | 5     | 1, 2, 3, 4, 5, 5    |
 
-  @planned
   Scenario: Stop ends the session
     Given I have turned Count In on
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
@@ -272,14 +267,12 @@ Feature: Interleaved click-up
     Then the output holds 2 steps started
     And interleaved click-up has ended
 
-  @planned
   Scenario: moving the position during a session ends it, and the song plays on from there
     Given I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, moving the position to measure 40 beat 1 during step 2
     Then the player plays on from measure 40 beat 1
     And interleaved click-up has ended
 
-  @planned
   Scenario: editing the song ends the session
     Given I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, removing measure 40 during step 2
@@ -288,7 +281,6 @@ Feature: Interleaved click-up
     And interleaved click-up has ended
 
   # a flag weighs a unit in interleaved practice's random choice; a click-up has no choice, so its steps stay as they were
-  @planned
   Scenario: flagging a measure during a session keeps it and its steps
     Given I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, flagging measure 10 as 3x difficult during step 2

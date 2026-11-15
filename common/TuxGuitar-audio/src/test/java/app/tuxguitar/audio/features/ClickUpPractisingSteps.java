@@ -29,12 +29,14 @@ public class ClickUpPractisingSteps {
 	private final ClickUp clickUp;
 	private final PractisingSteps practising;
 	private final TimedPractisingSteps timed;
+	private final ClickUpLiveSteps live;
 
-	public ClickUpPractisingSteps(AudioWorld world, ClickUp clickUp, PractisingSteps practising, TimedPractisingSteps timed) {
+	public ClickUpPractisingSteps(AudioWorld world, ClickUp clickUp, PractisingSteps practising, TimedPractisingSteps timed, ClickUpLiveSteps live) {
 		this.world = world;
 		this.clickUp = clickUp;
 		this.practising = practising;
 		this.timed = timed;
+		this.live = live;
 	}
 
 	// "9" or "9 to 10": the first and last measure
@@ -93,9 +95,14 @@ public class ClickUpPractisingSteps {
 		}
 	}
 
+	// played live, as ClickUpLiveSteps hears it
 	@Then("each step sounds the notes of its measures once each and in order, each within 1 sample of its beat at the step's tempo")
 	public void eachStepSoundsItsMeasures() {
-		assertTheLaddersSteps(1);
+		if (world.live() != null) {
+			live.assertEachBeatOnTime();
+		} else {
+			assertTheLaddersSteps(1);
+		}
 	}
 
 	@Then("each step sounds the notes of its measures {int} times back to back, each measure once and in order every time, each within 1 sample of its beat at the step's tempo")
