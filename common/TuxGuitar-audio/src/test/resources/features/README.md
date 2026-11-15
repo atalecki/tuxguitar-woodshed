@@ -15,7 +15,11 @@ and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChange
 `<difficulty>` in format 2.0), and a session played offline (`TGPractiseAction`: the turns back to back on a timeline
 of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's measures once each in score order,
 `TGSongTime.unit`; a turn that another follows ends its notes there; a measure no pass of the song reaches plays in its
-unit too, its events parsed alone), and live: lib's `MidiPlayer.practise` plays the session through the player's
+unit too, its events parsed alone; with the interval clock, offline only so far, lib's `TGPracticeSchedule` plans each
+turn as it is chosen, the one place that decides its passes and the last turn, and each pass is a turn of the timeline,
+`TGTurn.planned`: the first opens the practice turn after the break the turn before planned, its silence placed before
+it, `TGTurn.afterBreak`, through which plugins are told and TuxGuitar reports the turn's first measure as in its Count
+In; the others continue it, `TGTurn.pass`, each pass's start a jump), and live: lib's `MidiPlayer.practise` plays the session through the player's
 sequencer, with or without this module (`MidiPractice`: the turns one after the other in the sequence's ticks, each a
 `MidiPracticeTurn` that `MidiSequenceParser.parseTurn` makes, its Count In clicks in the sequence at its first measure's
 tempo, the next turn chosen ahead and added once the one before has started, the chooser told when it starts so that
@@ -165,7 +169,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline) |
 
 ## How the scenarios run
 
