@@ -393,7 +393,6 @@ Feature: Interleaved practice
     And "Count In before every pass" is off
 
   # a pass starts only before the turn's time is up, and then plays to its end
-  @planned
   Scenario Outline: with the interval clock, a turn loops its <unit> until the turn's time is up, and the pass under way plays to its end
     Given I have turned Count In <count in>
     And I have turned "Count In before every pass" <every pass>
@@ -419,7 +418,6 @@ Feature: Interleaved practice
       | line    | lines 1 to 4     | on       | off        | 50      | 4      | a Count In of 4 clicks before the first pass only | 2998800 |
 
   # a pass of 3.5 seconds (a Count In of 3 clicks, then a measure): pass 18 starts at 59.5 seconds, before the time is up
-  @planned
   Scenario: a pass whose Count In starts before the turn's time is up plays whole, its Count In and its measures
     Given I have turned Count In on with 3 Count In ticks
     And I have turned "Count In before every pass" on
@@ -430,7 +428,6 @@ Feature: Interleaved practice
     And the turn ends 2778300 samples after it started, within 1 sample
 
   # line 1: measures 1 and 2 at 120 bpm (2 seconds each), 3 and 4 at 60 bpm (4 seconds each), 12 seconds a pass
-  @planned
   Scenario: a pass lasts as long as its measures take at their own tempos
     Given I have turned Count In on
     And I have set the tempo from measure 3 to the end to 60 bpm
@@ -442,7 +439,6 @@ Feature: Interleaved practice
 
   # another turn follows only when the turn's end and its break come before the session's time is up; the session
   # ends at the end of a turn, never in a break (session ends at 142, 218 and 132 seconds)
-  @planned
   Scenario Outline: the session's time decides the last turn, which plays to its end, with no break after it
     Given I have turned Count In on
     And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
@@ -460,7 +456,6 @@ Feature: Interleaved practice
       | 10    | 441000        | 3       | 3     | 9613800 |
       | 0     | 0             | 2       | 2     | 5821200 |
 
-  @planned
   Scenario: a session whose time is up exactly at a turn's end ends there
     Given I have turned Count In on
     And I have set interleaved practice to measures over measures 1 to 4
@@ -470,7 +465,6 @@ Feature: Interleaved practice
     And the session's last turn ends 5292000 samples after the first one started, within 1 sample
 
   # with the interval clock, a session's one unit comes back turn after turn: "No consecutive repeats" cannot apply
-  @planned
   Scenario: with the interval clock, a pool of one unit plays it every turn
     Given I have turned Count In on
     And I have set interleaved practice to lines over lines 5 to 5, with lines of 4 measures
@@ -479,7 +473,6 @@ Feature: Interleaved practice
     Then the output holds 3 turns started
     And each turn sounds the notes of line 5 8 times back to back, after a Count In of 4 clicks
 
-  @planned
   Scenario: during a break TuxGuitar shows the next turn's first measure, then follows each pass as it sounds
     Given I have turned Count In on
     And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
@@ -526,7 +519,6 @@ Feature: Interleaved practice
     And measure 2 is flagged 1x difficult
 
   # each pass's end is a jump in song time, as a turn's end is
-  @planned
   Scenario: an audio track's take fades out at the end of every pass but the session's last, and comes back at full level
     Given I have turned Count In on
     And I have added an audio track recording input channel 1
@@ -537,7 +529,6 @@ Feature: Interleaved practice
     Then track 2 fades from 0.4 to 0 over the last 256 samples of every pass but the session's last, within 1 sample
     And track 2's first sample of each pass is 0.4
 
-  @planned
   Scenario: an effect's tail rings on into the break
     Given I have turned Count In on
     And I have added the VST3 effect "Test Echo" to track 1
@@ -547,7 +538,6 @@ Feature: Interleaved practice
     Then the output holds the echo of turn 1's last note 13230 samples after it, within 1 sample, during the break
 
   # 2 turns of 29 passes of 4 beats
-  @planned
   Scenario: the Metronome clicks on every beat of every pass, and not in the break
     Given I have turned Count In on
     And I have turned the Metronome on

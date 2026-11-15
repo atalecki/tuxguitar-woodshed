@@ -44,6 +44,12 @@ public class CountInSteps {
 		assertTrue(player().getCountDown().isEnabled());
 	}
 
+	// it is off until turned on
+	@Given("I have turned Count In off")
+	public void turnCountInOff() {
+		player().getCountDown().setEnabled(false);
+	}
+
 	@Given("I have turned the Metronome on")
 	public void turnTheMetronomeOn() {
 		world.execute(new TGTransportMetronomeAction(world.fixture().context));

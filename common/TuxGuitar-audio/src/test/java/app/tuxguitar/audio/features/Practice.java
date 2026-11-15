@@ -52,10 +52,15 @@ public class Practice {
 		}
 	}
 
-	// starts the session of so many turns as set, then practises it offline (TGPractiseAction, random seed 1), stopped
-	// at the sample the stop finds on what the session plays (Long.MAX_VALUE: not stopped)
+	// starts the session of so many turns as set, then practises it offline
 	void practise(int turns, ToLongFunction<TGTimeline> stop) {
 		this.settings.setTurns(turns);
+		this.practise(stop);
+	}
+
+	// starts the session as set, then practises it offline (TGPractiseAction, random seed 1), stopped at the sample the
+	// stop finds on what the session plays (Long.MAX_VALUE: not stopped)
+	void practise(ToLongFunction<TGTimeline> stop) {
 		this.start();
 		TGTimeline planned = TGPractiseAction.timeline(this.world.fixture().context, this.world.song(), this.session(), SEED);
 		this.world.fixture().actionContext.setAttribute(TGPractiseAction.ATTRIBUTE_SESSION, this.session());

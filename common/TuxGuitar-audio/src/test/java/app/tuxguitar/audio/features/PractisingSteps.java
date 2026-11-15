@@ -50,6 +50,12 @@ public class PractisingSteps {
 		practice.practise(turns, planned -> Long.MAX_VALUE);
 	}
 
+	// as set: with the interval clock, its time decides the turns
+	@When("I practise the session")
+	public void practiseTheSession() {
+		practice.practise(planned -> Long.MAX_VALUE);
+	}
+
 	// where the beat of the turn's first measure (both from 1) sounds in what the session plays
 	@Given("I have practised {int} turns and stopped at turn {int}'s first measure beat {int}")
 	@When("I practise {int} turns and stop at turn {int}'s first measure beat {int}")
@@ -61,34 +67,34 @@ public class PractisingSteps {
 		});
 	}
 
-	private Heard heard() {
+	Heard heard() {
 		return PlaySteps.heard(world);
 	}
 
-	// the notes track 1 sounds, turn by turn
-	private List<List<Note>> turns() {
+	// the notes track 1 sounds, turn by turn (with the interval clock, pass by pass)
+	List<List<Note>> turns() {
 		List<List<Note>> turns = HeardNotes.of(heard(), heard().tap(world.track(1)));
 		assertFalse(turns.isEmpty(), "no turn played");
 		return turns;
 	}
 
-	private static Note first(List<Note> turn) {
+	static Note first(List<Note> turn) {
 		return turn.get(0);
 	}
 
-	private static Note last(List<Note> turn) {
+	static Note last(List<Note> turn) {
 		return turn.get(turn.size() - 1);
 	}
 
 	// the clicks of the turn's Count In: from the end of the turn before (or the start) to its first measure
-	private long[] countIn(List<List<Note>> turns, int turn) {
+	long[] countIn(List<List<Note>> turns, int turn) {
 		long from = (turn == 0 ? 0 : last(turns.get(turn - 1)).end());
 		long to = first(turns.get(turn)).start;
 		return Arrays.stream(heard().countIn()).filter(click -> click >= from && click < to).toArray();
 	}
 
 	// the units of the pool, as the session groups the song
-	private List<TGPracticeUnit> units(TGPracticeUnitKind kind, int[] pool) throws TGPracticeRefusal {
+	List<TGPracticeUnit> units(TGPracticeUnitKind kind, int[] pool) throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(practice.settings().getMeasuresPerLine(), practice.settings().getLinesPerPage());
 		List<TGPracticeUnit> units = new ArrayList<TGPracticeUnit>();
 		for (int number = pool[0]; number <= pool[1]; number++) {
@@ -98,7 +104,7 @@ public class PractisingSteps {
 	}
 
 	// the notes the unit's measures sound, each measure once, in order: one per beat
-	private List<Integer> notesOf(TGPracticeUnit unit) {
+	List<Integer> notesOf(TGPracticeUnit unit) {
 		List<Integer> notes = new ArrayList<Integer>();
 		for (int measure = unit.getFirst(); measure <= unit.getLast(); measure++) {
 			notes.addAll(Collections.nCopies(world.song().getMeasureHeader(measure - 1).getTimeSignature().getNumerator(), BASE + measure));
@@ -106,7 +112,7 @@ public class PractisingSteps {
 		return notes;
 	}
 
-	private static List<Integer> notes(List<Note> turn) {
+	static List<Integer> notes(List<Note> turn) {
 		return turn.stream().map(note -> note.note).collect(Collectors.toList());
 	}
 
@@ -114,7 +120,20 @@ public class PractisingSteps {
 	@Then("each turn sounds the notes of one {unit} of {pool}, each measure once and in order, each within 1 sample of its beat")
 	@Then("each turn sounds the notes of one {unit} of {pool}, each within 1 sample of its beat")
 	public void eachTurnSoundsAUnit(TGPracticeUnitKind kind, int[] pool) throws TGPracticeRefusal {
-		eachTurnSoundsAUnitAt(kind, pool, MidiPlayer.getInstance(world.fixture().context).getMode().getCurrentPercent());
+		eachTurnSoundsAUnitAt(kind, pool, percent());
+	}
+
+	// the Percentage of Tempo now
+	int percent() {
+		return MidiPlayer.getInstance(world.fixture().context).getMode().getCurrentPercent();
+	}
+
+	// each of the turn's notes sounds on its beat, at the Percentage of Tempo
+	static void assertOnTheBeat(List<Note> turn, int percent, String name) {
+		for (Note note : turn) {
+			assertEquals(note.beat.sample, note.start, 1, name + ": " + turn);
+			assertEquals(percent, note.beat.percent, name + "'s Percentage of Tempo");
+		}
 	}
 
 	@Then("each turn sounds the notes of one {unit} of {pool}, each within 1 sample of its beat at {int}%")
@@ -124,14 +143,11 @@ public class PractisingSteps {
 		for (int turn = 0; turn < turns.size(); turn++) {
 			List<Integer> notes = notes(turns.get(turn));
 			assertTrue(units.contains(notes), "turn " + (turn + 1) + " sounds " + notes + ", no unit of " + units);
-			for (Note note : turns.get(turn)) {
-				assertEquals(note.beat.sample, note.start, 1, "turn " + (turn + 1) + ": " + turns.get(turn));
-				assertEquals(percent, note.beat.percent, "turn " + (turn + 1) + "'s Percentage of Tempo");
-			}
+			assertOnTheBeat(turns.get(turn), percent, "turn " + (turn + 1));
 		}
 	}
 
-	private void assertCountIn(long[] clicks, int count, double apart, String turn) {
+	void assertCountIn(long[] clicks, int count, double apart, String turn) {
 		assertEquals(count, clicks.length, turn + ": " + Arrays.toString(clicks));
 		for (int i = 1; i < clicks.length; i++) {
 			assertEquals(apart, clicks[i] - clicks[i - 1], 1.0, turn + ": " + Arrays.toString(clicks));
@@ -229,15 +245,21 @@ public class PractisingSteps {
 	// at every sample of the clock while the output sounds the turn's Count In, the position reported is its first tick
 	@Then("during each turn's Count In TuxGuitar reports beat 1 of the turn's first measure")
 	public void duringEachCountInTheFirstBeat() {
-		TGReportedPositions reported = heard().reportedAt(world.session().getDevice().getOutputLatency());
 		List<List<Note>> turns = turns();
 		for (int turn = 0; turn < turns.size(); turn++) {
 			long[] clicks = countIn(turns, turn);
 			assertTrue(clicks.length > 0, "turn " + (turn + 1) + " has no Count In");
-			long tick = ticks(turns.get(turn)).get(0);
-			for (long sample = clicks[0] + delay(); sample < first(turns.get(turn)).start + delay(); sample++) {
-				assertEquals(tick, reported.tickAt(sample), "turn " + (turn + 1) + " at " + sample);
-			}
+			assertReportsTheFirstTick(turns.get(turn), clicks[0], "turn " + (turn + 1));
+		}
+	}
+
+	// at every sample of the clock from the one the output sounds where the given sample plays to the turn's first note,
+	// the position reported is the turn's first tick
+	void assertReportsTheFirstTick(List<Note> turn, long from, String name) {
+		TGReportedPositions reported = heard().reportedAt(world.session().getDevice().getOutputLatency());
+		long tick = ticks(turn).get(0);
+		for (long sample = from + delay(); sample < first(turn).start + delay(); sample++) {
+			assertEquals(tick, reported.tickAt(sample), name + " at " + sample);
 		}
 	}
 
@@ -257,14 +279,15 @@ public class PractisingSteps {
 		assertReported(turns.get(0), 0);
 	}
 
-	// a beat is reported on the first sample of the clock, from the given one on, whose reported position reaches its
-	// tick; the output sounds it where its note starts, the delay later
+	// a beat is reported on the first sample of the clock, from the given one on, whose reported position is in it (the
+	// song may jump back to it, as from one pass to the next); the output sounds it where its note starts, the delay later
 	private void assertReported(List<Note> turn, long from) {
 		TGReportedPositions reported = heard().reportedAt(world.session().getDevice().getOutputLatency());
 		List<Long> ticks = ticks(turn);
 		long sample = from;
 		for (int beat = 0; beat < turn.size(); beat++) {
-			while (reported.tickAt(sample) < ticks.get(beat)) {
+			long length = world.song().getMeasureHeader(turn.get(beat).note - BASE - 1).getTimeSignature().getDenominator().getTime();
+			while (Math.floorDiv(reported.tickAt(sample) - ticks.get(beat), length) != 0) {
 				sample++;
 			}
 			assertEquals(turn.get(beat).start + delay(), sample, 1, "beat " + (beat + 1) + " of " + turn);
@@ -273,15 +296,21 @@ public class PractisingSteps {
 
 	@Then("track {int} fades from {float} to {float} over the last 256 samples of turns {int} and {int}, within 1 sample")
 	public void fadesAtTheEndOfTurns(int number, float from, float to, int one, int other) {
+		assertFadesAtTheEndOf(number, from, to, new int[] {one - 1, other - 1});
+	}
+
+	// the track fades over the last 256 samples of each of the turns (from 0)
+	void assertFadesAtTheEndOf(int number, float from, float to, int[] which) {
 		List<List<Note>> turns = turns();
 		float[] tap = heard().tap(world.track(number));
-		for (int turn : new int[] {one - 1, other - 1}) {
+		for (int turn : which) {
 			int end = last(turns.get(turn)).end();
 			ListeningSteps.assertTransition(tap, end - ListeningSteps.FADE, end - 1, from, to);
 		}
 	}
 
 	@Then("track {int}'s first sample of each turn is {float}")
+	@Then("track {int}'s first sample of each pass is {float}")
 	public void firstSampleOfEachTurn(int number, float value) {
 		float[] tap = heard().tap(world.track(number));
 		for (List<Note> turn : turns()) {
@@ -294,15 +323,22 @@ public class PractisingSteps {
 	@Then("the output holds the echo of turn {int}'s last note {int} samples after it, within 1 sample, during turn {int}'s Count In")
 	public void theEchoOfTheLastNote(int turn, int samples, int next) {
 		List<List<Note>> turns = turns();
-		Note note = last(turns.get(turn - 1));
+		long[] clicks = countIn(turns, next - 1);
+		assertEcho(last(turns.get(turn - 1)), samples, clicks.length > 0 ? clicks[0] : Long.MAX_VALUE, first(turns.get(next - 1)).start, "turn " + next + "'s Count In");
+	}
+
+	// on track 1's tap: a sine at the note's pitch, started that many samples after its beat, found after the note ends
+	// (in 2048 samples from 16 after it), which must lie between the two samples
+	void assertEcho(Note note, int samples, long after, long before, String where) {
 		int from = note.beat.sample + note.beat.length + 16;
 		int to = from + 2048;
-		assertTrue(to < first(turns.get(next - 1)).start && countIn(turns, next - 1).length > 0, "not in turn " + next + "'s Count In");
+		assertTrue(from >= after && to < before, "not in " + where + ": " + from + " to " + to + ", " + after + " to " + before);
 		int echo = HeardNotes.sineStart(heard().tap(world.track(1)), note.note, from, to, note.beat.sample + samples);
 		assertEquals(note.beat.sample + samples, echo, 1, "the echo of " + note);
 	}
 
 	@Then("the output holds {int} Metronome clicks, each within 1 sample of a beat of a turn")
+	@Then("the output holds {int} Metronome clicks, each within 1 sample of a beat of a pass")
 	public void metronomeOnTheBeats(int count) {
 		List<Integer> beats = turns().stream().flatMap(List::stream).map(note -> note.start).collect(Collectors.toList());
 		long[] clicks = heard().metronome();
@@ -313,13 +349,15 @@ public class PractisingSteps {
 		CountInSteps.assertEachSounds(heard(), clicks, clicks[1] - clicks[0]);
 	}
 
-	// a turn starts with its Count In's first click, or its first note without one
-	@Then("the output holds {int} turns started")
+	// a turn starts with its Count In's first click, or its first note without one; with the interval clock its first
+	// pass opens it
+	@Then("the output holds {int} turn(s) started")
 	public void turnsStarted(int count) {
 		TGTimeline timeline = heard().timeline();
 		List<List<Note>> turns = turns();
-		assertEquals(count, timeline.turns());
-		for (int turn = 0; turn < count; turn++) {
+		int[] opening = IntStream.range(0, timeline.turns()).filter(timeline::opens).toArray();
+		assertEquals(count, opening.length);
+		for (int turn : opening) {
 			long start = timeline.turnStart(turn);
 			boolean noted = !turns.get(turn).isEmpty() && first(turns.get(turn)).start == start;
 			assertTrue(noted || Arrays.stream(heard().countIn()).anyMatch(click -> click == start), "turn " + (turn + 1) + " started at " + start);
