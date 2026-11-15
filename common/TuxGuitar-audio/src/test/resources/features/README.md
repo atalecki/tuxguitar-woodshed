@@ -14,8 +14,18 @@ the chooser, seeded through `java.util.SplittableRandom`, since `java.util.Rando
 and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChangeDifficultyAction`, saved as
 `<difficulty>` in format 2.0), and a session played offline (`TGPractiseAction`: the turns back to back on a timeline
 of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's measures once each in score order,
-`TGSongTime.unit`; a turn that another follows ends its notes there); the live session (moving the position or an
-edit ends it) is still `@planned`. Export is implemented headless (TGAudioExporter in this module), in
+`TGSongTime.unit`; a turn that another follows ends its notes there; a measure no pass of the song reaches plays in its
+unit too, its events parsed alone), and live: lib's `MidiPlayer.practise` plays the session through the player's
+sequencer, with or without this module (`MidiPractice`: the turns one after the other in the sequence's ticks, each a
+`MidiPracticeTurn` that `MidiSequenceParser.parseTurn` makes, its Count In clicks in the sequence at its first measure's
+tempo, the next turn chosen and added once the one before has started; the player reports the song's tick, a turn's
+first measure all through its Count In). Stop ends a live session, moving the position ends it and the song plays on
+from there, and the session ending stops the player: editor-utils' `TGPracticeEdits` (installed by the app) ends the
+session under way (`TGPracticeUnderWay`) on any edit but a flag, and checks a flag, its undo and its redo against the
+session's chooser, refusing one the next cycles could not play. Live practice scenarios play on the live device as the
+other live scenarios do (`LivePractisingSteps`). Known and pinned, not fixed (ordinary playback): offline, a note ending
+where the song ends or a loop jumps back is never sent its note off (`TestGeneralMidiRender.pinnedDefect...`); live, a
+VST3 instrument ignores All Notes Off, so a note held when the player moves or stops rings on. Export is implemented headless (TGAudioExporter in this module), in
 WAVE 16/24-bit/float, AIFF 16-bit and AU 16-bit (`TGExportFormat.offered`); an installed app's audio export writes
 through it (`TGAudioExport`, synth-core's `TGSynthAudioExporter` extension: the desktop's File > Export audio offers
 those formats when the audio plugin is installed). Saving is implemented in lib's TuxGuitar file format (format 3.0: a
@@ -141,7 +151,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (choosing, flags and playing offline implemented, the live session planned) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live) |
 
 ## How the scenarios run
 
@@ -444,7 +454,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 ### Practice
 
 - **Interleaved practice**: a session of a number of **turns**. Each turn plays one **unit** chosen from the **pool**,
-  each of its measures once and in score order (repeat signs and alternate endings inside it are not followed), with a
+  each of its measures once and in score order (repeat signs and alternate endings inside it are not followed; a measure
+  no pass of the song reaches, such as a third ending of a repeat played twice, plays too), with a
   Count In before it when Count In is on: the existing Count In, in the time signature and tempo of the unit's first
   measure at the Percentage of Tempo (Count In ticks set its length as usual). The next turn's Count In (or, with Count
   In off, its first measure) starts at the end of the turn before, with no gap; after the last turn the player stops by
@@ -469,7 +480,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - **Difficulty flag**: a measure's weight, 1x (not flagged) to 5x, kept in the song (saved with it, an undoable edit;
   a TuxGuitar file stays format 2.0, whose older readers open it and ignore the flags; other file formats drop them).
   Flagging during a session does not end it: the cycle under way keeps its turns and the next cycles use the new
-  weights; a flag those weights could not play (see No consecutive repeats) is refused, saying why.
+  weights; a flag those weights could not play (see No consecutive repeats) is refused, saying why. Undoing or redoing
+  a flag during a session is a flag: the same rule, the same refusal, and a refused undo or redo changes nothing.
   A line or page weighs as much as its most difficult measure.
 - **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
   each time; the scenarios on choosing check the rules for every seed in a range and do not play.

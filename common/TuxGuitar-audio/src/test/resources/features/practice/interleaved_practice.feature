@@ -185,6 +185,40 @@ Feature: Interleaved practice
     And turns 1 to 6 choose measures 1 and 2 three times each
     And measure 2 is flagged 1x difficult
 
+  # undoing or redoing a flag during a session is a flag: it follows the same rule
+  Scenario: undoing a flag during a session changes the turns from the next cycle on
+    Given I have flagged measure 2 as 3x difficult
+    And I have set interleaved practice to measures over measures 1 to 4
+    When interleaved practice chooses 10 turns with random seed 1, while I undo during turn 2
+    Then turns 1 to 6 choose measure 2 three times and measures 1, 3 and 4 once each
+    And turns 7 to 10 choose measures 1 to 4 once each
+    And no two turns in a row choose the same measure
+    And measure 2 is flagged 1x difficult
+
+  Scenario: redoing a flag during a session changes the turns from the next cycle on
+    Given I have flagged measure 2 as 3x difficult
+    And I have undone it
+    And I have set interleaved practice to measures over measures 1 to 4
+    When interleaved practice chooses 10 turns with random seed 1, while I redo during turn 2
+    Then turns 1 to 4 choose measures 1 to 4 once each
+    And turns 5 to 10 choose measure 2 three times and measures 1, 3 and 4 once each
+    And no two turns in a row choose the same measure
+    And measure 2 is flagged 3x difficult
+
+  Scenario Outline: undoing or redoing a flag during a session is refused when the next cycles could not be played
+    Given I have flagged measure 2 as 3x difficult
+    And I have <taken it back>
+    And I have set interleaved practice to measures over measures 1 to 2
+    When interleaved practice chooses 6 turns with random seed 1, while I <edit> during turn 1
+    Then the <edit> is refused, saying "Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row."
+    And turns 1 to 6 choose measures 1 and 2 three times each
+    And measure 2 is flagged 1x difficult
+
+    Examples:
+      | taken it back                     | edit |
+      | flagged measure 2 as 1x difficult | undo |
+      | undone it                         | redo |
+
   Scenario Outline: a line or a page is as difficult as its most difficult measure
     Given I have flagged measure 11 as 3x difficult
     And I have flagged measure 12 as 2x difficult
@@ -304,14 +338,12 @@ Feature: Interleaved practice
     When I play the song from measure 1 beat 1 to measure 9 beat 1
     Then TuxGuitar reports each of the 32 beats within 1 sample of the output sounding it
 
-  @planned
   Scenario: moving the position during a session ends it, and the song plays on from there
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 6 turns live, moving the position to measure 40 beat 1 during turn 2
     Then the player plays on from measure 40 beat 1
     And interleaved practice has ended
 
-  @planned
   Scenario: editing the song ends the session
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 6 turns live, removing measure 40 during turn 2

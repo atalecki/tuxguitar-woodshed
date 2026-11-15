@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToLongFunction;
 
+import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.audio.action.TGPractiseAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -90,5 +91,15 @@ public class Practice {
 
 	boolean flagged() {
 		return this.world.succeeded();
+	}
+
+	// an edit as the app makes it, which may be refused saying why (a TGActionException): the world's refusal
+	void edit(Runnable edit) {
+		this.world.setRefusal(null);
+		try {
+			edit.run();
+		} catch (TGActionException refused) {
+			this.world.setRefusal(refused.getMessage());
+		}
 	}
 }

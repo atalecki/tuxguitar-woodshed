@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import app.tuxguitar.practice.TGPracticeChooser;
-import app.tuxguitar.practice.TGPracticeRefusal;
+import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import io.cucumber.java.ParameterType;
@@ -80,22 +80,32 @@ public class ChoosingSteps {
 		chooseWithSeeds(turns, seed, seed);
 	}
 
-	// the flag, set as the app sets it once the session does not refuse it, after the turn is chosen
-	@When("interleaved practice chooses {int} turns with random seed {int}, while I flag measure {int} as {int}x difficult during turn {int}")
-	public void chooseWhileFlagging(int turns, int seed, int measure, int difficulty, int during) {
+	// the session under way, as the app has it while it plays: the edit, made as the app makes it once the turn is
+	// chosen, is checked by its chooser (TGPracticeEdits), and may be refused saying why (the world's refusal)
+	private void chooseWhile(int turns, int seed, int during, Runnable edit) {
 		practice.settings().setTurns(turns);
 		practice.start();
 		TGPracticeChooser chooser = practice.session().chooser(seed);
+		TGPracticeUnderWay.getInstance(world.fixture().context).begin(chooser);
 		List<Integer> chosen = choose(chooser, during);
-		try {
-			chooser.checkFlag(measure, difficulty);
-			practice.flag(measure, difficulty);
-			assertTrue(practice.flagged());
-		} catch (TGPracticeRefusal refusal) {
-			world.setRefusal(refusal.getMessage());
-		}
+		practice.edit(edit);
 		chosen.addAll(choose(chooser, turns - during));
 		practice.runs().add(chosen);
+	}
+
+	@When("interleaved practice chooses {int} turns with random seed {int}, while I flag measure {int} as {int}x difficult during turn {int}")
+	public void chooseWhileFlagging(int turns, int seed, int measure, int difficulty, int during) {
+		chooseWhile(turns, seed, during, () -> practice.flag(measure, difficulty));
+	}
+
+	@When("interleaved practice chooses {int} turns with random seed {int}, while I undo during turn {int}")
+	public void chooseWhileUndoing(int turns, int seed, int during) {
+		chooseWhile(turns, seed, during, world.fixture()::undo);
+	}
+
+	@When("interleaved practice chooses {int} turns with random seed {int}, while I redo during turn {int}")
+	public void chooseWhileRedoing(int turns, int seed, int during) {
+		chooseWhile(turns, seed, during, world.fixture()::redo);
 	}
 
 	// each run's turns of the range, as unit numbers in order (the range from 1)

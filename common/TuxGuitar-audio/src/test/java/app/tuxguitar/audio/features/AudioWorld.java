@@ -21,6 +21,7 @@ import app.tuxguitar.editor.action.composition.TGChangeTempoRangeAction;
 import app.tuxguitar.editor.action.composition.TGChangeTimeSignatureAction;
 import app.tuxguitar.editor.action.edit.TGRedoAction;
 import app.tuxguitar.editor.action.edit.TGUndoAction;
+import app.tuxguitar.editor.practice.TGPracticeEdits;
 import app.tuxguitar.editor.action.measure.TGPasteMeasureAction;
 import app.tuxguitar.editor.action.measure.TGRemoveMeasureRangeAction;
 import app.tuxguitar.editor.action.note.TGChangeNoteAction;
@@ -128,6 +129,8 @@ public class AudioWorld {
 		TGNoteEntry.install(this.fixture.context);
 		// as the app plays audio tracks' takes live on the TuxGuitar Synthesizer
 		TGLiveTakes.install(this.fixture.context);
+		// as the app has edits during an interleaved practice session checked or end it
+		TGPracticeEdits.install(this.fixture.context);
 		TGThreadManager.getInstance(this.fixture.context).setThreadHandler(this.threads);
 		// a gesture in a plugin's editor changes the song by an action the module runs: the app maps it, undoable
 		this.fixture.map(new TGSetPluginStateAction(this.fixture.context));
@@ -293,7 +296,7 @@ public class AudioWorld {
 	// plugin delay compensation as the README defines it: the slowest sound chain, the General MIDI drums' (Gervill's
 	// latency) at least, a muted track's too. Of the test plugins, Test Latency and Test Click delay by their one
 	// parameter, Latency; a disabled effect does not count
-	private int chainDelay() {
+	int chainDelay() {
 		int gervill = GervillProcessor.latency(this.device.getSampleRate());
 		int delay = gervill;
 		Iterator<TGTrack> tracks = song().getTracks();
