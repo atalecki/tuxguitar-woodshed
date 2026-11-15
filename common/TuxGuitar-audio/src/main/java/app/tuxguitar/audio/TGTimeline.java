@@ -11,8 +11,8 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * What plays, on a sample clock that starts where playing starts: turns one after the other (see TGTurn), each its
- * Count In, if any, then its measures as they play, where each starts and how many samples it lasts at its tempo and
- * Percentage of Tempo. Playing the song is one turn. Measures are numbered from 0 across the turns. The audio device's
+ * break, if any, its Count In, if any, then its measures as they play, where each starts and how many samples it lasts
+ * at its tempo and Percentage of Tempo. Playing the song is one turn. Measures are numbered from 0 across the turns. The audio device's
  * clock counts from the start of the song, so the timeline also knows the device's clock where playing starts.
  * Immutable.
  */
@@ -62,6 +62,7 @@ public final class TGTimeline {
 		this.ends = new long[this.measures.size()];
 		long at = 0;
 		for (int turn = 0; turn < turns.size(); turn++) {
+			at += turns.get(turn).getRest();
 			this.turnStarts[turn] = at;
 			this.firsts[turn + 1] = this.firsts[turn] + turns.get(turn).getMeasures().size();
 			at += turns.get(turn).getCountIn().length();
@@ -83,7 +84,7 @@ public final class TGTimeline {
 	private static long clockAt(TGSong song, List<TGTurn> turns, int sampleRate) {
 		long before = 0;
 		for (TGTurn turn : turns) {
-			before += turn.getCountIn().length();
+			before += turn.getRest() + turn.getCountIn().length();
 			if (!turn.getMeasures().isEmpty()) {
 				return clockAt(song, turn.getMeasures().get(0), sampleRate) - before;
 			}
@@ -111,9 +112,9 @@ public final class TGTimeline {
 		return new TGTimeline(this.turns, this.sampleRate, this.clock, samples);
 	}
 
-	// what plays before the sample: the turns that start before it, each its Count In up to it and its measures that
-	// start before it, each up to the first of its ticks that sounds at the sample or after (its end, for a measure that
-	// ends before the sample)
+	// what plays before the sample: the turns that start before it (not a break it cuts), each its Count In up to it and
+	// its measures that start before it, each up to the first of its ticks that sounds at the sample or after (its end,
+	// for a measure that ends before the sample)
 	public TGTimeline until(long sample) {
 		List<TGTurn> kept = new ArrayList<TGTurn>();
 		for (int turn = 0; turn < this.turns() && this.turnStart(turn) < sample; turn++) {
@@ -121,7 +122,7 @@ public final class TGTimeline {
 			for (int index = this.firstOf(turn); index < this.firstOf(turn + 1) && this.start(index) < sample; index++) {
 				measures.add(this.get(index).until(this.tickAt(index, sample)));
 			}
-			kept.add(new TGTurn(this.turns.get(turn).getCountIn().until(sample - this.turnStart(turn)), measures));
+			kept.add(this.turns.get(turn).with(this.turns.get(turn).getCountIn().until(sample - this.turnStart(turn)), measures));
 		}
 		return new TGTimeline(kept, this.sampleRate, this.clock, 0);
 	}
@@ -168,9 +169,19 @@ public final class TGTimeline {
 		return this.turnStarts[turn];
 	}
 
-	// where the turn ends: where the next one starts, or the last one ends
+	// where the break before the turn starts: where the turn before ends (the turn's start, without a break)
+	public long breakStart(int turn) {
+		return this.turnStart(turn) - this.turns.get(turn).getRest();
+	}
+
+	// whether the turn opens a practice turn (a pass after the first does not)
+	public boolean opens(int turn) {
+		return this.turns.get(turn).isOpening();
+	}
+
+	// where the turn ends: where the next one's break starts, or the last one ends
 	public long turnEnd(int turn) {
-		return (turn + 1 < this.turns() ? this.turnStart(turn + 1) : this.start(this.count()));
+		return (turn + 1 < this.turns() ? this.breakStart(turn + 1) : this.start(this.count()));
 	}
 
 	// the index of the turn's first measure; of the turn after the last, the number of measures
@@ -205,9 +216,9 @@ public final class TGTimeline {
 	}
 
 	// what the song does over the block of frames from the sample, as plugins are told: a span from its first frame and
-	// one from where each played measure is told from in it; a turn's first measure is told from where the turn starts:
-	// in its Count In its state runs back; after the measures the last one's runs on; without measures the song is
-	// stopped. A timeline is an offline clock: it waits for each block
+	// one from where each played measure is told from in it; a turn's first measure is told from where its break starts
+	// (the turn's start, without one): in its break and Count In its state runs back; after the measures the last one's
+	// runs on; without measures the song is stopped. A timeline is an offline clock: it waits for each block
 	public void tell(MidiTransport transport, long start, int frames) {
 		transport.setOffline(true);
 		if (this.count() == 0) {
@@ -225,10 +236,10 @@ public final class TGTimeline {
 		}
 	}
 
-	// where the played measure is told from: where its turn starts, for the turn's first
+	// where the played measure is told from: where its turn's break starts, for the turn's first
 	private long toldFrom(int index) {
 		int turn = this.turnOf(index);
-		return (index == this.firstOf(turn) ? this.turnStart(turn) : this.start(index));
+		return (index == this.firstOf(turn) ? this.breakStart(turn) : this.start(index));
 	}
 
 	// the turn the played measure is in

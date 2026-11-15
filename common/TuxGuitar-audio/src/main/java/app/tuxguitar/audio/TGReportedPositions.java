@@ -10,8 +10,8 @@ import app.tuxguitar.song.models.TGDuration;
  * Where the player reports the song is (the played-beat highlight, the caret) while a timeline plays, as it reports it
  * live: the tick the output sounds, the delay (plugin delay compensation and the audio device's output latency) behind
  * the clock. The timeline anchors the position as the live sequencer anchors its MidiSoundingPosition, in song ticks:
- * where each turn starts it stays on the turn's first tick through its Count In (live, a Count In is a timer before the
- * sequencer runs), and from where each played measure starts (where the tempo may change and the song may jump, as a
+ * where each turn's break starts (where the turn starts, without one) it stays on the turn's first tick through its
+ * break and Count In (live, a Count In is a timer before the sequencer runs; a break is the start of its turn), and from where each played measure starts (where the tempo may change and the song may jump, as a
  * loop's jump back) it moves on at its tempo. Before the first anchor the position is that anchor's run back (before
  * the output sounds where playing starts, without a Count In); with no measure played it is 0. Immutable.
  */
@@ -24,7 +24,7 @@ public final class TGReportedPositions {
 		this.delay = delay;
 		for (int turn = 0; turn < timeline.turns(); turn++) {
 			if (timeline.firstOf(turn) < timeline.firstOf(turn + 1)) {
-				this.anchor(new Anchor(timeline.turnStart(turn), firstTick(timeline.get(timeline.firstOf(turn))), 0, 1));
+				this.anchor(new Anchor(timeline.breakStart(turn), firstTick(timeline.get(timeline.firstOf(turn))), 0, 1));
 			}
 			for (int index = timeline.firstOf(turn); index < timeline.firstOf(turn + 1); index++) {
 				TGPlayedMeasure measure = timeline.get(index);

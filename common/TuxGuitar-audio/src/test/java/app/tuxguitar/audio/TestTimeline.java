@@ -218,4 +218,62 @@ public class TestTimeline {
 		assertEquals(List.of("88200 | [] | m2:0-3840 | 88200", "88200 | [] | m2:0-3840 m3:0-44 | 89211", "88200 | [] | m2:0-3840 m3:0-960 | 110250",
 			"0 | [0, 22050] | | 44100", read(fromMeasure2())), List.of(atAMeasure, insideAMeasure, onATick, inTheCountIn, afterItAll));
 	}
+
+	// measure 2 after its Count In; after a break of 2 beats (44100 samples), measure 4 after its Count In; then measure 4
+	// again, a pass of that turn, without one
+	private TGTimeline withABreak() {
+		TGTurn four = turn(4);
+		return TGTimeline.of(song, List.of(turn(2), TGTurn.afterBreak(44100, four.getCountIn(), four.getMeasures()), TGTurn.pass(TGCountIn.NONE, four.getMeasures())),
+			44100);
+	}
+
+	// where each turn's break starts, and whether it opens a turn of interleaved practice
+	private static String breaks(TGTimeline timeline) {
+		StringBuilder breaks = new StringBuilder();
+		for (int turn = 0; turn < timeline.turns(); turn++) {
+			breaks.append(" " + timeline.breakStart(turn) + (timeline.opens(turn) ? " opens" : " passes"));
+		}
+		return breaks.toString();
+	}
+
+	// a break is silence before its turn: the turn starts after it, its Count In first, and the turn before ends where it
+	// starts; a pass continues the turn before it, which it does not open
+	@Test
+	public void aBreakComesBeforeItsTurnAndAPassContinuesTheTurnBefore() {
+		countDown.setEnabled(true);
+		TGTimeline timeline = withABreak();
+
+		assertEquals("0 | [0, 22050, 44100, 66150, 220500, 242550, 264600, 286650] | m2:0-3840 m4:0-3840 m4:0-3840 | 485100 | 0:0-176400 220500:1-396900 396900:2-485100 | "
+			+ "0 opens 176400 opens 396900 passes", read(timeline) + " |" + turns(timeline) + " |" + breaks(timeline));
+	}
+
+	// in a break the next turn's first measure is told running back, as in its Count In (quarter 12 is where measure 4
+	// starts, 6 quarters after the break starts); a block that ends in it is told the measure before running on first
+	@Test
+	public void aBreakIsToldItsTurnsFirstMeasureRunningBack() {
+		countDown.setEnabled(true);
+
+		assertEquals("@0 true 120 bpm 4/4 q6.0000 s132300; | @0 true 120 bpm 4/4 q7.9773 s175900; @500 true 120 bpm 4/4 q6.0000 s132300; ",
+			told(withABreak(), 176400) + "| " + told(withABreak(), 175900));
+	}
+
+	// a break before the first turn plays before its first measure: the clock is that much earlier
+	@Test
+	public void aBreakBeforeTheFirstTurnMovesTheClockBack() {
+		TGTurn two = turn(2);
+		TGTimeline timeline = TGTimeline.of(song, List.of(TGTurn.afterBreak(1000, two.getCountIn(), two.getMeasures())), 44100);
+
+		assertEquals("87200 | [] | m2:0-3840 | 89200 | 1000", read(timeline) + " | " + timeline.start(0));
+	}
+
+	// stopped in a break: the turns before it, not the break; stopped in a pass: the turns before it with their breaks,
+	// and the pass up to there, still not opening a turn
+	@Test
+	public void stoppedInABreakOrAPassItKeepsWhatCameBefore() {
+		countDown.setEnabled(true);
+
+		assertEquals(List.of("0:0-176400 | 0 opens", "0:0-176400 220500:1-396900 396900:2-400001 | 0 opens 176400 opens 396900 passes"),
+			List.of(turns(withABreak().until(200000)).trim() + " |" + breaks(withABreak().until(200000)),
+				turns(withABreak().until(400000)).trim() + " |" + breaks(withABreak().until(400000))));
+	}
 }

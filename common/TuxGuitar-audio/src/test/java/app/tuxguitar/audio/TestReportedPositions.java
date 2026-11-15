@@ -89,6 +89,19 @@ public class TestReportedPositions {
 			.map(String::valueOf).collect(Collectors.joining(" ")));
 	}
 
+	// measure 2, then a break of 2 beats (176400 to 220500) before measure 4's Count In (to 308700): from where the break
+	// starts the position is measure 4's first tick, as in its Count In (the break is the start of its turn)
+	@Test
+	public void inABreakThePositionIsTheNextTurnsFirstTick() {
+		countDown.setEnabled(true);
+		TGTurn four = turn(4);
+		TGTimeline timeline = TGTimeline.of(song, List.of(turn(2), TGTurn.afterBreak(44100, four.getCountIn(), four.getMeasures())), 44100);
+		TGReportedPositions positions = TGReportedPositions.at(timeline, 0);
+
+		assertEquals("8640 12480 12480 12480 12481", LongStream.of(176400, 176401, 220501, 308700, 308724).mapToObj(positions::tickAt).map(String::valueOf)
+			.collect(Collectors.joining(" ")));
+	}
+
 	// a delay: the output sounds the clock that many samples later
 	@Test
 	public void aPositionIsReadTheDelayBehindTheClock() {
