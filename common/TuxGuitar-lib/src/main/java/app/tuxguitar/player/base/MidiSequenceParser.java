@@ -125,10 +125,7 @@ public class MidiSequenceParser {
 	}
 
 	public void parse(MidiSequenceHandler sequence) {
-		this.infoTrack = 0;
-		this.metronomeTrack = (sequence.getTracks() - 1);
-
-		MidiSequenceHelper helper = new MidiSequenceHelper(sequence);
+		MidiSequenceHelper helper = this.start(sequence);
 		MidiRepeatController controller = new MidiRepeatController(this.song, this.sHeader, this.eHeader);
 		while(!controller.finished()){
 			int index = controller.getIndex();
@@ -140,16 +137,54 @@ public class MidiSequenceParser {
 		}
 
 		this.addDefaultMessages(helper, this.song);
+		this.addTracks(helper, true);
+		sequence.notifyFinish();
+	}
 
+	// a turn of interleaved practice: its Count In, then its measures, each once in score order whatever repeats and
+	// alternate endings say, moved to follow it; the channels set up before it when asked (a sequence's first turn)
+	public void parseTurn(MidiSequenceHandler sequence, MidiPracticeTurn turn, boolean setup) {
+		MidiSequenceHelper helper = this.start(sequence);
+		for (int index = turn.getFirst().getNumber() - 1; index < turn.getLast().getNumber(); index++) {
+			helper.addMeasureHelper(new MidiMeasureHelper(index, turn.getMove()));
+		}
+		this.addCountIn(helper, turn);
+		if (setup) {
+			this.addDefaultMessages(helper, this.song);
+		}
+		this.addTracks(helper, setup);
+		sequence.notifyFinish();
+	}
+
+	private MidiSequenceHelper start(MidiSequenceHandler sequence) {
+		this.infoTrack = 0;
+		this.metronomeTrack = (sequence.getTracks() - 1);
+		return new MidiSequenceHelper(sequence);
+	}
+
+	// every track's measures, a track heard unless muted or another one is soloed; its channel set up first when asked
+	private void addTracks(MidiSequenceHelper helper, boolean setup) {
 		boolean existsSoloTrack = false;
 		for (int i = 0; i < this.song.countTracks(); i++) {
 			existsSoloTrack |= this.song.getTrack(i).isSolo();
 		}
 		for (int i = 0; i < this.song.countTracks(); i++) {
 			TGTrack track = this.song.getTrack(i);
-			addTrack(helper, track, !track.isMute() && (!existsSoloTrack || track.isSolo()));
+			addTrack(helper, track, !track.isMute() && (!existsSoloTrack || track.isSolo()), setup);
 		}
-		sequence.notifyFinish();
+	}
+
+	// from the turn's start: its first measure's time signature and tempo, and a click on each beat of its Count In on
+	// the Metronome's channel (none without one), on the info track, which no mute or solo silences
+	private void addCountIn(MidiSequenceHelper sh, MidiPracticeTurn turn) {
+		TGMeasureHeader first = turn.getFirst();
+		long tick = getTick(turn.getStart());
+		sh.getSequence().addTimeSignature(tick, getInfoTrack(), first.getTimeSignature());
+		this.addTempo(sh, first.getTempo(), tick);
+		for (int click = 0; click < turn.getClicks() && this.metronomeChannelId != NO_METRONOME_CHANNEL; click++) {
+			long start = turn.getStart() + click * turn.getBeat();
+			addNote(sh, getInfoTrack(), this.metronomeClick.getNote(), start, turn.getBeat(), this.metronomeClick.getVelocity(), this.metronomeChannelId, -1, false);
+		}
 	}
 
 	private void addDefaultMessages(MidiSequenceHelper sh, TGSong tgSong) {
@@ -165,13 +200,15 @@ public class MidiSequenceParser {
 		}
 	}
 
-	private void addTrack(MidiSequenceHelper sh, TGTrack track, boolean shallPlay) {
+	private void addTrack(MidiSequenceHelper sh, TGTrack track, boolean shallPlay, boolean setup) {
 		TGChannel tgChannel = this.songManager.getChannel(this.song, track.getChannelId() );
 		if( tgChannel != null ){
 			TGMeasure previous = null;
 
-			this.addBend(sh,track.getNumber(),TGDuration.QUARTER_TIME,DEFAULT_BEND, 0, tgChannel.getChannelId(), -1, false);
-			this.makeTrackChannel(sh, tgChannel, track);
+			if( setup ){
+				this.addBend(sh,track.getNumber(),TGDuration.QUARTER_TIME,DEFAULT_BEND, 0, tgChannel.getChannelId(), -1, false);
+				this.makeTrackChannel(sh, tgChannel, track);
+			}
 
 			int mCount = sh.getMeasureHelpers().size();
 			for( int mIndex = 0 ; mIndex < mCount ; mIndex++ ){
@@ -510,19 +547,23 @@ public class MidiSequenceParser {
 			}
 		}
 		if (addTempo) {
-			long tick = getTick(currMeasure.getStart() + startMove);
-			int usq = (int)(currMeasure.getTempo().getInUSQ() * 100.00 / this.tempoPercent );
-			sh.getSequence().addTempoInUSQ(tick, getInfoTrack(), usq);
-			if (this.timestampMap.isEmpty()) {
-				this.timestampMap.put(tick, 0l);
-			} else {
-				long t = this.timestampMap.lastEntry().getValue();
-				Map.Entry<Long,TGTempo> lastTempoEntry = this.tempoMap.lastEntry();
-				t += lastTempoEntry.getValue().getTicksInMillis(tick - lastTempoEntry.getKey());
-				this.timestampMap.put(tick,t);
-			}
-			this.tempoMap.put(tick, currMeasure.getTempo());
+			this.addTempo(sh, currMeasure.getTempo(), getTick(currMeasure.getStart() + startMove));
 		}
+	}
+
+	// the tempo, at the Percentage of Tempo, from the tick on
+	private void addTempo(MidiSequenceHelper sh, TGTempo tempo, long tick) {
+		int usq = (int)(tempo.getInUSQ() * 100.00 / this.tempoPercent );
+		sh.getSequence().addTempoInUSQ(tick, getInfoTrack(), usq);
+		if (this.timestampMap.isEmpty()) {
+			this.timestampMap.put(tick, 0l);
+		} else {
+			long t = this.timestampMap.lastEntry().getValue();
+			Map.Entry<Long,TGTempo> lastTempoEntry = this.tempoMap.lastEntry();
+			t += lastTempoEntry.getValue().getTicksInMillis(tick - lastTempoEntry.getKey());
+			this.timestampMap.put(tick,t);
+		}
+		this.tempoMap.put(tick, tempo);
 	}
 
 	private long getRealNoteDuration(MidiSequenceHelper sh, TGTrack track, TGNote note, TGTempo tempo, long duration,int mIndex, int bIndex) {
