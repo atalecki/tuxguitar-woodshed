@@ -5,6 +5,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
+import app.tuxguitar.practice.TGPracticePlan;
+import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
@@ -48,6 +50,19 @@ public final class TGTurn {
 	public static TGTurn unit(TGSong song, int first, int last, int turn, int percent, ToIntFunction<TGMeasureHeader> clicks, int sampleRate) {
 		List<TGPlayedMeasure> measures = TGSongTime.unit(song, first, last, turn, percent);
 		return new TGTurn(TGCountIn.of(clicks, measures, sampleRate), measures);
+	}
+
+	// a practice turn of the unit as its session's schedule plans it, its first pass the timeline's index-th turn, as
+	// unit plays it: a turn per pass, each the unit's measures; the first opens it after the break before it (samples)
+	// with its Count In; the others continue it, with theirs when a Count In comes before every pass
+	public static List<TGTurn> planned(TGSong song, TGPracticeUnit unit, TGPracticePlan plan, int index, long rest, int percent, ToIntFunction<TGMeasureHeader> clicks,
+		int sampleRate) {
+		List<TGTurn> passes = new ArrayList<TGTurn>();
+		for (int pass = 0; pass < plan.getPasses(); pass++) {
+			TGTurn played = unit(song, unit.getFirst(), unit.getLast(), index + pass, percent, clicks, sampleRate);
+			passes.add(pass == 0 ? afterBreak(rest, played.countIn, played.measures) : pass(plan.isCountInEveryPass() ? played.countIn : TGCountIn.NONE, played.measures));
+		}
+		return passes;
 	}
 
 	// the same turn, its Count In and measures replaced: its break, and whether it opens a practice turn, are kept

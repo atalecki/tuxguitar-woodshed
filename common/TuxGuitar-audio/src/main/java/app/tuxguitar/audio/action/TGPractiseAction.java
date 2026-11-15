@@ -2,6 +2,7 @@ package app.tuxguitar.audio.action;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.audio.TGAudioSession;
@@ -11,8 +12,11 @@ import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerMode;
 import app.tuxguitar.practice.TGPracticeChooser;
+import app.tuxguitar.practice.TGPracticePlan;
+import app.tuxguitar.practice.TGPracticeSchedule;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeUnit;
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
 
@@ -21,7 +25,9 @@ import app.tuxguitar.util.TGContext;
  * back, each its Count In (when Count In is on, in its first measure's time signature and tempo) then its unit's
  * measures once each in score order (TGSongTime.unit), all at the Percentage of Tempo in effect when it starts (Training
  * Mode's start percentage with Training Mode on); Play looped, the Loop Range and Training Mode take no part and stay as
- * they were. It stops by itself after the last turn, or at ATTRIBUTE_STOP_SAMPLE; either way the session has ended.
+ * they were. The session's schedule plans each turn as it is chosen: with the interval clock a turn loops its unit for
+ * its passes and a break comes before the next (TGTurn.planned), and the schedule says which turn is the last. It stops
+ * by itself after the last turn, or at ATTRIBUTE_STOP_SAMPLE; either way the session has ended.
  */
 public class TGPractiseAction extends TGPlayAction {
 
@@ -56,12 +62,18 @@ public class TGPractiseAction extends TGPlayAction {
 		MidiPlayer player = MidiPlayer.getInstance(context);
 		int sampleRate = TGAudioSession.getInstance(context).getDevice().getSampleRate();
 		int percent = player.getMode().getStartPercent();
+		ToIntFunction<TGMeasureHeader> clicks = player.getCountDown()::clicksBefore;
 		TGPracticeChooser chooser = session.chooser(seed);
+		TGPracticeSchedule schedule = session.schedule(clicks, percent);
 		List<TGTurn> turns = new ArrayList<TGTurn>();
-		for (int turn = 0; turn < session.getTurns(); turn++) {
+		long rest = 0;
+		TGPracticePlan plan;
+		do {
 			TGPracticeUnit unit = chooser.next();
-			turns.add(TGTurn.unit(song, unit.getFirst(), unit.getLast(), turn, percent, player.getCountDown()::clicksBefore, sampleRate));
-		}
+			plan = schedule.plan(unit);
+			turns.addAll(TGTurn.planned(song, unit, plan, turns.size(), rest, percent, clicks, sampleRate));
+			rest = plan.getBreakSeconds() * (long) sampleRate;
+		} while (!plan.isLast());
 		return TGTimeline.of(song, turns, sampleRate);
 	}
 }

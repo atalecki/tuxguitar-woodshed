@@ -33,7 +33,8 @@ public class TestPractiseAction {
 
 	private final SongActionFixture fixture = new SongActionFixture();
 	private final MidiPlayer player = MidiPlayer.getInstance(fixture.context);
-	private final TGPracticeSession session;
+	private final TGPracticeSettings settings = new TGPracticeSettings();
+	private TGPracticeSession session;
 
 	public TestPractiseAction() throws TGPracticeRefusal {
 		fixture.measureCount(8);
@@ -46,7 +47,6 @@ public class TestPractiseAction {
 				return new float[count];
 			}
 		});
-		TGPracticeSettings settings = new TGPracticeSettings();
 		settings.setUnit(TGPracticeUnitKind.MEASURE);
 		settings.setPool(1, 4);
 		settings.setTurns(3);
@@ -55,21 +55,29 @@ public class TestPractiseAction {
 
 	// the measures the seed chooses, one per turn
 	private String chosen() {
+		return chosen(3);
+	}
+
+	private String chosen(int turns) {
 		TGPracticeChooser chooser = session.chooser(SEED);
 		List<String> measures = new ArrayList<String>();
-		for (int turn = 0; turn < 3; turn++) {
+		for (int turn = 0; turn < turns; turn++) {
 			measures.add("m" + chooser.next().getFirst());
 		}
 		return String.join(" ", measures);
 	}
 
 	private String practise(Long stopSample) {
+		return practise(stopSample, TestPractiseAction::read);
+	}
+
+	private String practise(Long stopSample, java.util.function.Function<TGTimeline, String> read) {
 		fixture.actionContext.setAttribute(TGPractiseAction.ATTRIBUTE_SESSION, session);
 		fixture.actionContext.setAttribute(TGPractiseAction.ATTRIBUTE_SEED, SEED);
 		fixture.actionContext.setAttribute(TGPractiseAction.ATTRIBUTE_STOP_SAMPLE, stopSample);
 		fixture.execute(new TGPractiseAction(fixture.context));
 		TGRender render = fixture.actionContext.getAttribute(TGPractiseAction.ATTRIBUTE_RENDER);
-		return read(render.getTimeline()) + " | " + session.isEnded() + " " + fixture.outcome();
+		return read.apply(render.getTimeline()) + " | " + session.isEnded() + " " + fixture.outcome();
 	}
 
 	private static String read(TGTimeline timeline) {
@@ -123,5 +131,54 @@ public class TestPractiseAction {
 		mode.setCurrentPercent(70);
 
 		assertEquals(chosen() + " | 0 0 0 | 0 176400 352800 | 529200 | true success | 70 true", practise(null) + " | " + mode.getCurrentPercent() + " " + mode.isLoop());
+	}
+
+	// with the interval clock (turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes), each turn, read as
+	// "<measure> x<passes> <Count In clicks> @<start> after <break>"
+	private String practiseTimed(boolean countInEveryPass) throws TGPracticeRefusal {
+		settings.setIntervalClock(true);
+		settings.setTurnMinutes(1);
+		settings.setBreakSeconds(10);
+		settings.setSessionMinutes(2);
+		settings.setCountInEveryPass(countInEveryPass);
+		session = TGPracticeSession.start(settings, fixture.song);
+		return practise(null, TestPractiseAction::readTurns);
+	}
+
+	private static String readTurns(TGTimeline timeline) {
+		List<String> turns = new ArrayList<String>();
+		long[] positions = timeline.getCountIn().positions();
+		for (int turn = 0; turn < timeline.turns(); turn++) {
+			int passes = 1;
+			while (turn + passes < timeline.turns() && !timeline.opens(turn + passes)) {
+				passes++;
+			}
+			long from = timeline.turnStart(turn);
+			long to = timeline.turnEnd(turn + passes - 1);
+			long clicks = java.util.Arrays.stream(positions).filter(position -> position >= from && position < to).count();
+			turns.add("m" + timeline.get(timeline.firstOf(turn)).getHeader().getNumber() + " x" + passes + " " + clicks + " @" + from + " after "
+				+ (from - timeline.breakStart(turn)));
+			turn += passes - 1;
+		}
+		return String.join(", ", turns) + " | " + timeline.length();
+	}
+
+	// each turn loops its measure for 29 passes after one Count In (2 + 29 x 2 seconds); turn 2 starts after a break of
+	// 10 seconds (441000 samples) and is the last: 3087000 + 2646000 is past the session's 2 minutes
+	@Test
+	public void withTheIntervalClockEachTurnLoopsItsUnitAndABreakComesBetweenTurns() throws TGPracticeRefusal {
+		player.getCountDown().setEnabled(true);
+
+		String[] chosen = chosen(2).split(" ");
+		assertEquals(chosen[0] + " x29 4 @0 after 0, " + chosen[1] + " x29 4 @3087000 after 441000 | 5733000 | true success", practiseTimed(false));
+	}
+
+	// a Count In before every pass: 15 passes of 4 seconds, each after its 4 clicks
+	@Test
+	public void withACountInBeforeEveryPassEachPassHasOne() throws TGPracticeRefusal {
+		player.getCountDown().setEnabled(true);
+
+		String[] chosen = chosen(2).split(" ");
+		assertEquals(chosen[0] + " x15 60 @0 after 0, " + chosen[1] + " x15 60 @3087000 after 441000 | 5733000 | true success", practiseTimed(true));
 	}
 }
