@@ -13,7 +13,6 @@ import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.error.TGErrorManager;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGTransport {
@@ -159,10 +158,6 @@ public class TGTransport {
 	}
 
 	public static TGTransport getInstance(TGContext context) {
-		return TGSingletonUtil.getInstance(context, TGTransport.class.getName(), new TGSingletonFactory<TGTransport>() {
-			public TGTransport createInstance(TGContext context) {
-				return new TGTransport(context);
-			}
-		});
+		return TGSingletonUtil.getInstance(context, TGTransport.class.getName(), TGTransport::new);
 	}
 }

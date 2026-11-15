@@ -922,20 +922,22 @@ public class TGMainToolBarConfigMap {
 
 	// not checkable button
 	private void registerButton(String text, String actionName, String iconFileName, TGMainToolBarItemUpdater updater) {
-		registerItem(new TGMainToolBarItemConfig(this.groupName, text, TGMainToolBarItemConfig.ACTION_ITEM, TGMainToolBarSection.TYPE_TOOLITEMS,
-				actionName, iconFileName, updater, false));
+		registerToolItem(text, TGMainToolBarItemConfig.ACTION_ITEM, actionName, iconFileName, updater);
 	}
 
 	// not checkable, not updatable button
 	private void registerButton(String text, String actionName, String iconFileName) {
-		registerItem(new TGMainToolBarItemConfig(this.groupName, text, TGMainToolBarItemConfig.ACTION_ITEM, TGMainToolBarSection.TYPE_TOOLITEMS,
-				actionName, iconFileName, null, false));
+		registerButton(text, actionName, iconFileName, null);
 	}
 
 	// checkable button
 	private void registerCheckable(String text, String actionName, String iconFileName, TGMainToolBarItemUpdater updater) {
-		registerItem(new TGMainToolBarItemConfig(this.groupName, text, TGMainToolBarItemConfig.CHECKABLE_ITEM, TGMainToolBarSection.TYPE_TOOLITEMS,
-				actionName, iconFileName, updater, false));
+		registerToolItem(text, TGMainToolBarItemConfig.CHECKABLE_ITEM, actionName, iconFileName, updater);
+	}
+
+	// a button of the tool items section, of the kind (an action item or a checkable item)
+	private void registerToolItem(String text, int kind, String actionName, String iconFileName, TGMainToolBarItemUpdater updater) {
+		registerItem(new TGMainToolBarItemConfig(this.groupName, text, kind, TGMainToolBarSection.TYPE_TOOLITEMS, actionName, iconFileName, updater, false));
 	}
 
 	// menu

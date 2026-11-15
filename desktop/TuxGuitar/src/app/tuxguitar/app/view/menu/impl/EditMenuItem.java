@@ -65,87 +65,88 @@ public class EditMenuItem extends TGMenuItem{
 	}
 
 	public void showItems() {
+		this.named(this.editMenuItem, "edit.menu", null, null);
 		//--CUT--
-		this.cut = this.editMenuItem.getMenu().createActionItem();
+		this.cut = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.cut", TGCutAction.NAME, TGIconManager.EDIT_CUT);
 		this.cut.addSelectionListener(this.createActionProcessor(TGCutAction.NAME));
 
 		//--COPY--
-		this.copy = this.editMenuItem.getMenu().createActionItem();
+		this.copy = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.copy", TGCopyAction.NAME, TGIconManager.EDIT_COPY);
 		this.copy.addSelectionListener(this.createActionProcessor(TGCopyAction.NAME));
 
 		//--PASTE--
-		this.paste = this.editMenuItem.getMenu().createActionItem();
+		this.paste = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.paste", TGPasteAction.NAME, TGIconManager.EDIT_PASTE);
 		this.paste.addSelectionListener(this.createActionProcessor(TGPasteAction.NAME));
 
 		//--REPEAT--
-		this.repeat = this.editMenuItem.getMenu().createActionItem();
+		this.repeat = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.repeat", TGRepeatAction.NAME, TGIconManager.EDIT_REPEAT);
 		this.repeat.addSelectionListener(this.createActionProcessor(TGRepeatAction.NAME));
 
 		//--SEPARATOR--
 		this.editMenuItem.getMenu().createSeparator();
 
 		//--UNDO--
-		this.undo = this.editMenuItem.getMenu().createActionItem();
+		this.undo = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.undo", TGUndoAction.NAME, TGIconManager.UNDO);
 		this.undo.addSelectionListener(this.createActionProcessor(TGUndoAction.NAME));
 
 		//--REDO--
-		this.redo = this.editMenuItem.getMenu().createActionItem();
+		this.redo = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.redo", TGRedoAction.NAME, TGIconManager.REDO);
 		this.redo.addSelectionListener(this.createActionProcessor(TGRedoAction.NAME));
 
 		//--SEPARATOR--
 		this.editMenuItem.getMenu().createSeparator();
 
 		//--Selection--
-		this.selectAll = this.editMenuItem.getMenu().createActionItem();
+		this.selectAll = this.named(this.editMenuItem.getMenu().createActionItem(), "action.selection.select-all", TGSelectAllAction.NAME, null);
 		this.selectAll.addSelectionListener(this.createActionProcessor(TGSelectAllAction.NAME));
 
-		this.selectNone = this.editMenuItem.getMenu().createActionItem();
+		this.selectNone = this.named(this.editMenuItem.getMenu().createActionItem(), "action.selection.clear", TGClearSelectionAction.NAME, null);
 		this.selectNone.addSelectionListener(this.createActionProcessor(TGClearSelectionAction.NAME));
 
-		this.extendSelection = this.editMenuItem.getMenu().createSubMenuItem();
-		this.extendSelectionLeft = this.extendSelection.getMenu().createActionItem();
+		this.extendSelection = this.named(this.editMenuItem.getMenu().createSubMenuItem(), "edit.selection.extend", null, null);
+		this.extendSelectionLeft = this.named(this.extendSelection.getMenu().createActionItem(), "action.selection.extend-left", TGExtendSelectionLeftAction.NAME, null);
 		this.extendSelectionLeft.addSelectionListener(this.createActionProcessor(TGExtendSelectionLeftAction.NAME));
-		this.extendSelectionRight = this.extendSelection.getMenu().createActionItem();
+		this.extendSelectionRight = this.named(this.extendSelection.getMenu().createActionItem(), "action.selection.extend-right", TGExtendSelectionRightAction.NAME, null);
 		this.extendSelectionRight.addSelectionListener(this.createActionProcessor(TGExtendSelectionRightAction.NAME));
-		this.extendSelectionPrevious = this.extendSelection.getMenu().createActionItem();
+		this.extendSelectionPrevious = this.named(this.extendSelection.getMenu().createActionItem(), "action.selection.extend-previous", TGExtendSelectionPreviousAction.NAME, null);
 		this.extendSelectionPrevious.addSelectionListener(this.createActionProcessor(TGExtendSelectionPreviousAction.NAME));
-		this.extendSelectionNext = this.extendSelection.getMenu().createActionItem();
+		this.extendSelectionNext = this.named(this.extendSelection.getMenu().createActionItem(), "action.selection.extend-next", TGExtendSelectionNextAction.NAME, null);
 		this.extendSelectionNext.addSelectionListener(this.createActionProcessor(TGExtendSelectionNextAction.NAME));
-		this.extendSelectionFirst = this.extendSelection.getMenu().createActionItem();
+		this.extendSelectionFirst = this.named(this.extendSelection.getMenu().createActionItem(), "action.selection.extend-first", TGExtendSelectionFirstAction.NAME, null);
 		this.extendSelectionFirst.addSelectionListener(this.createActionProcessor(TGExtendSelectionFirstAction.NAME));
-		this.extendSelectionLast = this.extendSelection.getMenu().createActionItem();
+		this.extendSelectionLast = this.named(this.extendSelection.getMenu().createActionItem(), "action.selection.extend-last", TGExtendSelectionLastAction.NAME, null);
 		this.extendSelectionLast.addSelectionListener(this.createActionProcessor(TGExtendSelectionLastAction.NAME));
 
 		//--SEPARATOR--
 		this.editMenuItem.getMenu().createSeparator();
 
 		//--TABLATURE EDIT MODE--
-		this.modeSelection = this.editMenuItem.getMenu().createRadioItem();
+		this.modeSelection = this.named(this.editMenuItem.getMenu().createRadioItem(), "edit.mouse-mode-selection", TGSetMouseModeSelectionAction.NAME, TGIconManager.EDIT_MODE_SELECTION);
 		this.modeSelection.addSelectionListener(this.createActionProcessor(TGSetMouseModeSelectionAction.NAME));
 
 		//--SCORE EDIT MODE--
-		this.modeEdition = this.editMenuItem.getMenu().createRadioItem();
+		this.modeEdition = this.named(this.editMenuItem.getMenu().createRadioItem(), "edit.mouse-mode-edition", TGSetMouseModeEditionAction.NAME, TGIconManager.EDIT_MODE_EDITION);
 		this.modeEdition.addSelectionListener(this.createActionProcessor(TGSetMouseModeEditionAction.NAME));
 
 		//--NATURAL NOTES--
-		this.notNaturalKey = this.editMenuItem.getMenu().createCheckItem();
+		this.notNaturalKey = this.named(this.editMenuItem.getMenu().createCheckItem(), "edit.not-natural-key", TGSetNaturalKeyAction.NAME, TGIconManager.EDIT_MODE_EDITION_NO_NATURAL);
 		this.notNaturalKey.addSelectionListener(this.createActionProcessor(TGSetNaturalKeyAction.NAME));
 
 		// -- FREE EDITION MODE --
-		this.freeEditionMode = this.editMenuItem.getMenu().createCheckItem();
+		this.freeEditionMode = this.named(this.editMenuItem.getMenu().createCheckItem(), "edit.free-edition-mode", TGToggleFreeEditionModeAction.NAME, TGIconManager.EDIT_MODE_FREE);
 		this.freeEditionMode.addSelectionListener(this.createActionProcessor(TGToggleFreeEditionModeAction.NAME));
-		this.openMeasureErrorsDialog = this.editMenuItem.getMenu().createActionItem();
+		this.openMeasureErrorsDialog = this.named(this.editMenuItem.getMenu().createActionItem(), "edit.measure-errors-dialog", TGOpenMeasureErrorsDialogAction.NAME, TGIconManager.EDIT_MEASURE_STATUS_CHECK);
 		this.openMeasureErrorsDialog.addSelectionListener(this.createActionProcessor(TGOpenMeasureErrorsDialogAction.NAME));
 
 		//--SEPARATOR--
 		this.editMenuItem.getMenu().createSeparator();
 
 		//--VOICE 1--
-		this.voice1 = this.editMenuItem.getMenu().createRadioItem();
+		this.voice1 = this.named(this.editMenuItem.getMenu().createRadioItem(), "edit.voice-1", TGSetVoice1Action.NAME, TGIconManager.EDIT_VOICE_1);
 		this.voice1.addSelectionListener(this.createActionProcessor(TGSetVoice1Action.NAME));
 
 		//--VOICE 2--
-		this.voice2 = this.editMenuItem.getMenu().createRadioItem();
+		this.voice2 = this.named(this.editMenuItem.getMenu().createRadioItem(), "edit.voice-2", TGSetVoice2Action.NAME, TGIconManager.EDIT_VOICE_2);
 		this.voice2.addSelectionListener(this.createActionProcessor(TGSetVoice2Action.NAME));
 
 		this.loadIcons();
@@ -196,45 +197,11 @@ public class EditMenuItem extends TGMenuItem{
 		return (can && !TGPracticeEdits.disables(findContext(), actionId));
 	}
 
-	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.editMenuItem, "edit.menu", null);
-		setMenuItemTextAndAccelerator(this.cut, "edit.cut", TGCutAction.NAME);
-		setMenuItemTextAndAccelerator(this.copy, "edit.copy", TGCopyAction.NAME);
-		setMenuItemTextAndAccelerator(this.paste, "edit.paste", TGPasteAction.NAME);
-		setMenuItemTextAndAccelerator(this.repeat, "edit.repeat", TGRepeatAction.NAME);
-		setMenuItemTextAndAccelerator(this.undo, "edit.undo", TGUndoAction.NAME);
-		setMenuItemTextAndAccelerator(this.redo, "edit.redo", TGRedoAction.NAME);
-		setMenuItemTextAndAccelerator(this.selectAll, "action.selection.select-all", TGSelectAllAction.NAME);
-		setMenuItemTextAndAccelerator(this.selectNone, "action.selection.clear", TGClearSelectionAction.NAME);
-		setMenuItemTextAndAccelerator(this.extendSelection, "edit.selection.extend", null);
-		setMenuItemTextAndAccelerator(this.extendSelectionLeft, "action.selection.extend-left", TGExtendSelectionLeftAction.NAME);
-		setMenuItemTextAndAccelerator(this.extendSelectionRight, "action.selection.extend-right", TGExtendSelectionRightAction.NAME);
-		setMenuItemTextAndAccelerator(this.extendSelectionPrevious, "action.selection.extend-previous", TGExtendSelectionPreviousAction.NAME);
-		setMenuItemTextAndAccelerator(this.extendSelectionNext, "action.selection.extend-next", TGExtendSelectionNextAction.NAME);
-		setMenuItemTextAndAccelerator(this.extendSelectionFirst, "action.selection.extend-first", TGExtendSelectionFirstAction.NAME);
-		setMenuItemTextAndAccelerator(this.extendSelectionLast, "action.selection.extend-last", TGExtendSelectionLastAction.NAME);
-		setMenuItemTextAndAccelerator(this.modeSelection, "edit.mouse-mode-selection", TGSetMouseModeSelectionAction.NAME);
-		setMenuItemTextAndAccelerator(this.modeEdition, "edit.mouse-mode-edition", TGSetMouseModeEditionAction.NAME);
-		setMenuItemTextAndAccelerator(this.notNaturalKey, "edit.not-natural-key", TGSetNaturalKeyAction.NAME);
-		setMenuItemTextAndAccelerator(this.voice1, "edit.voice-1", TGSetVoice1Action.NAME);
-		setMenuItemTextAndAccelerator(this.voice2, "edit.voice-2", TGSetVoice2Action.NAME);
-		setMenuItemTextAndAccelerator(this.freeEditionMode, "edit.free-edition-mode", TGToggleFreeEditionModeAction.NAME);
-		setMenuItemTextAndAccelerator(this.openMeasureErrorsDialog, "edit.measure-errors-dialog", TGOpenMeasureErrorsDialogAction.NAME);
+	public void loadProperties() {
+		this.loadNames();
 	}
 
-	public void loadIcons(){
-		this.cut.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_CUT));
-		this.copy.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_COPY));
-		this.paste.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_PASTE));
-		this.repeat.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_REPEAT));
-		this.undo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.UNDO));
-		this.redo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.REDO));
-		this.modeSelection.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_MODE_SELECTION));
-		this.modeEdition.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_MODE_EDITION));
-		this.notNaturalKey.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_MODE_EDITION_NO_NATURAL));
-		this.voice1.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_VOICE_1));
-		this.voice2.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_VOICE_2));
-		this.freeEditionMode.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_MODE_FREE));
-		this.openMeasureErrorsDialog.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.EDIT_MEASURE_STATUS_CHECK));
+	public void loadIcons() {
+		this.loadImages();
 	}
 }

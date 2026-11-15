@@ -101,13 +101,10 @@ public class MidiPlayer{
 
 	// runs the action while holding the player's lock
 	private void runLocked(Runnable action) {
-		try {
-			this.lock();
-
+		this.readLocked(() -> {
 			action.run();
-		} finally {
-			this.unlock();
-		}
+			return null;
+		});
 	}
 
 	// reads the value while holding the player's lock

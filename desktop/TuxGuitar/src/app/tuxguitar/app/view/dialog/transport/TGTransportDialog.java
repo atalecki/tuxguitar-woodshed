@@ -66,7 +66,6 @@ import app.tuxguitar.ui.widget.UISpinner;
 import app.tuxguitar.ui.widget.UIToggleButton;
 import app.tuxguitar.ui.widget.UIWindow;
 import app.tuxguitar.util.TGContext;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGTransportDialog implements TGEventListener {
@@ -504,43 +503,34 @@ public class TGTransportDialog implements TGEventListener {
 	}
 
 	public void createSyncProcesses() {
-		this.loadPropertiesProcess = new TGSyncProcess(this.context, new Runnable() {
-			public void run() {
-				loadProperties();
-			}
-		});
+		this.loadPropertiesProcess = new TGSyncProcess(this.context, this::loadProperties);
 
-		this.loadIconsProcess = new TGSyncProcessLocked(this.context, new Runnable() {
-			public void run() {
-				loadIcons();
-			}
-		});
+		this.loadIconsProcess = new TGSyncProcessLocked(this.context, this::loadIcons);
 
-		this.updateItemsProcess = new TGSyncProcessLocked(this.context, new Runnable() {
-			public void run() {
-				updateItems();
-			}
-		});
+		this.updateItemsProcess = new TGSyncProcessLocked(this.context, this::updateItems);
 
-		this.redrawPlayModeProcess = new TGSyncProcessLocked(this.context, new Runnable() {
-			public void run() {
-				redrawPlayingMode();
-			}
-		});
+		this.redrawPlayModeProcess = new TGSyncProcessLocked(this.context, this::redrawPlayingMode);
 	}
 
 	public void processRedrawEvent(TGEvent event) {
-		int type = ((Integer) event.getAttribute(TGRedrawEvent.PROPERTY_REDRAW_MODE)).intValue();
-		if (type == TGRedrawEvent.PLAYING_THREAD || type == TGRedrawEvent.PLAYING_NEW_BEAT) {
+		if (isPlaying(mode(event, TGRedrawEvent.PROPERTY_REDRAW_MODE))) {
 			this.redrawPlayModeProcess.process();
 		}
 	}
 
+	private static boolean isPlaying(int redrawMode) {
+		return (redrawMode == TGRedrawEvent.PLAYING_THREAD || redrawMode == TGRedrawEvent.PLAYING_NEW_BEAT);
+	}
+
 	public void processUpdateEvent(TGEvent event) {
-		int type = ((Integer) event.getAttribute(TGUpdateEvent.PROPERTY_UPDATE_MODE)).intValue();
-		if (type == TGUpdateEvent.SELECTION) {
+		if (mode(event, TGUpdateEvent.PROPERTY_UPDATE_MODE) == TGUpdateEvent.SELECTION) {
 			this.updateItemsProcess.process();
 		}
+	}
+
+	// the event's redraw or update mode
+	private static int mode(TGEvent event, String property) {
+		return ((Integer) event.getAttribute(property)).intValue();
 	}
 
 	public void processEvent(final TGEvent event) {
@@ -557,11 +547,7 @@ public class TGTransportDialog implements TGEventListener {
 
 	public static TGTransportDialog getInstance(TGContext context) {
 		return TGSingletonUtil.getInstance(context, TGTransportDialog.class.getName(),
-				new TGSingletonFactory<TGTransportDialog>() {
-					public TGTransportDialog createInstance(TGContext context) {
-						return new TGTransportDialog(context);
-					}
-				});
+				TGTransportDialog::new);
 	}
 
 	private void updateHeaderMap() {

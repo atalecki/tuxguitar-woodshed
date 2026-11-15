@@ -16,7 +16,6 @@ import app.tuxguitar.app.action.listener.transport.TGStopTransportInterceptor;
 import app.tuxguitar.app.action.listener.undoable.TGUndoableActionListener;
 import app.tuxguitar.editor.practice.TGPracticeEdits;
 import app.tuxguitar.util.TGContext;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGActionAdapterManager {
@@ -140,10 +139,6 @@ public class TGActionAdapterManager {
 	}
 
 	public static TGActionAdapterManager getInstance(TGContext context) {
-		return TGSingletonUtil.getInstance(context, TGActionAdapterManager.class.getName(), new TGSingletonFactory<TGActionAdapterManager>() {
-			public TGActionAdapterManager createInstance(TGContext context) {
-				return new TGActionAdapterManager(context);
-			}
-		});
+		return TGSingletonUtil.getInstance(context, TGActionAdapterManager.class.getName(), TGActionAdapterManager::new);
 	}
 }
