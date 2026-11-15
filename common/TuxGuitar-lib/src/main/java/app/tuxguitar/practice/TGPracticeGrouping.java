@@ -1,5 +1,8 @@
 package app.tuxguitar.practice;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Lines and pages as fixed groups, counted from measure 1, set for the session whatever the score's layout shows: a
  * line of so many measures, a page of so many lines. The last line or page of a song holds what is left.
@@ -45,6 +48,26 @@ public final class TGPracticeGrouping {
 	// group size below 1 (refused when the session starts) bounds it as 1 would
 	public static int poolLimit(TGPracticeUnitKind kind, int measuresPerLine, int linesPerPage, int songMeasures) {
 		return new TGPracticeGrouping(Math.max(1, measuresPerLine), Math.max(1, linesPerPage)).count(kind, songMeasures);
+	}
+
+	// the units of the kind from one number to another (from 1), in score order, in a song of that many measures; or the
+	// reason the range, named as the session calls it ("pool"), cannot be played
+	public List<TGPracticeUnit> units(TGPracticeUnitKind kind, int from, int to, int songMeasures, String range) throws TGPracticeRefusal {
+		int count = this.count(kind, songMeasures);
+		if (from < 1) {
+			throw new TGPracticeRefusal("The " + range + " starts before " + kind.getName() + " 1.");
+		}
+		if (from > to) {
+			throw new TGPracticeRefusal("The " + range + " is empty.");
+		}
+		if (to > count) {
+			throw new TGPracticeRefusal("The " + range + " reaches past the song's " + count + " " + kind.getName(count) + ".");
+		}
+		List<TGPracticeUnit> units = new ArrayList<TGPracticeUnit>();
+		for (int number = from; number <= to; number++) {
+			units.add(this.unit(kind, number, songMeasures));
+		}
+		return units;
 	}
 
 	// the unit of the kind with that number (from 1), in a song of that many measures

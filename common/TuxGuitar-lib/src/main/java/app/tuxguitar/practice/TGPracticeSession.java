@@ -1,6 +1,5 @@
 package app.tuxguitar.practice;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -58,22 +57,7 @@ public final class TGPracticeSession {
 	}
 
 	private static List<TGPracticeUnit> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, int songMeasures) throws TGPracticeRefusal {
-		TGPracticeUnitKind kind = settings.getUnit();
-		int count = grouping.count(kind, songMeasures);
-		if (settings.getPoolFrom() < 1) {
-			throw new TGPracticeRefusal("The pool starts before " + kind.getName() + " 1.");
-		}
-		if (settings.getPoolFrom() > settings.getPoolTo()) {
-			throw new TGPracticeRefusal("The pool is empty.");
-		}
-		if (settings.getPoolTo() > count) {
-			throw new TGPracticeRefusal("The pool reaches past the song's " + count + " " + kind.getName(count) + ".");
-		}
-		List<TGPracticeUnit> pool = new ArrayList<TGPracticeUnit>();
-		for (int number = settings.getPoolFrom(); number <= settings.getPoolTo(); number++) {
-			pool.add(grouping.unit(kind, number, songMeasures));
-		}
-		return pool;
+		return grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), songMeasures, "pool");
 	}
 
 	// refuses weights that cannot keep "No consecutive repeats" (when it is on) for that many turns
