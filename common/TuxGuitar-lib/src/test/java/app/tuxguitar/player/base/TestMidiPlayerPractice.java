@@ -10,7 +10,6 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
-import app.tuxguitar.practice.TGPracticeChooser;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
@@ -76,8 +75,7 @@ public class TestMidiPlayerPractice {
 
 	// the measures the seed chooses, in order
 	private List<Integer> chosen(int turns) {
-		TGPracticeChooser chooser = session.chooser(SEED);
-		return IntStream.range(0, turns).mapToObj(turn -> chooser.next().getFirst()).collect(Collectors.toList());
+		return TestMidiPractice.chosen(session, SEED, turns);
 	}
 
 	// the clock renders a block, the play loop takes a turn: whether the play loop goes on

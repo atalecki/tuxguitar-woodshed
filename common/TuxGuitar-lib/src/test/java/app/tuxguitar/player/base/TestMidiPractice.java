@@ -54,10 +54,14 @@ public class TestMidiPractice {
 		return practice;
 	}
 
-	// the first measures of the turns the seed chooses, in order
-	private List<Integer> chosen(int turns) {
-		TGPracticeChooser chooser = session.chooser(SEED);
+	// the first measures of the turns the seed chooses for the session, in order
+	static List<Integer> chosen(TGPracticeSession session, long seed, int turns) {
+		TGPracticeChooser chooser = session.chooser(seed);
 		return IntStream.range(0, turns).mapToObj(turn -> chooser.next().getFirst()).collect(Collectors.toList());
+	}
+
+	private List<Integer> chosen(int turns) {
+		return chosen(session, SEED, turns);
 	}
 
 	private static String turn(int first, long start) {

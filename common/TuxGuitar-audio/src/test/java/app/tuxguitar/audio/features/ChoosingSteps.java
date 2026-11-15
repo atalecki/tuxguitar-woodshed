@@ -98,14 +98,15 @@ public class ChoosingSteps {
 		chooseWhile(turns, seed, during, () -> practice.flag(measure, difficulty));
 	}
 
-	@When("interleaved practice chooses {int} turns with random seed {int}, while I undo during turn {int}")
-	public void chooseWhileUndoing(int turns, int seed, int during) {
-		chooseWhile(turns, seed, during, world.fixture()::undo);
+	// "undo" or "redo", as the app runs it
+	@ParameterType("undo|redo")
+	public Runnable undoOrRedo(String name) {
+		return ("undo".equals(name) ? world.fixture()::undo : world.fixture()::redo);
 	}
 
-	@When("interleaved practice chooses {int} turns with random seed {int}, while I redo during turn {int}")
-	public void chooseWhileRedoing(int turns, int seed, int during) {
-		chooseWhile(turns, seed, during, world.fixture()::redo);
+	@When("interleaved practice chooses {int} turns with random seed {int}, while I {undoOrRedo} during turn {int}")
+	public void chooseWhileUndoingOrRedoing(int turns, int seed, Runnable undoOrRedo, int during) {
+		chooseWhile(turns, seed, during, undoOrRedo);
 	}
 
 	// each run's turns of the range, as unit numbers in order (the range from 1)

@@ -6,7 +6,6 @@ import java.util.function.Consumer;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.util.TGContext;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGUndoableManager {
@@ -159,10 +158,6 @@ public class TGUndoableManager {
 	}
 
 	public static TGUndoableManager getInstance(TGContext context) {
-		return TGSingletonUtil.getInstance(context, TGUndoableManager.class.getName(), new TGSingletonFactory<TGUndoableManager>() {
-			public TGUndoableManager createInstance(TGContext context) {
-				return new TGUndoableManager();
-			}
-		});
+		return TGSingletonUtil.getInstance(context, TGUndoableManager.class.getName(), unused -> new TGUndoableManager());
 	}
 }

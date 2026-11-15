@@ -27,7 +27,6 @@ import app.tuxguitar.thread.TGThreadManager;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGLock;
 import app.tuxguitar.util.TGMessagesManager;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class MidiPlayer{
@@ -1560,11 +1559,7 @@ public class MidiPlayer{
 	}
 
 	public static MidiPlayer getInstance(TGContext context) {
-		return TGSingletonUtil.getInstance(context, MidiPlayer.class.getName(), new TGSingletonFactory<MidiPlayer>() {
-			public MidiPlayer createInstance(TGContext context) {
-				return new MidiPlayer(context);
-			}
-		});
+		return TGSingletonUtil.getInstance(context, MidiPlayer.class.getName(), MidiPlayer::new);
 	}
 
 	public void setSelection(TGBeat start, TGBeat end) {
