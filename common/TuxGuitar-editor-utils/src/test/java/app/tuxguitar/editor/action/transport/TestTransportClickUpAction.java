@@ -70,7 +70,7 @@ public class TestTransportClickUpAction extends PracticeActionTest {
 	@Test
 	public void aSequencerThatCannotPlayAClickUpRefusesItSayingWhy() {
 		player.loadSequencer(first);
-		assertEquals("Interleaved practice needs a sequencer that takes turns added while it plays, and \"" + player.getSequencer().getName()
+		assertEquals("Interleaved click-up needs a sequencer that takes turns added while it plays, and \"" + player.getSequencer().getName()
 			+ "\" does not: choose the TuxGuitar Sequencer in Settings > Sound. | false | measure 1-2 50%-100 by 25 x1", start(settings(1, 2)));
 	}
 }

@@ -40,16 +40,21 @@ public class TestMidiPlayerClickUp {
 
 	// practises the click-up, Count In on
 	private void practise() throws MidiPlayerException, TGPracticeRefusal {
+		player.getCountDown().setEnabled(true);
+		player.practise(course());
+		live.run();
+	}
+
+	// a play of the click-up
+	private TGPracticeCourse course() throws TGPracticeRefusal {
 		TGClickUpSettings settings = new TGClickUpSettings();
 		settings.setPassageFrom(1);
 		settings.setPassageTo(2);
 		settings.setStart(50);
 		settings.setGoal(100);
 		settings.setIncrement(50);
-		player.getCountDown().setEnabled(true);
 		course = TGClickUpLadder.of(settings, live.song.song).course();
-		player.practise(course);
-		live.run();
+		return course;
 	}
 
 	// the steps (from 1) one after the other from the frame, each its 4 clicks a beat apart then its measures' notes,
@@ -163,6 +168,22 @@ public class TestMidiPlayerClickUp {
 		player.repeatStep();
 		live.blocks(10);
 		assertEquals("false true false | ", state() + " | " + live.started());
+	}
+
+	// a sequencer that cannot take the turns added while it plays (the fake one, as Java Sound's) refuses a click-up,
+	// naming it, before anything plays
+	@Test
+	public void aSequencerThatCannotTakeTurnsAddedWhilePlayingRefusesAClickUpNamingIt() throws Exception {
+		player.loadSequencer(new FakeSequencer(new ArrayList<String>()));
+		String refusal;
+		try {
+			player.practise(course());
+			refusal = "started";
+		} catch (TGPracticeRefusal refused) {
+			refusal = refused.getMessage();
+		}
+		assertEquals("Interleaved click-up needs a sequencer that takes turns added while it plays, and \"fake\" does not:"
+			+ " choose the TuxGuitar Sequencer in Settings > Sound. | false false false", refusal + " | " + state());
 	}
 
 	// interleaved practice's turns are no steps: Repeat step and Previous step leave its turns as they were laid

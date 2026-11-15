@@ -33,6 +33,10 @@ final class TGPracticeRandomCourse implements TGPracticeCourse {
 		this.chooser.checkFlag(measure, difficulty);
 	}
 
+	public String getModeName() {
+		return "Interleaved practice";
+	}
+
 	public boolean isTimed() {
 		return this.session().getClock().isPresent();
 	}

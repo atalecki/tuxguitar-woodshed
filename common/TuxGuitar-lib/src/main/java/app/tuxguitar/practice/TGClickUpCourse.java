@@ -39,6 +39,10 @@ final class TGClickUpCourse implements TGPracticeCourse, TGPracticeSteps {
 	public void checkFlag(int measure, int difficulty) {
 	}
 
+	public String getModeName() {
+		return "Interleaved click-up";
+	}
+
 	public boolean isTimed() {
 		return false;
 	}
