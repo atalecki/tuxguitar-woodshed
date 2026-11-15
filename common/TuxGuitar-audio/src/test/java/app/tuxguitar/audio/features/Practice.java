@@ -12,7 +12,6 @@ import app.tuxguitar.audio.action.TGPractiseAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
-import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.song.models.TGMeasureHeader;
@@ -43,13 +42,7 @@ public class Practice {
 	// starting interleaved practice as set: the session, or the reason it is refused, as the world's refusal (no
 	// playback yet)
 	void start() {
-		this.session = null;
-		this.world.setRefusal(null);
-		try {
-			this.session = TGPracticeSession.start(this.settings, this.world.song());
-		} catch (TGPracticeRefusal refused) {
-			this.world.setRefusal(refused.getMessage());
-		}
+		this.session = this.world.start(() -> TGPracticeSession.start(this.settings, this.world.song()));
 	}
 
 	// starts the session of so many turns as set, then practises it offline
@@ -72,10 +65,7 @@ public class Practice {
 
 	// the session started last, which must have been accepted
 	TGPracticeSession session() {
-		if (this.session == null) {
-			throw new IllegalStateException("interleaved practice was refused: " + this.world.refusal());
-		}
-		return this.session;
+		return this.world.accepted(this.session, "interleaved practice");
 	}
 
 	// the unit numbers chosen, one list per seed, in the order of the seeds

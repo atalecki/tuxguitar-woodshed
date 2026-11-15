@@ -1,5 +1,7 @@
 package app.tuxguitar.audio.features;
 
+import static app.tuxguitar.audio.features.PractisingSteps.firstPass;
+import static app.tuxguitar.audio.features.PractisingSteps.lastPass;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,7 +12,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import app.tuxguitar.audio.Meters;
-import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.audio.features.HeardNotes.Note;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.practice.TGPracticeRefusal;
@@ -39,12 +40,7 @@ public class TimedPractisingSteps {
 
 	// the passes of each turn, as indices of PractisingSteps.turns
 	private List<List<Integer>> turns() {
-		TGTimeline timeline = practising.heard().timeline();
-		int[] opening = IntStream.concat(IntStream.range(0, timeline.turns()).filter(timeline::opens), IntStream.of(timeline.turns())).toArray();
-		List<List<Integer>> turns = IntStream.range(0, opening.length - 1).mapToObj(turn -> IntStream.range(opening[turn], opening[turn + 1]).boxed().collect(Collectors.toList()))
-			.collect(Collectors.toList());
-		assertFalse(turns.isEmpty(), "no turn played");
-		return turns;
+		return practising.practiceTurns();
 	}
 
 	// the session's one turn
@@ -54,27 +50,19 @@ public class TimedPractisingSteps {
 		return turns.get(0);
 	}
 
-	private static int firstPass(List<Integer> turn) {
-		return turn.get(0);
-	}
-
-	private static int lastPass(List<Integer> turn) {
-		return turn.get(turn.size() - 1);
-	}
-
 	// where the pass starts: its first Count In click, or its first note without one
-	private long start(List<List<Note>> passes, int pass) {
+	long start(List<List<Note>> passes, int pass) {
 		long[] clicks = practising.countIn(passes, pass);
 		return (clicks.length > 0 ? clicks[0] : PractisingSteps.first(passes.get(pass)).start);
 	}
 
-	private static long end(List<List<Note>> passes, int pass) {
+	static long end(List<List<Note>> passes, int pass) {
 		return PractisingSteps.last(passes.get(pass)).end();
 	}
 
 	// the turn plays one unit of the units so many times, each pass its notes once and in order, each pass starting where
 	// the one before ends (its Count In first, if any)
-	private void assertPasses(List<Integer> turn, List<List<Integer>> units, int times, String name) {
+	void assertPasses(List<Integer> turn, List<List<Integer>> units, int times, String name) {
 		List<List<Note>> passes = practising.turns();
 		assertEquals(times, turn.size(), name + "'s passes");
 		List<Integer> notes = PractisingSteps.notes(passes.get(firstPass(turn)));
@@ -157,6 +145,7 @@ public class TimedPractisingSteps {
 	}
 
 	@Then("the session's last turn ends {int} samples after the first one started, within 1 sample")
+	@Then("the session's last step ends {int} samples after the first one started, within 1 sample")
 	public void theSessionLasts(int samples) {
 		List<List<Integer>> turns = turns();
 		List<List<Note>> passes = practising.turns();

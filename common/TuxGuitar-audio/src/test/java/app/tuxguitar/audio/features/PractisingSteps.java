@@ -36,7 +36,7 @@ import io.cucumber.java.en.When;
 public class PractisingSteps {
 
 	// the Background's notes: MIDI note 35 plus the measure's number
-	private static final int BASE = 35;
+	static final int BASE = 35;
 
 	private final AudioWorld world;
 	private final Practice practice;
@@ -81,6 +81,25 @@ public class PractisingSteps {
 		return turns;
 	}
 
+	// the timeline's turns of each practice turn, as indices of turns(): a practice turn opens with its first pass and
+	// holds the passes up to the next one's (one, without the interval clock)
+	List<List<Integer>> practiceTurns() {
+		TGTimeline timeline = heard().timeline();
+		int[] opening = IntStream.concat(IntStream.range(0, timeline.turns()).filter(timeline::opens), IntStream.of(timeline.turns())).toArray();
+		List<List<Integer>> turns = IntStream.range(0, opening.length - 1).mapToObj(turn -> IntStream.range(opening[turn], opening[turn + 1]).boxed().collect(Collectors.toList()))
+			.collect(Collectors.toList());
+		assertFalse(turns.isEmpty(), "no turn played");
+		return turns;
+	}
+
+	static int firstPass(List<Integer> turn) {
+		return turn.get(0);
+	}
+
+	static int lastPass(List<Integer> turn) {
+		return turn.get(turn.size() - 1);
+	}
+
 	static Note first(List<Note> turn) {
 		return turn.get(0);
 	}
@@ -113,8 +132,13 @@ public class PractisingSteps {
 
 	// the notes the unit's measures sound, each measure once, in order: one per beat
 	List<Integer> notesOf(TGPracticeUnit unit) {
+		return notesOf(unit.getFirst(), unit.getLast());
+	}
+
+	// the notes the measures (first to last, from 1) sound, each measure once, in order: one per beat
+	List<Integer> notesOf(int first, int last) {
 		List<Integer> notes = new ArrayList<Integer>();
-		for (int measure = unit.getFirst(); measure <= unit.getLast(); measure++) {
+		for (int measure = first; measure <= last; measure++) {
 			notes.addAll(Collections.nCopies(world.song().getMeasureHeader(measure - 1).getTimeSignature().getNumerator(), BASE + measure));
 		}
 		return notes;
@@ -138,9 +162,14 @@ public class PractisingSteps {
 
 	// each of the turn's notes sounds on its beat, at the Percentage of Tempo
 	static void assertOnTheBeat(List<Note> turn, int percent, String name) {
+		assertOnTheBeat(turn, TGTempoScale.percent(percent), name);
+	}
+
+	// each of the turn's notes sounds on its beat, at the tempo scale
+	static void assertOnTheBeat(List<Note> turn, TGTempoScale scale, String name) {
 		for (Note note : turn) {
 			assertEquals(note.beat.sample, note.start, 1, name + ": " + turn);
-			assertEquals(TGTempoScale.percent(percent), note.beat.scale, name + "'s Percentage of Tempo");
+			assertEquals(scale, note.beat.scale, name + "'s tempo");
 		}
 	}
 
@@ -191,12 +220,13 @@ public class PractisingSteps {
 		}
 	}
 
-	// it played that many turns, and the output ends where the last one ends
+	// it played that many practice turns (or steps), and the output ends where the last one's last pass ends
 	@Then("the player has stopped by itself at the end of turn {int}")
+	@Then("the player has stopped by itself at the end of step {int}")
 	public void stoppedByItself(int turn) {
-		List<List<Note>> turns = turns();
+		List<List<Integer>> turns = practiceTurns();
 		assertEquals(turn, turns.size());
-		assertEquals(last(turns.get(turn - 1)).end(), heard().left().length, 1, "the output's end");
+		assertEquals(last(turns().get(lastPass(turns.get(turn - 1)))).end(), heard().left().length, 1, "the output's end");
 		assertFalse(MidiPlayer.getInstance(world.fixture().context).isRunning());
 	}
 
@@ -272,6 +302,7 @@ public class PractisingSteps {
 	}
 
 	@Then("during each turn TuxGuitar reports each of its beats within 1 sample of the output sounding it")
+	@Then("during each step TuxGuitar reports each of its beats within 1 sample of the output sounding it")
 	public void duringEachTurnEachBeat() {
 		for (List<Note> turn : turns()) {
 			assertReported(turn, first(turn).start + delay() - 1);

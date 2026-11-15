@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Locale;
 
+import app.tuxguitar.practice.TGClickUpStep;
 import app.tuxguitar.practice.TGPracticeGrouping;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeUnit;
@@ -23,10 +25,12 @@ public class PracticeSteps {
 
 	private final AudioWorld world;
 	private final Practice practice;
+	private final ClickUp clickUp;
 
-	public PracticeSteps(AudioWorld world, Practice practice) {
+	public PracticeSteps(AudioWorld world, Practice practice, ClickUp clickUp) {
 		this.world = world;
 		this.practice = practice;
+		this.clickUp = clickUp;
 	}
 
 	@ParameterType("measure|line|page")
@@ -83,10 +87,16 @@ public class PracticeSteps {
 		practice.start();
 	}
 
+	// interleaved practice's pool, or interleaved click-up's last step, holds every unit from and to
 	@Then("starting is accepted")
 	public void startingIsAccepted() {
 		assertNull(world.refusal());
-		assertEquals(practice.settings().getPoolTo() - practice.settings().getPoolFrom() + 1, practice.session().getPool().size());
+		if (clickUp.isStarted()) {
+			List<TGClickUpStep> steps = clickUp.ladder().getSteps();
+			assertEquals(clickUp.settings().getPassageTo() - clickUp.settings().getPassageFrom() + 1, steps.get(steps.size() - 1).getLastSection());
+		} else {
+			assertEquals(practice.settings().getPoolTo() - practice.settings().getPoolFrom() + 1, practice.session().getPool().size());
+		}
 	}
 
 	private TGPracticeUnit unitOfTheSong(TGPracticeUnitKind kind, int number) throws TGPracticeRefusal {

@@ -48,6 +48,7 @@ import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.audio.TGTakeSpan;
 import app.tuxguitar.audio.TGTakes;
 import app.tuxguitar.editor.action.SongActionFixture;
@@ -274,6 +275,30 @@ public class AudioWorld {
 	// what a step's own check refused, saying why (null: it did not refuse)
 	void setRefusal(String refusal) {
 		this.refusal = refusal;
+	}
+
+	/** Starting practice as set, which may be refused saying why. */
+	interface Starting<T> {
+		T start() throws TGPracticeRefusal;
+	}
+
+	// what starting practice gives, or null when it is refused: then the reason is the refusal
+	<T> T start(Starting<T> starting) {
+		this.refusal = null;
+		try {
+			return starting.start();
+		} catch (TGPracticeRefusal refused) {
+			this.refusal = refused.getMessage();
+			return null;
+		}
+	}
+
+	// what starting the practice named gave, which must have been accepted
+	<T> T accepted(T started, String practice) {
+		if (started == null) {
+			throw new IllegalStateException(practice + " was refused: " + this.refusal);
+		}
+		return started;
 	}
 
 	public void executeUndoable(TGActionBase action, TGUndoableActionController controller) {
