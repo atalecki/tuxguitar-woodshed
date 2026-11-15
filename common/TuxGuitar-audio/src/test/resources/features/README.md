@@ -134,7 +134,9 @@ a crossfade, for now. Live scenarios that play passes turn Play looped off durin
 it ends. The whole chain on this machine's real devices is an opt-in
 test: `mvn test -Dtest=TestRealDevice -Dtg.audio.native=<TuxGuitar-audio-device's native-build/lib>` (skipped, saying
 so, without it).
-Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
+Planned: `practice/interleaved_click_up` (interleaved click-up), the whole feature `@planned`, of which lib's
+`app.tuxguitar.practice` holds the steps so far (`TGClickUpLadder.of`: the settings checked once, the ladder and its
+tail; `TGTempoScale`, a step's tempo as an exact fraction of the written one). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
 impulse response (`.wav`) dropped the same way goes to the capture player's IR slot.
@@ -175,6 +177,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
 | `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live) |
+| `practice/interleaved_click_up` | interleaved click-up: sections added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step (planned; lib's ladder implemented) |
 
 ## How the scenarios run
 
@@ -533,6 +536,47 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   weights (every cycle none of whose turns has started playing, also when, live, its first turn is already chosen); a flag those weights could not play (see No consecutive repeats) is refused, saying why. Undoing or redoing
   a flag during a session is a flag: the same rule, the same refusal, and a refused undo or redo changes nothing.
   A line or page weighs as much as its most difficult measure.
+- **Interleaved click-up**: a session that brings a **passage** up to speed (Molly Gebrian's "interleaved clicking
+  up"). It plays a list of **steps**, worked out once when it starts: with N **sections** in play (N = 1, 2, ... up to
+  all of them, one more at a time), step i (from 0) plays at **rung** i of the **tempo ladder** the sections
+  `P_N[i mod length]`, where P_1 is `1`; P_2 is `1-2, 2`; and P_N, for N of 3 or more, is `1-N, N, (N-1)-N, N, ...,
+  2-N, N`: the section just added alone every other step, between runs that reach back one section further each time,
+  from all of them. After the last rung come the **ladder's tail** steps. Each step plays a Count In at its tempo (when
+  Count In is on: the existing Count In in its first measure's time signature, Count In ticks setting its length), then
+  its sections' measures, each once and in score order, its number of **passes** back to back (1 until I change it;
+  "Count In before every pass", off until I turn it on, puts a Count In before each pass); the next step follows with
+  no gap, and after the last one the player stops by itself. Sections play as interleaved practice's units do (repeat
+  signs inside them are not followed); a step's end is a jump in song time (takes fade, tails ring on), live as
+  offline. The Percentage of Tempo, Play looped, the Loop Range and Training Mode take no part, and are as they were
+  afterwards; random choice, the weight rule and the interval clock do not apply, and a flag set during a session
+  keeps it and changes none of its steps. Stop, moving the position or an edit ends the session; Pause keeps it, and
+  Play then plays the paused step again from its Count In. **Repeat step** plays the step under way again at once, from
+  its Count In, and **Previous step** the step before it (during step 1, step 1 again); the steps then go on from
+  there. As for interleaved practice, only TuxGuitar's own sequencer can play a session. "Step 3" counts from 1, in the
+  order of the steps.
+- **Passage**: the sections of a click-up, a range of units such as `measures 9 to 11`, `lines 1 to 4`, `pages 1 to 2`,
+  as interleaved practice's pool is (the same fixed groups). Its first unit is **section** 1, the next section 2, and so
+  on; a section is a unit, not a marker's section of the song.
+- **Tempo ladder**: from its **start** to its **goal** by its **increment**, all three in percent of the written tempo
+  or in bpm, as I choose (60% to 100% by 5% until I change it). Its **rungs** are start, start + increment, ... as long
+  as they do not pass the goal, and the goal itself when the increment does not land on it: the last rung never passes
+  the goal (60% to 72% by 5%: 60, 65, 70, 72). A ladder whose goal is its start has one rung. A step's **tempo** is its
+  rung: p% plays the song at p% of its written tempo; b bpm plays it at b over the written tempo of the passage's first
+  measure, so a tempo change inside the passage plays in proportion (with measure 1 at 120 bpm and measure 2 at 60, a
+  step at 60 bpm plays measure 1 at 60 and measure 2 at 30).
+- **Ladder's tail**: when the rungs run out before the steps with N sections in play have ended on all N of them (`1-N`), the
+  pattern goes on at the goal until they have: 2 sections, 60% to 75% by 5%, end `1-2@60%, 2@65%, 1-2@70%, 2@75%,
+  1-2@75%`. One section has no tail. (Not an effect's **Tail**.)
+- **Steps reading**: a click-up's steps in order, each its sections (`1-3`, or `2` alone) and its rung, joined by
+  `, `: `1@60%, 1-2@60%, 2@65%`, or in bpm `1-2@60 bpm`.
+- **Click-up refusals**: a click-up that cannot be played as set is refused when it starts, saying why: a passage
+  that starts before unit 1 ("The passage starts before line 1."), is empty (from after to: "The passage is empty.")
+  or reaches past the song's last unit ("The passage reaches past the song's 64 measures."); a start below 1 ("The
+  ladder starts below 1%." or "... 1 bpm."); a goal below the start ("The ladder's goal is below its start."; a goal
+  equal to the start is one rung, and played); an increment below 1 ("The ladder climbs by less than 1%."); fewer
+  than 1 pass ("A step needs at least 1 pass."); and group sizes below 1, as for interleaved practice. An increment
+  larger than the distance to the goal is not refused: its ladder is the start and the goal.
+- **A beat at a step's tempo**: where the beat falls when the song plays at that step's tempo (see Tempo ladder).
 - **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
   each time; the scenarios on choosing check the rules for every seed in a range and do not play.
 
@@ -554,3 +598,5 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   Difficulty menu: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections); with the interval clock, the
   time left in the whole session, a sound at a break's start or end, and times other than whole minutes (turns,
   sessions) and whole seconds (breaks).
+- Interleaved click-up: how the desktop shows it (the dialog, the step shown in the Transport window, the Repeat step
+  and Previous step buttons: checked by hand); a ladder that climbs down; tempos other than whole percents or bpm.
