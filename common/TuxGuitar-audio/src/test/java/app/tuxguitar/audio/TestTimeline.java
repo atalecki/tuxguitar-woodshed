@@ -162,19 +162,30 @@ public class TestTimeline {
 			+ oneTurn.endsTurn(2));
 	}
 
+	// nothing to play (from past the song's end): no turn, the clock at 0
+	@Test
+	public void withoutMeasuresTheClockIsZero() {
+		assertEquals("0 | [] | | 0", read(new TGTimeline(song, new java.util.ArrayList<TGPlayedMeasure>(), 44100)));
+	}
+
 	// with Count In off, the next turn's first measure starts where the turn before ends
 	@Test
 	public void withoutCountInTheNextTurnStartsWhereTheOneBeforeEnds() {
 		assertEquals("88200 | [] | m2:0-3840 m4:0-3840 | 176400 | 0:0-88200 88200:1-176400", read(measures2And4()) + " |" + turns(measures2And4()));
 	}
 
-	// stopped in the second turn's Count In: that Count In up to there, no measure of it
+	// stopped in the second turn's Count In: that Count In up to there, no measure of it; stopped where the second turn
+	// starts, nothing of it
 	@Test
 	public void stoppedInATurnsCountInItKeepsTheTurnsBefore() {
 		countDown.setEnabled(true);
+		List<String> stopped = new java.util.ArrayList<String>();
+		for (long sample : new long[] {200000, 176400}) {
+			stopped.add(read(measures2And4().until(sample)) + " |" + turns(measures2And4().until(sample)));
+		}
 
-		assertEquals("0 | [0, 22050, 44100, 66150, 176400, 198450] | m2:0-3840 | 200000 | 0:0-176400 176400:1-200000", read(measures2And4().until(200000)) + " |"
-			+ turns(measures2And4().until(200000)));
+		assertEquals(List.of("0 | [0, 22050, 44100, 66150, 176400, 198450] | m2:0-3840 | 200000 | 0:0-176400 176400:1-200000",
+			"0 | [0, 22050, 44100, 66150] | m2:0-3840 | 176400 | 0:0-176400"), stopped);
 	}
 
 	// in a turn's Count In its first measure's state runs back before it, as in the first turn's (quarter 12 is where

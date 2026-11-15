@@ -69,15 +69,15 @@ public final class TGReportedPositions {
 			return 0;
 		}
 		long frame = sample - this.delay;
-		Anchor anchor = this.anchors.get(Math.max(0, this.lastAtOrBefore(Math.min(frame, sample - 1))));
+		Anchor anchor = this.anchors.get(this.lastAtOrBefore(Math.min(frame, sample - 1)));
 		MidiSoundingPosition sounding = new MidiSoundingPosition();
 		sounding.restart(anchor.frame, anchor.tick, anchor.ticks, anchor.frames);
 		return sounding.tickAt(frame);
 	}
 
-	// the index of the last anchor on the frame or before it; -1 when none is
+	// the index of the last anchor on the frame or before it; the first when none is
 	private int lastAtOrBefore(long frame) {
-		int low = 0;
+		int low = 1;
 		int high = this.anchors.size();
 		while (low < high) {
 			int middle = (low + high) >>> 1;

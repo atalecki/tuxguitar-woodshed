@@ -74,8 +74,8 @@ public class TestSongTime {
 		song.getMeasureHeader(0).setRepeatOpen(true);
 		song.getMeasureHeader(1).setRepeatClose(1);
 
-		assertEquals("m1 0-3840 step 0 pass 0 100%, m2 0-3840 step 1 pass 0 100%, m3 0-3840 step 4 pass 0 100% | m2 0-3840 step 1 jump pass 3 50%",
-			unit(1, 3, 0, 100) + " | " + unit(2, 2, 3, 50));
+		assertEquals("m1 0-3840 step 0 pass 0 100%, m2 0-3840 step 1 pass 0 100%, m3 0-3840 step 4 pass 0 100% | m2 0-3840 step 1 jump pass 3 50% | m3 0-3840 step 4 jump"
+			+ " pass 1 100%", unit(1, 3, 0, 100) + " | " + unit(2, 2, 3, 50) + " | " + unit(3, 3, 1, 100));
 	}
 
 	// measure 2 repeated once with measure 3 as the first ending and measure 4 as the second (the song plays 1 2 3 2 4):

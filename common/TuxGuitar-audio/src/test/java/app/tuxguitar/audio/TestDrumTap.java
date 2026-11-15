@@ -111,6 +111,19 @@ public class TestDrumTap {
 		assertTrue(Meters.peak(left, (int) beats[3], (int) beats[3] + 1000) > 0.001);
 	}
 
+	// one Count In tick (22050 samples) and measure 2 stopped 100 samples in: one click each, both sound
+	@Test
+	public void oneCountInClickAndOneMetronomeClickBothSound() {
+		countDown.setEnabled(true);
+		countDown.setTickCount(1);
+		TGTimeline timeline = fromMeasure2().until(22150);
+		float[] left = TGDrumTap.render(context, timeline, MidiClick.DEFAULT, TGMetronome.of(timeline))[0];
+
+		assertEquals("1 1", timeline.getCountIn().positions().length + " " + TGMetronome.of(timeline).positions().length);
+		assertTrue(Meters.peak(left, 0, 1000) > 0.001, "the Count In click");
+		assertTrue(Meters.peak(left, 22050, 22150) > 0.001, "the Metronome click");
+	}
+
 	@Test
 	public void isSilentWithoutACountIn() {
 		float[][] tap = TGDrumTap.render(context, fromMeasure2(), MidiClick.DEFAULT);
