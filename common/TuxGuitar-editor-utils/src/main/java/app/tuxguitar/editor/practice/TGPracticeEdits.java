@@ -27,7 +27,8 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
  * or redoing a flag, goes on with it when its next cycles can play the weights that makes (the chooser checks it), and
  * counts from the next cycle; else the action is refused saying why (a TGActionException), and changes nothing. Any other
  * edit of the song (an undo step made, undone or redone) ends the session. One per context, installed by the app,
- * which also asks it which edits to refuse while playing (disables): during a session only flags go through.
+ * which also asks it which edits to refuse while playing (disables) and which items to grey out (greys): during a
+ * session only flags and moves of the caret go through.
  */
 public final class TGPracticeEdits implements TGActionInterceptor {
 
@@ -49,12 +50,28 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 	}
 
 	// whether the app refuses the edit (one of the actions it refuses while playing) now: while the player runs or a
-	// session is under way, playing or paused, but for a flag and the undo or redo of a flag during a session
+	// session is under way, playing or paused, but for a flag, the undo or redo of a flag and a move of the caret during
+	// a session (see TGPracticeCaret)
 	public static boolean disables(TGContext context, String id) {
-		if (TGPracticeUnderWay.getInstance(context).getChooser() != null) {
-			return !isFlag(context, id);
+		if (isUnderWay(context)) {
+			return !letsThrough(context, id);
 		}
 		return MidiPlayer.getInstance(context).isRunning();
+	}
+
+	// whether the app greys out the item (menu item, toolbar button) of an action it refuses while playing: during a
+	// session, playing or paused, as it disables them; without one, the item's own rule stands
+	public static boolean greys(TGContext context, String id) {
+		return (isUnderWay(context) && !letsThrough(context, id));
+	}
+
+	private static boolean isUnderWay(TGContext context) {
+		return (TGPracticeUnderWay.getInstance(context).getChooser() != null);
+	}
+
+	// what a session lets through: a flag, and a move of the caret
+	private static boolean letsThrough(TGContext context, String id) {
+		return (isFlag(context, id) || TGPracticeCaret.isMove(id));
 	}
 
 	// whether the action sets a flag: flagging a measure, or undoing or redoing a flag

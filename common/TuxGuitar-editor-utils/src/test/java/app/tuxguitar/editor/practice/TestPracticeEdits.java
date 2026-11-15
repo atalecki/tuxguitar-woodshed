@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 
 import app.tuxguitar.action.TGActionException;
@@ -28,6 +30,7 @@ import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.song.models.TGMeasureHeader;
+import app.tuxguitar.util.TGContext;
 
 /**
  * Edits during an interleaved practice session (TGPracticeEdits), as the app runs them: a flag, and the undo or redo of
@@ -144,21 +147,35 @@ public class TestPracticeEdits {
 			reads("without a session under way a flag is not checked", "go on | 1 | 3 | 1 | 1 | true", NOTHING, 2, Edits::endedThenFlagged));
 	}
 
-	// which of a flag, triplet feel, undo and redo the app disables (as while playing) after the edits, with the player
-	// running or not, with a session under way or not: "flag triplet undo redo", each true or false
-	private static String disabled(Consumer<Edits> before, boolean running, boolean session) throws TGPracticeRefusal {
+	// the app's action that moves the caret left
+	private static final String CARET_MOVE = "action.caret.go-left";
+
+	// the edits made, the player running or not, a session under way or not
+	private static Edits state(Consumer<Edits> before, boolean running, boolean session) throws TGPracticeRefusal {
 		Edits edits = new Edits();
 		before.accept(edits);
 		if (session) {
 			edits.underWay(4);
 		}
 		MidiPlayer.getInstance(edits.fixture.context).setRunning(running);
-		return Stream.of(TGChangeDifficultyAction.NAME, TGChangeTripletFeelAction.NAME, TGUndoAction.NAME, TGRedoAction.NAME)
-			.map(id -> String.valueOf(TGPracticeEdits.disables(edits.fixture.context, id))).collect(Collectors.joining(" "));
+		return edits;
+	}
+
+	// which of a flag, triplet feel, undo, redo and a caret move the rule holds for (the app disables them, as while
+	// playing, or greys their items out) after the edits, with the player running or not, with a session under way or
+	// not: "flag triplet undo redo caret", each true or false
+	private static String holds(BiPredicate<TGContext, String> rule, Consumer<Edits> before, boolean running, boolean session) throws TGPracticeRefusal {
+		TGContext context = state(before, running, session).fixture.context;
+		return Stream.of(TGChangeDifficultyAction.NAME, TGChangeTripletFeelAction.NAME, TGUndoAction.NAME, TGRedoAction.NAME, CARET_MOVE)
+			.map(id -> String.valueOf(rule.test(context, id))).collect(Collectors.joining(" "));
 	}
 
 	private static DynamicTest disables(String name, String expected, Consumer<Edits> before, boolean running, boolean session) {
-		return DynamicTest.dynamicTest(name, () -> assertEquals(expected, disabled(before, running, session)));
+		return DynamicTest.dynamicTest(name, () -> assertEquals(expected, holds(TGPracticeEdits::disables, before, running, session)));
+	}
+
+	private static DynamicTest greys(String name, String expected, Consumer<Edits> before, boolean running, boolean session) {
+		return DynamicTest.dynamicTest(name, () -> assertEquals(expected, holds(TGPracticeEdits::greys, before, running, session)));
 	}
 
 	// a flag undone: one to undo (flag 2) and one to redo (its undone flag)
@@ -177,10 +194,35 @@ public class TestPracticeEdits {
 	@TestFactory
 	public List<DynamicTest> whatTheAppDisables() {
 		return Arrays.asList(
-			disables("stopped, nothing is disabled", "false false false false", Edits::flaggedAndUndone, false, false),
-			disables("playing the song, every edit is", "true true true true", Edits::flaggedAndUndone, true, false),
-			disables("in a session, a flag and the undo and redo of a flag are not", "false true false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
-			disables("in a session, undo and redo of another edit are", "false true true true", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
-			disables("in a paused session, as in a playing one", "false true false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
+			disables("stopped, nothing is disabled", "false false false false false", Edits::flaggedAndUndone, false, false),
+			disables("playing the song, every edit and caret move is", "true true true true true", Edits::flaggedAndUndone, true, false),
+			disables("in a session, a flag, the undo and redo of a flag and a caret move are not", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
+			disables("in a session, undo and redo of another edit are", "false true true true false", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
+			disables("in a paused session, as in a playing one", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
+	}
+
+	// the items of what the app disables during a session are greyed out, paused too; without a session each item's own
+	// rule stands (nothing more is greyed)
+	@TestFactory
+	public List<DynamicTest> whatTheAppGreysOut() {
+		return Arrays.asList(
+			greys("stopped, nothing more", "false false false false false", Edits::flaggedAndUndone, false, false),
+			greys("playing the song, nothing more", "false false false false false", Edits::flaggedAndUndone, true, false),
+			greys("in a session, all but a flag, the undo and redo of a flag and a caret move", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
+			greys("in a session, undo and redo of another edit too", "false true true true false", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
+			greys("in a paused session, as in a playing one", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
+	}
+
+	// whether moving the caret moves the player too: "stopped playing | in a session playing paused"; only while the
+	// song plays, never during a session (moving the player would end it)
+	@Test
+	public void theCaretMovesThePlayerOnlyWhileTheSongPlays() throws TGPracticeRefusal {
+		String song = moves(false, false) + " " + moves(true, false);
+		String session = moves(true, true) + " " + moves(false, true);
+		assertEquals("false true | false false", song + " | " + session);
+	}
+
+	private static boolean moves(boolean running, boolean session) throws TGPracticeRefusal {
+		return TGPracticeCaret.movesPlayer(state(NOTHING, running, session).fixture.context);
 	}
 }
