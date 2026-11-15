@@ -5,7 +5,8 @@ package app.tuxguitar.practice;
  * turn's plan (TGPracticePlan: what it plays, at what tempo scale, its passes, the break after it, whether it is the
  * last), made ahead of playing it live, or as it starts offline; the flags it lets the song take while under way; how
  * the app counts its turns; and whether it has ended. Interleaved practice's random choice is one
- * (TGPracticeSession.course). The player plans on its thread while an edit checks a flag, or ends it, on another.
+ * (TGPracticeSession.course), interleaved click-up's steps another (TGClickUpLadder.course). The player plans on its
+ * thread while an edit checks a flag, or ends it, on another.
  */
 public interface TGPracticeCourse {
 

@@ -80,6 +80,11 @@ public final class TGClickUpLadder {
 		return rungs;
 	}
 
+	// a play of it: its steps, one turn each, in order, from the first (each play its own course)
+	public TGPracticeCourse course() {
+		return new TGClickUpCourse(this);
+	}
+
 	public List<TGClickUpStep> getSteps() {
 		return this.steps;
 	}

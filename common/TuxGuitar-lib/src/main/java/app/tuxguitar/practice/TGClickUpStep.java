@@ -7,19 +7,20 @@ package app.tuxguitar.practice;
  */
 public final class TGClickUpStep {
 
+	// the first and last section it plays, as units of the song
+	final TGPracticeUnit from;
+	final TGPracticeUnit to;
 	private final int firstSection;
 	private final int lastSection;
-	private final int firstMeasure;
-	private final int lastMeasure;
 	private final int rung;
 	private final TGClickUpTempoMode tempoMode;
 	private final TGTempoScale scale;
 
 	TGClickUpStep(TGPracticeUnit first, TGPracticeUnit last, int firstSection, int lastSection, int rung, TGClickUpTempoMode tempoMode, TGTempoScale scale) {
+		this.from = first;
+		this.to = last;
 		this.firstSection = firstSection;
 		this.lastSection = lastSection;
-		this.firstMeasure = first.getFirst();
-		this.lastMeasure = last.getLast();
 		this.rung = rung;
 		this.tempoMode = tempoMode;
 		this.scale = scale;
@@ -39,11 +40,11 @@ public final class TGClickUpStep {
 	}
 
 	public int getFirstMeasure() {
-		return this.firstMeasure;
+		return this.from.getFirst();
 	}
 
 	public int getLastMeasure() {
-		return this.lastMeasure;
+		return this.to.getLast();
 	}
 
 	// the rung, in the ladder's unit
