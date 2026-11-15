@@ -15,23 +15,28 @@ and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChange
 `<difficulty>` in format 2.0), and a session played offline (`TGPractiseAction`: the turns back to back on a timeline
 of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's measures once each in score order,
 `TGSongTime.unit`; a turn that another follows ends its notes there; a measure no pass of the song reaches plays in its
-unit too, its events parsed alone; with the interval clock, offline only so far, lib's `TGPracticeSchedule` plans each
+unit too, its events parsed alone; with the interval clock, offline and live, lib's `TGPracticeSchedule` plans each
 turn as it is chosen, the one place that decides its passes and the last turn, and each pass is a turn of the timeline,
 `TGTurn.planned`: the first opens the practice turn after the break the turn before planned, its silence placed before
 it, `TGTurn.afterBreak`, through which plugins are told and TuxGuitar reports the turn's first measure as in its Count
 In; the others continue it, `TGTurn.pass`, each pass's start a jump), and live: lib's `MidiPlayer.practise` plays the session through the player's
-sequencer, with or without this module (`MidiPractice`: the turns one after the other in the sequence's ticks, each a
-`MidiPracticeTurn` that `MidiSequenceParser.parseTurn` makes, its Count In clicks in the sequence at its first measure's
-tempo, the next turn chosen ahead and added once the one before has started, the chooser told when it starts so that
-a cycle opened ahead takes the weights it starts with, `TGPracticeChooser.ahead`/`started`; the player reports the
-song's tick, a turn's first measure all through its Count In, and lib's `MidiSongTicks` maps it to itself during a
-session; `MidiPlayer.getPracticeTurn` gives the turn shown as data, `TGPracticeTurn`, which the app words). Live, an
-audio track's takes play the turns as offline: the takes' live timeline (`TGLiveTimeline`) plays the turns the sequence
-holds so far (`MidiPlayer.getPracticeTurns`, read without the player's lock), each made by `TGTurn.unit` as offline
-(`TGLiveTurns`), on one timeline from the session's first turn, and maps the transport's quarter notes (the sequence's)
+sequencer, with or without this module (`MidiPractice`: the turns one after the other in the sequence's ticks, each
+its passes as the session's one schedule plans it, a pass a `MidiPracticeTurn` that `MidiSequenceParser.parseTurn`
+makes, its Count In clicks in the sequence at its first measure's tempo; a turn's first pass holds the break before
+it, its seconds in ticks at that tempo and the session's percent, the tempo set where the break starts; the next turn
+chosen ahead and laid, all its passes, once the one before has started, a turn starting where its break does, the
+chooser told then so that a cycle opened ahead takes the weights it starts with, `TGPracticeChooser.ahead`/`started`;
+the player reports the song's tick, a turn's first measure all through its break and Count In, and lib's
+`MidiSongTicks` maps it to itself during a session; `MidiPlayer.getPracticeTurn` gives the turn shown as data,
+`TGPracticeTurn`, which the app words: its number and unit, of how many turns, or, timed (`isTimed`), whether it is the
+break before the turn (`isBreak`) and the seconds left to the turn's end or in the break, rounded up,
+`getSecondsLeft`). Live, an audio track's takes play the turns as offline: the takes' live timeline (`TGLiveTimeline`)
+plays the passes the sequence holds so far (`MidiPlayer.getPracticeTurns`, read without the player's lock), each made
+by `TGTurn.unit` as offline, a turn's first pass `TGTurn.afterBreak`, the others `TGTurn.pass` (`TGLiveTurns`), on one
+timeline from the session's first turn, and maps the transport's quarter notes (the sequence's)
 to the song's; a turn laid while the one before plays joins that timeline, so a turn's end crossfades as offline.
-Stop ends a live session, Pause keeps it and Play then plays the paused turn again from its Count In
-(`MidiPractice.play`), moving the position ends it and the song plays on from there, and the session ending stops the
+Stop ends a live session, Pause keeps it and Play then plays the paused pass again from a Count In, then the turn's
+passes left, or, paused in a break, the next turn's Count In at once (`MidiPractice.play`), moving the position ends it and the song plays on from there, and the session ending stops the
 player; a sequencer that cannot take turns added while it plays (`MidiSequencer.takesEventsWhilePlaying`: only
 TuxGuitar's own can) refuses a session: editor-utils' `TGPracticeEdits` (installed by the app) ends the
 session under way (`TGPracticeUnderWay`) on any edit but a flag, and checks a flag, its undo and its redo against the
@@ -169,7 +174,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live) |
 
 ## How the scenarios run
 
