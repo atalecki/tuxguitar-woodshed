@@ -1,6 +1,7 @@
 package app.tuxguitar.app.view.menu.impl;
 
 import app.tuxguitar.app.TuxGuitar;
+import app.tuxguitar.app.action.impl.transport.TGOpenPracticeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenTransportModeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayPauseAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportSetLoopEHeaderAction;
@@ -31,6 +32,7 @@ public class TransportMenuItem extends TGMenuItem {
 	private UIMenuCheckableItem metronome;
 	private UIMenuCheckableItem countDown;
 	private UIMenuActionItem mode;
+	private UIMenuActionItem practice;
 	private UIMenuCheckableItem loopSHeader;
 	private UIMenuCheckableItem loopEHeader;
 	private UIMenuCheckableItem highlightPlayedBeat;
@@ -66,6 +68,10 @@ public class TransportMenuItem extends TGMenuItem {
 		this.mode = this.transportMenuItem.getMenu().createActionItem();
 		this.mode.addSelectionListener(this.createActionProcessor(TGOpenTransportModeDialogAction.NAME));
 
+		//--INTERLEAVED PRACTICE--
+		this.practice = this.transportMenuItem.getMenu().createActionItem();
+		this.practice.addSelectionListener(this.createActionProcessor(TGOpenPracticeDialogAction.NAME));
+
 		//--SEPARATOR--
 		this.transportMenuItem.getMenu().createSeparator();
 
@@ -95,20 +101,28 @@ public class TransportMenuItem extends TGMenuItem {
 		TGMeasure measure = TuxGuitar.getInstance().getTablatureEditor().getTablature().getCaret().getMeasure();
 		MidiPlayerMode pm = TuxGuitar.getInstance().getPlayer().getMode();
 		boolean running = TuxGuitar.getInstance().getPlayer().isRunning();
-		this.stop.setEnabled(running);
+		this.stop.setEnabled(TuxGuitar.getInstance().getPlayer().isRunningOrPractising());
 		this.metronome.setChecked(TuxGuitar.getInstance().getPlayer().isMetronomeEnabled());
 		this.countDown.setChecked(TuxGuitar.getInstance().getPlayer().getCountDown().isEnabled());
 		this.loopSHeader.setEnabled( pm.isLoop() );
-		this.loopSHeader.setChecked( measure != null && measure.getNumber() == pm.getLoopSHeader() );
+		this.loopSHeader.setChecked( isMeasure(measure, pm.getLoopSHeader()) );
 		this.loopEHeader.setEnabled( pm.isLoop() );
-		this.loopEHeader.setChecked( measure != null && measure.getNumber() == pm.getLoopEHeader() );
+		this.loopEHeader.setChecked( isMeasure(measure, pm.getLoopEHeader()) );
 		Tablature tablature = TablatureEditor.getInstance(this.findContext()).getTablature();
 		int style = tablature.getViewLayout().getStyle();
 		this.highlightPlayedBeat.setChecked( (style & TGLayout.HIGHLIGHT_PLAYED_BEAT) != 0 );
 		this.continuousScrolling.setEnabled(!running);
 		this.continuousScrolling.setChecked( (style & TGLayout.CONTINUOUS_SCROLL) != 0 );
 		this.loadIcons(false);
-		this.play.setText(TuxGuitar.getProperty(isRunning ? "transport.pause" : "transport.start"));
+		this.play.setText(TuxGuitar.getProperty(this.playKey()));
+	}
+
+	private static boolean isMeasure(TGMeasure measure, int number) {
+		return (measure != null && measure.getNumber() == number);
+	}
+
+	private String playKey() {
+		return (this.isRunning ? "transport.pause" : "transport.start");
 	}
 
 	public void loadProperties(){
@@ -116,6 +130,7 @@ public class TransportMenuItem extends TGMenuItem {
 		setMenuItemTextAndAccelerator(this.play, "transport.start", TGTransportPlayPauseAction.NAME);
 		setMenuItemTextAndAccelerator(this.stop, "transport.stop", TGTransportStopAction.NAME);
 		setMenuItemTextAndAccelerator(this.mode, "transport.mode", TGOpenTransportModeDialogAction.NAME);
+		setMenuItemTextAndAccelerator(this.practice, "transport.practice", TGOpenPracticeDialogAction.NAME);
 		setMenuItemTextAndAccelerator(this.metronome, "transport.metronome", TGTransportMetronomeAction.NAME);
 		setMenuItemTextAndAccelerator(this.countDown, "transport.count-down", TGTransportCountDownAction.NAME);
 		setMenuItemTextAndAccelerator(this.loopSHeader, "transport.set-loop-start", TGTransportSetLoopSHeaderAction.NAME);

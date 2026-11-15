@@ -28,6 +28,7 @@ import app.tuxguitar.app.view.menu.TGMenuItem;
 import app.tuxguitar.editor.action.edit.TGRedoAction;
 import app.tuxguitar.editor.action.edit.TGUndoAction;
 import app.tuxguitar.editor.clipboard.TGClipboard;
+import app.tuxguitar.editor.practice.TGPracticeEdits;
 import app.tuxguitar.ui.menu.UIMenu;
 import app.tuxguitar.ui.menu.UIMenuActionItem;
 import app.tuxguitar.ui.menu.UIMenuCheckableItem;
@@ -155,32 +156,44 @@ public class EditMenuItem extends TGMenuItem{
 		EditorKit kit = TuxGuitar.getInstance().getTablatureEditor().getTablature().getEditorKit();
 		Tablature tablature = TablatureEditor.getInstance(findContext()).getTablature();
 		boolean running = TuxGuitar.getInstance().getPlayer().isRunning();
-		this.cut.setEnabled(!running && tablature.getSelector().isActive());
+		boolean selecting = stopped(running, tablature.getSelector().isActive());
+		this.cut.setEnabled(selecting);
 		this.copy.setEnabled(!running);
-		this.paste.setEnabled(!running && TGClipboard.getInstance(findContext()).hasContents());
-		this.repeat.setEnabled(!running && tablature.getSelector().isActive());
-		this.undo.setEnabled(!running && TuxGuitar.getInstance().getUndoableManager().canUndo());
-		this.redo.setEnabled(!running && TuxGuitar.getInstance().getUndoableManager().canRedo());
-		this.selectAll.setEnabled(!running && !TuxGuitar.getInstance().getSongManager().getTrackManager().hasMeasureDurationError(tablature.getCaret().getTrack()));
-		this.selectNone.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelection.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelectionLeft.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelectionRight.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelectionPrevious.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelectionNext.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelectionFirst.setEnabled(!running && tablature.getSelector().isActive());
-		this.extendSelectionLast.setEnabled(!running && tablature.getSelector().isActive());
+		this.paste.setEnabled(stopped(running, TGClipboard.getInstance(findContext()).hasContents()));
+		this.repeat.setEnabled(selecting);
+		this.undo.setEnabled(this.allows(TuxGuitar.getInstance().getUndoableManager().canUndo(), TGUndoAction.NAME));
+		this.redo.setEnabled(this.allows(TuxGuitar.getInstance().getUndoableManager().canRedo(), TGRedoAction.NAME));
+		this.selectAll.setEnabled(stopped(running, !TuxGuitar.getInstance().getSongManager().getTrackManager().hasMeasureDurationError(tablature.getCaret().getTrack())));
+		this.selectNone.setEnabled(selecting);
+		this.extendSelection.setEnabled(selecting);
+		this.extendSelectionLeft.setEnabled(selecting);
+		this.extendSelectionRight.setEnabled(selecting);
+		this.extendSelectionPrevious.setEnabled(selecting);
+		this.extendSelectionNext.setEnabled(selecting);
+		this.extendSelectionFirst.setEnabled(selecting);
+		this.extendSelectionLast.setEnabled(selecting);
 		this.modeSelection.setChecked(kit.getMouseMode() == EditorKit.MOUSE_MODE_SELECTION);
 		this.modeSelection.setEnabled(!running);
 		this.modeEdition.setChecked(kit.getMouseMode() == EditorKit.MOUSE_MODE_EDITION);
 		this.modeEdition.setEnabled(!running);
 		this.notNaturalKey.setChecked(!kit.isNatural());
-		this.notNaturalKey.setEnabled(!running && kit.getMouseMode() == EditorKit.MOUSE_MODE_EDITION);
+		this.notNaturalKey.setEnabled(stopped(running, kit.getMouseMode() == EditorKit.MOUSE_MODE_EDITION));
 		this.voice1.setChecked(kit.getTablature().getCaret().getVoice() == 0);
 		this.voice2.setChecked(kit.getTablature().getCaret().getVoice() == 1);
 		this.freeEditionMode.setChecked(tablature.getSongManager().isFreeEditionMode(tablature.getCaret().getMeasure()));
 		this.freeEditionMode.setEnabled(!running);
 		this.openMeasureErrorsDialog.setEnabled(!running);
+	}
+
+	// enabled as the item says, while the player is not running
+	private static boolean stopped(boolean running, boolean enabled) {
+		return (!running && enabled);
+	}
+
+	// undo or redo, when there is one to take, unless the player runs, or a practice session lets only flags through
+	// (see TGPracticeEdits.disables)
+	private boolean allows(boolean can, String actionId) {
+		return (can && !TGPracticeEdits.disables(findContext(), actionId));
 	}
 
 	public void loadProperties(){

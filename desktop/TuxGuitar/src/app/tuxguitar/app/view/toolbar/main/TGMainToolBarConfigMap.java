@@ -157,6 +157,7 @@ import app.tuxguitar.editor.action.track.TGRemoveTrackAction;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
 import app.tuxguitar.editor.clipboard.TGClipboard;
+import app.tuxguitar.editor.practice.TGPracticeEdits;
 import app.tuxguitar.editor.undo.TGUndoableManager;
 import app.tuxguitar.graphics.control.TGLayout;
 import app.tuxguitar.graphics.control.TGLayoutHorizontal;
@@ -237,14 +238,14 @@ public class TGMainToolBarConfigMap {
 				new TGMainToolBarItemUpdater() {
 					@Override
 					public boolean enabled(TGContext context, boolean isRunning) {
-						return (!isRunning && TGUndoableManager.getInstance(context).canUndo());
+						return (TGUndoableManager.getInstance(context).canUndo() && !TGPracticeEdits.disables(context, TGUndoAction.NAME));
 					}
 				});
 		registerButton("edit.redo", TGRedoAction.NAME, TGIconManager.REDO,
 				new TGMainToolBarItemUpdater() {
 					@Override
 					public boolean enabled(TGContext context, boolean isRunning) {
-						return (!isRunning && TGUndoableManager.getInstance(context).canRedo());
+						return (TGUndoableManager.getInstance(context).canRedo() && !TGPracticeEdits.disables(context, TGRedoAction.NAME));
 					}
 				});
 		registerCheckable("edit.mouse-mode-selection", TGSetMouseModeSelectionAction.NAME, TGIconManager.EDIT_MODE_SELECTION, new TGMainToolBarItemUpdater() {
@@ -744,9 +745,10 @@ public class TGMainToolBarConfigMap {
 		});
 		registerButton("transport.stop", TGTransportStopAction.NAME, TGIconManager.TRANSPORT_ICON_STOP,
 				new TGMainToolBarItemUpdater() {
+					// also a paused practice session, which Stop ends
 					@Override
 					public boolean enabled(TGContext context, boolean isRunning) {
-						return (isRunning);
+						return MidiPlayer.getInstance(context).isRunningOrPractising();
 					}
 				});
 		registerButton("transport.next", TGGoNextMeasureAction.NAME, TGIconManager.TRANSPORT_ICON_NEXT);

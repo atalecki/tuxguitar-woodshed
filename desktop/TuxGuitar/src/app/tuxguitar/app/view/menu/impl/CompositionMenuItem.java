@@ -28,6 +28,7 @@ public class CompositionMenuItem extends TGMenuItem {
 	private UIMenuActionItem repeatAlternative;
 	private UIMenuActionItem tripletFeel;
 	private UIMenuActionItem properties;
+	private DifficultyMenuItem difficulty;
 
 	public CompositionMenuItem(UIMenu parent) {
 		this.compositionMenuItem = parent.createSubMenuItem();
@@ -53,6 +54,10 @@ public class CompositionMenuItem extends TGMenuItem {
 		//--TRIPLET FEEL--
 		this.tripletFeel = this.compositionMenuItem.getMenu().createActionItem();
 		this.tripletFeel.addSelectionListener(this.createActionProcessor(TGOpenTripletFeelDialogAction.NAME));
+
+		//--DIFFICULTY (interleaved practice)--
+		this.difficulty = new DifficultyMenuItem(this.compositionMenuItem.getMenu().createSubMenuItem());
+		this.difficulty.showItems();
 
 		//--SEPARATOR--
 		this.compositionMenuItem.getMenu().createSeparator();
@@ -83,11 +88,13 @@ public class CompositionMenuItem extends TGMenuItem {
 	public void update(){
 		boolean isPercussion = TuxGuitar.getInstance().getTablatureEditor().getTablature().getCaret().getTrack().isPercussion();
 		boolean running = TuxGuitar.getInstance().getPlayer().isRunning();
+		boolean pitched = (!running && !isPercussion);
 		this.timeSignature.setEnabled(!running);
 		this.tempo.setEnabled(!running);
-		this.clef.setEnabled(!running && !isPercussion);
-		this.keySignature.setEnabled(!running && !isPercussion);
+		this.clef.setEnabled(pitched);
+		this.keySignature.setEnabled(pitched);
 		this.tripletFeel.setEnabled(!running);
+		this.difficulty.update();
 		this.repeatOpen.setEnabled(!running);
 		this.repeatClose.setEnabled(!running);
 		this.repeatAlternative.setEnabled(!running);
@@ -100,6 +107,7 @@ public class CompositionMenuItem extends TGMenuItem {
 		setMenuItemTextAndAccelerator(this.clef, "composition.clef", TGOpenClefDialogAction.NAME);
 		setMenuItemTextAndAccelerator(this.keySignature, "composition.keysignature", TGOpenKeySignatureDialogAction.NAME);
 		setMenuItemTextAndAccelerator(this.tripletFeel, "composition.tripletfeel", TGOpenTripletFeelDialogAction.NAME);
+		this.difficulty.loadProperties();
 		setMenuItemTextAndAccelerator(this.repeatOpen, "repeat.open", TGRepeatOpenAction.NAME);
 		setMenuItemTextAndAccelerator(this.repeatClose, "repeat.close", TGOpenRepeatCloseDialogAction.NAME);
 		setMenuItemTextAndAccelerator(this.repeatAlternative, "repeat.alternative", TGOpenRepeatAlternativeDialogAction.NAME);

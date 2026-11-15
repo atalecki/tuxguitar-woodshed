@@ -14,6 +14,7 @@ import app.tuxguitar.app.action.listener.thread.TGSyncThreadInterceptor;
 import app.tuxguitar.app.action.listener.transport.TGDisableOnPlayInterceptor;
 import app.tuxguitar.app.action.listener.transport.TGStopTransportInterceptor;
 import app.tuxguitar.app.action.listener.undoable.TGUndoableActionListener;
+import app.tuxguitar.editor.practice.TGPracticeEdits;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
@@ -84,6 +85,9 @@ public class TGActionAdapterManager {
 		tgActionManager.addErrorListener(processingListener);
 		tgActionManager.addErrorListener(this.lockableActionListener);
 		tgActionManager.addErrorListener(this.errorHandler);
+
+		// a flag during a practice session is checked against it, any other edit ends it
+		TGPracticeEdits.install(this.context);
 	}
 
 	private void initializeDefaultActions() {
