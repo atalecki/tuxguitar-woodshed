@@ -12,7 +12,10 @@ helper processes, and plugin delay compensation. Interleaved practice (`practice
 up to choosing the turns, without sound: lib's `app.tuxguitar.practice` (units, fixed groups, the pool, the weight rule,
 the chooser, seeded through `java.util.SplittableRandom`, since `java.util.Random` starts nearly alike for nearby seeds)
 and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChangeDifficultyAction`, saved as
-`<difficulty>` in format 2.0); playing a session's turns is still `@planned`. Export is implemented headless (TGAudioExporter in this module), in
+`<difficulty>` in format 2.0), and a session played offline (`TGPractiseAction`: the turns back to back on a timeline
+of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's measures once each in score order,
+`TGSongTime.unit`; a turn that another follows ends its notes there); the live session (moving the position or an
+edit ends it) is still `@planned`. Export is implemented headless (TGAudioExporter in this module), in
 WAVE 16/24-bit/float, AIFF 16-bit and AU 16-bit (`TGExportFormat.offered`); an installed app's audio export writes
 through it (`TGAudioExport`, synth-core's `TGSynthAudioExporter` extension: the desktop's File > Export audio offers
 those formats when the audio plugin is installed). Saving is implemented in lib's TuxGuitar file format (format 3.0: a
@@ -21,7 +24,8 @@ those formats when the audio plugin is installed). Saving is implemented in lib'
 plugin's state before the write action. The player's position
 is the one the output sounds: live, lib's sequencer on the synthesizer's clock reports the tick the output sounds
 (chains' latency plus output latency behind what it schedules); offline, `TGReportedPositions` reports it block by
-block the same way. An app installs all this with `TGLiveAudio.install` and plays through `TGLiveAudio`: it loads the
+block the same way (through every turn's Count In it stays on the turn's first tick, as live, where a Count In is a
+timer before the sequencer). An app installs all this with `TGLiveAudio.install` and plays through `TGLiveAudio`: it loads the
 native backend from the native folder, opens the devices `TGAudioSettings` choose (host API and device names, input
 channels, recording offset) at the synthesizer's rate, makes that device the session's, meters and monitors through it
 (`TGLiveInput`), and the TuxGuitar Synthesizer plays through it (synth-core's `TGSynthOutput`), the device's output
@@ -137,7 +141,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (choosing and flags implemented, playing planned) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (choosing, flags and playing offline implemented, the live session planned) |
 
 ## How the scenarios run
 
@@ -382,7 +386,18 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **Nothing else above -60 dBFS**: no sample other than the named signals above 0.001.
 - **Musical position**: quarter notes from the start of the song, in song order as written (measure 2 beat 1 of a
   4/4 song is quarter-note position 4).
-- **TuxGuitar reports a beat**: the beat the player shows as played (the played-beat highlight).
+- **TuxGuitar reports a beat**: the beat the player shows as played (the played-beat highlight). **Within 1 sample of
+  the output sounding it**: the first sample of the clock at which the reported position reaches the beat's tick is
+  within 1 of where the output sounds the beat (where its note starts, the render's latency and the output latency
+  later); in a turn it is looked for from where the output sounds the turn's first measure.
+- **A note of Test Sine** (the practice Background puts MIDI note 35 plus the measure's number on every beat of track
+  1): a beat's note is the MIDI note nearest the tone the track's tap sounds over the beat (its fundamental, clear of the
+  beat's first and last 64 samples), when within 1% of it; it starts where a sine at that note's pitch from phase 0 (as
+  Test Sine starts each note) fits the beat's 2048 samples after its first 64 best, scaled to them by least squares,
+  searching 8 samples around the beat; it fits when what is left is under 1% of the sine's peak (root mean square).
+  The echo of a note (Test Echo) is found the same way, at the note's pitch, after the note ends.
+- **A turn** (heard): its first measure is where its first note starts, its end where its last note ends (that note's
+  start and a beat); its Count In is the clicks from the end of the turn before (or the start) to its first measure.
 - **A beat at P%**: where the beat falls when the song plays at P% Percentage of Tempo.
 
 ## Test plugins and devices

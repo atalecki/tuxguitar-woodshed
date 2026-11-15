@@ -74,11 +74,15 @@ public class CountInSteps {
 	// each click sounds above -60 dBFS on the drum tap and in the output, from its position for a beat (or until the
 	// output ends)
 	private void assertEachSounds(long[] clicks, long beat) {
+		assertEachSounds(heard(), clicks, beat);
+	}
+
+	static void assertEachSounds(Heard heard, long[] clicks, long beat) {
 		for (long click : clicks) {
 			int from = (int) click;
-			int to = (int) Math.min(click + beat, heard().left().length);
-			assertTrue(Math.max(Meters.peak(heard().drums(0), from, to), Meters.peak(heard().drums(1), from, to)) >= SILENT, "click at " + click + " on the drums");
-			assertTrue(Math.max(Meters.peak(heard().left(), from, to), Meters.peak(heard().right(), from, to)) >= SILENT, "click at " + click + " in the output");
+			int to = (int) Math.min(click + beat, heard.left().length);
+			assertTrue(Math.max(Meters.peak(heard.drums(0), from, to), Meters.peak(heard.drums(1), from, to)) >= SILENT, "click at " + click + " on the drums");
+			assertTrue(Math.max(Meters.peak(heard.left(), from, to), Meters.peak(heard.right(), from, to)) >= SILENT, "click at " + click + " in the output");
 		}
 	}
 

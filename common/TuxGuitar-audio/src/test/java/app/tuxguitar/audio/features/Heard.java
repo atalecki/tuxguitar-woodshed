@@ -6,6 +6,7 @@ import java.util.function.BiConsumer;
 
 import app.tuxguitar.audio.TGPlayedMeasure;
 import app.tuxguitar.audio.TGRender;
+import app.tuxguitar.audio.TGReportedPositions;
 import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTrack;
@@ -115,6 +116,47 @@ final class Heard {
 		for (long tick = (measure.getFrom() + length - 1) / length * length; tick < measure.getTo(); tick += length) {
 			beat.accept(timeline.sampleAt(index, tick), measure.getHeader().getStart() + tick);
 		}
+	}
+
+	// a beat that played: where it sounds, how many samples it lasts, at what Percentage of Tempo
+	static final class PlayedBeat {
+		final int sample;
+		final int length;
+		final int percent;
+
+		PlayedBeat(int sample, int length, int percent) {
+			this.sample = sample;
+			this.length = length;
+			this.percent = percent;
+		}
+	}
+
+	// the beats each turn played, in order, a list per turn
+	List<List<PlayedBeat>> turnBeats() {
+		TGTimeline timeline = this.timeline();
+		List<List<PlayedBeat>> turns = new ArrayList<List<PlayedBeat>>();
+		for (int turn = 0; turn < timeline.turns(); turn++) {
+			List<PlayedBeat> beats = new ArrayList<PlayedBeat>();
+			for (int index = timeline.firstOf(turn); index < timeline.firstOf(turn + 1); index++) {
+				TGPlayedMeasure measure = timeline.get(index);
+				long length = measure.getHeader().getTimeSignature().getDenominator().getTime();
+				int at = index;
+				beats(timeline, index, (sample, tick) -> beats.add(new PlayedBeat(sample.intValue(), (int) (timeline.sampleAt(at, tick - measure.getHeader().getStart() + length) - sample),
+					measure.getPercent())));
+			}
+			turns.add(beats);
+		}
+		return turns;
+	}
+
+	// where the Count In's clicks reach the drums, every turn's
+	long[] countIn() {
+		return this.timeline().getCountIn().positions();
+	}
+
+	// where the player reports the song is at each sample of the clock, live with the output latency
+	TGReportedPositions reportedAt(int outputLatency) {
+		return this.render.getReportedAt(outputLatency);
 	}
 
 	// where the player reports the song is after each block of 512 samples, live with the output latency

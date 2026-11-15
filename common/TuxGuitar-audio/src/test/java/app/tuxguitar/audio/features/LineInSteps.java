@@ -91,6 +91,15 @@ public class LineInSteps {
 		mode().reset();
 	}
 
+	// as it was turned on, at its start percentage
+	@Then("Training Mode is on from {int}% to {int}% by {int}% over measures {int} to {int}")
+	public void trainingModeIsOn(int from, int to, int increment, int first, int last) {
+		MidiPlayerMode mode = mode();
+		assertEquals(MidiPlayerMode.TYPE_CUSTOM + " " + from + " " + to + " " + increment + " true " + first + " " + last + " " + from, mode.getType() + " "
+			+ mode.getCustomPercentFrom() + " " + mode.getCustomPercentTo() + " " + mode.getCustomPercentIncrement() + " " + mode.isLoop() + " "
+			+ mode.getLoopSHeader() + " " + mode.getLoopEHeader() + " " + mode.getCurrentPercent());
+	}
+
 	@When("I arm track {int}")
 	public void arm(int number) {
 		recording.runArm(number);
