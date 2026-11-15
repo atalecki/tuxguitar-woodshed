@@ -1,5 +1,7 @@
 package app.tuxguitar.practice;
 
+import java.util.Optional;
+
 /**
  * Interleaved practice's course: each turn's unit chosen at random by the session's chooser (TGPracticeChooser), then
  * planned by its schedule (TGPracticeSchedule), at the tempo scale the session plays at. It is counted or timed as the
@@ -45,6 +47,11 @@ final class TGPracticeRandomCourse implements TGPracticeCourse {
 
 	public void end() {
 		this.session().end();
+	}
+
+	// a turn chosen at random is no step to go back to
+	public Optional<TGPracticeSteps> getSteps() {
+		return Optional.empty();
 	}
 
 	private TGPracticeSession session() {

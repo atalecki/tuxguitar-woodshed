@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.function.ToIntBiFunction;
 
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +13,8 @@ import org.junit.jupiter.api.Test;
  * Interleaved click-up's course (TGClickUpLadder.course): a turn per step of the ladder, in its order, each the measures
  * of the step's sections at its tempo scale, the ladder's passes, with no break, the last step the last turn. It counts
  * its steps, is not timed, and takes any flag without changing a step. Each play has a course of its own, which ends as
- * a session does. The song has 64 measures of 4/4 at 120 bpm; the passage is lines 2 to 3 of 4 measures, 50% to 100% by
+ * a session does. Repeat step and Previous step go back over its steps: the step chosen is planned next, then the steps
+ * after it. The song has 64 measures of 4/4 at 120 bpm; the passage is lines 2 to 3 of 4 measures, 50% to 100% by
  * 50%: 2@50%, 2@100%, 2-3@50%, 3@100%, 2-3@100%.
  */
 public class TestClickUpCourse {
@@ -68,10 +70,12 @@ public class TestClickUpCourse {
 			"Line 2-Line 3 5-12@1/2 x1 every pass false, break 0, last false"), plans);
 	}
 
+	// its steps are there to go back over: Repeat step during step 3 plans step 3
 	@Test
-	public void aCourseCountsItsStepsAndIsNotTimed() throws TGPracticeRefusal {
+	public void aCourseCountsItsStepsIsNotTimedAndHasStepsToGoBackOver() throws TGPracticeRefusal {
 		TGPracticeCourse course = course();
-		assertEquals("false 5", course.isTimed() + " " + course.getTurns());
+		TGPracticeSteps steps = course.getSteps().get();
+		assertEquals("false 5 3", course.isTimed() + " " + course.getTurns() + " " + steps.repeat(3));
 	}
 
 	// a click-up chooses nothing a flag could weigh
@@ -96,5 +100,32 @@ public class TestClickUpCourse {
 		TGPracticeCourse other = ladder.course();
 		assertEquals("false true false Line 2-Line 2 5-8@1/2 x1 every pass false, break 0, last false",
 			before + " " + course.isEnded() + " " + other.isEnded() + " " + reading(other.next()));
+	}
+
+	// "5-12@1/2", " last" after the last step
+	private static String measures(TGPracticePlan plan) {
+		return plan.getFirstMeasure() + "-" + plan.getLastMeasure() + "@" + plan.getScale() + (plan.isLast() ? " last" : "");
+	}
+
+	// the course has planned steps 1 to 4 (step 4 ahead, while step 3 plays), then the step is chosen during the turn:
+	// "the step's turn | the plans of the turns after it, so many"
+	private String chosen(ToIntBiFunction<TGPracticeSteps, Integer> choice, int turn, int after) throws TGPracticeRefusal {
+		TGPracticeCourse course = course();
+		plans(4, course::next);
+		int step = choice.applyAsInt(course.getSteps().get(), turn);
+		List<String> plans = new ArrayList<String>();
+		for (int plan = 0; plan < after; plan++) {
+			plans.add(measures(course.next()));
+		}
+		return step + " | " + String.join(", ", plans);
+	}
+
+	// Repeat step during step 3: step 3, then 4 and 5; Previous step during step 3: step 2, then 3; during step 1: step 1,
+	// then 2; Repeat step during step 5: step 5, the last
+	@Test
+	public void theStepChosenIsPlannedNextThenTheStepsAfterIt() throws TGPracticeRefusal {
+		assertEquals(List.of("3 | 5-12@1/2, 9-12@1/1, 5-12@1/1 last", "2 | 5-8@1/1, 5-12@1/2", "1 | 5-8@1/2, 5-8@1/1", "5 | 5-12@1/1 last"),
+			List.of(chosen(TGPracticeSteps::repeat, 3, 3), chosen(TGPracticeSteps::previous, 3, 2), chosen(TGPracticeSteps::previous, 1, 2),
+				chosen(TGPracticeSteps::repeat, 5, 1)));
 	}
 }

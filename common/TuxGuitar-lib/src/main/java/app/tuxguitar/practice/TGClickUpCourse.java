@@ -1,14 +1,16 @@
 package app.tuxguitar.practice;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Interleaved click-up's course (TGClickUpLadder.course): a turn per step of the ladder, in its order, walked with a
  * cursor. Each plays the measures of the step's sections at its tempo scale, the ladder's passes, with no break; the
  * last step is the last turn. It counts its steps and is not timed. A flag changes none of them (it chooses nothing a
- * flag could weigh), so it takes any. One per play, planned on the one thread that lays the turns, ended on any.
+ * flag could weigh), so it takes any. Its turns are its steps (getSteps): Repeat step and Previous step move the cursor
+ * back. One per play, planned on the one thread that lays the turns, ended on any.
  */
-final class TGClickUpCourse implements TGPracticeCourse {
+final class TGClickUpCourse implements TGPracticeCourse, TGPracticeSteps {
 
 	private final TGClickUpLadder ladder;
 	// the step the next turn plays (from 0)
@@ -23,7 +25,7 @@ final class TGClickUpCourse implements TGPracticeCourse {
 	public TGPracticePlan ahead() {
 		List<TGClickUpStep> steps = this.ladder.getSteps();
 		TGClickUpStep step = steps.get(this.cursor++);
-		return new TGPracticePlan(step.from, step.to, step.getScale(), this.ladder.getPasses(), this.ladder.isCountInEveryPass(), 0, this.cursor == steps.size());
+		return new TGPracticePlan(step, this.ladder.getPasses(), this.ladder.isCountInEveryPass(), this.cursor == steps.size());
 	}
 
 	// the order of the steps does not hang on when one starts
@@ -51,5 +53,23 @@ final class TGClickUpCourse implements TGPracticeCourse {
 
 	public void end() {
 		this.ended = true;
+	}
+
+	public Optional<TGPracticeSteps> getSteps() {
+		return Optional.of(this);
+	}
+
+	public int repeat(int turn) {
+		return this.planNext(turn);
+	}
+
+	public int previous(int turn) {
+		return this.planNext(Math.max(1, turn - 1));
+	}
+
+	// the step (from 1) is planned next; its turn is its number
+	private int planNext(int step) {
+		this.cursor = step - 1;
+		return step;
 	}
 }

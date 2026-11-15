@@ -57,6 +57,12 @@ public class TestPracticeCourse {
 			assertThrows(TGPracticeRefusal.class, () -> course.checkFlag(2, 3)).getMessage());
 	}
 
+	// a turn chosen at random is no step to go back to: Repeat step and Previous step have nothing to go back over
+	@Test
+	public void aCourseOfRandomTurnsHasNoSteps() throws TGPracticeRefusal {
+		assertEquals("no steps", course().getSteps().map(steps -> "steps").orElse("no steps"));
+	}
+
 	@Test
 	public void aCountedCourseHasTheSessionsTurns() throws TGPracticeRefusal {
 		TGPracticeCourse course = course();

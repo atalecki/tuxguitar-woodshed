@@ -1,10 +1,12 @@
 package app.tuxguitar.practice;
 
+import java.util.Optional;
+
 /**
  * A turn as its session's schedule plans it: what it plays (its units, from one to another: the measures from the
  * first's first to the last's last), the tempo scale it plays at, how many passes of them it plays, whether a Count In comes before
  * every pass or only the first (when Count In is on), and whether it is the session's last turn or, if not, how many
- * seconds of break come before the next. Immutable.
+ * seconds of break come before the next; and the interleaved click-up step it plays, if it plays one. Immutable.
  */
 public final class TGPracticePlan {
 
@@ -15,8 +17,21 @@ public final class TGPracticePlan {
 	private final boolean countInEveryPass;
 	private final int breakSeconds;
 	private final boolean last;
+	// null: no click-up step (a turn of interleaved practice)
+	private final TGClickUpStep step;
 
 	TGPracticePlan(TGPracticeUnit from, TGPracticeUnit to, TGTempoScale scale, int passes, boolean countInEveryPass, int breakSeconds, boolean last) {
+		this(from, to, scale, passes, countInEveryPass, breakSeconds, last, null);
+	}
+
+	// the click-up step's turn: its sections at its tempo scale, so many passes, no break
+	TGPracticePlan(TGClickUpStep step, int passes, boolean countInEveryPass, boolean last) {
+		this(step.from, step.to, step.getScale(), passes, countInEveryPass, 0, last, step);
+	}
+
+	private TGPracticePlan(TGPracticeUnit from, TGPracticeUnit to, TGTempoScale scale, int passes, boolean countInEveryPass, int breakSeconds, boolean last,
+		TGClickUpStep step) {
+		this.step = step;
 		this.from = from;
 		this.to = to;
 		this.scale = scale;
@@ -65,5 +80,10 @@ public final class TGPracticePlan {
 
 	public boolean isLast() {
 		return this.last;
+	}
+
+	// the click-up step it plays; none for a turn of interleaved practice
+	public Optional<TGClickUpStep> getStep() {
+		return Optional.ofNullable(this.step);
 	}
 }

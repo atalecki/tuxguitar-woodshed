@@ -1,5 +1,7 @@
 package app.tuxguitar.practice;
 
+import java.util.Optional;
+
 /**
  * What a practice session plays, turn by turn, as the player plays it live and the audio renders it offline: each
  * turn's plan (TGPracticePlan: what it plays, at what tempo scale, its passes, the break after it, whether it is the
@@ -34,4 +36,8 @@ public interface TGPracticeCourse {
 
 	// ends it; one that has ended stays ended
 	void end();
+
+	// its steps, which Repeat step and Previous step go back over (interleaved click-up's); none for one whose turns
+	// are not steps (interleaved practice's random choice)
+	Optional<TGPracticeSteps> getSteps();
 }
