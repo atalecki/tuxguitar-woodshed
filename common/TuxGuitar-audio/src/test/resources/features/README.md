@@ -133,6 +133,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
+| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (planned) |
 
 ## How the scenarios run
 
@@ -421,6 +422,31 @@ shows), or `a constant level of <v>`. `<signal> for <duration>, then <signal>` p
 `<signal> on the first pass and <signal> on the second` changes with the pass. "Track N sounds 220, 330 and 440 Hz in
 measures 1 to 3" means each measure sounds its tone, within 1%, and no other above -60 dBFS.
 
+### Practice
+
+- **Interleaved practice**: a session of a number of **turns**. Each turn plays one **unit** chosen from the **pool**,
+  each of its measures once and in score order (repeat signs and alternate endings inside it are not followed), with a
+  Count In before it when Count In is on: the existing Count In, in the time signature and tempo of the unit's first
+  measure at the Percentage of Tempo (Count In ticks set its length as usual). The next turn's Count In (or, with Count
+  In off, its first measure) starts at the end of the turn before, with no gap; after the last turn the player stops by
+  itself. Stop, or an edit to the song, ends the session. Play looped, the Loop Range and Training Mode take no part in a
+  session (the Percentage of Tempo stays where it is) and are as they were afterwards. Every track plays, with its
+  mute and solo as usual; takes fade in at each turn's start as at the start of a loop pass. **The output holds N
+  turns**: N units played. "Turn 2" counts from 1, in the order played.
+- **Unit**: a **measure**, a **line** or a **page**. A line is a fixed group of measures and a page a fixed group of
+  lines, counted from measure 1, set for the session ("lines of 4 measures and pages of 4 lines", 4 and 4 until I
+  change them); the last line or page holds what is left. They do not follow the score's layout (on screen, lines
+  reflow with the window and the zoom, and the Page layout has no pages).
+- **Pool**: the units a session chooses from, a range such as `measures 1 to 16`, `lines 1 to 8`, `pages 1 to 4`.
+- **No consecutive repeats** (on until I turn it off): no unit is chosen for two turns in a row, also across cycles.
+- **Complete cycle before reshuffle** (on until I turn it off): turns go in **cycles**; each cycle chooses every unit
+  of the pool as many times as its weight, in a new random order, before the next cycle starts. Off, each turn chooses
+  at random with chances in proportion to the weights (leaving out the unit before, with No consecutive repeats on).
+- **Difficulty flag**: a measure's weight, 1x (not flagged) to 5x, kept in the song (saved with it, an undoable edit).
+  A line or page weighs as much as its most difficult measure.
+- **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
+  each time; the scenarios on choosing check the rules for every seed in a range and do not play.
+
 ## Out of scope
 
 - Failure handling: a plugin that crashes or hangs, a plugin missing on another machine, an audio device unplugged
@@ -435,3 +461,5 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - Editing takes beyond what the features say (trimming, fades, gain, moving a take by hand).
 - What the channel's Reverb, Chorus, Tremolo and Phaser do on audio tracks and with VST3 instruments.
 - Which native audio library the backend uses.
+- Interleaved practice: how the desktop shows a session (the dialog, the turn counter); hiding the notation while a
+  turn plays; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections).
