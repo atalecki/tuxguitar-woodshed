@@ -49,6 +49,21 @@ public class TGUndoableDifficulty extends TGUndoableEditBase {
 		return (this.doAction == UNDO_ACTION);
 	}
 
+	// the start of the flagged measure
+	public long getPosition() {
+		return this.position;
+	}
+
+	// the flag undo sets the measure back to
+	public int getUndoableDifficulty() {
+		return this.undoableDifficulty;
+	}
+
+	// the flag redo sets the measure to again
+	public int getRedoableDifficulty() {
+		return this.redoableDifficulty;
+	}
+
 	public static TGUndoableDifficulty startUndo(TGContext context, TGMeasureHeader header) {
 		TGUndoableDifficulty undoable = new TGUndoableDifficulty(context);
 		undoable.doAction = UNDO_ACTION;

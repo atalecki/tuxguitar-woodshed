@@ -1,6 +1,8 @@
 package app.tuxguitar.editor.undo;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.util.TGContext;
@@ -12,6 +14,8 @@ public class TGUndoableManager {
 	private static final int LIMIT = 100;
 
 	private TGUndoableBuffer buffer;
+	// told each edit once it is added, undone or redone (null: an action that changed nothing)
+	private final List<Consumer<TGUndoableEdit>> listeners = new CopyOnWriteArrayList<Consumer<TGUndoableEdit>>();
 
 	public TGUndoableManager() {
 		super();
@@ -37,6 +41,7 @@ public class TGUndoableManager {
 			throw new TGCannotUndoException(throwable);
 		}
 		this.decrementIndexOfNextAdd();
+		this.tell(edit);
 	}
 
 	public synchronized void redo(TGActionContext actionContext) throws TGCannotRedoException {
@@ -50,6 +55,7 @@ public class TGUndoableManager {
 			throw new TGCannotRedoException();
 		}
 		this.incrementIndexOfNextAdd();
+		this.tell(edit);
 	}
 
 	public synchronized boolean canUndo() {
@@ -75,6 +81,26 @@ public class TGUndoableManager {
 		this.checkForLimit();
 		this.getBuffer().getEdits().add(this.getBuffer().getIndexOfNextAdd(), anEdit);
 		this.incrementIndexOfNextAdd();
+		this.tell(anEdit);
+	}
+
+	// the listener is told each edit from now on once it is added, undone or redone: the song changed by it
+	public void addListener(Consumer<TGUndoableEdit> listener) {
+		this.listeners.add(listener);
+	}
+
+	private void tell(TGUndoableEdit edit) {
+		this.listeners.forEach(listener -> listener.accept(edit));
+	}
+
+	// the edit undo would undo next; null when there is none
+	public synchronized TGUndoableEdit getEditToBeUndone() {
+		return this.editToBeUndone();
+	}
+
+	// the edit redo would redo next; null when there is none
+	public synchronized TGUndoableEdit getEditToBeRedone() {
+		return this.editToBeRedone();
 	}
 
 	private void checkForUnused() {
