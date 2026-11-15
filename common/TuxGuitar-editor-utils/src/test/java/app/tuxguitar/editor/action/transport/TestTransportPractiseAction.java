@@ -2,12 +2,9 @@ package app.tuxguitar.editor.action.transport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionException;
-import app.tuxguitar.editor.action.SongActionFixture;
-import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
 import app.tuxguitar.practice.TGPracticeSettings;
 
@@ -17,19 +14,7 @@ import app.tuxguitar.practice.TGPracticeSettings;
  * refused with the reason (a TGActionException, the app's error message). The settings of the last start, refused or
  * not, are the ones the dialog shows next (at first measures 1 to 4, 12 turns). The song has 4 measures.
  */
-public class TestTransportPractiseAction {
-
-	private final SongActionFixture fixture = SongActionFixture.onDocument();
-	private final MidiPlayer player = MidiPlayer.getInstance(fixture.context);
-
-	public TestTransportPractiseAction() {
-		fixture.measureCount(4);
-	}
-
-	@AfterEach
-	public void stop() {
-		player.stop();
-	}
+public class TestTransportPractiseAction extends PracticeActionTest {
 
 	private static TGPracticeSettings settings(int from, int to, int turns) {
 		TGPracticeSettings settings = new TGPracticeSettings();
