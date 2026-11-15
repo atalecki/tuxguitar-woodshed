@@ -178,6 +178,11 @@ public final class TGTimeline {
 		return this.firsts[turn];
 	}
 
+	// whether the played measure ends its turn and another turn's measures play after it
+	public boolean endsTurn(int index) {
+		return index + 1 < this.count() && index + 1 == this.firstOf(this.turnOf(index) + 1);
+	}
+
 	public int count() {
 		return this.measures.size();
 	}

@@ -3,9 +3,15 @@ package app.tuxguitar.audio;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.player.base.MidiPlayerCountDown;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
 import app.tuxguitar.song.managers.TGSongManager;
@@ -71,8 +77,14 @@ public class TestGeneralMidiRender {
 
 	// from the start of a measure until a tick is reached
 	private TGRender render(int sampleRate, int fromMeasure, long stop) throws MidiPlayerException {
-		TGAudioSession session = TGAudioSession.getInstance(this.context);
-		session.setDevice(new TGAudioDevice() {
+		device(sampleRate);
+		long start = song.getMeasureHeader(fromMeasure - 1).getStart();
+		return render(new TGTimeline(song, TGSongTime.play(song, new MidiPlayerMode(), start, stop, 1), sampleRate));
+	}
+
+	// a device that delivers silence
+	private void device(int sampleRate) {
+		TGAudioSession.getInstance(this.context).setDevice(new TGAudioDevice() {
 			public int getSampleRate() {
 				return sampleRate;
 			}
@@ -81,10 +93,11 @@ public class TestGeneralMidiRender {
 				return new float[count];
 			}
 		});
-		MidiPlayerMode mode = new MidiPlayerMode();
-		long start = song.getMeasureHeader(fromMeasure - 1).getStart();
-		TGTimeline timeline = new TGTimeline(song, TGSongTime.play(song, mode, start, stop, 1), sampleRate);
-		return new TGRenderer(this.context, this.songManager, this.song, session).render(timeline, mode, false, true);
+	}
+
+	// the song as written, over the timeline
+	private TGRender render(TGTimeline timeline) throws MidiPlayerException {
+		return new TGRenderer(this.context, this.songManager, this.song, TGAudioSession.getInstance(this.context)).render(timeline, new MidiPlayerMode(), false, true);
 	}
 
 	// the frequency from 200 to 1000 Hz with the highest level: the fundamental of a square lead
@@ -240,6 +253,28 @@ public class TestGeneralMidiRender {
 		float[] tap = render(44100).getTap(song.getTrack(0));
 		assertEquals(3 * 88200, tap.length);
 		assertEquals(2 * 88200, firstSound(tap), 512);
+	}
+
+	// measure 1, then measure 2 as another turn, each after a Count In of 4 beats (88200 samples): measure 1's note on
+	// beat 4 ends with the turn, so it is over in measure 2's Count In; measure 2's note sounds from its beat
+	@Test
+	public void aNoteEndingWithATurnStopsThere() throws MidiPlayerException {
+		twoMeasures();
+		note(song.getTrack(0).getMeasure(0), 2880);
+		MidiPlayerCountDown countDown = MidiPlayer.getInstance(context).getCountDown();
+		countDown.setEnabled(true);
+		List<TGTurn> turns = new ArrayList<TGTurn>();
+		for (int measure = 1; measure <= 2; measure++) {
+			long start = song.getMeasureHeader(measure - 1).getStart();
+			List<TGPlayedMeasure> played = TGSongTime.play(song, new MidiPlayerMode(), start, start + song.getMeasureHeader(measure - 1).getLength(), 1);
+			turns.add(new TGTurn(TGCountIn.before(countDown, played, 44100), played));
+		}
+		device(44100);
+		float[] tap = render(TGTimeline.of(song, turns, 44100)).getTap(song.getTrack(0));
+
+		assertTrue(Meters.peak(tap, 176400 - 2000, 176400) > 0.01, "the note sounds to the turn's end");
+		assertTrue(Meters.peak(tap, 176400 + 20000, 264600) < 0.01, "the note is over in the next turn's Count In");
+		assertEquals(264600, firstSound(Arrays.copyOfRange(tap, 176400 + 20000, tap.length)) + 176400 + 20000, 512);
 	}
 
 	// as the player does today, the MIDI sequence leaves out a muted track's notes

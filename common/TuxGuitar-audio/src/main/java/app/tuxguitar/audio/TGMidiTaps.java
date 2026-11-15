@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGMidiProcessorFactory;
@@ -152,7 +153,9 @@ public final class TGMidiTaps {
 
 	// the parser's events, each at the sample of the timeline where its tick plays (none outside it); the events before
 	// where playing starts (the channel settings at the start of the sequence among them) fall before sample 0, so they
-	// go out with the first block, in tick order
+	// go out with the first block, in tick order. A turn that another follows ends its notes where it ends: the notes
+	// ending on its last measure's end go off there, before what follows (the next measure in song order, where they
+	// would go off, does not play next)
 	private static TreeMap<Long, List<Event>> schedule(TGSongManager songManager, TGSong song, MidiPlayerMode mode, TGTimeline timeline) {
 		MidiSequenceParser parser = new MidiSequenceParser(song, songManager, FLAGS);
 		if (mode.isLoop()) {
@@ -167,7 +170,11 @@ public final class TGMidiTaps {
 			TGPlayedMeasure measure = timeline.get(i);
 			long start = measure.getHeader().getStart() + moves.get(measure.getStep());
 			long from = (i == 0 ? Long.MIN_VALUE : start + measure.getFrom());
-			for (Event event : events.between(from, start + measure.getTo())) {
+			List<Event> due = events.between(from, start + measure.getTo());
+			if (timeline.endsTurn(i)) {
+				due.addAll(events.offsAt(start + measure.getTo()));
+			}
+			for (Event event : due) {
 				scheduled.computeIfAbsent(timeline.sampleAt(i, event.tick - start), key -> new ArrayList<Event>()).add(event);
 			}
 		}
@@ -182,11 +189,18 @@ public final class TGMidiTaps {
 		private final long tick;
 		private final int channel;
 		private final Send send;
+		// a note off
+		private final boolean off;
 
 		Event(long tick, int channel, Send send) {
+			this(tick, channel, send, false);
+		}
+
+		Event(long tick, int channel, Send send, boolean off) {
 			this.tick = tick;
 			this.channel = channel;
 			this.send = send;
+			this.off = off;
 		}
 
 		void send(MidiReceiver receiver) throws MidiPlayerException {
@@ -217,8 +231,13 @@ public final class TGMidiTaps {
 			this.events.add(new Event(tick, channel, synth -> synth.sendNoteOn(channel, note, velocity, voice, bendMode)));
 		}
 
+		// the note offs on the tick, in the order they came
+		List<Event> offsAt(long tick) {
+			return this.events.stream().filter(event -> event.off && event.tick == tick).collect(Collectors.toList());
+		}
+
 		public void addNoteOff(long tick, int track, int channel, int note, int velocity, int voice, boolean bendMode) {
-			this.events.add(new Event(tick, channel, synth -> synth.sendNoteOff(channel, note, velocity, voice, bendMode)));
+			this.events.add(new Event(tick, channel, synth -> synth.sendNoteOff(channel, note, velocity, voice, bendMode), true));
 		}
 
 		public void addPitchBend(long tick, int track, int channel, int value, int voice, boolean bendMode) {

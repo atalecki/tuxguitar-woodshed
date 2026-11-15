@@ -152,6 +152,16 @@ public class TestTimeline {
 			read(timeline) + " |" + turns(timeline) + " | " + timeline.start(1) + " " + timeline.end(1));
 	}
 
+	// a turn ends where another turn's measures follow: not inside a turn, not at the last measure
+	@Test
+	public void aMeasureEndsItsTurnWhenAnotherTurnFollows() {
+		TGTimeline twoTurns = measures2And4();
+		TGTimeline oneTurn = fromMeasure2();
+
+		assertEquals("true false | false false false", twoTurns.endsTurn(0) + " " + twoTurns.endsTurn(1) + " | " + oneTurn.endsTurn(0) + " " + oneTurn.endsTurn(1) + " "
+			+ oneTurn.endsTurn(2));
+	}
+
 	// with Count In off, the next turn's first measure starts where the turn before ends
 	@Test
 	public void withoutCountInTheNextTurnStartsWhereTheOneBeforeEnds() {
