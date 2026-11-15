@@ -11,7 +11,9 @@ Feature: Interleaved practice
     Given a new song with one guitar track and 64 measures of 4/4 at 120 bpm
     And I have set the MIDI Port to "TuxGuitar Synthesizer"
     And I have set the audio device to "Test Interface"
-    And track 1 has a quarter note on every beat
+    And the VST3 folders hold the test plugins
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    And track 1 has a note on every beat, MIDI note 35 plus the measure's number
 
   # Units and the pool
 
@@ -19,7 +21,7 @@ Feature: Interleaved practice
     Given I have turned Count In on
     And I have set interleaved practice to <unit>s over <pool>, with lines of 4 measures and pages of 4 lines
     When I practise 6 turns
-    Then each turn plays the measures of one <unit> of <pool>, each once and in order
+    Then each turn sounds the notes of one <unit> of <pool>, each measure once and in order, each within 1 sample of its beat
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
     And the last Count In click of each turn sounds 22050 samples before the turn's first measure, within 1 sample
     And the player has stopped by itself at the end of turn 6
@@ -42,21 +44,31 @@ Feature: Interleaved practice
       | 5        | 3        | 13   | 61        | 64      | 5    | 61        | 64      |
       | 1        | 1        | 64   | 64        | 64      | 64   | 64        | 64      |
 
-  Scenario Outline: settings that cannot make a session are refused, saying why
+  # the weight rule: with "No consecutive repeats" on, the heaviest unit's weight w and a cycle's length L (the weights
+  # added up) allow up to L turns when 2w <= L + 1, and any number when 2w <= L
+  Scenario Outline: a session that cannot be played as set is refused, saying why, and one that can is started
     Given I have flagged measure 1 as <flag> difficult
-    When I start interleaved practice of <unit>s over <pool> for <turns> turns, with lines of <per line> measures and pages of 4 lines
-    Then starting is refused, saying "<reason>"
-    And the player has not started
+    And I have turned interleaved practice's "No consecutive repeats" <repeats rule>
+    When I start interleaved practice of <unit>s over <pool> for <turns> turns, with lines of <per line> measures and pages of <per page> lines
+    Then starting is <outcome>
 
     Examples:
-      | flag | unit    | pool              | turns | per line | reason                                                                  |
-      | 1x   | measure | measures 60 to 70 | 6     | 4        | The pool reaches past the song's 64 measures.                           |
-      | 1x   | line    | lines 9 to 8      | 6     | 4        | The pool is empty.                                                      |
-      | 1x   | page    | pages 1 to 5      | 6     | 4        | The pool reaches past the song's 4 pages.                               |
-      | 1x   | measure | measures 5 to 5   | 6     | 4        | A pool of one measure cannot be practised without repeating it.         |
-      | 5x   | measure | measures 1 to 4   | 6     | 4        | Measure 1 comes up 5 times a cycle, too often to never come twice in a row. |
-      | 1x   | measure | measures 1 to 4   | 0     | 4        | A session needs at least 1 turn.                                        |
-      | 1x   | line    | lines 1 to 2      | 6     | 0        | A line needs at least 1 measure.                                        |
+      | flag | repeats rule | unit    | pool              | turns | per line | per page | outcome                                                                                       |
+      | 1x   | on           | measure | measures 60 to 70 | 6     | 4        | 4        | refused, saying "The pool reaches past the song's 64 measures."                               |
+      | 1x   | on           | measure | measures 1 to 64  | 6     | 4        | 4        | accepted                                                                                      |
+      | 1x   | on           | line    | lines 9 to 8      | 6     | 4        | 4        | refused, saying "The pool is empty."                                                          |
+      | 1x   | on           | page    | pages 1 to 5      | 6     | 4        | 4        | refused, saying "The pool reaches past the song's 4 pages."                                   |
+      | 1x   | on           | page    | pages 1 to 4      | 6     | 4        | 4        | accepted                                                                                      |
+      | 1x   | on           | measure | measures 5 to 5   | 2     | 4        | 4        | refused, saying "Measure 5 would come twice in a row."                                        |
+      | 1x   | on           | measure | measures 5 to 5   | 1     | 4        | 4        | accepted                                                                                      |
+      | 1x   | off          | measure | measures 5 to 5   | 6     | 4        | 4        | accepted                                                                                      |
+      | 3x   | on           | measure | measures 1 to 3   | 5     | 4        | 4        | accepted                                                                                      |
+      | 3x   | on           | measure | measures 1 to 3   | 6     | 4        | 4        | refused, saying "Measure 1 comes up 3 times in a cycle of 5 turns and would come twice in a row." |
+      | 3x   | on           | measure | measures 1 to 4   | 12    | 4        | 4        | accepted                                                                                      |
+      | 5x   | off          | measure | measures 1 to 4   | 6     | 4        | 4        | accepted                                                                                      |
+      | 1x   | on           | measure | measures 1 to 4   | 0     | 4        | 4        | refused, saying "A session needs at least 1 turn."                                            |
+      | 1x   | on           | line    | lines 1 to 2      | 6     | 0        | 4        | refused, saying "A line needs at least 1 measure."                                            |
+      | 1x   | on           | page    | pages 1 to 2      | 6     | 4        | 0        | refused, saying "A page needs at least 1 line."                                               |
 
   # Count In
 
@@ -75,6 +87,14 @@ Feature: Interleaved practice
       | 3/4       | 90  | 100     | 3      | 29400 | 22050   |
       | 6/8       | 120 | 100     | 6      | 11025 | 22050   |
       | 4/4       | 120 | 50      | 4      | 44100 | 44100   |
+
+  Scenario: a line's Count In follows its first measure, not a measure later in the line
+    Given I have turned Count In on
+    And I have set the tempo from measure 10 to the end to 90 bpm
+    And I have set interleaved practice to lines over lines 3 to 4, with lines of 4 measures
+    When I practise 2 turns
+    Then before the turn of line 3 the output holds 4 Count In clicks, 22050 samples apart within 1 sample
+    And before the turn of line 4 the output holds 4 Count In clicks, 29400 samples apart within 1 sample
 
   Scenario: Count In ticks set the length of every turn's Count In
     Given I have turned Count In on with 2 Count In ticks
@@ -103,9 +123,10 @@ Feature: Interleaved practice
 
   Scenario: every cycle visits each unit once, and no unit comes twice in a row, not even from one cycle to the next
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
-    When interleaved practice chooses 12 turns, with every random seed from 1 to 200
+    When interleaved practice chooses 12 turns, with every random seed from 1 to 400
     Then turns 1 to 4, turns 5 to 8 and turns 9 to 12 each choose lines 1 to 4 once each
     And no two turns in a row choose the same line
+    And over the seeds, turns 1 to 4 take each of the 24 orders of lines 1 to 4
 
   Scenario: without "No consecutive repeats", a cycle may start with the unit the cycle before ended with
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
@@ -131,6 +152,14 @@ Feature: Interleaved practice
     Then turns 1 to 36 and turns 37 to 72 each choose measures 12 and 27 three times each and every other measure of the pool once
     And no two turns in a row choose the same measure
 
+  Scenario: a flagged measure is as many times as likely to come first in a cycle as its weight
+    Given I have flagged measure 12 as 3x difficult
+    And I have flagged measure 27 as 3x difficult
+    And I have set interleaved practice to measures over measures 1 to 32
+    When interleaved practice chooses 1 turn, with every random seed from 1 to 72000
+    Then measure 12 is chosen with 6000 of the seeds, within 7%
+    And measure 1 is chosen with 2000 of the seeds, within 12%
+
   Scenario: without cycles or the repeat rule, a flagged measure is chosen as many times as often as its weight
     Given I have flagged measure 12 as 3x difficult
     And I have flagged measure 27 as 3x difficult
@@ -138,12 +167,27 @@ Feature: Interleaved practice
     And I have turned interleaved practice's "Complete cycle before reshuffle" off
     And I have turned interleaved practice's "No consecutive repeats" off
     When interleaved practice chooses 36000 turns, with random seed 1
-    Then measures 12 and 27 are each chosen for 3000 turns, within 5%
-    And every other measure of the pool is chosen for 1000 turns, within 10%
+    Then measures 12 and 27 are each chosen for 3000 turns, within 7%
+    And every other measure of the pool is chosen for 1000 turns, within 15%
+
+  Scenario: flagging a measure during a session changes the turns from the next cycle on
+    Given I have set interleaved practice to measures over measures 1 to 4
+    When interleaved practice chooses 10 turns with random seed 1, while I flag measure 2 as 3x difficult during turn 2
+    Then turns 1 to 4 choose measures 1 to 4 once each
+    And turns 5 to 10 choose measure 2 three times and measures 1, 3 and 4 once each
+    And no two turns in a row choose the same measure
+    And measure 2 is flagged 3x difficult
+
+  Scenario: flagging a measure during a session is refused when the next cycles could not be played
+    Given I have set interleaved practice to measures over measures 1 to 2
+    When interleaved practice chooses 6 turns with random seed 1, while I flag measure 2 as 3x difficult during turn 1
+    Then the flag is refused, saying "Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row."
+    And turns 1 to 6 choose measures 1 and 2 three times each
+    And measure 2 is flagged 1x difficult
 
   Scenario Outline: a line or a page is as difficult as its most difficult measure
-    Given I have flagged measure 11 as 2x difficult
-    And I have flagged measure 12 as 3x difficult
+    Given I have flagged measure 11 as 3x difficult
+    And I have flagged measure 12 as 2x difficult
     When I set interleaved practice to <unit>s over <pool>, with lines of 4 measures and pages of 4 lines
     Then interleaved practice's <unit> <number> weighs <weight>
 
@@ -154,21 +198,24 @@ Feature: Interleaved practice
       | page | pages 1 to 4 | 1      | 3x     |
       | page | pages 1 to 4 | 2      | 1x     |
 
-  Scenario: flagging a measure is an undoable edit
+  Scenario: undoing a flag takes it back
     Given I have flagged measure 12 as 3x difficult
     When I undo
     Then measure 12 is flagged 1x difficult
+
+  Scenario: redoing a flag puts it back
+    Given I have flagged measure 12 as 3x difficult
+    And I have undone it
     When I redo
     Then measure 12 is flagged 3x difficult
 
-  Scenario: flags are saved with the song
+  Scenario: flags are saved with the song, in a file older versions still open
     Given I have flagged measure 12 as 3x difficult
     And I have flagged measure 27 as 5x difficult
     When I save the song as a TuxGuitar file
-    And I have opened it again
-    Then measure 12 is flagged 3x difficult
-    And measure 27 is flagged 5x difficult
-    And measure 13 is flagged 1x difficult
+    Then it is saved as file format 2.0
+    And a reader of file format 2.0 opens it with 64 measures
+    And once I have opened it again, measure 12 is flagged 3x difficult, measure 27 5x and measure 13 1x
 
   Scenario Outline: a measure can be flagged from 1x to 5x difficult, nothing else
     When I flag measure 12 as <flag> difficult
@@ -186,13 +233,13 @@ Feature: Interleaved practice
     Given I have repeated measures 5 to 8 once
     And I have set interleaved practice to lines over lines 2 to 3, with lines of 4 measures
     When I practise 2 turns
-    Then each turn plays the measures of one line of lines 2 to 3, each once and in order
+    Then each turn sounds the notes of one line of lines 2 to 3, each measure once and in order, each within 1 sample of its beat
 
   Scenario: a measure of a second ending plays on its own
     Given I have repeated measure 2 once, with measure 3 as the first ending and measure 4 as the second
     And I have set interleaved practice to measures over measures 3 to 4
     When I practise 2 turns
-    Then each turn plays the measures of one measure of measures 3 to 4, each once and in order
+    Then each turn sounds the notes of one measure of measures 3 to 4, each within 1 sample of its beat
 
   Scenario: TuxGuitar shows each turn's first measure during its Count In, then follows the turn as it sounds
     Given I have turned Count In on
@@ -201,34 +248,64 @@ Feature: Interleaved practice
     Then during each turn's Count In TuxGuitar reports beat 1 of the turn's first measure
     And during each turn TuxGuitar reports each of its beats within 1 sample of the output sounding it
 
-  Scenario: an audio track's take fades in at every turn's start, as at the start of a loop pass
-    Given I have added an audio track recording input channel 1
-    And track 2 has a take of a 440 Hz tone from measure 1 beat 1 to the end of measure 64
+  # a turn's end is a jump in song time: the take fades out before it, and starts at full level after it
+  Scenario: an audio track's take fades out at the end of every turn but the last, and comes back at full level
+    Given I have turned Count In on
+    And I have added an audio track recording input channel 1
+    And track 2 has a take of a constant level of 0.4 from measure 1 beat 1 to the end of measure 64
     And I have set interleaved practice to measures over measures 1 to 8
     When I practise 3 turns
-    Then at the start of each turn the take fades in over 256 samples
+    Then track 2 fades from 0.4 to 0 over the last 256 samples of turns 1 and 2, within 1 sample
+    And track 2's first sample of each turn is 0.4
+
+  Scenario: an effect's tail rings on into the next turn's Count In
+    Given I have turned Count In on
+    And I have added the VST3 effect "Test Echo" to track 1
+    And I have set interleaved practice to measures over measures 1 to 8
+    When I practise 2 turns
+    Then the output holds the echo of turn 1's last note 13230 samples after it, within 1 sample, during turn 2's Count In
+
+  Scenario: the Metronome clicks on every beat of every turn
+    Given I have turned Count In on
+    And I have turned the Metronome on
+    And I have set interleaved practice to measures over measures 1 to 8
+    When I practise 3 turns
+    Then the output holds 12 Metronome clicks, each within 1 sample of a beat of a turn
 
   # The session and the transport
 
-  Scenario: Play looped and Training Mode take no part in a session and are as they were after it
-    Given I have turned Training Mode on from 50% to 100% by 10% over measures 1 to 4
+  Scenario: Play looped and Training Mode take no part in a session, which plays at the Percentage of Tempo they start at
+    Given I have turned Play looped on over measures 1 to 4
+    And I have turned Training Mode on from 50% to 100% by 10% over measures 1 to 4
     And I have set interleaved practice to measures over measures 9 to 12
     When I practise 4 turns
-    Then each turn plays the measures of one measure of measures 9 to 12, each once and in order
-    And the Percentage of Tempo is 50
+    Then each turn sounds the notes of one measure of measures 9 to 12, each within 1 sample of its beat at 50%
+    And every turn lasts 176400 samples, within 1 sample
+    And the player has stopped by itself at the end of turn 4
     And Training Mode is on from 50% to 100% by 10% over measures 1 to 4
 
   Scenario: Stop ends the session
     Given I have turned Count In on
     And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
-    When I practise 6 turns and stop during turn 2
-    Then the output holds 2 turns
+    When I practise 6 turns and stop at turn 2's first measure beat 3
+    Then the output holds 2 turns started
     And interleaved practice has ended
-    When I play the song from measure 1 beat 1 to measure 3 beat 1
-    Then TuxGuitar reports each of the 8 beats within 1 sample of the output sounding it
+
+  Scenario: after a session stopped, Play plays the song as written
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    And I have practised 6 turns and stopped at turn 2's first measure beat 3
+    When I play the song from measure 1 beat 1 to measure 9 beat 1
+    Then TuxGuitar reports each of the 32 beats within 1 sample of the output sounding it
+
+  Scenario: moving the position during a session ends it, and the song plays on from there
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    When I practise 6 turns live, moving the position to measure 40 beat 1 during turn 2
+    Then the player plays on from measure 40 beat 1
+    And interleaved practice has ended
 
   Scenario: editing the song ends the session
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 6 turns live, removing measure 40 during turn 2
-    Then the player has stopped
+    Then the player stopped within 512 samples of the edit, during turn 2
+    And the song has 63 measures
     And interleaved practice has ended

@@ -429,20 +429,28 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   Count In before it when Count In is on: the existing Count In, in the time signature and tempo of the unit's first
   measure at the Percentage of Tempo (Count In ticks set its length as usual). The next turn's Count In (or, with Count
   In off, its first measure) starts at the end of the turn before, with no gap; after the last turn the player stops by
-  itself. Stop, or an edit to the song, ends the session. Play looped, the Loop Range and Training Mode take no part in a
-  session (the Percentage of Tempo stays where it is) and are as they were afterwards. Every track plays, with its
-  mute and solo as usual; takes fade in at each turn's start as at the start of a loop pass. **The output holds N
-  turns**: N units played. "Turn 2" counts from 1, in the order played.
+  itself. A turn's end is a jump in song time: takes fade out before it and start at full level after it (see
+  Crossfade), and effect tails ring on into the next turn as across a loop's jump back. The Metronome clicks on the
+  turns' beats as usual. Stop, moving the position, or an edit to the song ends the session, except flagging a measure
+  (see Difficulty flag). Play looped, the Loop Range and Training Mode take no part in a session: it plays at the
+  Percentage of Tempo in effect when it starts (Training Mode's start percentage with Training Mode on), and they are as
+  they were afterwards. Every track plays, with its mute and solo as usual. **The output holds N turns started**: N
+  turns whose Count In or first measure began. "Turn 2" counts from 1, in the order played.
 - **Unit**: a **measure**, a **line** or a **page**. A line is a fixed group of measures and a page a fixed group of
   lines, counted from measure 1, set for the session ("lines of 4 measures and pages of 4 lines", 4 and 4 until I
   change them); the last line or page holds what is left. They do not follow the score's layout (on screen, lines
   reflow with the window and the zoom, and the Page layout has no pages).
 - **Pool**: the units a session chooses from, a range such as `measures 1 to 16`, `lines 1 to 8`, `pages 1 to 4`.
 - **No consecutive repeats** (on until I turn it off): no unit is chosen for two turns in a row, also across cycles.
+  With it on, a session is refused when its weights cannot keep that rule: with w the heaviest unit's weight and L a
+  cycle's length (the weights added up), a session of up to L turns needs 2w <= L + 1, a longer one 2w <= L.
 - **Complete cycle before reshuffle** (on until I turn it off): turns go in **cycles**; each cycle chooses every unit
   of the pool as many times as its weight, in a new random order, before the next cycle starts. Off, each turn chooses
   at random with chances in proportion to the weights (leaving out the unit before, with No consecutive repeats on).
-- **Difficulty flag**: a measure's weight, 1x (not flagged) to 5x, kept in the song (saved with it, an undoable edit).
+- **Difficulty flag**: a measure's weight, 1x (not flagged) to 5x, kept in the song (saved with it, an undoable edit;
+  a TuxGuitar file stays format 2.0, whose older readers open it and ignore the flags; other file formats drop them).
+  Flagging during a session does not end it: the cycle under way keeps its turns and the next cycles use the new
+  weights; a flag those weights could not play (see No consecutive repeats) is refused, saying why.
   A line or page weighs as much as its most difficult measure.
 - **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
   each time; the scenarios on choosing check the rules for every seed in a range and do not play.
@@ -462,4 +470,4 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - What the channel's Reverb, Chorus, Tremolo and Phaser do on audio tracks and with VST3 instruments.
 - Which native audio library the backend uses.
 - Interleaved practice: how the desktop shows a session (the dialog, the turn counter); hiding the notation while a
-  turn plays; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections).
+  turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections).
