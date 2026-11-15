@@ -98,7 +98,7 @@ public final class TGTimeline {
 		long clock = samples(first.getFrom(), first, sampleRate);
 		for (int index = 0; index < first.getHeader().getNumber() - 1; index++) {
 			TGMeasureHeader header = song.getMeasureHeader(index);
-			clock += TGSampleTime.samples(header.getLength(), TGSampleTime.tempo(header, first.getPercent()), sampleRate);
+			clock += TGSampleTime.samples(header.getLength(), TGSampleTime.tempo(header, first.getScale()), sampleRate);
 		}
 		return clock;
 	}

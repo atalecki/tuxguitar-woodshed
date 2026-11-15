@@ -4,14 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasureHeader;
 
 /**
  * A turn of interleaved practice as MidiSequenceParser makes it (parseTurn): from the turn's tick, its Count In (a click
- * a beat on the Metronome's channel, on the info track, in its first measure's time signature and tempo at the
- * Percentage of Tempo), then the unit's measures, each once in score order whatever repeats and alternate endings say,
- * moved to follow the Count In; the channels' setup only for the sequence's first turn.
+ * a beat on the Metronome's channel, on the info track, in its first measure's time signature and tempo), then the
+ * unit's measures, each once in score order whatever repeats and alternate endings say, moved to follow the Count In,
+ * all at the turn's tempo scale, whatever Percentage of Tempo the parser had; the channels' setup only for the
+ * sequence's first turn.
  *
  * The song (ParserFixture) has 5 measures of 4/4 at 120 bpm, a quarter note on the first beat of each, fret = its
  * number (string 1: key 64 + fret); measure 2 is repeated once, measure 3 its first ending, 4 its second and 5 a third
@@ -45,11 +47,12 @@ public class TestSequenceParserTurn {
 		return new MidiPracticeTurn(song.song.getMeasureHeader(first - 1), song.song.getMeasureHeader(last - 1), start, clicks);
 	}
 
-	// the turn's events (MidiEventRecorder lines) of the kinds given, comma separated
-	private String parsed(MidiPracticeTurn turn, boolean setup, int percent, String... kinds) {
+	// the turn's events (MidiEventRecorder lines) of the kinds given, comma separated, by a parser set to another
+	// Percentage of Tempo (80), which the turn's scale replaces
+	private String parsed(MidiPracticeTurn turn, boolean setup, String... kinds) {
 		MidiSequenceParser parser = new MidiSequenceParser(song.song, song.songManager, MidiSequenceParser.ADD_MIXER_MESSAGES);
 		parser.setMetronomeChannelId(song.metronomeChannelId);
-		parser.setTempoPercent(percent);
+		parser.setTempoPercent(80);
 		MidiEventRecorder recorder = new MidiEventRecorder(song.song.countTracks() + 2);
 		parser.parseTurn(recorder, turn, setup);
 		return String.join(", ", recorder.events(kinds));
@@ -60,43 +63,45 @@ public class TestSequenceParserTurn {
 		long start = 10 * MEASURE;
 		assertEquals("ts 38400 t0 4/4, tempo 38400 t0 500000, on 38400 t0 c9 k37 v95 s-1 b0, on 39360 t0 c9 k37 v95 s-1 b0, ts 40320 t0 4/4, tempo 40320 t0 500000,"
 			+ " on 40320 t1 c1 k66, on 44160 t1 c1 k67, on 48000 t1 c1 k68, on 51840 t1 c1 k69",
-			parsed(turn(2, 5, start, 2), false, 100, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
+			parsed(turn(2, 5, start, 2), false, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
 
 	// a break of 1920 ticks before a Count In of 2: the time signature and tempo from the break's start, the clicks after it
 	@Test
 	public void aTurnAfterABreakTakesItsTempoAtTheBreakAndClicksAfterIt() {
-		MidiPracticeTurn turn = new MidiPracticeTurn(song.song.getMeasureHeader(2), song.song.getMeasureHeader(2), 960, 1920, 2, 2);
+		MidiPracticeTurn turn = new MidiPracticeTurn(song.song.getMeasureHeader(2), song.song.getMeasureHeader(2), 960, 1920, 2, 2, TGTempoScale.percent(100));
 		assertEquals("ts 960 t0 4/4, tempo 960 t0 500000, on 2880 t0 c9 k37 v95 s-1 b0, on 3840 t0 c9 k37 v95 s-1 b0, ts 4800 t0 4/4, tempo 4800 t0 500000, on 4800 t1 c1 k67",
-			parsed(turn, false, 100, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
+			parsed(turn, false, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
 
 	@Test
 	public void aTurnWithoutCountInStartsWithItsFirstMeasure() {
 		assertEquals("on 3840 t1 c1 k67 v95 s1 b0, off 4800 t1 c1 k67 v95 s1 b0",
-			parsed(turn(3, 3, 3840, 0), false, 100, "on", "off"));
+			parsed(turn(3, 3, 3840, 0), false, "on", "off"));
 	}
 
+	// a turn at 50%
 	@Test
-	public void theCountInIsInTheFirstMeasuresTimeSignatureAndTempoAtThePercentage() {
+	public void theCountInIsInTheFirstMeasuresTimeSignatureAndTempoAtTheTurnsScale() {
 		TGMeasureHeader third = song.song.getMeasureHeader(2);
 		third.getTimeSignature().setNumerator(6);
 		third.getTimeSignature().getDenominator().setValue(TGDuration.EIGHTH);
 		third.getTempo().setQuarterValue(90);
 		assertEquals("ts 960 t0 6/8, tempo 960 t0 1333332, on 960 t0 c9 k37 v95 s-1 b0, off 1440 t0 c9 k37 v95 s-1 b0, on 1440 t0 c9 k37 v95 s-1 b0,"
-			+ " off 1920 t0 c9 k37 v95 s-1 b0, ts 1920 t0 6/8, tempo 1920 t0 1333332", parsed(turn(3, 3, 960, 2), false, 50, "ts", "tempo", "on 960", "off 1440", "on 1440", "off 1920"));
+			+ " off 1920 t0 c9 k37 v95 s-1 b0, ts 1920 t0 6/8, tempo 1920 t0 1333332", parsed(new MidiPracticeTurn(third, third, 960, 0, 2, 1, TGTempoScale.percent(50)), false,
+			"ts", "tempo", "on 960", "off 1440", "on 1440", "off 1920"));
 	}
 
 	// as in the song's sequence, a muted track is left out
 	@Test
 	public void aMutedTracksNotesAreLeftOut() {
 		song.track.setMute(true);
-		assertEquals("", parsed(turn(3, 3, 3840, 0), false, 100, "on"));
+		assertEquals("", parsed(turn(3, 3, 3840, 0), false, "on"));
 	}
 
 	@Test
 	public void onlyTheFirstTurnSetsTheChannelsUp() {
 		assertEquals("program 960 t1 c1 25, name 960 t1 track 1 | ",
-			parsed(turn(1, 1, 960, 0), true, 100, "program", "name") + " | " + parsed(turn(1, 1, 960, 0), false, 100, "program", "name", "bend"));
+			parsed(turn(1, 1, 960, 0), true, "program", "name") + " | " + parsed(turn(1, 1, 960, 0), false, "program", "name", "bend"));
 	}
 }

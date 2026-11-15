@@ -10,6 +10,7 @@ import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
 import app.tuxguitar.song.models.TGChannel;
@@ -59,7 +60,8 @@ public class MidiSequenceParser {
 	private int metronomeChannelId;
 	private MidiClick metronomeClick = MidiClick.DEFAULT;
 	private int firstTickMove;
-	private int tempoPercent;
+	// how fast it plays the song: the Percentage of Tempo, or a practice turn's own
+	private TGTempoScale tempoScale;
 	private int transpose;
 	private int sHeader;
 	private int eHeader;
@@ -70,7 +72,7 @@ public class MidiSequenceParser {
 		this.song = song;
 		this.songManager = songManager;
 		this.flags = flags;
-		this.tempoPercent = 100;
+		this.tempoScale = TGTempoScale.percent(100);
 		this.transpose = 0;
 		this.sHeader = -1;
 		this.eHeader = -1;
@@ -117,7 +119,7 @@ public class MidiSequenceParser {
 	}
 
 	public void setTempoPercent(int tempoPercent) {
-		this.tempoPercent = tempoPercent;
+		this.tempoScale = TGTempoScale.percent(tempoPercent);
 	}
 
 	public void setTranspose(int transpose) {
@@ -142,8 +144,10 @@ public class MidiSequenceParser {
 	}
 
 	// a turn of interleaved practice: its Count In, then its measures, each once in score order whatever repeats and
-	// alternate endings say, moved to follow it; the channels set up before it when asked (a sequence's first turn)
+	// alternate endings say, moved to follow it, all at the turn's tempo scale, the parser's from then on; the channels
+	// set up before it when asked (a sequence's first turn)
 	public void parseTurn(MidiSequenceHandler sequence, MidiPracticeTurn turn, boolean setup) {
+		this.tempoScale = turn.getScale();
 		MidiSequenceHelper helper = this.start(sequence);
 		for (int index = turn.getFirst().getNumber() - 1; index < turn.getLast().getNumber(); index++) {
 			helper.addMeasureHelper(new MidiMeasureHelper(index, turn.getMove()));
@@ -552,14 +556,9 @@ public class MidiSequenceParser {
 		}
 	}
 
-	// the microseconds a quarter note lasts at the tempo and the Percentage of Tempo, as the sequence plays it
-	static int usq(TGTempo tempo, int percent) {
-		return (int)(tempo.getInUSQ() * 100.00 / percent);
-	}
-
-	// the tempo, at the Percentage of Tempo, from the tick on
+	// the tempo, at the parser's tempo scale, from the tick on
 	private void addTempo(MidiSequenceHelper sh, TGTempo tempo, long tick) {
-		sh.getSequence().addTempoInUSQ(tick, getInfoTrack(), usq(tempo, this.tempoPercent));
+		sh.getSequence().addTempoInUSQ(tick, getInfoTrack(), this.tempoScale.usq(tempo));
 		if (this.timestampMap.isEmpty()) {
 			this.timestampMap.put(tick, 0l);
 		} else {

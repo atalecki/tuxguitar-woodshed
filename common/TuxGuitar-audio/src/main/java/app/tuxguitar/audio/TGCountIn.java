@@ -14,7 +14,7 @@ import app.tuxguitar.song.models.TGTimeSignature;
 /**
  * Count In: clicks one beat apart before the first measure plays, the first one where playing starts and the last one
  * a beat before the first measure. One per beat of the measure playing starts in (or as many as the Count In ticks
- * set), a beat being the unit of its time signature at its tempo and the first pass's Percentage of Tempo, exactly.
+ * set), a beat being the unit of its time signature at its tempo and the first pass's tempo scale, exactly.
  * Positions are samples from where playing starts. Stopped early, it lasts until the stop and keeps the clicks before
  * it. Immutable.
  */

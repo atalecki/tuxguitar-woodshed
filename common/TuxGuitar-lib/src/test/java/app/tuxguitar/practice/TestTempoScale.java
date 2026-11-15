@@ -2,6 +2,8 @@ package app.tuxguitar.practice;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.function.BiPredicate;
+
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.song.factory.TGFactory;
@@ -10,7 +12,8 @@ import app.tuxguitar.song.models.TGTempo;
 /**
  * A step's tempo is an exact fraction of the written one: p% plays the song at p/100 of it, b bpm at b over the written
  * bpm it is read against. A quarter note then lasts the written microseconds over that fraction, rounded down as the
- * player's sequence rounds the Percentage of Tempo, and is heard as so many bpm, rounded to the nearest.
+ * player's sequence rounds the Percentage of Tempo, and is heard as so many bpm, rounded to the nearest. Unrounded, the
+ * audio's sample time hears it, and the session's schedule reckons so many ticks of it, rounded down at the end.
  */
 public class TestTempoScale {
 
@@ -20,21 +23,58 @@ public class TestTempoScale {
 		return tempo;
 	}
 
-	// the sequence's own formula for a quarter note at the Percentage of Tempo (MidiSequenceParser.usq)
+	// the sequence's own formula for a quarter note at the Percentage of Tempo (MidiSequenceParser.usq, before it read a
+	// scale)
 	private static int sequenceUsq(TGTempo tempo, int percent) {
 		return (int) (tempo.getInUSQ() * 100.00 / percent);
 	}
 
-	@Test
-	public void aPercentLastsAsLongAsThePercentageOfTempoDoesForEveryPercentAndTempo() {
+	// for how many written tempos (1 to 400 bpm) and percents (1 to 1000) a percent scale reads otherwise than the
+	// Percentage of Tempo did
+	private static int differ(BiPredicate<TGTempo, Integer> same) {
 		int differ = 0;
 		for (int bpm = 1; bpm <= 400; bpm++) {
 			TGTempo tempo = tempo(bpm);
 			for (int percent = 1; percent <= 1000; percent++) {
-				differ += (TGTempoScale.percent(percent).usq(tempo) == sequenceUsq(tempo, percent) ? 0 : 1);
+				differ += (same.test(tempo, percent) ? 0 : 1);
 			}
 		}
-		assertEquals(0, differ);
+		return differ;
+	}
+
+	@Test
+	public void aPercentLastsAsLongAsThePercentageOfTempoDoesForEveryPercentAndTempo() {
+		assertEquals(0, differ((tempo, percent) -> TGTempoScale.percent(percent).usq(tempo) == sequenceUsq(tempo, percent)));
+	}
+
+	// the audio's formula (TGSampleTime.tempo, before it read a scale)
+	@Test
+	public void aPercentIsHeardAtTheTempoTimesThePercentageForEveryPercentAndTempo() {
+		assertEquals(0, differ((tempo, percent) -> TGTempoScale.percent(percent).exactBpm(tempo.getQuarterValue()) == tempo.getQuarterValue() * percent / 100.0));
+	}
+
+	// the schedule's formula (TGPracticeSchedule.micros, before it read a scale), for a 4/4 measure and an odd few ticks
+	@Test
+	public void aPercentLastsAsLongAsTheScheduleReckonedForEveryPercentAndTempo() {
+		assertEquals(0, differ((tempo, percent) -> scheduled(3840, tempo, percent) && scheduled(7, tempo, percent)));
+	}
+
+	private static boolean scheduled(long ticks, TGTempo tempo, int percent) {
+		return TGTempoScale.percent(percent).micros(ticks, tempo) == ticks * 60000000L * 100 / (960L * tempo.getQuarterValue() * percent);
+	}
+
+	// 120 at 65% is 78 exactly; 97 at 65% is 63.05; 120 at 90 bpm is 90; 100 at 2/3 is 66.67, not rounded
+	@Test
+	public void aTempoIsHeardExactlyBeforeRounding() {
+		assertEquals("78.0 63.05 90.0 66.66666666666667", TGTempoScale.percent(65).exactBpm(120) + " " + TGTempoScale.percent(65).exactBpm(97) + " "
+			+ TGTempoScale.bpm(90, 120).exactBpm(120) + " " + TGTempoScale.bpm(80, 120).exactBpm(100));
+	}
+
+	// a quarter (960 ticks) at 120 bpm: 1 s at 50%, 666666.67 at 90 bpm; a 4/4 measure at 150%: 1333333.33
+	@Test
+	public void ticksLastTheWrittenTimeOverTheScaleRoundedDownOnce() {
+		assertEquals("1000000 666666 1333333", TGTempoScale.percent(50).micros(960, tempo(120)) + " " + TGTempoScale.bpm(90, 120).micros(960, tempo(120)) + " "
+			+ TGTempoScale.percent(150).micros(3840, tempo(120)));
 	}
 
 	// 500000 microseconds a quarter at 120 bpm

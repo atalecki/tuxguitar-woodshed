@@ -121,8 +121,8 @@ public final class TGPracticeSession {
 	}
 
 	// plans the session's turns as they are chosen, its Count In clicks before a turn whose first measure is the header
-	// as the function says (0: none), at the Percentage of Tempo
-	public TGPracticeSchedule schedule(ToIntFunction<TGMeasureHeader> clicks, int percent) {
-		return new TGPracticeSchedule(this, this.song, clicks, percent);
+	// as the function says (0: none), each turn at the tempo scale
+	public TGPracticeSchedule schedule(ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {
+		return new TGPracticeSchedule(this, this.song, clicks, scale);
 	}
 }

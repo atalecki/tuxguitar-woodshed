@@ -8,6 +8,7 @@ import app.tuxguitar.audio.TGPlayedMeasure;
 import app.tuxguitar.audio.TGRender;
 import app.tuxguitar.audio.TGReportedPositions;
 import app.tuxguitar.audio.TGTimeline;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTrack;
 
@@ -118,16 +119,16 @@ final class Heard {
 		}
 	}
 
-	// a beat that played: where it sounds, how many samples it lasts, at what Percentage of Tempo
+	// a beat that played: where it sounds, how many samples it lasts, at what tempo scale
 	static final class PlayedBeat {
 		final int sample;
 		final int length;
-		final int percent;
+		final TGTempoScale scale;
 
-		PlayedBeat(int sample, int length, int percent) {
+		PlayedBeat(int sample, int length, TGTempoScale scale) {
 			this.sample = sample;
 			this.length = length;
-			this.percent = percent;
+			this.scale = scale;
 		}
 	}
 
@@ -142,7 +143,7 @@ final class Heard {
 				long length = measure.getHeader().getTimeSignature().getDenominator().getTime();
 				int at = index;
 				beats(timeline, index, (sample, tick) -> beats.add(new PlayedBeat(sample.intValue(), (int) (timeline.sampleAt(at, tick - measure.getHeader().getStart() + length) - sample),
-					measure.getPercent())));
+					measure.getScale())));
 			}
 			turns.add(beats);
 		}

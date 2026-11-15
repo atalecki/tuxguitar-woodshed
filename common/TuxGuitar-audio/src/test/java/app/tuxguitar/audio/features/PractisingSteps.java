@@ -20,6 +20,7 @@ import app.tuxguitar.practice.TGPracticeGrouping;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -139,7 +140,7 @@ public class PractisingSteps {
 	static void assertOnTheBeat(List<Note> turn, int percent, String name) {
 		for (Note note : turn) {
 			assertEquals(note.beat.sample, note.start, 1, name + ": " + turn);
-			assertEquals(percent, note.beat.percent, name + "'s Percentage of Tempo");
+			assertEquals(TGTempoScale.percent(percent), note.beat.scale, name + "'s Percentage of Tempo");
 		}
 	}
 

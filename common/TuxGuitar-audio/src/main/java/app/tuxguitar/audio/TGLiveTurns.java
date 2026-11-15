@@ -21,24 +21,24 @@ final class TGLiveTurns {
 	private TGLiveTurns() {
 	}
 
-	// the passes played at the percent, from the timeline's sample 0
-	static TGTimeline timeline(TGSong song, List<MidiPracticeTurn> laid, int percent, int sampleRate) {
+	// the passes played, each at its tempo scale, from the timeline's sample 0
+	static TGTimeline timeline(TGSong song, List<MidiPracticeTurn> laid, int sampleRate) {
 		List<TGTurn> turns = new ArrayList<TGTurn>();
 		for (int index = 0; index < laid.size(); index++) {
-			turns.add(pass(song, laid, index, percent, sampleRate));
+			turns.add(pass(song, laid, index, sampleRate));
 		}
 		return TGTimeline.of(song, turns, sampleRate);
 	}
 
 	// the pass (by index) as a turn of the timeline: one that continues the turn of the pass before it, or one that opens
 	// a turn after its break, as long as the sequence's ticks of it last at its first measure's tempo
-	private static TGTurn pass(TGSong song, List<MidiPracticeTurn> laid, int index, int percent, int sampleRate) {
+	private static TGTurn pass(TGSong song, List<MidiPracticeTurn> laid, int index, int sampleRate) {
 		MidiPracticeTurn played = laid.get(index);
-		TGTurn unit = TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), index, percent, header -> played.getClicks(), sampleRate);
+		TGTurn unit = TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), index, played.getScale(), header -> played.getClicks(), sampleRate);
 		if (index > 0 && laid.get(index - 1).getTurn() == played.getTurn()) {
 			return TGTurn.pass(unit.getCountIn(), unit.getMeasures());
 		}
-		long rest = TGSampleTime.samples(played.getRest(), TGSampleTime.tempo(played.getFirst(), percent), sampleRate);
+		long rest = TGSampleTime.samples(played.getRest(), TGSampleTime.tempo(played.getFirst(), played.getScale()), sampleRate);
 		return TGTurn.afterBreak(rest, unit.getCountIn(), unit.getMeasures());
 	}
 

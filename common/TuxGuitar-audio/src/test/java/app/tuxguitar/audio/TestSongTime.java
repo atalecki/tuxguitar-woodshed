@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGSong;
 
@@ -57,12 +58,14 @@ public class TestSongTime {
 		assertEquals(22050, timeline.sampleAt(0, 2 * QUARTER));
 	}
 
-	// "m<number> step <step>[ jump] pass <pass> <percent>%" for each measure of the unit, numbers first to last
+	// "m<number> step <step>[ jump] pass <pass> <percent>%" for each measure of the unit, numbers first to last, played at
+	// the percent (else its scale, "1/2")
 	private String unit(int first, int last, int turn, int percent) {
 		List<String> measures = new ArrayList<String>();
-		for (TGPlayedMeasure measure : TGSongTime.unit(song, first, last, turn, percent)) {
+		TGTempoScale scale = TGTempoScale.percent(percent);
+		for (TGPlayedMeasure measure : TGSongTime.unit(song, first, last, turn, scale)) {
 			measures.add("m" + measure.getHeader().getNumber() + " " + measure.getFrom() + "-" + measure.getTo() + " step " + measure.getStep()
-				+ (measure.isJump() ? " jump" : "") + " pass " + measure.getPass() + " " + measure.getPercent() + "%");
+				+ (measure.isJump() ? " jump" : "") + " pass " + measure.getPass() + " " + (measure.getScale().equals(scale) ? percent + "%" : measure.getScale()));
 		}
 		return String.join(", ", measures);
 	}

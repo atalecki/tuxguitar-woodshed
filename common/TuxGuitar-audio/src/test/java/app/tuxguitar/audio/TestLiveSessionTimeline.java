@@ -119,15 +119,15 @@ public class TestLiveSessionTimeline {
 
 	// the same pass from its tick, after a break of so many ticks, of the session's turn
 	private static MidiPracticeTurn afterBreak(MidiPracticeTurn pass, long rest, int turn) {
-		return new MidiPracticeTurn(pass.getFirst(), pass.getLast(), pass.getStart(), rest, pass.getClicks(), turn);
+		return new MidiPracticeTurn(pass.getFirst(), pass.getLast(), pass.getStart(), rest, pass.getClicks(), turn, pass.getScale());
 	}
 
 	// turn 1 plays A twice (its second pass without a Count In), then turn 2 B after a break: a pass of the same turn
 	// does not open a practice turn and has no Count In; the first after the break opens one, 44100 samples after it
 	@Test
 	public void aTurnsPassesAfterTheFirstContinueIt() {
-		MidiPracticeTurn again = new MidiPracticeTurn(this.turnA.getFirst(), this.turnA.getLast(), this.turnA.getEnd(), 0, 0, 1);
-		this.laid = Arrays.asList(this.turnA, again, new MidiPracticeTurn(this.turnB.getFirst(), this.turnB.getLast(), again.getEnd(), 1920, 4, 2));
+		MidiPracticeTurn again = new MidiPracticeTurn(this.turnA.getFirst(), this.turnA.getLast(), this.turnA.getEnd(), 0, 0, 1, this.turnA.getScale());
+		this.laid = Arrays.asList(this.turnA, again, new MidiPracticeTurn(this.turnB.getFirst(), this.turnB.getLast(), again.getEnd(), 1920, 4, 2, this.turnB.getScale()));
 		this.follow(0, 512);
 		TGTimeline timeline = this.followed.getTimeline();
 

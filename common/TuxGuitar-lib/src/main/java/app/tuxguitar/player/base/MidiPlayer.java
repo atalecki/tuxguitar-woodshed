@@ -16,6 +16,7 @@ import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnderWay;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
 import app.tuxguitar.song.models.TGChannel;
@@ -193,7 +194,7 @@ public class MidiPlayer{
 		}
 		this.runLocked(() -> {
 			this.stop();
-			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore, this.getMode().getStartPercent());
+			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore, TGTempoScale.percent(this.getMode().getStartPercent()));
 			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getChooser());
 		});
 		this.play();
@@ -553,7 +554,8 @@ public class MidiPlayer{
 
 	// the song into the sequence, at the percent of its tempo, over the selection, else the loop
 	private MidiSequenceParser parse(MidiSequenceHandler sequence, int percent) {
-		MidiSequenceParser midiSequenceParser = this.parser(percent);
+		MidiSequenceParser midiSequenceParser = this.parser();
+		midiSequenceParser.setTempoPercent(percent);
 		if (this.selectionEndBeat!=null) {
 			midiSequenceParser.setSHeader( selectionStartBeat.getMeasure().getNumber() );
 			midiSequenceParser.setEHeader( selectionEndBeat.getMeasure().getNumber() );
@@ -565,10 +567,9 @@ public class MidiPlayer{
 		return midiSequenceParser;
 	}
 
-	// a parser of the song as the player plays it, at the percent of its tempo
-	private MidiSequenceParser parser(int percent) {
+	// a parser of the song as the player plays it
+	private MidiSequenceParser parser() {
 		MidiSequenceParser midiSequenceParser = new MidiSequenceParser(this.getSong(), this.getSongManager(), MidiSequenceParser.DEFAULT_PLAY_FLAGS);
-		midiSequenceParser.setTempoPercent(percent);
 		midiSequenceParser.setMetronomeChannelId(this.getMetronomeChannelId());
 		midiSequenceParser.setMetronomeClick(getClick());
 		return midiSequenceParser;
@@ -745,11 +746,11 @@ public class MidiPlayer{
 		}
 	}
 
-	// the session's first turn (after a pause, the paused one) into a new sequence, at the percent the mode starts at:
-	// the parser of its turns
+	// the session's first turn (after a pause, the paused one) into a new sequence, each turn at its own tempo scale: the
+	// parser of its turns
 	private MidiSequenceParser startPractice() throws MidiPlayerException {
 		MidiSequenceHandler sequence = getSequencer().createSequence(this.sequenceTracks());
-		MidiSequenceParser parser = this.parser(this.practice.getPercent());
+		MidiSequenceParser parser = this.parser();
 		this.practice.play(this.tickPosition, TGDuration.QUARTER_TIME, (turn, setup) -> parser.parseTurn(sequence, turn, setup));
 		return parser;
 	}

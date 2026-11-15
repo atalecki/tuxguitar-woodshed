@@ -1,5 +1,6 @@
 package app.tuxguitar.player.base;
 
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasureHeader;
 
@@ -8,8 +9,8 @@ import app.tuxguitar.song.models.TGMeasureHeader;
  * pass): from its tick, the break before it (silence; only before a turn's first pass, and none before the session's
  * first turn), its Count In (so many clicks, a beat of its first measure's time signature apart; none with Count In off
  * or, but before every pass, in the turn's passes after the first), then its unit's measures, first to last, each once
- * in score order, one after the other. Its break and Count In are at its first measure's tempo. It knows the turn of the
- * session it plays (from 1). Immutable.
+ * in score order, one after the other, all at its tempo scale. Its break and Count In are at its first measure's tempo.
+ * It knows the turn of the session it plays (from 1). Immutable.
  */
 public final class MidiPracticeTurn {
 
@@ -21,27 +22,29 @@ public final class MidiPracticeTurn {
 	private final long rest;
 	private final int clicks;
 	private final int turn;
+	private final TGTempoScale scale;
 
-	// a turn of its own: the session's first, with no break
+	// a turn of its own: the session's first, with no break, at the written tempo
 	public MidiPracticeTurn(TGMeasureHeader first, TGMeasureHeader last, long start, int clicks) {
-		this(first, last, start, 0, clicks, 1);
+		this(first, last, start, 0, clicks, 1, TGTempoScale.percent(100));
 	}
 
-	// a pass of the session's turn, after a break of so many ticks
-	public MidiPracticeTurn(TGMeasureHeader first, TGMeasureHeader last, long start, long rest, int clicks, int turn) {
+	// a pass of the session's turn, after a break of so many ticks, at the tempo scale
+	public MidiPracticeTurn(TGMeasureHeader first, TGMeasureHeader last, long start, long rest, int clicks, int turn, TGTempoScale scale) {
 		this.first = first;
 		this.last = last;
 		this.start = start;
 		this.rest = rest;
 		this.clicks = clicks;
 		this.turn = turn;
+		this.scale = scale;
 	}
 
-	// the first pass of the session's turn, after a break of so many seconds at the Percentage of Tempo (in ticks at its
+	// the first pass of the session's turn, at the tempo scale, after a break of so many seconds at it (in ticks at its
 	// first measure's tempo, to the nearest)
-	static MidiPracticeTurn afterBreak(TGMeasureHeader first, TGMeasureHeader last, long start, int seconds, int percent, int clicks, int turn) {
-		long rest = Math.round(seconds * (double) SECOND * TGDuration.QUARTER_TIME / MidiSequenceParser.usq(first.getTempo(), percent));
-		return new MidiPracticeTurn(first, last, start, rest, clicks, turn);
+	static MidiPracticeTurn afterBreak(TGMeasureHeader first, TGMeasureHeader last, long start, int seconds, TGTempoScale scale, int clicks, int turn) {
+		long rest = Math.round(seconds * (double) SECOND * TGDuration.QUARTER_TIME / scale.usq(first.getTempo()));
+		return new MidiPracticeTurn(first, last, start, rest, clicks, turn, scale);
 	}
 
 	public TGMeasureHeader getFirst() {
@@ -76,6 +79,11 @@ public final class MidiPracticeTurn {
 		return this.turn;
 	}
 
+	// how fast it plays the song
+	public TGTempoScale getScale() {
+		return this.scale;
+	}
+
 	// ticks between two clicks: the unit of its first measure's time signature
 	public long getBeat() {
 		return this.first.getTimeSignature().getDenominator().getTime();
@@ -93,12 +101,12 @@ public final class MidiPracticeTurn {
 
 	// the same pass from another tick
 	public MidiPracticeTurn from(long tick) {
-		return new MidiPracticeTurn(this.first, this.last, tick, this.rest, this.clicks, this.turn);
+		return new MidiPracticeTurn(this.first, this.last, tick, this.rest, this.clicks, this.turn, this.scale);
 	}
 
 	// the same pass played again from the tick after a pause: no break, a Count In of so many clicks
 	MidiPracticeTurn again(long tick, int clicks) {
-		return new MidiPracticeTurn(this.first, this.last, tick, 0, clicks, this.turn);
+		return new MidiPracticeTurn(this.first, this.last, tick, 0, clicks, this.turn, this.scale);
 	}
 
 	// whether the tick is in its break
@@ -111,15 +119,15 @@ public final class MidiPracticeTurn {
 		return Math.max(this.first.getStart(), tick - this.getMove());
 	}
 
-	// the microseconds from the tick to the one given, at the Percentage of Tempo, of what it plays between them: its break
-	// and Count In at its first measure's tempo, each measure at its own
-	long micros(long from, long to, int percent) {
+	// the microseconds from the tick to the one given, at its tempo scale, of what it plays between them: its break and
+	// Count In at its first measure's tempo, each measure at its own
+	long micros(long from, long to) {
 		long measures = this.first.getStart() + this.getMove();
-		long micros = overlap(this.start, measures, from, to) * MidiSequenceParser.usq(this.first.getTempo(), percent);
+		long micros = overlap(this.start, measures, from, to) * this.scale.usq(this.first.getTempo());
 		for (int number = this.first.getNumber(); number <= this.last.getNumber(); number++) {
 			TGMeasureHeader header = this.first.getSong().getMeasureHeader(number - 1);
 			long at = header.getStart() + this.getMove();
-			micros += overlap(at, at + header.getLength(), from, to) * MidiSequenceParser.usq(header.getTempo(), percent);
+			micros += overlap(at, at + header.getLength(), from, to) * this.scale.usq(header.getTempo());
 		}
 		return micros / TGDuration.QUARTER_TIME;
 	}

@@ -14,6 +14,7 @@ import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeTurn;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGMeasureHeader;
@@ -62,7 +63,7 @@ public class TestMidiPractice {
 	// the session as set, at the percent, started from tick 960; each turn added is kept, and written as practice() says
 	private MidiPractice practice(TGPracticeSettings settings, int percent) throws TGPracticeRefusal {
 		session = TGPracticeSession.start(settings, song);
-		MidiPractice practice = new MidiPractice(session.chooser(SEED), song, header -> header.getTimeSignature().getNumerator(), percent);
+		MidiPractice practice = new MidiPractice(session.chooser(SEED), song, header -> header.getTimeSignature().getNumerator(), TGTempoScale.percent(percent));
 		practice.start(960, (turn, setup) -> {
 			passes.add(turn);
 			added.add(turn.getFirst().getNumber() + "-" + turn.getLast().getNumber() + "@" + turn.getStart() + (setup ? " setup" : ""));

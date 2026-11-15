@@ -12,14 +12,15 @@ import app.tuxguitar.practice.TGPracticeSchedule;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnit;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
  * An interleaved practice session as the player plays it live: its turns one after the other in the sequence's ticks,
  * from where it starts, each its passes as the session's schedule plans it (MidiPracticeTurn: the first after the
- * break the turn before planned, each its Count In, if any, then its unit's measures), all at the percent it was
- * started at. A turn is chosen ahead and laid, all its passes, once the turn before it has started (the first one when
+ * break the turn before planned, each its Count In, if any, then its unit's measures), each turn at the tempo scale
+ * its plan gives it. A turn is chosen ahead and laid, all its passes, once the turn before it has started (the first one when
  * the session starts); a turn starts with its break, and the chooser is told then, so a flag set before then counts from
  * its cycle when it opens one; after the turn the schedule plans last the sequence ends.
  */
@@ -31,7 +32,6 @@ final class MidiPractice {
 	private final TGSong song;
 	// the Count In clicks before a turn whose first measure is the header (0: none)
 	private final ToIntFunction<TGMeasureHeader> clicks;
-	private final int percent;
 	// plans each turn chosen; one for the session, so a pause does not count in its time
 	private final TGPracticeSchedule schedule;
 	// the passes in the sequence, from its first
@@ -44,12 +44,12 @@ final class MidiPractice {
 	// adds a pass to the sequence; true for its first
 	private BiConsumer<MidiPracticeTurn, Boolean> sequence;
 
-	MidiPractice(TGPracticeChooser chooser, TGSong song, ToIntFunction<TGMeasureHeader> clicks, int percent) {
+	// the session's turns planned at the tempo scale
+	MidiPractice(TGPracticeChooser chooser, TGSong song, ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {
 		this.chooser = chooser;
 		this.song = song;
 		this.clicks = clicks;
-		this.percent = percent;
-		this.schedule = chooser.getSession().schedule(clicks, percent);
+		this.schedule = chooser.getSession().schedule(clicks, scale);
 	}
 
 	TGPracticeChooser getChooser() {
@@ -58,11 +58,6 @@ final class MidiPractice {
 
 	TGPracticeSession getSession() {
 		return this.chooser.getSession();
-	}
-
-	// the percent of the tempo the session plays at
-	int getPercent() {
-		return this.percent;
 	}
 
 	// the session's first turn, from the tick, into the sequence
@@ -150,9 +145,9 @@ final class MidiPractice {
 			return new TGPracticeTurn(pass.getTurn(), this.getSession().getTurns(), unit);
 		}
 		if (pass.rests(tick)) {
-			return TGPracticeTurn.inBreak(pass.getTurn(), unit, seconds(pass.micros(tick, pass.getCountIn(), this.percent)));
+			return TGPracticeTurn.inBreak(pass.getTurn(), unit, seconds(pass.micros(tick, pass.getCountIn())));
 		}
-		long left = this.turns.stream().filter(laid -> laid.getTurn() == pass.getTurn()).mapToLong(laid -> laid.micros(tick, laid.getEnd(), this.percent)).sum();
+		long left = this.turns.stream().filter(laid -> laid.getTurn() == pass.getTurn()).mapToLong(laid -> laid.micros(tick, laid.getEnd())).sum();
 		return TGPracticeTurn.timed(pass.getTurn(), unit, seconds(left));
 	}
 
@@ -179,9 +174,9 @@ final class MidiPractice {
 		TGMeasureHeader first = this.song.getMeasureHeader(unit.getFirst() - 1);
 		TGMeasureHeader last = this.song.getMeasureHeader(unit.getLast() - 1);
 		int clicks = this.clicks.applyAsInt(first);
-		this.lay(MidiPracticeTurn.afterBreak(first, last, start, rest, this.percent, clicks, this.chosen));
+		this.lay(MidiPracticeTurn.afterBreak(first, last, start, rest, this.plan.getScale(), clicks, this.chosen));
 		for (int pass = 1; pass < this.plan.getPasses(); pass++) {
-			this.lay(new MidiPracticeTurn(first, last, this.last().getEnd(), 0, (this.plan.isCountInEveryPass() ? clicks : 0), this.chosen));
+			this.lay(new MidiPracticeTurn(first, last, this.last().getEnd(), 0, (this.plan.isCountInEveryPass() ? clicks : 0), this.chosen, this.plan.getScale()));
 		}
 		this.publish();
 	}

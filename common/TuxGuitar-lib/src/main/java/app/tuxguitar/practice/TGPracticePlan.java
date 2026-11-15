@@ -1,22 +1,28 @@
 package app.tuxguitar.practice;
 
 /**
- * A turn as its session's schedule plans it: how many passes of its unit it plays, whether a Count In comes before
+ * A turn as its session's schedule plans it: the tempo scale it plays at, how many passes of its unit it plays, whether a Count In comes before
  * every pass or only the first (when Count In is on), and whether it is the session's last turn or, if not, how many
  * seconds of break come before the next. Immutable.
  */
 public final class TGPracticePlan {
 
+	private final TGTempoScale scale;
 	private final int passes;
 	private final boolean countInEveryPass;
 	private final int breakSeconds;
 	private final boolean last;
 
-	TGPracticePlan(int passes, boolean countInEveryPass, int breakSeconds, boolean last) {
+	TGPracticePlan(TGTempoScale scale, int passes, boolean countInEveryPass, int breakSeconds, boolean last) {
+		this.scale = scale;
 		this.passes = passes;
 		this.countInEveryPass = countInEveryPass;
 		this.breakSeconds = breakSeconds;
 		this.last = last;
+	}
+
+	public TGTempoScale getScale() {
+		return this.scale;
 	}
 
 	public int getPasses() {

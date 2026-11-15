@@ -135,11 +135,11 @@ final class TGLiveTimeline {
 		}
 	}
 
-	// the session's turns, at the percent it starts at (as the player lays them)
+	// the session's turns, each at its tempo scale (as the player lays them)
 	private void lay(List<MidiPracticeTurn> now) {
 		this.turns = now;
 		TGSong song = TGDocumentManager.getInstance(this.context).getSong();
-		this.timeline = TGLiveTurns.timeline(song, now, this.mode.getStartPercent(), this.sampleRate);
+		this.timeline = TGLiveTurns.timeline(song, now, this.sampleRate);
 	}
 
 	// the song's, the next pass's or a new one's; keeping the pass that ended, it holds that pass first (a foreseen next
