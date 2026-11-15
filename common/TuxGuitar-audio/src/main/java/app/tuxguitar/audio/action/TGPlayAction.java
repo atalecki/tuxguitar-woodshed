@@ -14,6 +14,7 @@ import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
+import app.tuxguitar.player.base.MidiPlayerMode;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
@@ -35,33 +36,57 @@ public class TGPlayAction extends TGActionBase {
 	public static final String ATTRIBUTE_RENDER = "render";
 
 	public TGPlayAction(TGContext context) {
-		super(context, NAME);
+		this(context, NAME);
+	}
+
+	protected TGPlayAction(TGContext context, String name) {
+		super(context, name);
 	}
 
 	protected void processAction(TGActionContext context) {
-		TGRender render = play(getContext(), context, getSongManager(context), false);
+		TGRender render = render(getContext(), context, getSongManager(context), this.timeline(context), this.mode(), false);
 		TGSong song = context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG);
 		TGAudioSession.getInstance(getContext()).meterPlayed(getSongManager(context), song, render.getTimeline(), render.getLatency());
 		context.setAttribute(ATTRIBUTE_RENDER, render);
 		context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
 	}
 
+	// what plays, before the stop sample: the song in song time from the context's positions
+	protected TGTimeline timeline(TGActionContext context) {
+		return songTime(getContext(), context);
+	}
+
+	// the Play Mode the MIDI sequence parser plays the song in
+	protected MidiPlayerMode mode() {
+		return MidiPlayer.getInstance(getContext()).getMode();
+	}
+
 	// what playing (or recording) from the context's positions sounds
 	static TGRender play(TGContext context, TGActionContext actionContext, TGSongManager songManager, boolean recording) {
+		return render(context, actionContext, songManager, songTime(context, actionContext), MidiPlayer.getInstance(context).getMode(), recording);
+	}
+
+	// from the start position until the stop position is reached in the last pass, after the Count In when it is on
+	private static TGTimeline songTime(TGContext context, TGActionContext actionContext) {
 		TGSong song = actionContext.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG);
-		TGAudioSession session = TGAudioSession.getInstance(context);
 		MidiPlayer player = MidiPlayer.getInstance(context);
 		Long start = actionContext.getAttribute(ATTRIBUTE_START);
 		Long stop = actionContext.getAttribute(ATTRIBUTE_STOP);
 		Integer passes = actionContext.getAttribute(ATTRIBUTE_PASSES);
-		Long stopSample = actionContext.getAttribute(ATTRIBUTE_STOP_SAMPLE);
-		int sampleRate = session.getDevice().getSampleRate();
+		int sampleRate = TGAudioSession.getInstance(context).getDevice().getSampleRate();
 		List<TGPlayedMeasure> played = TGSongTime.play(song, player.getMode(), start, stop, passes);
-		TGCountIn countIn = TGCountIn.before(player.getCountDown(), played, sampleRate);
-		TGTimeline timeline = new TGTimeline(song, played, sampleRate, countIn).until(stopSample != null ? stopSample : Long.MAX_VALUE);
+		return new TGTimeline(song, played, sampleRate, TGCountIn.before(player.getCountDown(), played, sampleRate));
+	}
+
+	// what the timeline sounds up to the context's stop sample, its song played in the Play Mode
+	private static TGRender render(TGContext context, TGActionContext actionContext, TGSongManager songManager, TGTimeline timeline, MidiPlayerMode mode, boolean recording) {
+		TGSong song = actionContext.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG);
+		TGAudioSession session = TGAudioSession.getInstance(context);
+		Long stopSample = actionContext.getAttribute(ATTRIBUTE_STOP_SAMPLE);
 		TGRenderer renderer = new TGRenderer(context, songManager, song, session);
 		try {
-			return renderer.render(timeline, player.getMode(), recording, player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY));
+			return renderer.render(timeline.until(stopSample != null ? stopSample : Long.MAX_VALUE), mode, recording,
+				MidiPlayer.getInstance(context).isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY));
 		} catch (MidiPlayerException e) {
 			throw new IllegalStateException(e);
 		}

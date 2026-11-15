@@ -56,4 +56,40 @@ public class TestSongTime {
 
 		assertEquals(22050, timeline.sampleAt(0, 2 * QUARTER));
 	}
+
+	// "m<number> step <step>[ jump] pass <pass> <percent>%" for each measure of the unit, numbers first to last
+	private String unit(int first, int last, int turn, int percent) {
+		List<String> measures = new ArrayList<String>();
+		for (TGPlayedMeasure measure : TGSongTime.unit(song, first, last, turn, percent)) {
+			measures.add("m" + measure.getHeader().getNumber() + " " + measure.getFrom() + "-" + measure.getTo() + " step " + measure.getStep()
+				+ (measure.isJump() ? " jump" : "") + " pass " + measure.getPass() + " " + measure.getPercent() + "%");
+		}
+		return String.join(", ", measures);
+	}
+
+	// measures 1 and 2 repeated once (the song plays 1 2 1 2 3 4): a unit plays each of its measures once, whole, in score
+	// order, each where the song first plays it; in a turn after the first it starts a stretch, its turn is its pass
+	@Test
+	public void aUnitPlaysEachMeasureOnceInScoreOrder() {
+		song.getMeasureHeader(0).setRepeatOpen(true);
+		song.getMeasureHeader(1).setRepeatClose(1);
+
+		assertEquals("m1 0-3840 step 0 pass 0 100%, m2 0-3840 step 1 pass 0 100%, m3 0-3840 step 4 pass 0 100% | m2 0-3840 step 1 jump pass 3 50%",
+			unit(1, 3, 0, 100) + " | " + unit(2, 2, 3, 50));
+	}
+
+	// measure 2 repeated once with measure 3 as the first ending and measure 4 as the second (the song plays 1 2 3 2 4):
+	// the second ending plays where the second pass reaches it; an ending no pass reaches (a third) is never played, so
+	// a unit leaves it out
+	@Test
+	public void anAlternateEndingPlaysWhereItsPassReachesIt() {
+		song.getMeasureHeader(1).setRepeatOpen(true);
+		song.getMeasureHeader(2).setRepeatClose(1);
+		song.getMeasureHeader(2).setRepeatAlternative(1);
+		song.getMeasureHeader(3).setRepeatAlternative(2);
+		String endings = unit(3, 4, 0, 100);
+		song.getMeasureHeader(3).setRepeatAlternative(4);
+
+		assertEquals("m3 0-3840 step 2 pass 0 100%, m4 0-3840 step 4 pass 0 100% | m3 0-3840 step 2 pass 0 100%", endings + " | " + unit(3, 4, 0, 100));
+	}
 }
