@@ -53,7 +53,7 @@ public class MidiPlayerCountDown {
 
 		int tickIndex = 0;
 
-		int localTickCount = (this.tickCount != 0) ? this.tickCount : header.getTimeSignature().getNumerator();
+		int localTickCount = this.clicksBefore(header);
 		MidiClick click = this.player.getClick();
 		while( this.isRunning() && tickIndex <= localTickCount ){
 			if( tickStart <= this.currentTime() ){
@@ -67,6 +67,15 @@ public class MidiPlayerCountDown {
 			}
 			this.pause( 10 );
 		}
+	}
+
+	// how many clicks a Count In before the header's measure has: one per beat of its time signature, or as many as the
+	// tick count set; none with Count In off
+	public int clicksBefore(TGMeasureHeader header) {
+		if( !this.enabled ){
+			return 0;
+		}
+		return (this.tickCount != 0 ? this.tickCount : header.getTimeSignature().getNumerator());
 	}
 
 	// the clock the ticks are timed by, in ms

@@ -55,6 +55,14 @@ public class MidiPlayerMode{
 		}
 	}
 
+	// the percent it starts playing at: Training Mode's start percent, not one it has raised to
+	public int getStartPercent(){
+		MidiPlayerMode start = new MidiPlayerMode();
+		start.copyFrom(this);
+		start.reset();
+		return start.getCurrentPercent();
+	}
+
 	public int getCurrentPercent(){
 		return this.currentPercent;
 	}

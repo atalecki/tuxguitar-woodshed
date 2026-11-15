@@ -10,6 +10,8 @@ import java.util.function.Supplier;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.event.TGEventManager;
+import app.tuxguitar.practice.TGPracticeSession;
+import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
 import app.tuxguitar.song.models.TGChannel;
@@ -73,6 +75,8 @@ public class MidiPlayer{
 	// given to it, parsed at the percent the mode plays it at, until it starts
 	private int passes;
 	private MidiSequenceParser nextPass;
+	// the interleaved practice session playing (null: the song plays)
+	private MidiPractice practice;
 	protected TGLock lock;
 
 	private MidiPlayer(TGContext context) {
@@ -163,6 +167,7 @@ public class MidiPlayer{
 			this.setPaused(paused);
 			this.stopSequencer();
 			this.setRunning(false);
+			this.endPractice();
 		} finally {
 			this.unlock();
 		}
@@ -174,6 +179,25 @@ public class MidiPlayer{
 
 	public void pause(){
 		this.runLocked(() -> this.stop(true));
+	}
+
+	// plays the session from its first turn, its turns chosen from the seed (see MidiPractice), at the percent the mode
+	// starts at; Play looped and the selection take no part. Stop, moving the position and the session ending end it
+	public void practise(TGPracticeSession session, long seed) throws MidiPlayerException {
+		this.runLocked(() -> {
+			this.stop();
+			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore);
+			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getChooser());
+		});
+		this.play();
+	}
+
+	// the session playing ends (it stays ended); the song plays from now on
+	private void endPractice() {
+		if( this.practice != null ){
+			this.practice.getSession().end();
+			this.practice = null;
+		}
 	}
 
 	public synchronized void play() throws MidiPlayerException{
@@ -257,8 +281,9 @@ public class MidiPlayer{
 		}
 	}
 
+	// a session's turns each have their Count In in the sequence
 	private void playCountDown() {
-		if( this.getCountDown().isEnabled() ){
+		if( this.getCountDown().isEnabled() && this.practice == null ){
 			this.notifyCountDownStarted();
 			this.getCountDown().start();
 			this.notifyCountDownStopped();
@@ -309,6 +334,7 @@ public class MidiPlayer{
 					}
 					this.tickPosition = getSequencer().getTickPosition();
 					loopsItself = this.followLoop();
+					this.followPractice();
 				} finally {
 					this.unlock();
 				}
@@ -337,6 +363,16 @@ public class MidiPlayer{
 			this.nextPass = this.parse(this.getSequencer().createNextPass(this.sequenceTracks()), this.nextPercent());
 		}
 		return itself;
+	}
+
+	// a session that ended stops the player (an edit ends it); else its next turn is added once the one before has
+	// started
+	private void followPractice() throws MidiPlayerException {
+		if( this.practice != null && this.practice.getSession().isEnded() ){
+			this.stop();
+		} else if( this.practice != null ){
+			this.practice.follow(this.getSequencer().getScheduledTickPosition());
+		}
 	}
 
 	// the tracks of the sequence the song plays as: the song's, then the info track and the Metronome's (the last)
@@ -380,7 +416,7 @@ public class MidiPlayer{
 	}
 
 	private boolean loopsAtTheEnd() {
-		return this.getMode().isLoop() && (this.selectionEndBeat==null);
+		return this.getMode().isLoop() && (this.selectionEndBeat==null) && this.practice == null;
 	}
 
 	public void runPlayEndProcess() {
@@ -472,8 +508,7 @@ public class MidiPlayer{
 
 	// the song into the sequence, at the percent of its tempo, over the selection, else the loop
 	private MidiSequenceParser parse(MidiSequenceHandler sequence, int percent) {
-		MidiSequenceParser midiSequenceParser = new MidiSequenceParser(this.getSong(), this.getSongManager(), MidiSequenceParser.DEFAULT_PLAY_FLAGS);
-		midiSequenceParser.setTempoPercent(percent);
+		MidiSequenceParser midiSequenceParser = this.parser(percent);
 		if (this.selectionEndBeat!=null) {
 			midiSequenceParser.setSHeader( selectionStartBeat.getMeasure().getNumber() );
 			midiSequenceParser.setEHeader( selectionEndBeat.getMeasure().getNumber() );
@@ -481,9 +516,16 @@ public class MidiPlayer{
 			midiSequenceParser.setSHeader( getLoopSHeader() );
 			midiSequenceParser.setEHeader( getLoopEHeader() );
 		}
+		midiSequenceParser.parse(sequence);
+		return midiSequenceParser;
+	}
+
+	// a parser of the song as the player plays it, at the percent of its tempo
+	private MidiSequenceParser parser(int percent) {
+		MidiSequenceParser midiSequenceParser = new MidiSequenceParser(this.getSong(), this.getSongManager(), MidiSequenceParser.DEFAULT_PLAY_FLAGS);
+		midiSequenceParser.setTempoPercent(percent);
 		midiSequenceParser.setMetronomeChannelId(this.getMetronomeChannelId());
 		midiSequenceParser.setMetronomeClick(getClick());
-		midiSequenceParser.parse(sequence);
 		return midiSequenceParser;
 	}
 
@@ -552,19 +594,39 @@ public class MidiPlayer{
 		this.runLocked(() -> this.changeTickPosition = changeTickPosition);
 	}
 
+	// moving the position during a session ends it: the song plays on from there
 	public void setTickPosition(long position) {
 		try {
 			this.lock();
 
 			this.tickPosition = position;
 			this.setChangeTickPosition(true);
+			if( this.practice != null ){
+				this.leavePractice();
+			}
+		} catch (MidiPlayerException e) {
+			e.printStackTrace();
 		} finally {
 			this.unlock();
 		}
 	}
 
+	// the session ends; playing, the sequencer starts again on the song's sequence, from the new position
+	private void leavePractice() throws MidiPlayerException {
+		this.endPractice();
+		if( this.isRunning() ){
+			this.stopSequencer();
+			this.updateLoop(true);
+			this.addSequence();
+			this.updateTracks();
+			this.setMetronomeEnabled(isMetronomeEnabled());
+			this.startSequencer();
+		}
+	}
+
+	// in a session, the song's tick the sequence plays (see MidiPractice.songTick)
 	public long getTickPosition() {
-		return this.readLocked(() -> this.tickPosition);
+		return this.readLocked(() -> (this.practice != null ? this.practice.songTick(this.tickPosition) : this.tickPosition));
 	}
 
 	public TGTempo getCurrentTempo() {
@@ -612,6 +674,9 @@ public class MidiPlayer{
 
 	// the first measure of a selection made since the last move (once), else the position, but not before the loop start
 	private long findPlayPosition() {
+		if( this.practice != null ){
+			return this.practice.getStart();
+		}
 		if( this.isNewSelection && this.hasSelection() ){
 			this.isNewSelection = false;
 			return this.selectionStartBeat.getMeasure().getStart();
@@ -623,7 +688,7 @@ public class MidiPlayer{
 		try{
 			this.lock();
 
-			MidiSequenceParser midiSequenceParser = this.parse(getSequencer().createSequence(this.sequenceTracks()), getMode().getCurrentPercent());
+			MidiSequenceParser midiSequenceParser = (this.practice != null ? this.startPractice() : this.parse(getSequencer().createSequence(this.sequenceTracks()), getMode().getCurrentPercent()));
 			this.tempoMap = midiSequenceParser.getTempoMap();
 			this.timestampMap = midiSequenceParser.getTimestampMap();
 			this.infoTrack = midiSequenceParser.getInfoTrack();
@@ -633,6 +698,14 @@ public class MidiPlayer{
 		} finally {
 			this.unlock();
 		}
+	}
+
+	// the session's first turn into a new sequence, at the percent the mode starts at: the parser of its turns
+	private MidiSequenceParser startPractice() throws MidiPlayerException {
+		MidiSequenceHandler sequence = getSequencer().createSequence(this.sequenceTracks());
+		MidiSequenceParser parser = this.parser(getMode().getStartPercent());
+		this.practice.start(TGDuration.QUARTER_TIME, (turn, setup) -> parser.parseTurn(sequence, turn, setup));
+		return parser;
 	}
 
 	public void resetChannels() {

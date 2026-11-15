@@ -26,6 +26,11 @@ public final class TGPracticeChooser {
 		this.cycle = new int[session.getPool().size()];
 	}
 
+	// the session whose turns it chooses
+	public TGPracticeSession getSession() {
+		return this.session;
+	}
+
 	// the unit of the next turn
 	public TGPracticeUnit next() {
 		int unit = (this.session.isCompleteCycle() ? this.nextInTheCycle() : this.draw(this.chancesOnTheirOwn()));
