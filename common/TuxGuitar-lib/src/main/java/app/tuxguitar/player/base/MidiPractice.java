@@ -3,11 +3,14 @@ package app.tuxguitar.player.base;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.ToIntBiFunction;
 import java.util.function.ToIntFunction;
 
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
+import app.tuxguitar.practice.TGPracticeSteps;
 import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -18,7 +21,8 @@ import app.tuxguitar.song.models.TGSong;
  * before planned, each its Count In, if any, then the measures its plan plays), each at the tempo scale its plan gives
  * it. A turn is planned ahead and laid, all its passes, once the turn before it has started (the first one when the
  * session starts); a turn starts with its break, and the course is told then (random practice: so a flag set before
- * then counts from its cycle when it opens one); after the turn planned last the sequence ends.
+ * then counts from its cycle when it opens one); after the turn planned last the sequence ends. A course with steps
+ * (interleaved click-up's) can go back to one (replay), which then plays from its Count In.
  */
 final class MidiPractice {
 
@@ -156,8 +160,14 @@ final class MidiPractice {
 		return this.plans.get(this.plans.size() - 1);
 	}
 
-	// the next turn, as the course plans it, from the tick: its passes, the first after the break the turn before planned
+	// the next turn, as the course plans it, laid from the tick
 	private void add(long start) {
+		this.plan(start).forEach(this::lay);
+		this.publish();
+	}
+
+	// the next turn, as the course plans it, from the tick: its passes, the first after the break the turn before planned
+	private List<MidiPracticeTurn> plan(long start) {
 		int rest = (this.plans.isEmpty() ? 0 : this.lastPlan().getBreakSeconds());
 		TGPracticePlan plan = this.course.ahead();
 		this.plans.add(plan);
@@ -165,11 +175,29 @@ final class MidiPractice {
 		TGMeasureHeader first = this.song.getMeasureHeader(plan.getFirstMeasure() - 1);
 		TGMeasureHeader last = this.song.getMeasureHeader(plan.getLastMeasure() - 1);
 		int clicks = this.clicks.applyAsInt(first);
-		this.lay(MidiPracticeTurn.afterBreak(first, last, start, rest, plan.getScale(), clicks, turn));
+		List<MidiPracticeTurn> passes = new ArrayList<MidiPracticeTurn>();
+		passes.add(MidiPracticeTurn.afterBreak(first, last, start, rest, plan.getScale(), clicks, turn));
 		for (int pass = 1; pass < plan.getPasses(); pass++) {
-			this.lay(new MidiPracticeTurn(first, last, this.last().getEnd(), 0, (plan.isCountInEveryPass() ? clicks : 0), turn, plan.getScale()));
+			passes.add(new MidiPracticeTurn(first, last, passes.get(pass - 1).getEnd(), 0, (plan.isCountInEveryPass() ? clicks : 0), turn, plan.getScale()));
 		}
-		this.publish();
+		return passes;
+	}
+
+	// Repeat step or Previous step during the turn the tick is in: the course's steps choose a step, whose passes take
+	// the place of those laid, its first from the tick, so that play() plays it again from its Count In, as after a
+	// pause (without a break), then the steps after it; the plans from its turn on are dropped (a course's turns are its steps). False,
+	// and nothing changes, when the course has no steps
+	boolean replay(long tick, ToIntBiFunction<TGPracticeSteps, Integer> choice) {
+		Optional<TGPracticeSteps> steps = this.course.getSteps();
+		steps.ifPresent(chosen -> this.replay(tick, choice.applyAsInt(chosen, this.turnAt(tick))));
+		return steps.isPresent();
+	}
+
+	private void replay(long tick, int step) {
+		this.plans.subList(step - 1, this.plans.size()).clear();
+		List<MidiPracticeTurn> passes = this.plan(tick);
+		this.turns.clear();
+		this.turns.addAll(passes);
 	}
 
 	private void lay(MidiPracticeTurn turn) {

@@ -1,8 +1,11 @@
 package app.tuxguitar.practice;
 
+import java.util.Optional;
+
 /**
  * A turn of an interleaved practice session as the app shows it: its number in the session (from 1) and the units its
- * plan plays, from one to another (their kind and numbers; the same unit, when it plays one); without the interval clock, the session's number of turns; with it (timed), whether it is
+ * plan plays, from one to another (their kind and numbers; the same unit, when it plays one), and the interleaved
+ * click-up step it plays, if any; without the interval clock, the session's number of turns; with it (timed), whether it is
  * the break before the turn, and the seconds left to the turn's end or in the break, rounded up. The app words it in its
  * own language. Immutable.
  */
@@ -17,6 +20,7 @@ public final class TGPracticeTurn {
 	private final TGPracticeUnit to;
 	private final boolean inBreak;
 	private final int secondsLeft;
+	private final Optional<TGClickUpStep> step;
 
 	// a turn of a session of so many turns, as planned
 	public TGPracticeTurn(int turn, int turns, TGPracticePlan plan) {
@@ -30,6 +34,7 @@ public final class TGPracticeTurn {
 		this.to = plan.getTo();
 		this.inBreak = inBreak;
 		this.secondsLeft = secondsLeft;
+		this.step = plan.getStep();
 	}
 
 	// a turn of a timed session, as planned, so many seconds before its end
@@ -74,5 +79,10 @@ public final class TGPracticeTurn {
 	// the seconds left to the turn's end, or in the break before it, rounded up (timed only; else 0)
 	public int getSecondsLeft() {
 		return this.secondsLeft;
+	}
+
+	// the interleaved click-up step it plays (the app shows its tempo); none for interleaved practice's turns
+	public Optional<TGClickUpStep> getStep() {
+		return this.step;
 	}
 }

@@ -8,13 +8,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Supplier;
-import java.util.function.ToIntFunction;
+import java.util.function.ToIntBiFunction;
 
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.event.TGEventManager;
+import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
+import app.tuxguitar.practice.TGPracticeSteps;
 import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.practice.TGTempoScale;
@@ -184,10 +186,16 @@ public class MidiPlayer{
 	}
 
 	// plays the session from its first turn, its turns chosen from the seed (see MidiPractice), at the percent the mode
-	// starts at; Play looped and the selection take no part. Stop, moving the position and the session ending end it;
-	// Pause keeps it, and Play then plays the paused turn again from its Count In. A sequencer that cannot take the turns
-	// added while it plays refuses it, before anything changes
+	// starts at (see practise(TGPracticeCourse))
 	public void practise(TGPracticeSession session, long seed) throws MidiPlayerException, TGPracticeRefusal {
+		this.practise(session.course(seed, this.getCountDown()::clicksBefore, TGTempoScale.percent(this.getMode().getStartPercent())));
+	}
+
+	// plays the course from its first turn, each turn at its own tempo scale (see MidiPractice); Play looped and the
+	// selection take no part. Stop, moving the position and the course ending end it; Pause keeps it, and Play then
+	// plays the paused turn again from its Count In. A sequencer that cannot take the turns added while it plays refuses
+	// it, before anything changes
+	public void practise(TGPracticeCourse course) throws MidiPlayerException, TGPracticeRefusal {
 		MidiSequencer sequencer = this.getSequencer();
 		if( !sequencer.takesEventsWhilePlaying() ){
 			throw new TGPracticeRefusal("Interleaved practice needs a sequencer that takes turns added while it plays, and \"" + sequencer.getName()
@@ -195,11 +203,43 @@ public class MidiPlayer{
 		}
 		this.runLocked(() -> {
 			this.stop();
-			ToIntFunction<TGMeasureHeader> clicks = this.getCountDown()::clicksBefore;
-			this.practice = new MidiPractice(session.course(seed, clicks, TGTempoScale.percent(this.getMode().getStartPercent())), this.getSong(), clicks);
-			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getCourse());
+			this.practice = new MidiPractice(course, this.getSong(), this.getCountDown()::clicksBefore);
+			TGPracticeUnderWay.getInstance(this.context).begin(course);
 		});
 		this.play();
+	}
+
+	// whether the session held has steps to go back over (Repeat step, Previous step): interleaved click-up's, playing
+	// or paused
+	public boolean hasSteps() {
+		return this.readLocked(() -> this.isPractising() && this.practice.getCourse().getSteps().isPresent());
+	}
+
+	// Repeat step: the step under way plays again at once from its Count In (paused: Play plays it so), then the steps
+	// after it; without steps to go back over, nothing changes
+	public void repeatStep() throws MidiPlayerException {
+		this.goBack(TGPracticeSteps::repeat);
+	}
+
+	// Previous step: the step before the one under way (during the first, the first) plays at once from its Count In
+	// (paused: Play plays it so), then the steps after it; without steps to go back over, nothing changes
+	public void previousStep() throws MidiPlayerException {
+		this.goBack(TGPracticeSteps::previous);
+	}
+
+	// the step the course's steps choose during the turn under way takes its place (see MidiPractice.replay); playing,
+	// the sequencer starts again on it at once
+	private void goBack(ToIntBiFunction<TGPracticeSteps, Integer> choice) throws MidiPlayerException {
+		try {
+			this.lock();
+
+			if( this.isPractising() && this.practice.replay(this.tickPosition, choice) ){
+				this.setChangeTickPosition(true);
+				this.relay();
+			}
+		} finally {
+			this.unlock();
+		}
 	}
 
 	// whether a session is held, playing or paused (one that ended is not)
@@ -662,6 +702,12 @@ public class MidiPlayer{
 	// the session ends; playing, the sequencer starts again on the song's sequence, from the new position
 	private void leavePractice() throws MidiPlayerException {
 		this.endPractice();
+		this.relay();
+	}
+
+	// playing, the sequencer starts again on a new sequence (the song's, or the session's from the turn under way), from
+	// the new position
+	private void relay() throws MidiPlayerException {
 		if( this.isRunning() ){
 			this.stopSequencer();
 			this.updateLoop(true);
