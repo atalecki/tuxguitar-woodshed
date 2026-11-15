@@ -369,8 +369,12 @@ public class PractisingSteps {
 	public void turnsStarted(int count) {
 		if (world.live() != null) {
 			live.assertTurnsStarted(count);
-			return;
+		} else {
+			assertTurnsStarted(count);
 		}
+	}
+
+	private void assertTurnsStarted(int count) {
 		TGTimeline timeline = heard().timeline();
 		List<List<Note>> turns = turns();
 		int[] opening = IntStream.range(0, timeline.turns()).filter(timeline::opens).toArray();

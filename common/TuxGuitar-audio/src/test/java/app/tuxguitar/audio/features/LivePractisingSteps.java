@@ -118,17 +118,25 @@ public class LivePractisingSteps {
 		player.loadSequencer(new MidiSequencerImpl(world.fixture().context));
 		player.practise(practice.session(), Practice.SEED);
 		world.threads().runStartHere();
-		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> {
-			if (block == at) {
-				changing.run();
-			}
-			boolean goesOn = player.runPlayLoopProcess();
-			running.add(player.isRunning());
-			shown.add(player.getPracticeTurn());
-			return goesOn && block < at + after;
-		}));
+		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> playBlock(player, block, at, changing) && block < at + after));
 		player.stop();
 		player.closeChannels();
+	}
+
+	// after the device played the block (the change made first in the change's block), the play loop takes its turn:
+	// whether it goes on
+	private boolean playBlock(MidiPlayer player, int block, int at, Runnable changing) {
+		changeAt(block, at, changing);
+		boolean goesOn = player.runPlayLoopProcess();
+		running.add(player.isRunning());
+		shown.add(player.getPracticeTurn());
+		return goesOn;
+	}
+
+	private static void changeAt(int block, int at, Runnable changing) {
+		if (block == at) {
+			changing.run();
+		}
 	}
 
 	// with no change: played on until the player stops by itself after the last turn
@@ -314,9 +322,12 @@ public class LivePractisingSteps {
 		long stopped = stopped();
 		int[] started = IntStream.of(openings()).filter(turn -> planned.turnStart(turn) < stopped).toArray();
 		assertEquals(count, started.length, "turns started before the player stopped at " + stopped);
-		for (int turn : started) {
-			int measure = heardMeasure(planned.start(planned.firstOf(turn)));
-			assertTrue(measure >= 1 && measure <= world.song().countMeasureHeaders(), "the turn at " + turn + " sounds " + measure);
-		}
+		IntStream.of(started).forEach(this::assertSoundsAMeasure);
+	}
+
+	// the turn of what the session plays sounds a measure of the song on its first measure's first beat
+	private void assertSoundsAMeasure(int turn) {
+		int measure = heardMeasure(planned.start(planned.firstOf(turn)));
+		assertTrue(measure >= 1 && measure <= world.song().countMeasureHeaders(), "the turn at " + turn + " sounds " + measure);
 	}
 }

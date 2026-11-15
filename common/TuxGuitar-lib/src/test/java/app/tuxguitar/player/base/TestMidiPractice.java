@@ -238,7 +238,12 @@ public class TestMidiPractice {
 	}
 
 	private static String shown(TGPracticeTurn turn) {
-		return (turn.isBreak() ? "break " : "turn ") + turn.getTurn() + " " + turn.getUnit().getFirst() + " " + turn.getSecondsLeft() + (turn.isTimed() ? "" : " of " + turn.getTurns());
+		return (turn.isBreak() ? "break " : "turn ") + turn.getTurn() + " " + turn.getUnit().getFirst() + " " + turn.getSecondsLeft() + of(turn);
+	}
+
+	// " of" the session's turns, unless it is timed
+	private static String of(TGPracticeTurn turn) {
+		return (turn.isTimed() ? "" : " of " + turn.getTurns());
 	}
 
 	// without the clock: the turn of the session's turns, no time
@@ -289,14 +294,10 @@ public class TestMidiPractice {
 	@Test
 	public void aFlagDuringABreakCountsFromTheCycleAfterTheOneItsTurnOpens() throws TGPracticeRefusal {
 		MidiPractice practice = this.practice(timedLines(10), 100);
-		for (int turn = 1; turn <= 5; turn++) {
-			startTurn(practice, turn);
-		}
+		IntStream.rangeClosed(1, 5).forEach(turn -> startTurn(practice, turn));
 		practice.getChooser().checkFlag(3, 3);
 		song.getMeasureHeader(2).setDifficulty(3);
-		for (int turn = 6; turn <= 9; turn++) {
-			startTurn(practice, turn);
-		}
+		IntStream.rangeClosed(6, 9).forEach(turn -> startTurn(practice, turn));
 		List<Integer> firsts = IntStream.rangeClosed(5, 8).mapToObj(turn -> passes.stream().filter(pass -> pass.getTurn() == turn).findFirst().get().getFirst().getNumber())
 			.sorted().collect(Collectors.toList());
 		assertEquals("[1, 3, 5, 7]", firsts.toString());

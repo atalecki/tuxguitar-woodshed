@@ -1,7 +1,6 @@
 package app.tuxguitar.audio.features;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -103,10 +102,20 @@ public class TimedLiveSteps {
 
 	// the turn shown as the scenarios word it: the unit the turn sounds named so, else by its number
 	private String worded(TGPracticeTurn shown) {
-		int seconds = shown.getSecondsLeft();
-		String turn = (shown.isBreak() ? "the break before turn " : "turn ") + shown.getTurn();
-		String unit = (shown.getUnit().getFirst() == heardMeasure(shown.getTurn()) ? "turn " + shown.getTurn() + " sounds" : shown.getUnit().getNumber() + "");
-		return turn + ", the " + shown.getUnit().getKind().getName() + " " + unit + ", " + seconds + " second" + (seconds == 1 ? "" : "s") + " left";
+		return turnOrBreak(shown) + ", the " + shown.getUnit().getKind().getName() + " " + unit(shown) + ", " + seconds(shown.getSecondsLeft()) + " left";
+	}
+
+	private static String turnOrBreak(TGPracticeTurn shown) {
+		return (shown.isBreak() ? "the break before turn " : "turn ") + shown.getTurn();
+	}
+
+	// "turn N sounds" when turn N is heard sounding the unit, else its number
+	private String unit(TGPracticeTurn shown) {
+		return (shown.getUnit().getFirst() == heardMeasure(shown.getTurn()) ? "turn " + shown.getTurn() + " sounds" : shown.getUnit().getNumber() + "");
+	}
+
+	private static String seconds(int seconds) {
+		return seconds + (seconds == 1 ? " second" : " seconds");
 	}
 
 	// as heard, the first turn starts where its first Count In click sounds; a report is read from the first block that
@@ -127,8 +136,7 @@ public class TimedLiveSteps {
 	@Then("turn {int} sounds the measure TuxGuitar reported during that break")
 	public void soundsTheReportedMeasure(int turn) {
 		TGPracticeTurn shown = shownBefore.orElseThrow(() -> new AssertionError("no turn shown during the break"));
-		assertEquals("the break before turn " + turn + ": measure " + heardMeasure(turn), (shown.isBreak() ? "the break before turn " : "turn ") + shown.getTurn()
-			+ ": measure " + shown.getUnit().getFirst());
+		assertEquals("the break before turn " + turn + ": measure " + heardMeasure(turn), turnOrBreak(shown) + ": measure " + shown.getUnit().getFirst());
 	}
 
 	// the turn's measure, as heard: from Play, a Count In (its beats not read: a VST3 instrument ignores All Notes Off, so
@@ -138,11 +146,15 @@ public class TimedLiveSteps {
 		int note = BASE + heardMeasure(1);
 		long start = live.change() + world.chainDelay() + beats * LivePractisingSteps.beat();
 		int measure = world.song().getMeasureHeader(note - BASE - 1).getTimeSignature().getNumerator();
-		for (int beat = 0; beat < (more + 1) * measure; beat++) {
-			long from = start + beat * LivePractisingSteps.beat() + EDGE;
-			double level = live.levelOf(note, from, from + LivePractisingSteps.beat() - 2 * EDGE);
-			assertTrue(level > SOUNDS, "beat " + (beat + 1) + " after the Count In: note " + note + " at " + level);
-		}
+		IntStream.range(0, (more + 1) * measure).forEach(beat -> assertBeat(note, start, beat, true));
+	}
+
+	// whether the note sounds on the beat (from 0) from the sample, read clear of the beat's edges (a click leaves a
+	// little at its pitch, below SOUNDS)
+	private void assertBeat(int note, long from, int beat, boolean sounds) {
+		long at = from + beat * LivePractisingSteps.beat() + EDGE;
+		double level = live.levelOf(note, at, at + LivePractisingSteps.beat() - 2 * EDGE);
+		assertEquals(sounds, level > SOUNDS, "beat " + (beat + 1) + " from sample " + from + ": note " + note + " at " + level);
 	}
 
 	@Then("the player stopped by itself within {int} samples of the turn's end, {int} seconds after Play")
@@ -159,15 +171,16 @@ public class TimedLiveSteps {
 	// beats are over (a click leaves a little at its pitch), then on every beat of its first measure
 	@Then("after Play, turn {int}'s Count In of {int} beats starts within {int} samples")
 	public void afterPlayTheCountInStarts(int turn, int beats, int within) {
-		float[] left = world.live()[0];
 		long play = live.change() + world.chainDelay();
-		long sounds = IntStream.range((int) (play - LivePractisingSteps.BLOCK), left.length).filter(sample -> Math.abs(left[sample]) > SILENT).findFirst().orElse(left.length);
-		assertTrue(sounds >= play && sounds - play <= within, "the output sounds from sample " + sounds + ", Play at " + play);
+		long sounds = firstSoundingFrom(play - LivePractisingSteps.BLOCK);
+		assertEquals(play + within / 2.0, sounds, within / 2.0, "the output sounds from sample " + sounds + ", Play at " + play);
 		int note = BASE + heardMeasure(turn);
-		for (int beat = 0; beat < 2 * beats; beat++) {
-			long from = play + beat * LivePractisingSteps.beat() + EDGE;
-			double level = live.levelOf(note, from, from + LivePractisingSteps.beat() - 2 * EDGE);
-			assertTrue((beat < beats ? level < SOUNDS : level > SOUNDS), "beat " + (beat + 1) + " after Play: note " + note + " at " + level);
-		}
+		IntStream.range(0, 2 * beats).forEach(beat -> assertBeat(note, play, beat, beat >= beats));
+	}
+
+	// the first sample of the output's left side from the one given that is not silent (its length: none)
+	private int firstSoundingFrom(long from) {
+		float[] left = world.live()[0];
+		return IntStream.range((int) from, left.length).filter(sample -> Math.abs(left[sample]) > SILENT).findFirst().orElse(left.length);
 	}
 }
