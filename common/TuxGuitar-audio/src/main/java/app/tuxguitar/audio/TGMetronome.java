@@ -10,17 +10,10 @@ import java.util.List;
  */
 public final class TGMetronome {
 
-	public static final TGMetronome NONE = new TGMetronome(new long[0], new long[0]);
-
-	private final long[] positions;
-	private final long[] holds;
-
-	private TGMetronome(long[] positions, long[] holds) {
-		this.positions = positions;
-		this.holds = holds;
+	private TGMetronome() {
 	}
 
-	public static TGMetronome of(TGTimeline timeline) {
+	public static TGClicks of(TGTimeline timeline) {
 		List<Long> positions = new ArrayList<Long>();
 		List<Long> holds = new ArrayList<Long>();
 		for (int index = 0; index < timeline.count(); index++) {
@@ -32,20 +25,6 @@ public final class TGMetronome {
 				holds.add(timeline.sampleAt(index, tick + beat) - timeline.sampleAt(index, tick));
 			}
 		}
-		return new TGMetronome(array(positions), array(holds));
-	}
-
-	private static long[] array(List<Long> values) {
-		return values.stream().mapToLong(Long::longValue).toArray();
-	}
-
-	// where each click's note reaches the drums
-	public long[] positions() {
-		return this.positions.clone();
-	}
-
-	// how long the click is held
-	public long hold(int click) {
-		return this.holds[click];
+		return new TGClicks(positions, holds);
 	}
 }

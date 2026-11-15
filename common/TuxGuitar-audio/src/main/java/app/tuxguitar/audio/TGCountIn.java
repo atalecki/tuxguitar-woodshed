@@ -1,6 +1,8 @@
 package app.tuxguitar.audio;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import app.tuxguitar.player.base.MidiPlayerCountDown;
@@ -48,14 +50,11 @@ public final class TGCountIn {
 		return this.length;
 	}
 
-	// how long a click is held: a beat
-	public long hold() {
-		return Math.round(this.beat);
-	}
-
-	// where each click's note reaches the drums: a beat apart from where playing starts, those before it stopped
-	public long[] positions() {
-		return LongStream.range(0, this.clicks).map(click -> Math.round(click * this.beat)).filter(position -> position < this.length).toArray();
+	// its clicks, from the sample it starts on: a beat apart, each held a beat; those after where it stopped left out
+	public TGClicks clicks(long start) {
+		List<Long> positions = LongStream.range(0, this.clicks).map(click -> Math.round(click * this.beat)).filter(position -> position < this.length)
+			.mapToObj(position -> start + position).collect(Collectors.toList());
+		return new TGClicks(positions, Collections.nCopies(positions.size(), Math.round(this.beat)));
 	}
 
 	// stopped at the sample

@@ -105,8 +105,9 @@ public final class TGTimeline {
 		return this.clock;
 	}
 
-	public TGCountIn getCountIn() {
-		return this.countIn;
+	// the Count In's clicks
+	public TGClicks getCountIn() {
+		return this.countIn.clicks(0);
 	}
 
 	public int count() {

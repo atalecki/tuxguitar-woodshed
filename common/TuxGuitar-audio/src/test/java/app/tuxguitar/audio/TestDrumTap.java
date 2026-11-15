@@ -45,8 +45,9 @@ public class TestDrumTap {
 	// the drums themselves, filled a block at a time, from their latency on
 	private float[][] drums(TGTimeline timeline, MidiClick click) {
 		GervillDrums drums = new GervillDrums(context, 44100);
-		for (long position : timeline.getCountIn().positions()) {
-			drums.click(click, position, timeline.getCountIn().hold());
+		long[] positions = timeline.getCountIn().positions();
+		for (int each = 0; each < positions.length; each++) {
+			drums.click(click, positions[each], timeline.getCountIn().hold(each));
 		}
 		int latency = GervillProcessor.latency(44100);
 		int blocks = (int) ((timeline.length() + latency) / GervillDrums.FRAMES) + 1;
