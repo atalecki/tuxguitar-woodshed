@@ -485,6 +485,28 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   Percentage of Tempo in effect when it starts (Training Mode's start percentage with Training Mode on), and they are as
   they were afterwards. Every track plays, with its mute and solo as usual. **The output holds N turns started**: N
   turns whose Count In or first measure began. "Turn 2" counts from 1, in the order played.
+- **Interval clock** (off until I turn it on): times the session instead of counting its turns. Each turn **loops**
+  its unit: it plays it **pass** after pass, back to back, with the Count In before its first pass only ("Count In
+  before every pass", off until I turn it on, puts one before each pass; with Count In off there is none). A pass
+  starts only before the **turn's time** (whole minutes, 3 until I change it) is up, counted from the turn's start (its
+  first Count In click, or with Count In off its first measure), and then plays to its end, its Count In included; so
+  a turn lasts its time or a little more. A pass lasts as long as its measures take at their own tempos, at the
+  Percentage of Tempo, so how many passes a turn plays is known when it starts. A **break** of silence (whole seconds,
+  30 until I change it; 0: none) follows every turn but the last: nothing sounds in it but what rings on, such as an
+  effect's tail. The break is the start of the next turn: that turn is chosen when the break starts, and all through
+  it TuxGuitar shows the turn's first measure and reports its unit and the time left in the break, so a flag set
+  during the break counts from the cycle after the one that turn opens. The **session's time** (whole minutes, at
+  least a turn's, 30 until I change it) decides the last turn: when a turn starts, another follows only if this turn's
+  end plus a break comes before the session's time is up, counted from the first turn's start as the turns and breaks
+  are planned (a pause, and what Play plays again after it, do not count). So the session ends at a turn's end, never
+  in a break, and may run past its time by part of a turn. The time left that TuxGuitar reports is rounded up to the
+  second and counts to the turn's end, the pass under way included. A pass's end is a jump in song time, as a turn's
+  end is (takes fade, tails ring on). With No consecutive repeats on, the weight rule counts the most turns the
+  session can hold: its time over a turn's time plus a break, rounded up; a pool of one unit is not held to the rule
+  and plays it every turn. Pause during a turn: Play plays the paused pass again from a Count In (with Count In on,
+  even when the pass had none of its own), then the turn's passes left; pause during a break: Play starts the next
+  turn's Count In at once. Stop, moving the position or an edit ends a session in a break as in a turn. Without the
+  interval clock a turn plays its unit once and the session plays the number of turns set.
 - **Unit**: a **measure**, a **line** or a **page**. A line is a fixed group of measures and a page a fixed group of
   lines, counted from measure 1, set for the session ("lines of 4 measures and pages of 4 lines", 4 and 4 until I
   change them); the last line or page holds what is left. They do not follow the score's layout (on screen, lines
@@ -520,4 +542,6 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - What the channel's Reverb, Chorus, Tremolo and Phaser do on audio tracks and with VST3 instruments.
 - Which native audio library the backend uses.
 - Interleaved practice: how the desktop shows a session (the dialog, the turn shown in the Transport window, the
-  Difficulty menu: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections).
+  Difficulty menu: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections); with the interval clock, the
+  time left in the whole session, a sound at a break's start or end, and times other than whole minutes (turns,
+  sessions) and whole seconds (breaks).
