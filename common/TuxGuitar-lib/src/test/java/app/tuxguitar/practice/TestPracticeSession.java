@@ -80,7 +80,8 @@ public class TestPracticeSession {
 		assertEquals("A page needs at least 1 line.", set(TGPracticeUnitKind.PAGE, 1, 2, 6).start());
 	}
 
-	// with w the heaviest unit's weight and L the weights added up: up to L turns need 2w <= L + 1, more 2w <= L
+	// with w the heaviest unit's weight and L the weights added up: up to L turns need 2w <= L + 1, more 2w <= L; the
+	// refusal names the unit, a line as a line
 	@Test
 	public void noConsecutiveRepeatsRefusesWeightsThatCannotKeepIt() {
 		assertEquals("Measure 5 would come twice in a row.", set(TGPracticeUnitKind.MEASURE, 5, 5, 2).start());
@@ -90,11 +91,7 @@ public class TestPracticeSession {
 		assertEquals("Measure 1 comes up 3 times in a cycle of 5 turns and would come twice in a row.", set(TGPracticeUnitKind.MEASURE, 1, 3, 6).start());
 		assertEquals("accepted", set(TGPracticeUnitKind.MEASURE, 1, 4, 12).start());
 		assertEquals("Measure 1 comes up 3 times in a cycle of 4 turns and would come twice in a row.", set(TGPracticeUnitKind.MEASURE, 1, 2, 2).start());
-	}
-
-	@Test
-	public void aLineThatCannotKeepTheRuleIsNamed() {
-		flag(6, 4).flag(7, 4);
+		flag(1, 1).flag(6, 4).flag(7, 4);
 		assertEquals("Line 2 comes up 4 times in a cycle of 5 turns and would come twice in a row.", set(TGPracticeUnitKind.LINE, 1, 2, 2).start());
 	}
 
