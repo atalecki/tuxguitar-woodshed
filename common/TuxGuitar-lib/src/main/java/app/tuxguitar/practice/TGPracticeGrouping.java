@@ -41,6 +41,12 @@ public final class TGPracticeGrouping {
 		return (songMeasures + this.measures(kind) - 1) / this.measures(kind);
 	}
 
+	// the last unit a pool of the kind may reach in a song of that many measures, for a form still being filled in: a
+	// group size below 1 (refused when the session starts) bounds it as 1 would
+	public static int poolLimit(TGPracticeUnitKind kind, int measuresPerLine, int linesPerPage, int songMeasures) {
+		return new TGPracticeGrouping(Math.max(1, measuresPerLine), Math.max(1, linesPerPage)).count(kind, songMeasures);
+	}
+
 	// the unit of the kind with that number (from 1), in a song of that many measures
 	public TGPracticeUnit unit(TGPracticeUnitKind kind, int number, int songMeasures) {
 		int measures = this.measures(kind);

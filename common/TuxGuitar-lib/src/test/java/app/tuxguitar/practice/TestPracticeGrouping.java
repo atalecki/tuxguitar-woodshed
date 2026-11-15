@@ -42,6 +42,20 @@ public class TestPracticeGrouping {
 			+ " " + grouping.count(TGPracticeUnitKind.PAGE, SONG));
 	}
 
+	// what a form lets the pool reach: the song's last unit, as the group sizes set so far make it
+	@Test
+	public void thePoolReachesNoFurtherThanTheSongsLastUnit() {
+		assertEquals("64 13 5", TGPracticeGrouping.poolLimit(TGPracticeUnitKind.MEASURE, 5, 3, SONG) + " "
+			+ TGPracticeGrouping.poolLimit(TGPracticeUnitKind.LINE, 5, 3, SONG) + " " + TGPracticeGrouping.poolLimit(TGPracticeUnitKind.PAGE, 5, 3, SONG));
+	}
+
+	// a group size of 0 is refused when the session starts; until then it bounds the pool as 1 would
+	@Test
+	public void aGroupSizeOfNoneBoundsThePoolAsOneWould() {
+		assertEquals("64 16", TGPracticeGrouping.poolLimit(TGPracticeUnitKind.LINE, 0, 4, SONG) + " "
+			+ TGPracticeGrouping.poolLimit(TGPracticeUnitKind.PAGE, 4, 0, SONG));
+	}
+
 	@Test
 	public void aUnitIsNamedByItsKindAndNumber() throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(4, 4);

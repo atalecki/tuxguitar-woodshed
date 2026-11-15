@@ -4,8 +4,10 @@ import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.ui.TGApplication;
 import app.tuxguitar.app.view.controller.TGViewContext;
 import app.tuxguitar.app.view.util.TGDialogUtil;
+import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.TGActionProcessor;
 import app.tuxguitar.editor.action.transport.TGTransportPractiseAction;
+import app.tuxguitar.practice.TGPracticeGrouping;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import app.tuxguitar.ui.UIFactory;
@@ -23,7 +25,8 @@ import app.tuxguitar.ui.widget.UIWindow;
 /**
  * Transport > Interleaved Practice: what a turn plays (measures, lines or pages), the pool (from, to), the number of
  * turns, the fixed groups (measures per line, lines per page) and the two rules; Start runs TGTransportPractiseAction
- * with them (a refusal shows as the app's error message). It opens with the settings of the last start.
+ * with them (a refusal shows as the app's error message). It opens with the settings of the last start. The pool's
+ * fields cannot go past the song's last unit of the kind chosen.
  */
 public class TGPracticeDialog {
 
@@ -67,6 +70,10 @@ public class TGPracticeDialog {
 		this.noConsecutiveRepeats = this.checkBox(7, "transport.practice.no-consecutive-repeats", last.isNoConsecutiveRepeats());
 		this.completeCycle = this.checkBox(8, "transport.practice.complete-cycle", last.isCompleteCycle());
 		this.buttons(9);
+		this.limitPool();
+		this.unit.addSelectionListener(event -> this.limitPool());
+		this.measuresPerLine.addSelectionListener(event -> this.limitPool());
+		this.linesPerPage.addSelectionListener(event -> this.limitPool());
 
 		TGDialogUtil.openDialog(this.dialog, TGDialogUtil.OPEN_STYLE_CENTER | TGDialogUtil.OPEN_STYLE_PACK);
 	}
@@ -93,6 +100,19 @@ public class TGPracticeDialog {
 		spinner.setValue(value);
 		this.label(row, key, spinner);
 		return spinner;
+	}
+
+	// the pool cannot reach past the song's last unit of the kind chosen, as the group sizes set make it
+	private void limitPool() {
+		int songMeasures = TGDocumentManager.getInstance(this.context.getContext()).getSong().countMeasureHeaders();
+		int most = TGPracticeGrouping.poolLimit(this.unit.getSelectedValue(), this.measuresPerLine.getValue(), this.linesPerPage.getValue(), songMeasures);
+		limit(this.from, most);
+		limit(this.to, most);
+	}
+
+	private static void limit(UISpinner spinner, int most) {
+		spinner.setMaximum(most);
+		spinner.setValue(Math.min(spinner.getValue(), most));
 	}
 
 	private UICheckBox checkBox(int row, String key, boolean selected) {
