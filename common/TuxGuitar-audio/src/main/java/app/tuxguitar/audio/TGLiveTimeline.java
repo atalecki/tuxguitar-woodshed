@@ -82,30 +82,26 @@ final class TGLiveTimeline {
 		boolean back = (this.timeline != null && span.getQuarters() < this.quarters);
 		boolean on = (this.timeline != null && this.isOnTheTimeline(span));
 		this.quarters = span.getQuarters();
-		if (on && !back) {
-			return this.goOn(span, now);
+		if (on && !back && this.goesOnWith(now)) {
+			return this.layAfter(now);
 		}
 		this.start(span, now, back, back && on && this.keepsEnded);
 		return true;
 	}
 
-	// on the timeline, it goes on with the turns it plays; turns laid after them join it from the same sample; other ones
-	// (the session over, or another one) start a new timeline
-	private boolean goOn(MidiTransport.Span span, List<MidiPracticeTurn> now) {
-		if (now.equals(this.turns)) {
-			return false;
-		}
-		if (this.isFollowedBy(now)) {
-			this.lay(now);
-		} else {
-			this.start(span, now, false, false);
-		}
-		return true;
+	// whether the timeline goes on with the turns laid: its own, or its own and more after them (other ones, the session
+	// over or another one, start a new timeline)
+	private boolean goesOnWith(List<MidiPracticeTurn> now) {
+		return (now.equals(this.turns) || (!this.turns.isEmpty() && Collections.indexOfSubList(now, this.turns) == 0));
 	}
 
-	// whether the turns laid are the timeline's and more after them
-	private boolean isFollowedBy(List<MidiPracticeTurn> now) {
-		return !this.turns.isEmpty() && now.size() > this.turns.size() && now.subList(0, this.turns.size()).equals(this.turns);
+	// the turns laid after the timeline's join it, from the same sample: whether there were any
+	private boolean layAfter(List<MidiPracticeTurn> now) {
+		boolean more = !now.equals(this.turns);
+		if (more) {
+			this.lay(now);
+		}
+		return more;
 	}
 
 	// the song stopped: playing again starts a new timeline

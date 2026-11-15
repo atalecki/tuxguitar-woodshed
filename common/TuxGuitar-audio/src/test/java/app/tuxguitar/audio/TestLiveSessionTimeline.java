@@ -54,13 +54,14 @@ public class TestLiveSessionTimeline {
 		assertEquals("true 176400 0", this.follow(0, 512));
 	}
 
-	// turn B laid while turn A plays: a timeline holding both goes on from the same sample, and goes on with no change
+	// turn B laid while turn A plays: a timeline holding both goes on from the same sample (though the transport is a
+	// little off, 110 samples, still on the timeline), and goes on with no change
 	@Test
 	public void aTurnLaidMeanwhileJoinsTheTimelineFromTheSameSample() {
 		this.laid = Arrays.asList(this.turnA);
 		this.follow(0, 512);
 		this.laid = Arrays.asList(this.turnA, this.turnB);
-		String joined = this.follow(after(512), 512);
+		String joined = this.follow(after(512 + 110), 512);
 
 		assertEquals("true 352800 512 | false 352800 1024", joined + " | " + this.follow(after(1024), 512));
 	}
@@ -83,6 +84,47 @@ public class TestLiveSessionTimeline {
 		this.followed.stop();
 
 		assertEquals("true 352800 44100 | true 352800 297675", countIn + " | " + this.follow(13.5, 512));
+	}
+
+	// a turn of two measures (3 and 4) started 1.5 beats into its first, or into its second: the timeline plays from there
+	@Test
+	public void startedInEitherMeasureOfATurnTheTimelinePlaysFromThere() {
+		this.laid = Arrays.asList(new MidiPracticeTurn(this.fixture.song.getMeasureHeader(2), this.fixture.song.getMeasureHeader(3), 960, 4));
+		String first = this.follow(5.5, 512);
+		this.followed.stop();
+
+		assertEquals("true 264600 121275 | true 264600 209475", first + " | " + this.follow(9.5, 512));
+	}
+
+	// the next turn's measure comes earlier in the song (measure 6, then 3): started 1.5 beats into the first turn's
+	// measure, the timeline plays from there, nothing of the next turn before it
+	@Test
+	public void theNextTurnsMeasuresDoNotCountBeforeItStarts() {
+		MidiPracticeTurn six = new MidiPracticeTurn(this.fixture.song.getMeasureHeader(5), this.fixture.song.getMeasureHeader(5), 960, 4);
+		this.laid = Arrays.asList(six, new MidiPracticeTurn(this.fixture.song.getMeasureHeader(2), this.fixture.song.getMeasureHeader(2), six.getEnd(), 4));
+
+		assertEquals("true 352800 121275", this.follow(5.5, 512));
+	}
+
+	// a session laid while the song plays (from measure 3) starts the session's timeline, where the transport is in it
+	// (512 samples into turn B's Count In), though the transport goes on as the song's did
+	@Test
+	public void aSessionLaidWhileTheSongPlaysStartsItsOwnTimeline() {
+		this.follow(8.0, 512);
+		this.laid = Arrays.asList(this.turnA, this.turnB);
+
+		assertEquals("true 352800 176912", this.follow(8.0 + after(512), 512));
+	}
+
+	// turns other than the timeline's (the session over, or another one) start a new timeline, even where the transport
+	// goes on as the timeline did: the song's, from there (measure 1, 22 ticks in)
+	@Test
+	public void otherTurnsStartANewTimelineWhereTheTransportGoesOn() {
+		this.laid = Arrays.asList(this.turnA, this.turnB);
+		this.follow(0, 512);
+		this.laid = new ArrayList<MidiPracticeTurn>();
+
+		assertEquals("true 705095 0", this.follow(after(512), 512));
 	}
 
 	// the session over (a move ended it: no turns laid), the song plays on where the transport is (measure 6): a timeline

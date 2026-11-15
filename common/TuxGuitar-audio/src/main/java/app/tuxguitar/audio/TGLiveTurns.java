@@ -5,6 +5,7 @@ import java.util.List;
 
 import app.tuxguitar.player.base.MidiPracticeTurn;
 import app.tuxguitar.song.models.TGDuration;
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
@@ -24,7 +25,7 @@ final class TGLiveTurns {
 		List<TGTurn> turns = new ArrayList<TGTurn>();
 		for (int turn = 0; turn < laid.size(); turn++) {
 			MidiPracticeTurn played = laid.get(turn);
-			turns.add(TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), turn, percent, played.getClicks(), sampleRate));
+			turns.add(TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), turn, percent, header -> played.getClicks(), sampleRate));
 		}
 		return TGTimeline.of(song, turns, sampleRate);
 	}
@@ -34,18 +35,24 @@ final class TGLiveTurns {
 		return quarters - (laid.isEmpty() ? 0 : laid.get(turnAt(laid, quarters)).getMove() / (double) TGDuration.QUARTER_TIME);
 	}
 
-	// the timeline's sample (see timeline) the sequence's quarter note plays on: in the turn's measure that holds the
-	// song's tick it plays, or before its first, in its Count In
+	// the timeline's sample (see timeline) the sequence's quarter note plays on: from where its turn's first measure
+	// starts, back by the song's ticks before it (its Count In), on by those of each of the turn's measures it has
+	// reached (whole measures, in score order), each at its measure's tempo
 	static long sampleAt(TGTimeline timeline, List<MidiPracticeTurn> laid, double quarters) {
 		int turn = turnAt(laid, quarters);
 		double tick = (songQuarters(laid, quarters) + 1) * TGDuration.QUARTER_TIME;
-		int index = timeline.firstOf(turn);
-		while (index + 1 < timeline.firstOf(turn + 1) && timeline.get(index + 1).getHeader().getStart() <= tick) {
-			index++;
+		int first = timeline.firstOf(turn);
+		long sample = timeline.start(first) + samples(timeline, first, Math.min(0, tick - timeline.get(first).getHeader().getStart()));
+		for (int index = first; index < timeline.firstOf(turn + 1); index++) {
+			TGMeasureHeader header = timeline.get(index).getHeader();
+			sample += samples(timeline, index, Math.max(0, Math.min(header.getLength(), tick - header.getStart())));
 		}
-		TGPlayedMeasure measure = timeline.get(index);
-		double ticks = tick - measure.getHeader().getStart() - measure.getFrom();
-		return timeline.start(index) + Math.round(ticks * 60.0 * timeline.getSampleRate() / (TGDuration.QUARTER_TIME * measure.getTempo()));
+		return sample;
+	}
+
+	// the samples the ticks last at the played measure's tempo
+	private static long samples(TGTimeline timeline, int index, double ticks) {
+		return Math.round(ticks * 60.0 * timeline.getSampleRate() / (TGDuration.QUARTER_TIME * timeline.get(index).getTempo()));
 	}
 
 	// the turn the sequence's quarter note is in: the last one that starts there or before (the first, before them all)

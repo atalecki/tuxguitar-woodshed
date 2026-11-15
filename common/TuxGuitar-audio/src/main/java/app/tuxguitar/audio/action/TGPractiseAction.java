@@ -60,8 +60,7 @@ public class TGPractiseAction extends TGPlayAction {
 		List<TGTurn> turns = new ArrayList<TGTurn>();
 		for (int turn = 0; turn < session.getTurns(); turn++) {
 			TGPracticeUnit unit = chooser.next();
-			int clicks = player.getCountDown().clicksBefore(song.getMeasureHeader(unit.getFirst() - 1));
-			turns.add(TGTurn.unit(song, unit.getFirst(), unit.getLast(), turn, percent, clicks, sampleRate));
+			turns.add(TGTurn.unit(song, unit.getFirst(), unit.getLast(), turn, percent, player.getCountDown()::clicksBefore, sampleRate));
 		}
 		return TGTimeline.of(song, turns, sampleRate);
 	}

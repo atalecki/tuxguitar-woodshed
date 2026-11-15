@@ -2,11 +2,13 @@ package app.tuxguitar.audio;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import app.tuxguitar.player.base.MidiPlayerCountDown;
 import app.tuxguitar.song.models.TGDuration;
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGTimeSignature;
 
 /**
@@ -34,15 +36,14 @@ public final class TGCountIn {
 
 	// the Count In before the measures played, with Count In on (none with it off, or when nothing plays)
 	public static TGCountIn before(MidiPlayerCountDown countDown, List<TGPlayedMeasure> played, int sampleRate) {
-		return of((played.isEmpty() ? 0 : countDown.clicksBefore(played.get(0).getHeader())), played, sampleRate);
+		return (played.isEmpty() ? NONE : of(countDown::clicksBefore, played, sampleRate));
 	}
 
-	// so many clicks before the measures played (none for none, or when nothing plays)
-	public static TGCountIn of(int clicks, List<TGPlayedMeasure> played, int sampleRate) {
-		if (clicks == 0 || played.isEmpty()) {
-			return NONE;
-		}
+	// as many clicks before the measures played (some) as the function of their first measure's header says (0 clicks
+	// last no time, as none)
+	public static TGCountIn of(ToIntFunction<TGMeasureHeader> clicksBefore, List<TGPlayedMeasure> played, int sampleRate) {
 		TGPlayedMeasure first = played.get(0);
+		int clicks = clicksBefore.applyAsInt(first.getHeader());
 		TGTimeSignature signature = first.getHeader().getTimeSignature();
 		double quarters = signature.getDenominator().getTime() / (double) TGDuration.QUARTER_TIME;
 		double beat = quarters * 60.0 * sampleRate / first.getTempo();

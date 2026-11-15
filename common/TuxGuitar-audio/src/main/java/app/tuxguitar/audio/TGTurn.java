@@ -3,7 +3,9 @@ package app.tuxguitar.audio;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
@@ -20,9 +22,10 @@ public final class TGTurn {
 		this.measures = Collections.unmodifiableList(new ArrayList<TGPlayedMeasure>(measures));
 	}
 
-	// a unit of interleaved practice, measures numbered first to last, in its turn (from 0): its Count In of so many clicks
-	// (0: none) at the Percentage of Tempo, then its measures (see TGSongTime.unit)
-	public static TGTurn unit(TGSong song, int first, int last, int turn, int percent, int clicks, int sampleRate) {
+	// a unit of interleaved practice, measures numbered first to last, in its turn (from 0): its Count In of as many clicks
+	// as the function of its first measure's header says (0: none) at the Percentage of Tempo, then its measures (see
+	// TGSongTime.unit)
+	public static TGTurn unit(TGSong song, int first, int last, int turn, int percent, ToIntFunction<TGMeasureHeader> clicks, int sampleRate) {
 		List<TGPlayedMeasure> measures = TGSongTime.unit(song, first, last, turn, percent);
 		return new TGTurn(TGCountIn.of(clicks, measures, sampleRate), measures);
 	}
