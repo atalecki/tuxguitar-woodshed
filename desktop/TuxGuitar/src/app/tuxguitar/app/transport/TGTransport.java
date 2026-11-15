@@ -83,14 +83,21 @@ public class TGTransport {
 		}
 	}
 
+	// the player to the start of the measure it plays, and the caret there; during a practice session (playing or
+	// paused) only the caret, since moving the player would end the session
 	public void gotoPlayerPosition(){
+		if( !MidiPlayer.getInstance(this.context).isPractising() ){
+			this.movePlayerToItsMeasure();
+		}
+		this.goToTickPosition();
+	}
+
+	private void movePlayerToItsMeasure(){
 		MidiPlayer player = MidiPlayer.getInstance(this.context);
 		TGMeasureHeader header = getSongManager().getMeasureHeaderAt(getSong(), MidiTickUtil.getStart(this.context, player.getTickPosition()));
 		if( header != null){
 			player.setTickPosition(MidiTickUtil.getTick(this.context, header.getStart()));
 		}
-
-		this.goToTickPosition();
 	}
 
 	public void goToTickPosition() {
@@ -123,21 +130,30 @@ public class TGTransport {
 	private void play() {
 		MidiPlayer player = MidiPlayer.getInstance(this.context);
 		try{
-			gotoCaretPosition();
+			this.gotoCaretPositionOutsideASession();
 			player.getMode().reset();
 			player.play();
 		}catch(MidiPlayerException e){
 			TGErrorManager.getInstance(this.context).handleError(e);
 		}
 	}
+	// Play after Pause in a practice session plays the paused turn again (see MidiPlayer.practise): the caret does not
+	// move the player
+	private void gotoCaretPositionOutsideASession() {
+		if( !MidiPlayer.getInstance(this.context).isPractising() ){
+			gotoCaretPosition();
+		}
+	}
+
 	private void pause() {
 		MidiPlayer player = MidiPlayer.getInstance(this.context);
 		gotoPlayerPosition();
 		player.pause();
 	}
+	// also a paused practice session, which Stop ends
 	public void stop(){
 		MidiPlayer player = MidiPlayer.getInstance(this.context);
-		if(player.isRunning()){
+		if(player.isRunningOrPractising()){
 			player.reset();
 		}
 	}

@@ -207,6 +207,16 @@ public class TGTransportDialog implements TGEventListener {
 
 		initLabel(composite);
 		initScale(composite);
+		initPracticeTurn(composite);
+	}
+
+	// under the position: the turn of a practice session (see TGPracticeTurnLabel)
+	private void initPracticeTurn(UILayoutContainer parent) {
+		UILabel practiceTurn = getUIFactory().createLabel(parent);
+		UITableLayout parentLayout = (UITableLayout) parent.getLayout();
+		parentLayout.set(practiceTurn, 3, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
+		parentLayout.set(practiceTurn, UITableLayout.MINIMUM_PACKED_WIDTH, 220f);
+		TGPracticeTurnLabel.attach(this.context, practiceTurn);
 	}
 
 	private void initLabel(UILayoutContainer parent) {
