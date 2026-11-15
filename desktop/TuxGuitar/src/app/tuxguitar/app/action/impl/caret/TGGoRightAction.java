@@ -6,16 +6,12 @@ import app.tuxguitar.app.transport.TGTransport;
 import app.tuxguitar.app.view.component.tab.Caret;
 import app.tuxguitar.app.view.component.tab.Tablature;
 import app.tuxguitar.app.view.component.tab.TablatureEditor;
-import app.tuxguitar.app.TuxGuitar;
-import app.tuxguitar.app.system.config.TGConfigKeys;
-import app.tuxguitar.app.system.config.TGConfigManager;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.TGActionBase;
+import app.tuxguitar.editor.practice.TGPracticeCaret;
 import app.tuxguitar.editor.action.measure.TGAddMeasureAction;
-import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
-import app.tuxguitar.song.models.TGBeat;
 
 public class TGGoRightAction extends TGActionBase{
 
@@ -25,34 +21,34 @@ public class TGGoRightAction extends TGActionBase{
 		super(context, NAME);
 	}
 
+	// while the song plays the player moves with the caret; never during a practice session (see TGPracticeCaret)
 	protected void processAction(TGActionContext context){
-		if( MidiPlayer.getInstance(getContext()).isRunning() ){
+		if( TGPracticeCaret.movesPlayer(getContext()) ){
 			TGTransport.getInstance(getContext()).gotoNext();
 		}
 		else{
-			Tablature tablature = TablatureEditor.getInstance(getContext()).getTablature();
-			if (!Boolean.TRUE.equals(context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_KEEP_SELECTION))) {
-				tablature.getSelector().clearSelection();
-			}
-			Caret caret = tablature.getCaret();
-			if(!caret.moveRight()){
-				TGSong song = ((TGSong) context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG));
-				context.setAttribute(TGAddMeasureAction.ATTRIBUTE_MEASURE_NUMBER, Integer.valueOf((song.countMeasureHeaders() + 1)));
-
-				TGActionManager tgActionManager = TGActionManager.getInstance(getContext());
-				tgActionManager.execute(TGAddMeasureAction.NAME, context);
-
-				caret.moveRight();
-			}
-
-			boolean playWhenMoving = TGConfigManager.getInstance(getContext()).getBooleanValue(TGConfigKeys.PLAY_WHEN_MOVING);
-			if (playWhenMoving) { // current beat is played when caret is moved
-				TGBeat beat = (TGBeat) caret.getSelectedBeat();
-				if (beat != null) {
-					TuxGuitar tuxguitar = TuxGuitar.getInstance();
-					tuxguitar.playBeat(beat);
-				}
-			}
+			this.moveRight(context);
 		}
+	}
+
+	private void moveRight(TGActionContext context){
+		Tablature tablature = TablatureEditor.getInstance(getContext()).getTablature();
+		TGCaretMoved.clearSelection(context, tablature);
+		Caret caret = tablature.getCaret();
+		if(!caret.moveRight()){
+			this.addMeasureAndMoveRight(context, caret);
+		}
+		TGCaretMoved.playBeat(getContext(), caret);
+	}
+
+	// past the last measure: a measure is added after it, and the caret goes there
+	private void addMeasureAndMoveRight(TGActionContext context, Caret caret){
+		TGSong song = ((TGSong) context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG));
+		context.setAttribute(TGAddMeasureAction.ATTRIBUTE_MEASURE_NUMBER, Integer.valueOf((song.countMeasureHeaders() + 1)));
+
+		TGActionManager tgActionManager = TGActionManager.getInstance(getContext());
+		tgActionManager.execute(TGAddMeasureAction.NAME, context);
+
+		caret.moveRight();
 	}
 }
