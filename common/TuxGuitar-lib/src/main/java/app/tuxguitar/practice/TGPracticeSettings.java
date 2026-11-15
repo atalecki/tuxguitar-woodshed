@@ -3,11 +3,16 @@ package app.tuxguitar.practice;
 /**
  * Interleaved practice as the musician sets it, checked only when a session starts (TGPracticeSession.start): what a
  * turn plays, the pool (from and to, unit numbers from 1), the number of turns, the groups, and the two rules, both on
- * until turned off.
+ * until turned off; and the interval clock (off until turned on), which times the session instead of counting its turns
+ * (TGPracticeClock): a turn's minutes, a break's seconds, a session's minutes, and whether a Count In comes before every
+ * pass of a turn or only its first.
  */
 public class TGPracticeSettings {
 
 	public static final int DEFAULT_GROUP = 4;
+	public static final int DEFAULT_TURN_MINUTES = 3;
+	public static final int DEFAULT_BREAK_SECONDS = 30;
+	public static final int DEFAULT_SESSION_MINUTES = 30;
 
 	private TGPracticeUnitKind unit = TGPracticeUnitKind.MEASURE;
 	private int poolFrom = 1;
@@ -17,6 +22,11 @@ public class TGPracticeSettings {
 	private int linesPerPage = DEFAULT_GROUP;
 	private boolean noConsecutiveRepeats = true;
 	private boolean completeCycle = true;
+	private boolean intervalClock;
+	private int turnMinutes = DEFAULT_TURN_MINUTES;
+	private int breakSeconds = DEFAULT_BREAK_SECONDS;
+	private int sessionMinutes = DEFAULT_SESSION_MINUTES;
+	private boolean countInEveryPass;
 
 	public TGPracticeUnitKind getUnit() {
 		return this.unit;
@@ -77,5 +87,45 @@ public class TGPracticeSettings {
 
 	public void setCompleteCycle(boolean completeCycle) {
 		this.completeCycle = completeCycle;
+	}
+
+	public boolean isIntervalClock() {
+		return this.intervalClock;
+	}
+
+	public void setIntervalClock(boolean intervalClock) {
+		this.intervalClock = intervalClock;
+	}
+
+	public int getTurnMinutes() {
+		return this.turnMinutes;
+	}
+
+	public void setTurnMinutes(int turnMinutes) {
+		this.turnMinutes = turnMinutes;
+	}
+
+	public int getBreakSeconds() {
+		return this.breakSeconds;
+	}
+
+	public void setBreakSeconds(int breakSeconds) {
+		this.breakSeconds = breakSeconds;
+	}
+
+	public int getSessionMinutes() {
+		return this.sessionMinutes;
+	}
+
+	public void setSessionMinutes(int sessionMinutes) {
+		this.sessionMinutes = sessionMinutes;
+	}
+
+	public boolean isCountInEveryPass() {
+		return this.countInEveryPass;
+	}
+
+	public void setCountInEveryPass(boolean countInEveryPass) {
+		this.countInEveryPass = countInEveryPass;
 	}
 }

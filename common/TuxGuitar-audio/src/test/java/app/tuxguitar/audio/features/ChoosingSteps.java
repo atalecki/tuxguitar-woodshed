@@ -98,6 +98,13 @@ public class ChoosingSteps {
 		chooseWhile(turns, seed, during, () -> practice.flag(measure, difficulty));
 	}
 
+	// a timed session chooses as many turns as it can hold (README, Interval clock)
+	@When("interleaved practice chooses its turns with random seed {int}, while I flag measure {int} as {int}x difficult during turn {int}")
+	public void chooseItsTurnsWhileFlagging(int seed, int measure, int difficulty, int during) {
+		practice.start();
+		chooseWhileFlagging(practice.session().getTurns(), seed, measure, difficulty, during);
+	}
+
 	// "undo" or "redo", as the app runs it
 	@ParameterType("undo|redo")
 	public Runnable undoOrRedo(String name) {

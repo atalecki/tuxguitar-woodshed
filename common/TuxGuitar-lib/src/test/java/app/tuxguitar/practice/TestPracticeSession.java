@@ -95,6 +95,54 @@ public class TestPracticeSession {
 		assertEquals("Line 2 comes up 4 times in a cycle of 5 turns and would come twice in a row.", set(TGPracticeUnitKind.LINE, 1, 2, 2).start());
 	}
 
+	private TestPracticeSession clock(int turnMinutes, int breakSeconds, int sessionMinutes) {
+		settings.setIntervalClock(true);
+		settings.setTurnMinutes(turnMinutes);
+		settings.setBreakSeconds(breakSeconds);
+		settings.setSessionMinutes(sessionMinutes);
+		return this;
+	}
+
+	// the interval clock times the session: the rule counts the most turns it can hold, its time over a turn's time
+	// plus a break, rounded up; the number of turns set takes no part
+	@Test
+	public void aTimedSessionKeepsTheRuleForTheMostTurnsItCanHold() {
+		flag(1, 2);
+		set(TGPracticeUnitKind.MEASURE, 1, 2, 0);
+		String refused = "Measure 1 comes up 2 times in a cycle of 3 turns and would come twice in a row.";
+		assertEquals("accepted", clock(1, 0, 3).start());
+		assertEquals(refused, clock(1, 0, 4).start());
+		assertEquals("accepted", clock(1, 30, 4).start());
+		assertEquals(refused, clock(1, 10, 4).start());
+	}
+
+	@Test
+	public void aTimedSessionHoldsAtMostItsClocksTurns() throws TGPracticeRefusal {
+		set(TGPracticeUnitKind.MEASURE, 1, 4, 9);
+		TGPracticeSession session = TGPracticeSession.start(clock(1, 10, 4).settings, song);
+		assertEquals("4 10", session.getTurns() + " " + session.getClock().get().getBreakSeconds());
+	}
+
+	// with the clock a pool of one unit plays it every turn: the rule cannot apply, and a flag is never refused
+	@Test
+	public void aTimedPoolOfOneUnitIsNotHeldToTheRule() throws TGPracticeRefusal {
+		TGPracticeSession session = TGPracticeSession.start(clock(1, 0, 30).set(TGPracticeUnitKind.MEASURE, 5, 5, 0).settings, song);
+		TGPracticeChooser chooser = session.chooser(1);
+		chooser.checkFlag(5, 5);
+		assertEquals("Measure 5 Measure 5 Measure 5 false", chooser.next() + " " + chooser.next() + " " + chooser.next() + " " + session.isNoConsecutiveRepeats());
+	}
+
+	@Test
+	public void aSessionWithoutTheClockHasNone() throws TGPracticeRefusal {
+		assertEquals("false", Boolean.toString(TGPracticeSession.start(set(TGPracticeUnitKind.MEASURE, 1, 4, 9).settings, song).getClock().isPresent()));
+	}
+
+	@Test
+	public void aClockThatCannotTimeTheSessionRefusesIt() {
+		set(TGPracticeUnitKind.MEASURE, 1, 4, 6);
+		assertEquals("A turn needs at least 1 minute.", clock(0, 10, 4).start());
+	}
+
 	@Test
 	public void withoutTheRepeatRuleAnyWeightsPlay() {
 		settings.setNoConsecutiveRepeats(false);

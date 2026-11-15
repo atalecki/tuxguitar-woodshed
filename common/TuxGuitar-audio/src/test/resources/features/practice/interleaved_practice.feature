@@ -387,7 +387,6 @@ Feature: Interleaved practice
   # a Count In of 4 clicks 2 seconds. A turn starts with its first Count In click (or, with Count In off, its first
   # measure) and ends where its last pass ends.
 
-  @planned
   Scenario: the interval clock is off until I turn it on, set to turns of 3 minutes, breaks of 30 seconds and sessions of 30 minutes
     When I set interleaved practice to lines over lines 1 to 4
     Then interleaved practice's interval clock is off, set to turns of 3 minutes, breaks of 30 seconds and sessions of 30 minutes
@@ -518,7 +517,6 @@ Feature: Interleaved practice
     And measure 2 is flagged 2x difficult
 
   # a timed session of turns of 1 minute without breaks for 6 minutes can hold 6 turns: 4 after the first cycle
-  @planned
   Scenario: flagging a measure during a timed session is refused when the turns it can still hold could not be played
     Given I have set interleaved practice to measures over measures 1 to 2
     And I have turned the interval clock on, with turns of 1 minute, breaks of 0 seconds and sessions of 6 minutes
@@ -562,7 +560,6 @@ Feature: Interleaved practice
   # with the interval clock the weight rule counts the most turns the session can hold: its time over a turn's time
   # plus a break, rounded up (a turn lasts at least its time, a break follows every turn but the last); a pool of one
   # unit is not held to the rule
-  @planned
   Scenario Outline: a timed session that cannot be played as set is refused, saying why, and one that can is started
     Given I have flagged measure 1 as <flag> difficult
     And I have turned interleaved practice's "No consecutive repeats" <repeats rule>

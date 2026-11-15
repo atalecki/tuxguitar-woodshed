@@ -3,13 +3,16 @@ package app.tuxguitar.practice;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.IntUnaryOperator;
+import java.util.function.ToIntFunction;
 
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
  * Interleaved practice of a song as it was started: its settings checked once, its pool (the units it chooses from, in
- * order), its number of turns and its rules; under way until it ends. The units' weights are read from the song's
+ * order), its number of turns (or its interval clock, which times it) and its rules; under way until it ends. The units' weights are read from the song's
  * difficulty flags when asked, so a flag set during the session counts.
  */
 public final class TGPracticeSession {
@@ -17,16 +20,19 @@ public final class TGPracticeSession {
 	private final TGSong song;
 	private final List<TGPracticeUnit> pool;
 	private final int turns;
+	private final TGPracticeClock clock;
 	private final boolean noConsecutiveRepeats;
 	private final boolean completeCycle;
 	// whether it has ended: set once, on the thread that ends it (the player's or the app's), read on any
 	private volatile boolean ended;
 
-	private TGPracticeSession(TGSong song, List<TGPracticeUnit> pool, TGPracticeSettings settings) {
+	private TGPracticeSession(TGSong song, List<TGPracticeUnit> pool, TGPracticeSettings settings, TGPracticeClock clock) {
 		this.song = song;
 		this.pool = Collections.unmodifiableList(pool);
-		this.turns = settings.getTurns();
-		this.noConsecutiveRepeats = settings.isNoConsecutiveRepeats();
+		this.clock = clock;
+		this.turns = (clock != null ? clock.mostTurns() : settings.getTurns());
+		// with the clock, a pool of one unit plays it every turn
+		this.noConsecutiveRepeats = settings.isNoConsecutiveRepeats() && !(clock != null && pool.size() == 1);
 		this.completeCycle = settings.isCompleteCycle();
 	}
 
@@ -34,12 +40,21 @@ public final class TGPracticeSession {
 	public static TGPracticeSession start(TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(settings.getMeasuresPerLine(), settings.getLinesPerPage());
 		List<TGPracticeUnit> pool = pool(grouping, settings, song.countMeasureHeaders());
+		TGPracticeClock clock = clock(settings);
+		TGPracticeSession session = new TGPracticeSession(song, pool, settings, clock);
+		session.check(session.weights(), session.turns);
+		return session;
+	}
+
+	// the interval clock as set (null: off, the number of turns set, at least 1)
+	private static TGPracticeClock clock(TGPracticeSettings settings) throws TGPracticeRefusal {
+		if (settings.isIntervalClock()) {
+			return TGPracticeClock.of(settings);
+		}
 		if (settings.getTurns() < 1) {
 			throw new TGPracticeRefusal("A session needs at least 1 turn.");
 		}
-		TGPracticeSession session = new TGPracticeSession(song, pool, settings);
-		session.check(session.weights(), session.turns);
-		return session;
+		return null;
 	}
 
 	private static List<TGPracticeUnit> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, int songMeasures) throws TGPracticeRefusal {
@@ -68,14 +83,21 @@ public final class TGPracticeSession {
 		}
 	}
 
+	// the interval clock that times the session; none: it plays its number of turns
+	public Optional<TGPracticeClock> getClock() {
+		return Optional.ofNullable(this.clock);
+	}
+
 	public List<TGPracticeUnit> getPool() {
 		return this.pool;
 	}
 
+	// the number of turns set; with the interval clock, the most turns the session can hold
 	public int getTurns() {
 		return this.turns;
 	}
 
+	// whether no unit may come twice in a row: as set, but never for a timed pool of one unit
 	public boolean isNoConsecutiveRepeats() {
 		return this.noConsecutiveRepeats;
 	}
@@ -112,5 +134,11 @@ public final class TGPracticeSession {
 	// chooses the session's turns, one by one, at random: the same seed, the same turns
 	public TGPracticeChooser chooser(long seed) {
 		return new TGPracticeChooser(this, seed);
+	}
+
+	// plans the session's turns as they are chosen, its Count In clicks before a turn whose first measure is the header
+	// as the function says (0: none), at the Percentage of Tempo
+	public TGPracticeSchedule schedule(ToIntFunction<TGMeasureHeader> clicks, int percent) {
+		return new TGPracticeSchedule(this, this.song, clicks, percent);
 	}
 }
