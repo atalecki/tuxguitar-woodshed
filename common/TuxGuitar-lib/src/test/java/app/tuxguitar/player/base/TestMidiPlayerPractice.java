@@ -266,8 +266,11 @@ public class TestMidiPlayerPractice {
 	}
 
 	// what the app shows: whether a session is held (playing or paused), whether there is anything to stop, the turn
+	// (its number, the session's turns, its unit's kind and number; nothing without a session)
 	private String shown() {
-		return player.isPractising() + " " + player.isRunningOrPractising() + " " + player.getPracticeTurn();
+		String turn = player.getPracticeTurn().map(shown -> shown.getTurn() + " of " + shown.getTurns() + ": " + shown.getUnit().getKind() + " " + shown.getUnit().getNumber())
+			.orElse("");
+		return player.isPractising() + " " + player.isRunningOrPractising() + " " + turn;
 	}
 
 	// in turn 2's Count In (block 400) the turn shown is turn 2, also once paused; Stop ends it
@@ -281,7 +284,7 @@ public class TestMidiPlayerPractice {
 		player.pause();
 		String paused = shown();
 		player.stop();
-		String turn = "Turn 2 of 3: Measure " + chosen(2).get(1);
+		String turn = "2 of 3: MEASURE " + chosen(2).get(1);
 		assertEquals("false false  | true true " + turn + " | true true " + turn + " | false false ", before + " | " + playing + " | " + paused + " | " + shown());
 	}
 

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
@@ -12,6 +13,7 @@ import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.event.TGEventManager;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
+import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
@@ -206,9 +208,9 @@ public class MidiPlayer{
 		return this.isRunning() || this.isPractising();
 	}
 
-	// the turn of the session held, as the app shows it ("Turn 3 of 12: Line 5"); empty without one
-	public String getPracticeTurn() {
-		return this.readLocked(() -> (this.isPractising() ? this.practice.describe(this.tickPosition) : ""));
+	// the turn of the session held, as the app shows it (turn 3 of 12, line 5); none without one
+	public Optional<TGPracticeTurn> getPracticeTurn() {
+		return this.readLocked(() -> (this.isPractising() ? Optional.of(this.practice.turn(this.tickPosition)) : Optional.empty()));
 	}
 
 	// a pause keeps the session

@@ -7,6 +7,7 @@ import java.util.function.ToIntFunction;
 
 import app.tuxguitar.practice.TGPracticeChooser;
 import app.tuxguitar.practice.TGPracticeSession;
+import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -108,11 +109,11 @@ final class MidiPractice {
 		return index;
 	}
 
-	// the turn the tick of the sequence is in, and its unit: "Turn 3 of 12: Line 5"
-	String describe(long tick) {
+	// the session's turn the tick of the sequence is in, and the unit it plays
+	TGPracticeTurn turn(long tick) {
 		int first = this.turns.get(this.indexAt(tick)).getFirst().getNumber();
 		TGPracticeUnit unit = this.getSession().getPool().stream().filter(pooled -> pooled.getFirst() == first).findFirst().get();
-		return "Turn " + this.turnAt(tick) + " of " + this.getSession().getTurns() + ": " + unit;
+		return new TGPracticeTurn(this.turnAt(tick), this.getSession().getTurns(), unit);
 	}
 
 	// the song's tick the tick of the sequence plays (see MidiPracticeTurn.songTick)
