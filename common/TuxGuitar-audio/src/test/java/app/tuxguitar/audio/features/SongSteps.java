@@ -55,6 +55,15 @@ public class SongSteps {
 		world.song().getMeasureHeader(second - 1).setRepeatAlternative(2);
 	}
 
+	// repeated once (two passes), a third ending is never reached; it closes the repeat too, so the song plays on after it
+	@Given("I have repeated measure {int} once, with measure {int} as the first ending and measure {int} as a third, which no pass reaches")
+	public void repeatWithAThirdEnding(int repeated, int first, int third) {
+		repeatMeasures(repeated, first);
+		world.song().getMeasureHeader(first - 1).setRepeatAlternative(1);
+		world.song().getMeasureHeader(third - 1).setRepeatAlternative(4);
+		world.song().getMeasureHeader(third - 1).setRepeatClose(1);
+	}
+
 	@Then("the action succeeds")
 	public void theActionSucceeds() {
 		assertTrue(world.succeeded());

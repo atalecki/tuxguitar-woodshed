@@ -241,6 +241,13 @@ Feature: Interleaved practice
     When I practise 2 turns
     Then each turn sounds the notes of one measure of measures 3 to 4, each within 1 sample of its beat
 
+  Scenario: a measure of an ending no pass reaches still plays on its own
+    Given I have repeated measure 2 once, with measure 3 as the first ending and measure 4 as a third, which no pass reaches
+    And I have set interleaved practice to measures over measures 3 to 4
+    When I practise 2 turns
+    Then each turn sounds the notes of one measure of measures 3 to 4, each within 1 sample of its beat
+    And the player has stopped by itself at the end of turn 2
+
   Scenario: TuxGuitar shows each turn's first measure during its Count In, then follows the turn as it sounds
     Given I have turned Count In on
     And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures

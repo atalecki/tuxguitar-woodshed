@@ -21,11 +21,13 @@ import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.player.base.MidiParameters;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.player.base.MidiPracticeTurn;
 import app.tuxguitar.player.base.MidiReceiver;
 import app.tuxguitar.player.base.MidiSequenceHandler;
 import app.tuxguitar.player.base.MidiSequenceParser;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGChannelParameter;
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTimeSignature;
 import app.tuxguitar.util.TGContext;
@@ -155,20 +157,21 @@ public final class TGMidiTaps {
 	// where playing starts (the channel settings at the start of the sequence among them) fall before sample 0, so they
 	// go out with the first block, in tick order. A turn that another follows ends its notes where it ends: the notes
 	// ending on its last measure's end go off there, before what follows (the next measure in song order, where they
-	// would go off, does not play next)
+	// would go off, does not play next). A measure no pass reaches (no step) has the events of the measure parsed alone
 	private static TreeMap<Long, List<Event>> schedule(TGSongManager songManager, TGSong song, MidiPlayerMode mode, TGTimeline timeline) {
 		MidiSequenceParser parser = new MidiSequenceParser(song, songManager, FLAGS);
 		if (mode.isLoop()) {
 			parser.setSHeader(mode.getLoopSHeader());
 			parser.setEHeader(mode.getLoopEHeader());
 		}
-		Events events = new Events(song.countTracks());
-		parser.parse(events);
+		Events parsed = new Events(song.countTracks());
+		parser.parse(parsed);
 		List<Long> moves = TGSongTime.moves(song, mode);
 		TreeMap<Long, List<Event>> scheduled = new TreeMap<Long, List<Event>>();
 		for (int i = 0; i < timeline.count(); i++) {
 			TGPlayedMeasure measure = timeline.get(i);
-			long start = measure.getHeader().getStart() + moves.get(measure.getStep());
+			Events events = (measure.getStep() >= 0 ? parsed : alone(parser, measure.getHeader(), parsed.getTracks()));
+			long start = measure.getHeader().getStart() + (measure.getStep() >= 0 ? moves.get(measure.getStep()) : 0);
 			long from = (i == 0 ? Long.MIN_VALUE : start + measure.getFrom());
 			List<Event> due = events.between(from, start + measure.getTo());
 			if (timeline.endsTurn(i)) {
@@ -179,6 +182,13 @@ public final class TGMidiTaps {
 			}
 		}
 		return scheduled;
+	}
+
+	// the measure's events parsed alone, where the song starts it, after the channels' setup
+	private static Events alone(MidiSequenceParser parser, TGMeasureHeader header, int tracks) {
+		Events events = new Events(tracks);
+		parser.parseTurn(events, new MidiPracticeTurn(header, header, header.getStart(), 0), true);
+		return events;
 	}
 
 	private interface Send {

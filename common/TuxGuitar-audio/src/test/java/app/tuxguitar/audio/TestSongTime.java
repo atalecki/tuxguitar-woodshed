@@ -79,8 +79,8 @@ public class TestSongTime {
 	}
 
 	// measure 2 repeated once with measure 3 as the first ending and measure 4 as the second (the song plays 1 2 3 2 4):
-	// the second ending plays where the second pass reaches it; an ending no pass reaches (a third) is never played, so
-	// a unit leaves it out
+	// the second ending plays where the second pass reaches it; an ending no pass reaches (a third) still plays in its
+	// unit, once, in score order, where no step of the song is (step -1)
 	@Test
 	public void anAlternateEndingPlaysWhereItsPassReachesIt() {
 		song.getMeasureHeader(1).setRepeatOpen(true);
@@ -90,6 +90,7 @@ public class TestSongTime {
 		String endings = unit(3, 4, 0, 100);
 		song.getMeasureHeader(3).setRepeatAlternative(4);
 
-		assertEquals("m3 0-3840 step 2 pass 0 100%, m4 0-3840 step 4 pass 0 100% | m3 0-3840 step 2 pass 0 100%", endings + " | " + unit(3, 4, 0, 100));
+		assertEquals("m3 0-3840 step 2 pass 0 100%, m4 0-3840 step 4 pass 0 100% | m3 0-3840 step 2 pass 0 100%, m4 0-3840 step -1 pass 0 100%",
+			endings + " | " + unit(3, 4, 0, 100));
 	}
 }

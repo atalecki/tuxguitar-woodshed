@@ -53,16 +53,13 @@ public final class TGSongTime {
 	// a unit of interleaved practice in its turn (from 0, its pass): its measures, numbers first to last, each once,
 	// whole and in score order, whatever repeats and alternate endings say, at the Percentage of Tempo; each where the
 	// song as written first plays it (its step), the first one starting a stretch in a turn after the first. A measure
-	// the song never plays (an alternate ending no pass reaches) is left out
+	// the song never plays (an alternate ending no pass reaches) plays too, at no step (-1)
 	public static List<TGPlayedMeasure> unit(TGSong song, int first, int last, int turn, int percent) {
 		List<TGMeasureHeader> written = pass(song, new MidiPlayerMode());
 		List<TGPlayedMeasure> unit = new ArrayList<TGPlayedMeasure>();
 		for (int number = first; number <= last; number++) {
 			TGMeasureHeader header = song.getMeasureHeader(number - 1);
-			int step = written.indexOf(header);
-			if (step >= 0) {
-				unit.add(new TGPlayedMeasure(header, 0, header.getLength(), turn > 0 && unit.isEmpty(), turn, percent, step));
-			}
+			unit.add(new TGPlayedMeasure(header, 0, header.getLength(), turn > 0 && unit.isEmpty(), turn, percent, written.indexOf(header)));
 		}
 		return unit;
 	}

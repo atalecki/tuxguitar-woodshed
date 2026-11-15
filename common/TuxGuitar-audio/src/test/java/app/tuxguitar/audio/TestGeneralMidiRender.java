@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -275,6 +276,27 @@ public class TestGeneralMidiRender {
 		assertTrue(Meters.peak(tap, 176400 - 2000, 176400) > 0.01, "the note sounds to the turn's end");
 		assertTrue(Meters.peak(tap, 176400 + 20000, 264600) < 0.01, "the note is over in the next turn's Count In");
 		assertEquals(264600, firstSound(Arrays.copyOfRange(tap, 176400 + 20000, tap.length)) + 176400 + 20000, 512);
+	}
+
+	// measure 1 repeated once, measure 2 its first ending and measure 3 a third that no pass reaches: a turn of measure 3
+	// sounds its note from its beat (its attack within 64 samples), and lasts the measure
+	@Test
+	public void aMeasureNoPassReachesSoundsInItsTurn() throws MidiPlayerException {
+		twoMeasures();
+		songManager.addNewMeasureBeforeEnd(song);
+		song.getTrack(0).getMeasure(1).clear();
+		note(song.getTrack(0).getMeasure(2), 0);
+		song.getMeasureHeader(0).setRepeatOpen(true);
+		song.getMeasureHeader(1).setRepeatAlternative(1);
+		song.getMeasureHeader(1).setRepeatClose(1);
+		song.getMeasureHeader(2).setRepeatAlternative(4);
+		song.getMeasureHeader(2).setRepeatClose(1);
+		device(44100);
+		TGTurn turn = new TGTurn(TGCountIn.NONE, TGSongTime.unit(song, 3, 3, 0, 100));
+		float[] tap = render(TGTimeline.of(song, Collections.singletonList(turn), 44100)).getTap(song.getTrack(0));
+
+		assertEquals(88200, tap.length);
+		assertEquals(0, firstSound(tap), 64);
 	}
 
 	// as the player does today, the MIDI sequence leaves out a muted track's notes
