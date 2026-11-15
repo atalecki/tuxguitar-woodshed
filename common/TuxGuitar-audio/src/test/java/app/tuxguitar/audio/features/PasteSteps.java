@@ -4,14 +4,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.measure.TGCopyMeasureAction;
 import app.tuxguitar.editor.action.measure.TGPasteMeasureAction;
 import app.tuxguitar.editor.clipboard.TGClipboard;
 import app.tuxguitar.editor.undo.impl.song.TGUndoableSongGenericController;
 import app.tuxguitar.song.models.TGBeat;
+import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasure;
+import app.tuxguitar.song.models.TGNote;
+import app.tuxguitar.song.models.TGString;
+import app.tuxguitar.song.models.TGTimeSignature;
 import app.tuxguitar.song.models.TGTrack;
+import app.tuxguitar.song.models.TGVoice;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -36,6 +46,56 @@ public class PasteSteps {
 				world.fixture().note(world.fixture().beat(track.getMeasure(index), quarter), 1, 5);
 			}
 		}
+	}
+
+	// in each measure's own time signature, a note of the beat's duration on each beat, its MIDI note the number given
+	// plus the measure's number (from 1): on the highest string tuned at or below it, and below the lowest string on one
+	// more string tuned to the number given (35: a 7-string guitar's low B)
+	@Given("track {int} has a note on every beat, MIDI note {int} plus the measure's number")
+	public void aNoteOnEveryBeatByMeasure(int number, int base) {
+		TGTrack track = world.track(number);
+		if (base + 1 < lowest(track).getValue()) {
+			TGString low = world.fixture().songManager.getFactory().newString();
+			low.setNumber(track.stringCount() + 1);
+			low.setValue(base);
+			track.getStrings().add(low);
+		}
+		for (int index = 0; index < track.countMeasures(); index++) {
+			TGMeasure measure = track.getMeasure(index);
+			TGTimeSignature signature = measure.getTimeSignature();
+			int pitch = base + measure.getNumber();
+			TGString string = track.getStrings().stream().filter(each -> each.getValue() <= pitch).max(Comparator.comparingInt(TGString::getValue)).get();
+			for (int beat = 0; beat < signature.getNumerator(); beat++) {
+				world.fixture().note(beat(measure, beat, signature.getDenominator().getValue()), string.getNumber(), pitch - string.getValue());
+			}
+			assertEquals(Collections.nCopies(signature.getNumerator(), pitch), pitches(measure));
+		}
+	}
+
+	private static TGString lowest(TGTrack track) {
+		return track.getStrings().stream().min(Comparator.comparingInt(TGString::getValue)).get();
+	}
+
+	// a new beat of that duration (a denominator: 4 a quarter) in voice 0, so many of them after the measure start
+	private TGBeat beat(TGMeasure measure, int index, int value) {
+		TGBeat beat = world.fixture().songManager.getFactory().newBeat();
+		beat.setPreciseStart(TGDuration.toPreciseTime(measure.getStart() + index * TGDuration.QUARTER_TIME * 4 / value));
+		TGVoice voice = beat.getVoice(0);
+		voice.setEmpty(false);
+		voice.getDuration().setValue(value);
+		world.fixture().songManager.getMeasureManager().addBeat(measure, beat);
+		return beat;
+	}
+
+	// the MIDI notes of the measure's notes, beat by beat
+	private static List<Integer> pitches(TGMeasure measure) {
+		List<Integer> pitches = new ArrayList<Integer>();
+		for (TGBeat beat : measure.getBeats()) {
+			for (TGNote note : beat.getVoice(0).getNotes()) {
+				pitches.add(measure.getTrack().getString(note.getString()).getValue() + note.getValue());
+			}
+		}
+		return pitches;
 	}
 
 	@Given("I have copied measure {int} of track {int}")

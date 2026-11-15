@@ -8,7 +8,11 @@ Implemented so far, rendered offline on the Test Interface: `tracks/audio_tracks
 `recording/recording_line_in`, `plugins/hosting_vst3_plugins` and `sync/keeping_audio_in_sync`, but for the scenarios
 still tagged `@planned` in them: takes, General MIDI programs, the mix, time-stretching, input channels and levels, the
 round trip, refusals during a recording, Count In, monitoring, sound chains of VST3 effects and instruments in their
-helper processes, and plugin delay compensation. Export is implemented headless (TGAudioExporter in this module), in
+helper processes, and plugin delay compensation. Interleaved practice (`practice/interleaved_practice`) is implemented
+up to choosing the turns, without sound: lib's `app.tuxguitar.practice` (units, fixed groups, the pool, the weight rule,
+the chooser, seeded through `java.util.SplittableRandom`, since `java.util.Random` starts nearly alike for nearby seeds)
+and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChangeDifficultyAction`, saved as
+`<difficulty>` in format 2.0); playing a session's turns is still `@planned`. Export is implemented headless (TGAudioExporter in this module), in
 WAVE 16/24-bit/float, AIFF 16-bit and AU 16-bit (`TGExportFormat.offered`); an installed app's audio export writes
 through it (`TGAudioExport`, synth-core's `TGSynthAudioExporter` extension: the desktop's File > Export audio offers
 those formats when the audio plugin is installed). Saving is implemented in lib's TuxGuitar file format (format 3.0: a
@@ -133,7 +137,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (planned) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (choosing and flags implemented, playing planned) |
 
 ## How the scenarios run
 

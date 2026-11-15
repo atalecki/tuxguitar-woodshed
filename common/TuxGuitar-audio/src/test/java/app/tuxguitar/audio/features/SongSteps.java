@@ -66,6 +66,8 @@ public class SongSteps {
 	}
 
 	@Then("the refusal reads {string}")
+	@Then("starting is refused, saying {string}")
+	@Then("the flag is refused, saying {string}")
 	public void theRefusalReads(String refusal) {
 		assertEquals(refusal, world.refusal());
 	}
@@ -92,6 +94,7 @@ public class SongSteps {
 	}
 
 	@Given("I have undone")
+	@Given("I have undone it")
 	public void haveUndone() {
 		undo();
 		assertTrue(TGUndoableManager.getInstance(world.fixture().context).canRedo());

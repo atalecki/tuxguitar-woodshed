@@ -268,6 +268,11 @@ public class AudioWorld {
 		return this.refusal;
 	}
 
+	// what a step's own check refused, saying why (null: it did not refuse)
+	void setRefusal(String refusal) {
+		this.refusal = refusal;
+	}
+
 	public void executeUndoable(TGActionBase action, TGUndoableActionController controller) {
 		this.fixture.actionContext.setAttribute(TGActionBase.ATTRIBUTE_SUCCESS, null);
 		TGUndoableEdit started = controller.startUndoable(this.fixture.context, this.fixture.actionContext);
