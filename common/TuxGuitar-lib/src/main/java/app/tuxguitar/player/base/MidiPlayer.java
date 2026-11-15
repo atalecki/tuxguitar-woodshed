@@ -199,6 +199,21 @@ public class MidiPlayer{
 		this.play();
 	}
 
+	// whether a session is held, playing or paused (one that ended is not)
+	public boolean isPractising() {
+		return this.readLocked(() -> this.practice != null && !this.practice.getSession().isEnded());
+	}
+
+	// whether Stop has anything to stop: the player running, or a session held
+	public boolean isRunningOrPractising() {
+		return this.isRunning() || this.isPractising();
+	}
+
+	// the turn of the session held, as the app shows it ("Turn 3 of 12: Line 5"); empty without one
+	public String getPracticeTurn() {
+		return this.readLocked(() -> (this.isPractising() ? this.practice.describe(this.tickPosition) : ""));
+	}
+
 	// a pause keeps the session
 	private void endPracticeUnless(boolean paused) {
 		if( !paused ){

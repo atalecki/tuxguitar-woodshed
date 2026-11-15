@@ -108,6 +108,13 @@ final class MidiPractice {
 		return index;
 	}
 
+	// the turn the tick of the sequence is in, and its unit: "Turn 3 of 12: Line 5"
+	String describe(long tick) {
+		int first = this.turns.get(this.indexAt(tick)).getFirst().getNumber();
+		TGPracticeUnit unit = this.getSession().getPool().stream().filter(pooled -> pooled.getFirst() == first).findFirst().get();
+		return "Turn " + this.turnAt(tick) + " of " + this.getSession().getTurns() + ": " + unit;
+	}
+
 	// the song's tick the tick of the sequence plays (see MidiPracticeTurn.songTick)
 	long songTick(long tick) {
 		return this.turns.get(this.indexAt(tick)).songTick(tick);

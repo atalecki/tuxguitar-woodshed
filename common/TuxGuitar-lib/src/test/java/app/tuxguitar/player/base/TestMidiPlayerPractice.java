@@ -264,4 +264,35 @@ public class TestMidiPlayerPractice {
 		assertEquals("Interleaved practice needs a sequencer that takes turns added while it plays, and \"fake\" does not:"
 			+ " choose the TuxGuitar Sequencer in Settings > Sound. | false false false", refusal + " | " + state());
 	}
+
+	// what the app shows: whether a session is held (playing or paused), whether there is anything to stop, the turn
+	private String shown() {
+		return player.isPractising() + " " + player.isRunningOrPractising() + " " + player.getPracticeTurn();
+	}
+
+	// in turn 2's Count In (block 400) the turn shown is turn 2, also once paused; Stop ends it
+	@Test
+	public void theSessionAndItsTurnAreShownWhilePlayingAndPaused() throws Exception {
+		player.getCountDown().setEnabled(true);
+		String before = shown();
+		practise(3);
+		blocks(400);
+		String playing = shown();
+		player.pause();
+		String paused = shown();
+		player.stop();
+		String turn = "Turn 2 of 3: Measure " + chosen(2).get(1);
+		assertEquals("false false  | true true " + turn + " | true true " + turn + " | false false ", before + " | " + playing + " | " + paused + " | " + shown());
+	}
+
+	// during a session the player reports the song's tick as written (see throughATurnsCountIn...): it maps to itself,
+	// though the song repeats measures 2 and 3, where the tick of measure 4 would play measure 2 again
+	@Test
+	public void duringASessionThePlayersTickIsTheSongsTick() throws Exception {
+		TestMidiSongTicks.repeat(fixture);
+		practise(3);
+		blocks(10);
+		long tick = fixture.start(4) + 5;
+		assertEquals(tick, MidiSongTicks.getStart(player, fixture.song, tick));
+	}
 }

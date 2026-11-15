@@ -16,8 +16,13 @@ public final class MidiSongTicks {
 	}
 
 	// the song's tick the player's tick plays; before the loop start, the loop start; past the end, the player's tick
-	// of the last measure played
+	// of the last measure played. During an interleaved practice session the player's tick is the song's (see
+	// MidiPlayer.getTickPosition)
 	public static long getStart(MidiPlayer player, TGSong song, long tick) {
+		return (player.isPractising() ? tick : played(player, song, tick));
+	}
+
+	private static long played(MidiPlayer player, TGSong song, long tick) {
 		long startPoint = startPoint(player);
 		Played played = find(player, song, startPoint, (header, at) -> tick >= at && tick < at + header.getLength());
 		if (played.found) {
