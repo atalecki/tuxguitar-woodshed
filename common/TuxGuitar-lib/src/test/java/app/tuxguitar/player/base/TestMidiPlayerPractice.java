@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +14,7 @@ import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
+import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGNote;
@@ -71,6 +73,54 @@ public class TestMidiPlayerPractice {
 		player.practise(session, SEED);
 		threads.runStarted();
 		threads.runLoop();
+	}
+
+	// practises a timed session (the interval clock: turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes),
+	// Count In on: turn 1 is its Count In then 29 passes of its measure, 60 seconds (2646000 frames); turn 2 follows
+	// after the break, the last
+	private void practiseTimed() throws MidiPlayerException, TGPracticeRefusal {
+		player.getCountDown().setEnabled(true);
+		TGPracticeSettings settings = new TGPracticeSettings();
+		settings.setPool(1, 4);
+		settings.setIntervalClock(true);
+		settings.setTurnMinutes(1);
+		settings.setBreakSeconds(10);
+		settings.setSessionMinutes(2);
+		session = TGPracticeSession.start(settings, fixture.song);
+		player.practise(session, SEED);
+		threads.runStarted();
+		threads.runLoop();
+	}
+
+	// the notes and clicks started from the frame to the one given, as started() writes them
+	private String startedBetween(long from, long to) {
+		return Stream.of(started().split(", ")).filter(line -> Long.parseLong(line.replaceAll(" .*", "")) >= from && Long.parseLong(line.replaceAll(" .*", "")) <= to)
+			.collect(Collectors.joining(", "));
+	}
+
+	// the break lasts its 10 seconds (441000 frames) from the end of turn 1's last pass (its note on the pass's first beat)
+	// to turn 2's first click, and nothing starts in it
+	@Test
+	public void aTimedTurnsBreakIsSilentAndLastsItsSeconds() throws Exception {
+		practiseTimed();
+		blocks(6100);
+		assertEquals("2557800 1 " + (64 + chosen(1).get(0)) + ", 3087000 -2 37", startedBetween(2557800, 3087000));
+	}
+
+	// paused 5.5 seconds into the break (the break before turn 2 shown, 5 seconds left), Play plays turn 2's Count In at once, from the
+	// frame it starts on, then its measure
+	@Test
+	public void pausedInABreakPlayStartsTheNextTurnsCountInAtOnce() throws Exception {
+		practiseTimed();
+		blocks((2646000 + 242550) / BLOCK);
+		TGPracticeTurn shown = player.getPracticeTurn().get();
+		player.pause();
+		received.clear();
+		playAgain();
+		blocks(200);
+		long from = Long.parseLong(started().replaceAll(" .*", ""));
+		assertEquals("break 2 5 | " + turn(from, chosen(2).get(1)), (shown.isBreak() ? "break " : "turn ") + shown.getTurn() + " " + shown.getSecondsLeft() + " | "
+			+ startedBetween(from, from + 4 * BEAT));
 	}
 
 	// the measures the seed chooses, in order

@@ -174,15 +174,16 @@ public class MidiSequenceParser {
 		}
 	}
 
-	// from the turn's start: its first measure's time signature and tempo, and a click on each beat of its Count In on
-	// the Metronome's channel (none without one), on the info track, which no mute or solo silences
+	// from the turn's start (its break's, if any): its first measure's time signature and tempo; after its break, a click
+	// on each beat of its Count In on the Metronome's channel (none without one), on the info track, which no mute or solo
+	// silences
 	private void addCountIn(MidiSequenceHelper sh, MidiPracticeTurn turn) {
 		TGMeasureHeader first = turn.getFirst();
 		long tick = getTick(turn.getStart());
 		sh.getSequence().addTimeSignature(tick, getInfoTrack(), first.getTimeSignature());
 		this.addTempo(sh, first.getTempo(), tick);
 		for (int click = 0; click < turn.getClicks() && this.metronomeChannelId != NO_METRONOME_CHANNEL; click++) {
-			long start = turn.getStart() + click * turn.getBeat();
+			long start = turn.getCountIn() + click * turn.getBeat();
 			addNote(sh, getInfoTrack(), this.metronomeClick.getNote(), start, turn.getBeat(), this.metronomeClick.getVelocity(), this.metronomeChannelId, -1, false);
 		}
 	}
@@ -551,10 +552,14 @@ public class MidiSequenceParser {
 		}
 	}
 
+	// the microseconds a quarter note lasts at the tempo and the Percentage of Tempo, as the sequence plays it
+	static int usq(TGTempo tempo, int percent) {
+		return (int)(tempo.getInUSQ() * 100.00 / percent);
+	}
+
 	// the tempo, at the Percentage of Tempo, from the tick on
 	private void addTempo(MidiSequenceHelper sh, TGTempo tempo, long tick) {
-		int usq = (int)(tempo.getInUSQ() * 100.00 / this.tempoPercent );
-		sh.getSequence().addTempoInUSQ(tick, getInfoTrack(), usq);
+		sh.getSequence().addTempoInUSQ(tick, getInfoTrack(), usq(tempo, this.tempoPercent));
 		if (this.timestampMap.isEmpty()) {
 			this.timestampMap.put(tick, 0l);
 		} else {

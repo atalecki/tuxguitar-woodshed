@@ -13,6 +13,7 @@ import app.tuxguitar.practice.TGPracticeChooser;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
+import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGMeasureHeader;
@@ -33,6 +34,7 @@ public class TestMidiPractice {
 
 	private final TGSong song = new TGSongManager().newSong();
 	private final List<String> added = new ArrayList<String>();
+	private final List<MidiPracticeTurn> passes = new ArrayList<MidiPracticeTurn>();
 	private TGPracticeSession session;
 
 	public TestMidiPractice() {
@@ -41,17 +43,60 @@ public class TestMidiPractice {
 		}
 	}
 
-	// lines 1 to 4 for so many turns, started from tick 960, each turn added written "first-last@start setup"
-	private MidiPractice practice(int turns) throws TGPracticeRefusal {
+	// lines 1 to 4 of 2 measures
+	private static TGPracticeSettings lines() {
 		TGPracticeSettings settings = new TGPracticeSettings();
 		settings.setUnit(TGPracticeUnitKind.LINE);
 		settings.setPool(1, 4);
 		settings.setMeasuresPerLine(2);
+		return settings;
+	}
+
+	// lines 1 to 4 for so many turns, started from tick 960, each turn added written "first-last@start setup"
+	private MidiPractice practice(int turns) throws TGPracticeRefusal {
+		TGPracticeSettings settings = lines();
 		settings.setTurns(turns);
+		return this.practice(settings, 100);
+	}
+
+	// the session as set, at the percent, started from tick 960; each turn added is kept, and written as practice() says
+	private MidiPractice practice(TGPracticeSettings settings, int percent) throws TGPracticeRefusal {
 		session = TGPracticeSession.start(settings, song);
-		MidiPractice practice = new MidiPractice(session.chooser(SEED), song, header -> header.getTimeSignature().getNumerator());
-		practice.start(960, (turn, setup) -> added.add(turn.getFirst().getNumber() + "-" + turn.getLast().getNumber() + "@" + turn.getStart() + (setup ? " setup" : "")));
+		MidiPractice practice = new MidiPractice(session.chooser(SEED), song, header -> header.getTimeSignature().getNumerator(), percent);
+		practice.start(960, (turn, setup) -> {
+			passes.add(turn);
+			added.add(turn.getFirst().getNumber() + "-" + turn.getLast().getNumber() + "@" + turn.getStart() + (setup ? " setup" : ""));
+		});
 		return practice;
+	}
+
+	// lines 1 to 4 (or as many as given), timed: turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes; a Count
+	// In before every pass or the first only. At 120 bpm a line lasts 4 seconds (7680 ticks), a Count In 2 (3840)
+	private MidiPractice timed(int lines, boolean everyPass, int percent) throws TGPracticeRefusal {
+		TGPracticeSettings settings = lines();
+		settings.setPool(1, lines);
+		settings.setIntervalClock(true);
+		settings.setTurnMinutes(1);
+		settings.setBreakSeconds(10);
+		settings.setSessionMinutes(2);
+		settings.setCountInEveryPass(everyPass);
+		return this.practice(settings, percent);
+	}
+
+	private MidiPractice timed(boolean everyPass, int percent) throws TGPracticeRefusal {
+		return this.timed(4, everyPass, percent);
+	}
+
+	// the passes laid, by index: "turn:start+rest/clicks", comma separated
+	private String passes(int... indexes) {
+		return IntStream.of(indexes).mapToObj(passes::get).map(pass -> pass.getTurn() + ":" + pass.getStart() + "+" + pass.getRest() + "/" + pass.getClicks())
+			.collect(Collectors.joining(", "));
+	}
+
+	// Play after a pause at the tick: the passes laid from then on
+	private void playAfterPause(MidiPractice practice, long paused) {
+		passes.clear();
+		practice.play(paused, 960, (turn, setup) -> passes.add(turn));
 	}
 
 	// the first measures of the turns the seed chooses for the session, in order
@@ -128,5 +173,102 @@ public class TestMidiPractice {
 		song.getMeasureHeader(2).setDifficulty(3);
 		startEachTurn(practice, 6);
 		assertEquals("[1, 3, 3, 3, 5, 7] 10", firsts(5, 10) + " " + added.size());
+	}
+
+	// with the interval clock a turn lays all its passes, its Count In before the first only: 2 + 15 x 4 = 62 seconds;
+	// once it has started, the next turn follows after a break of 10 seconds (19200 ticks at 120 bpm) with its Count In,
+	// and it is the last: the session's 2 minutes are up at its end
+	@Test
+	public void aTimedTurnLaysItsPassesAndTheNextTurnFollowsAfterItsBreak() throws TGPracticeRefusal {
+		MidiPractice practice = timed(false, 100);
+		String first = passes(0, 1, 14) + " " + passes.size() + " " + passes.get(14).getEnd();
+		practice.follow(959);
+		int before = passes.size();
+		practice.follow(960);
+		practice.follow(120000);
+		practice.follow(400000);
+		assertEquals("1:960+0/4, 1:12480+0/0, 1:112320+0/0 15 120000 | 15 | 2:120000+19200/4, 2:150720+0/0 30 258240",
+			first + " | " + before + " | " + passes(15, 16) + " " + passes.size() + " " + passes.get(29).getEnd());
+	}
+
+	// a Count In before every pass: 10 passes of 6 seconds
+	@Test
+	public void aTimedTurnWithACountInBeforeEveryPass() throws TGPracticeRefusal {
+		timed(true, 100);
+		assertEquals("1:960+0/4, 1:12480+0/4, 1:104640+0/4 10", passes(0, 1, 9) + " " + passes.size());
+	}
+
+	// at 50% a second lasts 960 ticks: the break 9600; 7 passes of 8 seconds after a Count In of 4
+	@Test
+	public void theBreakLastsItsSecondsAtThePercentage() throws TGPracticeRefusal {
+		MidiPractice practice = timed(false, 50);
+		practice.follow(960);
+		assertEquals("2:58560+9600/4 14", passes(7) + " " + passes.size());
+	}
+
+	// the break is at the tempo of the next turn's first measure: line 2 at 60 bpm, line 1 at 120; no line comes twice in
+	// a row, so turn 2 plays the other line
+	@Test
+	public void theBreakLastsItsSecondsAtTheNextTurnsTempo() throws TGPracticeRefusal {
+		song.getMeasureHeader(2).getTempo().setQuarterValue(60);
+		song.getMeasureHeader(3).getTempo().setQuarterValue(60);
+		MidiPractice practice = timed(2, false, 100);
+		practice.follow(960);
+		MidiPracticeTurn second = passes.stream().filter(pass -> pass.getTurn() == 2).findFirst().get();
+		assertEquals((second.getFirst().getNumber() == 3 ? 9600 : 19200), second.getRest());
+	}
+
+	// what the app shows: the turn and the seconds left to its end (rounded up), all its passes; in the break before the
+	// next turn, that turn and the seconds left in the break
+	@Test
+	public void aTimedTurnAndTheBreakBeforeTheNextAreReportedWithTheTimeLeft() throws TGPracticeRefusal {
+		MidiPractice practice = timed(false, 100);
+		practice.follow(960);
+		int one = passes.get(0).getFirst().getNumber();
+		int two = passes.get(15).getFirst().getNumber();
+		assertEquals("turn 1 " + one + " 61, turn 1 " + one + " 1, break 2 " + two + " 10, break 2 " + two + " 1, turn 2 " + two + " 62, turn 2 " + two + " 1",
+			IntStream.of(960 + 1920, 119999, 120000, 139200 - 960, 139200, 258239).mapToObj(tick -> shown(practice.turn(tick))).collect(Collectors.joining(", ")));
+	}
+
+	private static String shown(TGPracticeTurn turn) {
+		return (turn.isBreak() ? "break " : "turn ") + turn.getTurn() + " " + turn.getUnit().getFirst() + " " + turn.getSecondsLeft() + (turn.isTimed() ? "" : " of " + turn.getTurns());
+	}
+
+	// without the clock: the turn of the session's turns, no time
+	@Test
+	public void aCountedTurnIsReportedOfTheSessionsTurns() throws TGPracticeRefusal {
+		MidiPractice practice = practice(3);
+		assertEquals("turn 1 " + chosen(1).get(0) + " 0 of 3", shown(practice.turn(1000)));
+	}
+
+	// all through the break the song plays the next turn's first measure's first tick
+	@Test
+	public void throughTheBreakTheSongTickIsTheNextTurnsFirst() throws TGPracticeRefusal {
+		MidiPractice practice = timed(false, 100);
+		practice.follow(960);
+		long first = passes.get(15).getFirst().getStart();
+		assertEquals(first + " " + first + " " + (first + 10), practice.songTick(120005) + " " + practice.songTick(139200 + 3839) + " " + practice.songTick(139200 + 3850));
+	}
+
+	// paused in pass 3 of turn 1: from the tick, pass 3 again after a Count In, then the turn's passes left, then turn 2
+	// after its break
+	@Test
+	public void pausedInAPassPlayPlaysItAgainFromACountInThenThePassesLeft() throws TGPracticeRefusal {
+		MidiPractice practice = timed(false, 100);
+		practice.follow(960);
+		playAfterPause(practice, 20160 + 100);
+		practice.follow(960);
+		assertEquals("1:960+0/4, 1:12480+0/0, 2:104640+19200/4 28 1", passes(0, 1, 13) + " " + passes.size() + " " + practice.turnAt(104000));
+	}
+
+	// paused in the break before turn 2: Play plays turn 2's Count In at once, and the session ends after it
+	@Test
+	public void pausedInABreakPlayPlaysTheNextTurnsCountInAtOnce() throws TGPracticeRefusal {
+		MidiPractice practice = timed(false, 100);
+		practice.follow(960);
+		playAfterPause(practice, 120000 + 100);
+		practice.follow(960);
+		practice.follow(1000000);
+		assertEquals("2:960+0/4, 2:12480+0/0 15 2", passes(0, 1) + " " + passes.size() + " " + practice.turnAt(960));
 	}
 }

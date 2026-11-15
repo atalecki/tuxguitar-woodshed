@@ -63,6 +63,14 @@ public class TestSequenceParserTurn {
 			parsed(turn(2, 5, start, 2), false, 100, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
 
+	// a break of 1920 ticks before a Count In of 2: the time signature and tempo from the break's start, the clicks after it
+	@Test
+	public void aTurnAfterABreakTakesItsTempoAtTheBreakAndClicksAfterIt() {
+		MidiPracticeTurn turn = new MidiPracticeTurn(song.song.getMeasureHeader(2), song.song.getMeasureHeader(2), 960, 1920, 2, 2);
+		assertEquals("ts 960 t0 4/4, tempo 960 t0 500000, on 2880 t0 c9 k37 v95 s-1 b0, on 3840 t0 c9 k37 v95 s-1 b0, ts 4800 t0 4/4, tempo 4800 t0 500000, on 4800 t1 c1 k67",
+			parsed(turn, false, 100, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
+	}
+
 	@Test
 	public void aTurnWithoutCountInStartsWithItsFirstMeasure() {
 		assertEquals("on 3840 t1 c1 k67 v95 s1 b0, off 4800 t1 c1 k67 v95 s1 b0",

@@ -193,7 +193,7 @@ public class MidiPlayer{
 		}
 		this.runLocked(() -> {
 			this.stop();
-			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore);
+			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore, this.getMode().getStartPercent());
 			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getChooser());
 		});
 		this.play();
@@ -749,7 +749,7 @@ public class MidiPlayer{
 	// the parser of its turns
 	private MidiSequenceParser startPractice() throws MidiPlayerException {
 		MidiSequenceHandler sequence = getSequencer().createSequence(this.sequenceTracks());
-		MidiSequenceParser parser = this.parser(getMode().getStartPercent());
+		MidiSequenceParser parser = this.parser(this.practice.getPercent());
 		this.practice.play(this.tickPosition, TGDuration.QUARTER_TIME, (turn, setup) -> parser.parseTurn(sequence, turn, setup));
 		return parser;
 	}
