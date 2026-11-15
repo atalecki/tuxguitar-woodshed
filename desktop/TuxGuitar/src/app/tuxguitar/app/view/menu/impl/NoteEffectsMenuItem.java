@@ -64,95 +64,95 @@ public class NoteEffectsMenuItem extends TGMenuItem {
 	public void showItems(){
 		//--VIBRATO--
 		this.vibrato = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.vibrato.addSelectionListener(this.createActionProcessor(TGChangeVibratoNoteAction.NAME));
+		this.act(this.vibrato, this.createActionProcessor(TGChangeVibratoNoteAction.NAME));
 
 		//--BEND--
 		this.bend = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.bend.addSelectionListener(this.createActionProcessor(TGOpenBendDialogAction.NAME));
+		this.act(this.bend, this.createActionProcessor(TGOpenBendDialogAction.NAME));
 
 		//--BEND--
 		this.tremoloBar = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.tremoloBar.addSelectionListener(this.createActionProcessor(TGOpenTremoloBarDialogAction.NAME));
+		this.act(this.tremoloBar, this.createActionProcessor(TGOpenTremoloBarDialogAction.NAME));
 
 		//--SLIDE--
 		this.slide = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.slide.addSelectionListener(this.createActionProcessor(TGChangeSlideNoteAction.NAME));
+		this.act(this.slide, this.createActionProcessor(TGChangeSlideNoteAction.NAME));
 
 		//--SLIDE--
 		this.deadNote = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.deadNote.addSelectionListener(this.createActionProcessor(TGChangeDeadNoteAction.NAME));
+		this.act(this.deadNote, this.createActionProcessor(TGChangeDeadNoteAction.NAME));
 
 		//--HAMMER--
 		this.hammer = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.hammer.addSelectionListener(this.createActionProcessor(TGChangeHammerNoteAction.NAME));
+		this.act(this.hammer, this.createActionProcessor(TGChangeHammerNoteAction.NAME));
 
 		//--SEPARATOR--
 		this.noteEffectsMenuItem.getMenu().createSeparator();
 
 		//--GHOST NOTE--
 		this.ghostNote = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.ghostNote.addSelectionListener(this.createActionProcessor(TGChangeGhostNoteAction.NAME));
+		this.act(this.ghostNote, this.createActionProcessor(TGChangeGhostNoteAction.NAME));
 
 		//--ACCENTUATED NOTE--
 		this.accentuatedNote = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.accentuatedNote.addSelectionListener(this.createActionProcessor(TGChangeAccentuatedNoteAction.NAME));
+		this.act(this.accentuatedNote, this.createActionProcessor(TGChangeAccentuatedNoteAction.NAME));
 
 		//--HEAVY ACCENTUATED NOTE--
 		this.heavyAccentuatedNote = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.heavyAccentuatedNote.addSelectionListener(this.createActionProcessor(TGChangeHeavyAccentuatedNoteAction.NAME));
+		this.act(this.heavyAccentuatedNote, this.createActionProcessor(TGChangeHeavyAccentuatedNoteAction.NAME));
 
 		//--LET RING--
 		this.letRing = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.letRing.addSelectionListener(this.createActionProcessor(TGChangeLetRingAction.NAME));
+		this.act(this.letRing, this.createActionProcessor(TGChangeLetRingAction.NAME));
 
 		//--HARMONIC NOTE--
 		this.harmonicNote = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.harmonicNote.addSelectionListener(this.createActionProcessor(TGOpenHarmonicDialogAction.NAME));
+		this.act(this.harmonicNote, this.createActionProcessor(TGOpenHarmonicDialogAction.NAME));
 
 		//--GRACE NOTE--
 		this.graceNote = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.graceNote.addSelectionListener(this.createActionProcessor(TGOpenGraceDialogAction.NAME));
+		this.act(this.graceNote, this.createActionProcessor(TGOpenGraceDialogAction.NAME));
 
 		//--SEPARATOR--
 		this.noteEffectsMenuItem.getMenu().createSeparator();
 
 		//--TRILL--
 		this.trill = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.trill.addSelectionListener(this.createActionProcessor(TGOpenTrillDialogAction.NAME));
+		this.act(this.trill, this.createActionProcessor(TGOpenTrillDialogAction.NAME));
 
 		//--TREMOLO PICKING--
 		this.tremoloPicking = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.tremoloPicking.addSelectionListener(this.createActionProcessor(TGOpenTremoloPickingDialogAction.NAME));
+		this.act(this.tremoloPicking, this.createActionProcessor(TGOpenTremoloPickingDialogAction.NAME));
 
 		//--PALM MUTE--
 		this.palmMute = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.palmMute.addSelectionListener(this.createActionProcessor(TGChangePalmMuteAction.NAME));
+		this.act(this.palmMute, this.createActionProcessor(TGChangePalmMuteAction.NAME));
 
 		//--STACCATO--
 		this.staccato = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.staccato.addSelectionListener(this.createActionProcessor(TGChangeStaccatoAction.NAME));
+		this.act(this.staccato, this.createActionProcessor(TGChangeStaccatoAction.NAME));
 
 		//--SEPARATOR--
 		this.noteEffectsMenuItem.getMenu().createSeparator();
 
 		//--TAPPING--
 		this.tapping = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.tapping.addSelectionListener(this.createActionProcessor(TGChangeTappingAction.NAME));
+		this.act(this.tapping, this.createActionProcessor(TGChangeTappingAction.NAME));
 
 		//--SLAPPING--
 		this.slapping = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.slapping.addSelectionListener(this.createActionProcessor(TGChangeSlappingAction.NAME));
+		this.act(this.slapping, this.createActionProcessor(TGChangeSlappingAction.NAME));
 
 		//--POPPING--
 		this.popping = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.popping.addSelectionListener(this.createActionProcessor(TGChangePoppingAction.NAME));
+		this.act(this.popping, this.createActionProcessor(TGChangePoppingAction.NAME));
 
 		//--SEPARATOR--
 		this.noteEffectsMenuItem.getMenu().createSeparator();
 
 		//--FADE IN--
 		this.fadeIn = this.noteEffectsMenuItem.getMenu().createCheckItem();
-		this.fadeIn.addSelectionListener(this.createActionProcessor(TGChangeFadeInAction.NAME));
+		this.act(this.fadeIn, this.createActionProcessor(TGChangeFadeInAction.NAME));
 
 		this.loadIcons();
 		this.loadProperties();

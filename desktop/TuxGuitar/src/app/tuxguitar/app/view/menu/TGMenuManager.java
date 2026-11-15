@@ -116,11 +116,16 @@ public class TGMenuManager implements TGEventListener {
 		}
 	}
 
+	// the menu bar's and the popup menu's items, those a practice session refuses greyed out (see TGMenuGreying)
 	public void updateItems(){
 		if(!this.isDisposed()){
-			this.updateItems(this.loadedMenuItems);
-			this.updateItems(this.loadedPopupMenuItems);
+			TGMenuGreying.getInstance(this.context).refresh(this::updateLoadedItems);
 		}
+	}
+
+	private void updateLoadedItems(){
+		this.updateItems(this.loadedMenuItems);
+		this.updateItems(this.loadedPopupMenuItems);
 	}
 
 	public void updateItems(List<TGMenuItem> menuItems){

@@ -34,7 +34,7 @@ public class ChordMenuItem extends TGMenuItem {
 	public void showItems() {
 		//--INSERT CHORD--
 		this.insertChord = this.chordMenuItem.getMenu().createActionItem();
-		this.insertChord.addSelectionListener(this.createActionProcessor(TGOpenChordDialogAction.NAME));
+		this.act(this.insertChord, this.createActionProcessor(TGOpenChordDialogAction.NAME));
 
 		//--SEPARATOR--
 		this.chordMenuItem.getMenu().createSeparator();
@@ -54,7 +54,7 @@ public class ChordMenuItem extends TGMenuItem {
 
 			this.subMenuItems[i] = this.chordMenuItem.getMenu().createActionItem();
 			this.subMenuItems[i].setText(chord.getName());
-			this.subMenuItems[i].addSelectionListener(this.createInsertChordAction(chord));
+			this.act(this.subMenuItems[i], this.createInsertChordAction(chord));
 		}
 	}
 

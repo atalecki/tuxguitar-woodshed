@@ -37,15 +37,15 @@ public class ToolMenuItem extends TGMenuItem {
 	public void showItems(){
 		//--TRANSPOSE--
 		this.transpose = this.settingsMenuItem.getMenu().createActionItem();
-		this.transpose.addSelectionListener(this.createActionProcessor(TGOpenTransposeDialogAction.NAME));
+		this.act(this.transpose, this.createActionProcessor(TGOpenTransposeDialogAction.NAME));
 
 		//--SCALE--
 		this.scale = this.settingsMenuItem.getMenu().createActionItem();
-		this.scale.addSelectionListener(this.createActionProcessor(TGOpenScaleDialogAction.NAME));
+		this.act(this.scale, this.createActionProcessor(TGOpenScaleDialogAction.NAME));
 
 		//--BROWSER--
 		this.browser = this.settingsMenuItem.getMenu().createActionItem();
-		this.browser.addSelectionListener(this.createActionProcessor(TGToggleBrowserAction.NAME));
+		this.act(this.browser, this.createActionProcessor(TGToggleBrowserAction.NAME));
 
 		//--CUSTOM TOOLS--
 		Iterator<TGCustomTool> it = TGCustomToolManager.instance().getCustomTools();
@@ -53,7 +53,7 @@ public class ToolMenuItem extends TGMenuItem {
 			TGCustomTool tool = it.next();
 			UIMenuActionItem uiMenuItem = this.settingsMenuItem.getMenu().createActionItem();
 			pluginsMap.put(uiMenuItem, tool);
-			uiMenuItem.addSelectionListener(this.createActionProcessor(tool.getAction()));
+			this.act(uiMenuItem, this.createActionProcessor(tool.getAction()));
 		}
 
 		//--SEPARATOR--
@@ -61,15 +61,15 @@ public class ToolMenuItem extends TGMenuItem {
 
 		//--PLUGINS--
 		this.plugins = this.settingsMenuItem.getMenu().createActionItem();
-		this.plugins.addSelectionListener(this.createActionProcessor(TGOpenPluginListDialogAction.NAME));
+		this.act(this.plugins, this.createActionProcessor(TGOpenPluginListDialogAction.NAME));
 
 		//--KEY BINDINGS--
 		this.keyBindings = this.settingsMenuItem.getMenu().createActionItem();
-		this.keyBindings.addSelectionListener(this.createActionProcessor(TGOpenKeyBindingEditorAction.NAME));
+		this.act(this.keyBindings, this.createActionProcessor(TGOpenKeyBindingEditorAction.NAME));
 
 		//--CONFIG--
 		this.config = this.settingsMenuItem.getMenu().createActionItem();
-		this.config.addSelectionListener(this.createActionProcessor(TGOpenSettingsEditorAction.NAME));
+		this.act(this.config, this.createActionProcessor(TGOpenSettingsEditorAction.NAME));
 
 		this.loadIcons();
 		this.loadProperties();

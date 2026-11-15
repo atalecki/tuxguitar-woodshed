@@ -44,4 +44,10 @@ public class TGDisableOnPlayInterceptor implements TGActionInterceptor {
 	private boolean disables(String id) {
 		return (this.containsActionId(id) && TGPracticeEdits.disables(this.context, id));
 	}
+
+	// whether the items (menu items, toolbar buttons) of the action are greyed out: one of its actions, during a practice
+	// session, playing or paused, unless the session lets it through (see TGPracticeEdits.greys)
+	public boolean greys(String id) {
+		return (this.containsActionId(id) && TGPracticeEdits.greys(this.context, id));
+	}
 }

@@ -48,49 +48,49 @@ public class DurationMenuItem  extends TGMenuItem {
 	public void showItems(){
 		//--WHOLE--
 		this.whole = this.durationMenuItem.getMenu().createCheckItem();
-		this.whole.addSelectionListener(this.createActionProcessor(TGSetWholeDurationAction.NAME));
+		this.act(this.whole, this.createActionProcessor(TGSetWholeDurationAction.NAME));
 
 		//--HALF--
 		this.half = this.durationMenuItem.getMenu().createCheckItem();
-		this.half.addSelectionListener(this.createActionProcessor(TGSetHalfDurationAction.NAME));
+		this.act(this.half, this.createActionProcessor(TGSetHalfDurationAction.NAME));
 
 		//--QUARTER--
 		this.quarter = this.durationMenuItem.getMenu().createCheckItem();
-		this.quarter.addSelectionListener(this.createActionProcessor(TGSetQuarterDurationAction.NAME));
+		this.act(this.quarter, this.createActionProcessor(TGSetQuarterDurationAction.NAME));
 
 		//--EIGHTH--
 		this.eighth = this.durationMenuItem.getMenu().createCheckItem();
-		this.eighth.addSelectionListener(this.createActionProcessor(TGSetEighthDurationAction.NAME));
+		this.act(this.eighth, this.createActionProcessor(TGSetEighthDurationAction.NAME));
 
 		//--SIXTEENTH--
 		this.sixteenth = this.durationMenuItem.getMenu().createCheckItem();
-		this.sixteenth.addSelectionListener(this.createActionProcessor(TGSetSixteenthDurationAction.NAME));
+		this.act(this.sixteenth, this.createActionProcessor(TGSetSixteenthDurationAction.NAME));
 
 		//--THIRTY SECOND--
 		this.thirtySecond = this.durationMenuItem.getMenu().createCheckItem();
-		this.thirtySecond.addSelectionListener(this.createActionProcessor(TGSetThirtySecondDurationAction.NAME));
+		this.act(this.thirtySecond, this.createActionProcessor(TGSetThirtySecondDurationAction.NAME));
 
 		//--SIXTY FOURTH--
 		this.sixtyFourth = this.durationMenuItem.getMenu().createCheckItem();
-		this.sixtyFourth.addSelectionListener(this.createActionProcessor(TGSetSixtyFourthDurationAction.NAME));
+		this.act(this.sixtyFourth, this.createActionProcessor(TGSetSixtyFourthDurationAction.NAME));
 
 		//--SEPARATOR--
 		this.durationMenuItem.getMenu().createSeparator();
 
 		//--DOTTED--
 		this.dotted = this.durationMenuItem.getMenu().createCheckItem();
-		this.dotted.addSelectionListener(this.createActionProcessor(TGChangeDottedDurationAction.NAME));
+		this.act(this.dotted, this.createActionProcessor(TGChangeDottedDurationAction.NAME));
 
 		//--DOUBLE-DOTTED--
 		this.doubleDotted = this.durationMenuItem.getMenu().createCheckItem();
-		this.doubleDotted.addSelectionListener(this.createActionProcessor(TGChangeDoubleDottedDurationAction.NAME));
+		this.act(this.doubleDotted, this.createActionProcessor(TGChangeDoubleDottedDurationAction.NAME));
 
 		//--SEPARATOR--
 		this.durationMenuItem.getMenu().createSeparator();
 
 		//--TIED NOTE--
 		this.tiedNote = this.durationMenuItem.getMenu().createCheckItem();
-		this.tiedNote.addSelectionListener(this.createActionProcessor(TGChangeTiedNoteAction.NAME));
+		this.act(this.tiedNote, this.createActionProcessor(TGChangeTiedNoteAction.NAME));
 
 		//--SEPARATOR--
 		this.durationMenuItem.getMenu().createSeparator();

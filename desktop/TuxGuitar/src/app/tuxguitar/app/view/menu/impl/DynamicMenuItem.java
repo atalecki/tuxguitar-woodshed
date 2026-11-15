@@ -35,35 +35,35 @@ public class DynamicMenuItem extends TGMenuItem {
 	public void showItems(){
 		//--PPP--
 		this.pianoPianissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.pianoPianissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.PIANO_PIANISSIMO));
+		this.act(this.pianoPianissimo, this.createChangeVelocityAction(TGVelocities.PIANO_PIANISSIMO));
 
 		//--PP--
 		this.pianissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.pianissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.PIANISSIMO));
+		this.act(this.pianissimo, this.createChangeVelocityAction(TGVelocities.PIANISSIMO));
 
 		//--P--
 		this.piano = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.piano.addSelectionListener(this.createChangeVelocityAction(TGVelocities.PIANO));
+		this.act(this.piano, this.createChangeVelocityAction(TGVelocities.PIANO));
 
 		//--MP--
 		this.mezzoPiano = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.mezzoPiano.addSelectionListener(this.createChangeVelocityAction(TGVelocities.MEZZO_PIANO));
+		this.act(this.mezzoPiano, this.createChangeVelocityAction(TGVelocities.MEZZO_PIANO));
 
 		//--MF--
 		this.mezzoForte = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.mezzoForte.addSelectionListener(this.createChangeVelocityAction(TGVelocities.MEZZO_FORTE));
+		this.act(this.mezzoForte, this.createChangeVelocityAction(TGVelocities.MEZZO_FORTE));
 
 		//--F--
 		this.forte = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.forte.addSelectionListener(this.createChangeVelocityAction(TGVelocities.FORTE));
+		this.act(this.forte, this.createChangeVelocityAction(TGVelocities.FORTE));
 
 		//--FF--
 		this.fortissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.fortissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.FORTISSIMO));
+		this.act(this.fortissimo, this.createChangeVelocityAction(TGVelocities.FORTISSIMO));
 
 		//--FFF--
 		this.forteFortissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.forteFortissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.FORTE_FORTISSIMO));
+		this.act(this.forteFortissimo, this.createChangeVelocityAction(TGVelocities.FORTE_FORTISSIMO));
 
 		this.loadIcons();
 		this.loadProperties();

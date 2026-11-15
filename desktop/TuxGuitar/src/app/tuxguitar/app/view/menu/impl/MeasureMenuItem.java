@@ -43,59 +43,59 @@ public class MeasureMenuItem extends TGMenuItem {
 	public void showItems(){
 		//--LINEBREAK--
 		this.lineBreak = this.measureMenuItem.getMenu().createCheckItem();
-		this.lineBreak.addSelectionListener(this.createActionProcessor(TGToggleLineBreakAction.NAME));
+		this.act(this.lineBreak, this.createActionProcessor(TGToggleLineBreakAction.NAME));
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		//--FIRST--
 		this.first = this.measureMenuItem.getMenu().createActionItem();
-		this.first.addSelectionListener(this.createActionProcessor(TGGoFirstMeasureAction.NAME));
+		this.act(this.first, this.createActionProcessor(TGGoFirstMeasureAction.NAME));
 
 		//--PREVIOUS--
 		this.previous = this.measureMenuItem.getMenu().createActionItem();
-		this.previous.addSelectionListener(this.createActionProcessor(TGGoPreviousMeasureAction.NAME));
+		this.act(this.previous, this.createActionProcessor(TGGoPreviousMeasureAction.NAME));
 
 		//--NEXT--
 		this.next = this.measureMenuItem.getMenu().createActionItem();
-		this.next.addSelectionListener(this.createActionProcessor(TGGoNextMeasureAction.NAME));
+		this.act(this.next, this.createActionProcessor(TGGoNextMeasureAction.NAME));
 
 		//--LAST--
 		this.last = this.measureMenuItem.getMenu().createActionItem();
-		this.last.addSelectionListener(this.createActionProcessor(TGGoLastMeasureAction.NAME));
+		this.act(this.last, this.createActionProcessor(TGGoLastMeasureAction.NAME));
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		//--ADD--
 		this.addMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.addMeasure.addSelectionListener(this.createActionProcessor(TGOpenMeasureAddDialogAction.NAME));
+		this.act(this.addMeasure, this.createActionProcessor(TGOpenMeasureAddDialogAction.NAME));
 
 		//--CLEAN--
 		this.cleanMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.cleanMeasure.addSelectionListener(this.createActionProcessor(TGOpenMeasureCleanDialogAction.NAME));
+		this.act(this.cleanMeasure, this.createActionProcessor(TGOpenMeasureCleanDialogAction.NAME));
 
 		//--REMOVE--
 		this.removeMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.removeMeasure.addSelectionListener(this.createActionProcessor(TGOpenMeasureRemoveDialogAction.NAME));
+		this.act(this.removeMeasure, this.createActionProcessor(TGOpenMeasureRemoveDialogAction.NAME));
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		//--COPY--
 		this.copyMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.copyMeasure.addSelectionListener(this.createActionProcessor(TGOpenMeasureCopyDialogAction.NAME));
+		this.act(this.copyMeasure, this.createActionProcessor(TGOpenMeasureCopyDialogAction.NAME));
 
 		//--PASTE--
 		this.pasteMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.pasteMeasure.addSelectionListener(this.createActionProcessor(TGOpenMeasurePasteDialogAction.NAME));
+		this.act(this.pasteMeasure, this.createActionProcessor(TGOpenMeasurePasteDialogAction.NAME));
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		// -- REMOVE UNUSED VOICE --
 		this.removeVoice = this.measureMenuItem.getMenu().createActionItem();
-		this.removeVoice.addSelectionListener(this.createActionProcessor(TGRemoveUnusedVoiceAction.NAME));
+		this.act(this.removeVoice, this.createActionProcessor(TGRemoveUnusedVoiceAction.NAME));
 
 		this.loadIcons();
 		this.loadProperties();

@@ -33,7 +33,7 @@ public class DivisionMenuItem extends TGMenuItem {
 
 		for (int i = 0; i < TGDivisionType.DIVISION_TYPES.length; i++) {
 			final int j = i;
-			this.divisionTypeMenuItems[j] = this.divisionMenuItem.getMenu().createRadioItem();
+			this.divisionTypeMenuItems[j] = this.greyable(this.divisionMenuItem.getMenu().createRadioItem(), TGSetDivisionTypeDurationAction.NAME);
 			this.divisionTypeMenuItems[j].addSelectionListener(new UISelectionListener() {
 				public void onSelect(UISelectionEvent event) {
 					DivisionMenuItem.this.createDivisionTypeAction(DivisionMenuItem.this.createDivisionType(TGDivisionType.DIVISION_TYPES[j])).process();

@@ -25,7 +25,7 @@ public class DifficultyMenuItem extends TGMenuItem {
 	public void showItems() {
 		for (int i = 0; i < this.items.length; i++) {
 			this.items[i] = this.difficultyMenuItem.getMenu().createRadioItem();
-			this.items[i].addSelectionListener(this.createFlagAction(i + 1));
+			this.act(this.items[i], this.createFlagAction(i + 1));
 		}
 	}
 

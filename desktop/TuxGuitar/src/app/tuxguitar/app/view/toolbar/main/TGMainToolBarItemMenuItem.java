@@ -32,9 +32,17 @@ public class TGMainToolBarItemMenuItem extends TGMainToolBarItem {
 
 	@Override
 	public void update(TGContext context, boolean running) {
+		this.updateEnabled(context);
 		if (this.updater != null) {
 			this.checked = this.updater.checked(context, running);
 			this.loadProperties();
+		}
+	}
+
+	// greyed out while a practice session refuses its action
+	private void updateEnabled(TGContext context) {
+		if (this.menuItem != null) {
+			this.menuItem.setEnabled(!this.greys(context));
 		}
 	}
 

@@ -7,6 +7,7 @@ package app.tuxguitar.app.view.toolbar.main;
 import java.util.HashMap;
 import java.util.Map;
 
+import app.tuxguitar.app.action.TGActionAdapterManager;
 import app.tuxguitar.app.system.icons.TGIconManager;
 import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.widget.UIControl;
@@ -51,6 +52,11 @@ public abstract class TGMainToolBarItem {
 
 	public void update(TGContext context, boolean running) {
 		// default: do nothing, override if needed
+	}
+
+	// whether a practice session refuses its action now, greying it out (see TGDisableOnPlayInterceptor.greys)
+	protected boolean greys(TGContext context) {
+		return TGActionAdapterManager.getInstance(context).getDisableOnPlayInterceptor().greys(this.actionName);
 	}
 
 	public void loadProperties() {

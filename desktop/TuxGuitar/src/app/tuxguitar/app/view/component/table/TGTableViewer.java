@@ -11,6 +11,7 @@ import app.tuxguitar.app.transport.TGTransport;
 import app.tuxguitar.app.ui.TGApplication;
 import app.tuxguitar.app.view.component.tab.TablatureEditor;
 import app.tuxguitar.app.view.main.TGWindow;
+import app.tuxguitar.app.view.menu.TGMenuGreying;
 import app.tuxguitar.app.view.menu.impl.TrackMenu;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.TGEditorManager;
@@ -397,9 +398,18 @@ public class TGTableViewer implements TGEventListener {
 	}
 
 	private void updateMenuItems() {
-		if( this.menu != null && !this.menu.isDisposed() ) {
-			this.menu.update();
+		if( this.isMenuShown() ) {
+			this.refreshMenu();
 		}
+	}
+
+	private boolean isMenuShown() {
+		return (this.menu != null && !this.menu.isDisposed());
+	}
+
+	// the track menu's items, those a practice session refuses greyed out (see TGMenuGreying)
+	private void refreshMenu() {
+		TGMenuGreying.getInstance(this.context).refresh(this.menu::update);
 	}
 
 	private void loadMenuProperties() {
@@ -525,7 +535,7 @@ public class TGTableViewer implements TGEventListener {
 	public void createTrackMenu() {
 		this.menu = new TrackMenu(this.getUIFactory().createPopupMenu(TGWindow.getInstance(this.context).getWindow()));
 		this.menu.showItems();
-		this.menu.update();
+		this.refreshMenu();
 	}
 
 	public void disposeMenu() {

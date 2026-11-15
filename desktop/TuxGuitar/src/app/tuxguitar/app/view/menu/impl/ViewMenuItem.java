@@ -71,65 +71,65 @@ public class ViewMenuItem extends TGMenuItem {
 	public void showItems(){
 		//--MAIN TOOLBAR--
 		this.showMainToolbar = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showMainToolbar.addSelectionListener(this.createActionProcessor(TGToggleMainToolbarAction.NAME));
+		this.act(this.showMainToolbar, this.createActionProcessor(TGToggleMainToolbarAction.NAME));
 		this.editMainToolbar = this.layoutMenuItem.getMenu().createActionItem();
-		this.editMainToolbar.addSelectionListener(this.createActionProcessor(TGOpenMainToolBarSettingsDialogAction.NAME));
+		this.act(this.editMainToolbar, this.createActionProcessor(TGOpenMainToolBarSettingsDialogAction.NAME));
 
 		//--EDIT TOOLBAR--
 		this.showEditToolbar = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showEditToolbar.addSelectionListener(this.createActionProcessor(TGToggleEditToolbarAction.NAME));
+		this.act(this.showEditToolbar, this.createActionProcessor(TGToggleEditToolbarAction.NAME));
 
 		//--TRACKS TABLE--
 		this.showTableViewer = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showTableViewer.addSelectionListener(this.createActionProcessor(TGToggleTableViewerAction.NAME));
+		this.act(this.showTableViewer, this.createActionProcessor(TGToggleTableViewerAction.NAME));
 
 		//--FRETBOARD--
 		this.showFretBoard = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showFretBoard.addSelectionListener(this.createActionProcessor(TGToggleFretBoardEditorAction.NAME));
+		this.act(this.showFretBoard, this.createActionProcessor(TGToggleFretBoardEditorAction.NAME));
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--INSTRUMENTS--
 		this.showInstruments = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showInstruments.addSelectionListener(this.createActionProcessor(TGToggleChannelsDialogAction.NAME));
+		this.act(this.showInstruments, this.createActionProcessor(TGToggleChannelsDialogAction.NAME));
 
 		//--TRANSPORT--
 		this.showTransport = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showTransport.addSelectionListener(this.createActionProcessor(TGToggleTransportDialogAction.NAME));
+		this.act(this.showTransport, this.createActionProcessor(TGToggleTransportDialogAction.NAME));
 
 		//--PIANO--
 		this.showPiano = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showPiano.addSelectionListener(this.createActionProcessor(TGTogglePianoEditorAction.NAME));
+		this.act(this.showPiano, this.createActionProcessor(TGTogglePianoEditorAction.NAME));
 
 		//--MATRIX--
 		this.showMatrix = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showMatrix.addSelectionListener(this.createActionProcessor(TGToggleMatrixEditorAction.NAME));
+		this.act(this.showMatrix, this.createActionProcessor(TGToggleMatrixEditorAction.NAME));
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--PAGE LAYOUT--
 		this.pageLayout = this.layoutMenuItem.getMenu().createRadioItem();
-		this.pageLayout.addSelectionListener(this.createActionProcessor(TGSetPageLayoutAction.NAME));
+		this.act(this.pageLayout, this.createActionProcessor(TGSetPageLayoutAction.NAME));
 
 		//--LINEAR LAYOUT--
 		this.linearLayout = this.layoutMenuItem.getMenu().createRadioItem();
-		this.linearLayout.addSelectionListener(this.createActionProcessor(TGSetLinearLayoutAction.NAME));
+		this.act(this.linearLayout, this.createActionProcessor(TGSetLinearLayoutAction.NAME));
 
 		//--MULTITRACK--
 		this.multitrack = this.layoutMenuItem.getMenu().createCheckItem();
-		this.multitrack.addSelectionListener(this.createActionProcessor(TGSetMultitrackViewAction.NAME));
+		this.act(this.multitrack, this.createActionProcessor(TGSetMultitrackViewAction.NAME));
 
 		//--SCORE--
 		this.scoreEnabled = this.layoutMenuItem.getMenu().createCheckItem();
-		this.scoreEnabled.addSelectionListener(this.createActionProcessor(TGSetScoreEnabledAction.NAME));
+		this.act(this.scoreEnabled, this.createActionProcessor(TGSetScoreEnabledAction.NAME));
 
 		//--TABLATURE--
 		this.tablatureEnabled = this.layoutMenuItem.getMenu().createCheckItem();
-		this.tablatureEnabled.addSelectionListener(this.createActionProcessor(TGSetTablatureEnabledAction.NAME));
+		this.act(this.tablatureEnabled, this.createActionProcessor(TGSetTablatureEnabledAction.NAME));
 
 		//--COMPACT--
 		this.compact = this.layoutMenuItem.getMenu().createCheckItem();
-		this.compact.addSelectionListener(this.createActionProcessor(TGSetCompactViewAction.NAME));
+		this.act(this.compact, this.createActionProcessor(TGSetCompactViewAction.NAME));
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
@@ -137,24 +137,24 @@ public class ViewMenuItem extends TGMenuItem {
 		this.chordMenuItem = this.layoutMenuItem.getMenu().createSubMenuItem();
 
 		this.chordName = this.chordMenuItem.getMenu().createCheckItem();
-		this.chordName.addSelectionListener(this.createActionProcessor(TGSetChordNameEnabledAction.NAME));
+		this.act(this.chordName, this.createActionProcessor(TGSetChordNameEnabledAction.NAME));
 
 		this.chordDiagram = this.chordMenuItem.getMenu().createCheckItem();
-		this.chordDiagram.addSelectionListener(this.createActionProcessor(TGSetChordDiagramEnabledAction.NAME));
+		this.act(this.chordDiagram, this.createActionProcessor(TGSetChordDiagramEnabledAction.NAME));
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--ZOOM IN--
 		this.zoomIn = this.layoutMenuItem.getMenu().createActionItem();
-		this.zoomIn.addSelectionListener(this.createActionProcessor(TGSetLayoutScaleIncrementAction.NAME));
+		this.act(this.zoomIn, this.createActionProcessor(TGSetLayoutScaleIncrementAction.NAME));
 
 		//--ZOOM OUT--
 		this.zoomOut = this.layoutMenuItem.getMenu().createActionItem();
-		this.zoomOut.addSelectionListener(this.createActionProcessor(TGSetLayoutScaleDecrementAction.NAME));
+		this.act(this.zoomOut, this.createActionProcessor(TGSetLayoutScaleDecrementAction.NAME));
 
 		//--ZOOM RESET--
 		this.zoomReset = this.layoutMenuItem.getMenu().createActionItem();
-		this.zoomReset.addSelectionListener(this.createActionProcessor(TGSetLayoutScaleResetAction.NAME));
+		this.act(this.zoomReset, this.createActionProcessor(TGSetLayoutScaleResetAction.NAME));
 
 		this.loadIcons();
 		this.loadProperties();

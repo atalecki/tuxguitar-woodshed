@@ -50,67 +50,67 @@ public class TrackMenu extends TGMenuItem {
 		if(!isDisposed()){
 			//--FIRST--
 			this.first = this.menu.createActionItem();
-			this.first.addSelectionListener(this.createActionProcessor(TGGoFirstTrackAction.NAME));
+			this.act(this.first, this.createActionProcessor(TGGoFirstTrackAction.NAME));
 
 			//--PREVIOUS--
 			this.previous = this.menu.createActionItem();
-			this.previous.addSelectionListener(this.createActionProcessor(TGGoPreviousTrackAction.NAME));
+			this.act(this.previous, this.createActionProcessor(TGGoPreviousTrackAction.NAME));
 
 			//--NEXT--
 			this.next = this.menu.createActionItem();
-			this.next.addSelectionListener(this.createActionProcessor(TGGoNextTrackAction.NAME));
+			this.act(this.next, this.createActionProcessor(TGGoNextTrackAction.NAME));
 
 			//--LAST--
 			this.last = this.menu.createActionItem();
-			this.last.addSelectionListener(this.createActionProcessor(TGGoLastTrackAction.NAME));
+			this.act(this.last, this.createActionProcessor(TGGoLastTrackAction.NAME));
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--ADD TRACK--
 			this.addTrack = this.menu.createActionItem();
-			this.addTrack.addSelectionListener(this.createActionProcessor(TGAddNewTrackAction.NAME));
+			this.act(this.addTrack, this.createActionProcessor(TGAddNewTrackAction.NAME));
 
 			//--CLONE TRACK--
 			this.cloneTrack = this.menu.createActionItem();
-			this.cloneTrack.addSelectionListener(this.createActionProcessor(TGCloneTrackAction.NAME));
+			this.act(this.cloneTrack, this.createActionProcessor(TGCloneTrackAction.NAME));
 
 			//--REMOVE TRACK--
 			this.removeTrack = this.menu.createActionItem();
-			this.removeTrack.addSelectionListener(this.createActionProcessor(TGRemoveTrackAction.NAME));
+			this.act(this.removeTrack, this.createActionProcessor(TGRemoveTrackAction.NAME));
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--MOVE UP--
 			this.moveUp = this.menu.createActionItem();
-			this.moveUp.addSelectionListener(this.createActionProcessor(TGMoveTrackUpAction.NAME));
+			this.act(this.moveUp, this.createActionProcessor(TGMoveTrackUpAction.NAME));
 
 			//--MOVE DOWN--
 			this.moveDown = this.menu.createActionItem();
-			this.moveDown.addSelectionListener(this.createActionProcessor(TGMoveTrackDownAction.NAME));
+			this.act(this.moveDown, this.createActionProcessor(TGMoveTrackDownAction.NAME));
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--SOLO--
 			this.changeSolo = this.menu.createCheckItem();
-			this.changeSolo.addSelectionListener(this.createActionProcessor(TGChangeTrackSoloAction.NAME));
+			this.act(this.changeSolo, this.createActionProcessor(TGChangeTrackSoloAction.NAME));
 
 			//--MUTE--
 			this.changeMute = this.menu.createCheckItem();
-			this.changeMute.addSelectionListener(this.createActionProcessor(TGChangeTrackMuteAction.NAME));
+			this.act(this.changeMute, this.createActionProcessor(TGChangeTrackMuteAction.NAME));
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--LYRICS--
 			this.lyrics = this.menu.createActionItem();
-			this.lyrics.addSelectionListener(this.createActionProcessor(TGToggleLyricEditorAction.NAME));
+			this.act(this.lyrics, this.createActionProcessor(TGToggleLyricEditorAction.NAME));
 
 			//--PROPERTIES--
 			this.properties = this.menu.createActionItem();
-			this.properties.addSelectionListener(this.createActionProcessor(TGOpenTrackPropertiesDialogAction.NAME));
+			this.act(this.properties, this.createActionProcessor(TGOpenTrackPropertiesDialogAction.NAME));
 
 			this.loadIcons();
 			this.loadProperties();
