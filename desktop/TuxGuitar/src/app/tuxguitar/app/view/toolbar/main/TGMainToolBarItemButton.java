@@ -3,7 +3,6 @@ package app.tuxguitar.app.view.toolbar.main;
 import java.util.Optional;
 
 import app.tuxguitar.app.TuxGuitar;
-import app.tuxguitar.app.system.icons.TGIconManager;
 import app.tuxguitar.ui.toolbar.UIToolActionItem;
 import app.tuxguitar.ui.toolbar.UIToolCheckableItem;
 import app.tuxguitar.ui.toolbar.UIToolItem;
@@ -19,6 +18,7 @@ public class TGMainToolBarItemButton extends TGMainToolBarItem {
 	public TGMainToolBarItemButton(TGMainToolBarItemConfig config, UIToolItem toolItem) {
 		super(config);
 		this.toolItem = toolItem;
+		this.showIconOn(toolItem, UIToolItem::setImage);
 	}
 
 	@Override
@@ -77,11 +77,5 @@ public class TGMainToolBarItemButton extends TGMainToolBarItem {
 		}
 	}
 
-	@Override
-	public void loadIcons(TGIconManager iconManager) {
-		if (toolItem != null) {
-			toolItem.setImage(iconManager.getImageByName(this.iconFileName));
-		}
-	}
 
 }

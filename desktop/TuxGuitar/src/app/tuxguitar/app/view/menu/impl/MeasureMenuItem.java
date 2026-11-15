@@ -37,65 +37,54 @@ public class MeasureMenuItem extends TGMenuItem {
 	private UIMenuActionItem removeVoice;
 
 	public MeasureMenuItem(UIMenu parent) {
-		this.measureMenuItem = parent.createSubMenuItem();
+		this.measureMenuItem = this.named(parent.createSubMenuItem(), "measure", null, null);
 	}
 
 	public void showItems(){
 		//--LINEBREAK--
-		this.lineBreak = this.measureMenuItem.getMenu().createCheckItem();
-		this.act(this.lineBreak, this.createActionProcessor(TGToggleLineBreakAction.NAME));
+		this.lineBreak = this.actionItem(this.measureMenuItem.getMenu().createCheckItem(), "measure.linebreak", TGToggleLineBreakAction.NAME, null);
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		//--FIRST--
-		this.first = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.first, this.createActionProcessor(TGGoFirstMeasureAction.NAME));
+		this.first = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.first", TGGoFirstMeasureAction.NAME, TGIconManager.MEASURE_FIRST);
 
 		//--PREVIOUS--
-		this.previous = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.previous, this.createActionProcessor(TGGoPreviousMeasureAction.NAME));
+		this.previous = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.previous", TGGoPreviousMeasureAction.NAME, TGIconManager.MEASURE_PREVIOUS);
 
 		//--NEXT--
-		this.next = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.next, this.createActionProcessor(TGGoNextMeasureAction.NAME));
+		this.next = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.next", TGGoNextMeasureAction.NAME, TGIconManager.MEASURE_NEXT);
 
 		//--LAST--
-		this.last = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.last, this.createActionProcessor(TGGoLastMeasureAction.NAME));
+		this.last = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.last", TGGoLastMeasureAction.NAME, TGIconManager.MEASURE_LAST);
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		//--ADD--
-		this.addMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.addMeasure, this.createActionProcessor(TGOpenMeasureAddDialogAction.NAME));
+		this.addMeasure = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.add", TGOpenMeasureAddDialogAction.NAME, TGIconManager.MEASURE_ADD);
 
 		//--CLEAN--
-		this.cleanMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.cleanMeasure, this.createActionProcessor(TGOpenMeasureCleanDialogAction.NAME));
+		this.cleanMeasure = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.clean", TGOpenMeasureCleanDialogAction.NAME, TGIconManager.MEASURE_CLEAN);
 
 		//--REMOVE--
-		this.removeMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.removeMeasure, this.createActionProcessor(TGOpenMeasureRemoveDialogAction.NAME));
+		this.removeMeasure = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.remove", TGOpenMeasureRemoveDialogAction.NAME, TGIconManager.MEASURE_REMOVE);
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		//--COPY--
-		this.copyMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.copyMeasure, this.createActionProcessor(TGOpenMeasureCopyDialogAction.NAME));
+		this.copyMeasure = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.copy", TGOpenMeasureCopyDialogAction.NAME, TGIconManager.MEASURE_COPY);
 
 		//--PASTE--
-		this.pasteMeasure = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.pasteMeasure, this.createActionProcessor(TGOpenMeasurePasteDialogAction.NAME));
+		this.pasteMeasure = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.paste", TGOpenMeasurePasteDialogAction.NAME, TGIconManager.MEASURE_PASTE);
 
 		//--SEPARATOR--
 		this.measureMenuItem.getMenu().createSeparator();
 
 		// -- REMOVE UNUSED VOICE --
-		this.removeVoice = this.measureMenuItem.getMenu().createActionItem();
-		this.act(this.removeVoice, this.createActionProcessor(TGRemoveUnusedVoiceAction.NAME));
+		this.removeVoice = this.actionItem(this.measureMenuItem.getMenu().createActionItem(), "measure.voice.remove-unused", TGRemoveUnusedVoiceAction.NAME, null);
 
 		this.loadIcons();
 		this.loadProperties();
@@ -121,29 +110,10 @@ public class MeasureMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.measureMenuItem, "measure", null);
-		setMenuItemTextAndAccelerator(this.lineBreak, "measure.linebreak", TGToggleLineBreakAction.NAME);
-		setMenuItemTextAndAccelerator(this.first, "measure.first", TGGoFirstMeasureAction.NAME);
-		setMenuItemTextAndAccelerator(this.last, "measure.last", TGGoLastMeasureAction.NAME);
-		setMenuItemTextAndAccelerator(this.previous, "measure.previous", TGGoPreviousMeasureAction.NAME);
-		setMenuItemTextAndAccelerator(this.next, "measure.next", TGGoNextMeasureAction.NAME);
-		setMenuItemTextAndAccelerator(this.addMeasure, "measure.add", TGOpenMeasureAddDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.cleanMeasure, "measure.clean", TGOpenMeasureCleanDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.removeMeasure, "measure.remove", TGOpenMeasureRemoveDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.copyMeasure, "measure.copy", TGOpenMeasureCopyDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.pasteMeasure, "measure.paste", TGOpenMeasurePasteDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.removeVoice, "measure.voice.remove-unused", TGRemoveUnusedVoiceAction.NAME);
+		this.loadNames();
 	}
 
 	public void loadIcons(){
-		this.first.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_FIRST));
-		this.last.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_LAST));
-		this.previous.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_PREVIOUS));
-		this.next.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_NEXT));
-		this.addMeasure.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_ADD));
-		this.cleanMeasure.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_CLEAN));
-		this.removeMeasure.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_REMOVE));
-		this.copyMeasure.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_COPY));
-		this.pasteMeasure.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MEASURE_PASTE));
+		this.loadImages();
 	}
 }

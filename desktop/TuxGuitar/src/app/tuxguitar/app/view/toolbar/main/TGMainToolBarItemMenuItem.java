@@ -1,7 +1,6 @@
 package app.tuxguitar.app.view.toolbar.main;
 
 import app.tuxguitar.app.TuxGuitar;
-import app.tuxguitar.app.system.icons.TGIconManager;
 import app.tuxguitar.ui.menu.UIMenuItem;
 import app.tuxguitar.ui.widget.UIControl;
 import app.tuxguitar.util.TGContext;
@@ -28,6 +27,7 @@ public class TGMainToolBarItemMenuItem extends TGMainToolBarItem {
 
 	public void setMenuItem(UIMenuItem menuItem) {
 		this.menuItem = menuItem;
+		this.showIconOn(menuItem, UIMenuItem::setImage);
 	}
 
 	@Override
@@ -48,17 +48,14 @@ public class TGMainToolBarItemMenuItem extends TGMainToolBarItem {
 
 	@Override
 	public void loadProperties() {
-		if (menuItem != null) {
-			menuItem.setText((this.checked ? SELECTED_CHAR : "") + TuxGuitar.getProperty(this.getText()));
-		}
+		ifShown(this.menuItem, item -> item.setText(this.label()));
 	}
 
-	@Override
-	public void loadIcons(TGIconManager iconManager) {
-		if (menuItem != null) {
-			menuItem.setImage(iconManager.getImageByName(this.iconFileName));
-		}
+	// its text, marked when checked
+	private String label() {
+		return (this.checked ? SELECTED_CHAR : "") + TuxGuitar.getProperty(this.getText());
 	}
+
 
 	@Override
 	public UIControl getControl() {

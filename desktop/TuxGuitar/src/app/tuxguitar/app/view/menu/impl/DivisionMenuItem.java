@@ -73,8 +73,6 @@ public class DivisionMenuItem extends TGMenuItem {
 	}
 
 	private TGActionProcessorListener createDivisionTypeAction(TGDivisionType tgDivisionType){
-		TGActionProcessorListener tgActionProcessor = this.createActionProcessor(TGSetDivisionTypeDurationAction.NAME);
-		tgActionProcessor.setAttribute(TGSetDivisionTypeDurationAction.PROPERTY_DIVISION_TYPE, tgDivisionType);
-		return tgActionProcessor;
+		return this.createActionProcessor(TGSetDivisionTypeDurationAction.NAME, TGSetDivisionTypeDurationAction.PROPERTY_DIVISION_TYPE, tgDivisionType);
 	}
 }

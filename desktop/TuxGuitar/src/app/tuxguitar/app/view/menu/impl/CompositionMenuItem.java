@@ -37,24 +37,19 @@ public class CompositionMenuItem extends TGMenuItem {
 	public void showItems(){
 		this.named(this.compositionMenuItem, "composition", null, null);
 		//--TIME SIGNATURE--
-		this.timeSignature = this.named(this.compositionMenuItem.getMenu().createActionItem(), "composition.timesignature", TGOpenTimeSignatureDialogAction.NAME, TGIconManager.TIME_SIGNATURE);
-		this.act(this.timeSignature, this.createActionProcessor(TGOpenTimeSignatureDialogAction.NAME));
+		this.timeSignature = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.timesignature", TGOpenTimeSignatureDialogAction.NAME, TGIconManager.TIME_SIGNATURE);
 
 		//--TEMPO--
-		this.tempo = this.named(this.compositionMenuItem.getMenu().createActionItem(), "composition.tempo", TGOpenTempoDialogAction.NAME, TGIconManager.TEMPO);
-		this.act(this.tempo, this.createActionProcessor(TGOpenTempoDialogAction.NAME));
+		this.tempo = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.tempo", TGOpenTempoDialogAction.NAME, TGIconManager.TEMPO);
 
 		//--CLEF--
-		this.clef = this.named(this.compositionMenuItem.getMenu().createActionItem(), "composition.clef", TGOpenClefDialogAction.NAME, TGIconManager.CLEF);
-		this.act(this.clef, this.createActionProcessor(TGOpenClefDialogAction.NAME));
+		this.clef = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.clef", TGOpenClefDialogAction.NAME, TGIconManager.CLEF);
 
 		//--KEY SIGNATURE--
-		this.keySignature = this.named(this.compositionMenuItem.getMenu().createActionItem(), "composition.keysignature", TGOpenKeySignatureDialogAction.NAME, TGIconManager.KEY_SIGNATURE);
-		this.act(this.keySignature, this.createActionProcessor(TGOpenKeySignatureDialogAction.NAME));
+		this.keySignature = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.keysignature", TGOpenKeySignatureDialogAction.NAME, TGIconManager.KEY_SIGNATURE);
 
 		//--TRIPLET FEEL--
-		this.tripletFeel = this.named(this.compositionMenuItem.getMenu().createActionItem(), "composition.tripletfeel", TGOpenTripletFeelDialogAction.NAME, TGIconManager.TRIPLET_FEEL);
-		this.act(this.tripletFeel, this.createActionProcessor(TGOpenTripletFeelDialogAction.NAME));
+		this.tripletFeel = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.tripletfeel", TGOpenTripletFeelDialogAction.NAME, TGIconManager.TRIPLET_FEEL);
 
 		//--DIFFICULTY (interleaved practice)--
 		this.difficulty = new DifficultyMenuItem(this.compositionMenuItem.getMenu().createSubMenuItem());
@@ -64,23 +59,19 @@ public class CompositionMenuItem extends TGMenuItem {
 		this.compositionMenuItem.getMenu().createSeparator();
 
 		//--REPEAT OPEN--
-		this.repeatOpen = this.named(this.compositionMenuItem.getMenu().createActionItem(), "repeat.open", TGRepeatOpenAction.NAME, TGIconManager.REPEAT_OPEN);
-		this.act(this.repeatOpen, this.createActionProcessor(TGRepeatOpenAction.NAME));
+		this.repeatOpen = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "repeat.open", TGRepeatOpenAction.NAME, TGIconManager.REPEAT_OPEN);
 
 		//--REPEAT CLOSE--
-		this.repeatClose = this.named(this.compositionMenuItem.getMenu().createActionItem(), "repeat.close", TGOpenRepeatCloseDialogAction.NAME, TGIconManager.REPEAT_CLOSE);
-		this.act(this.repeatClose, this.createActionProcessor(TGOpenRepeatCloseDialogAction.NAME));
+		this.repeatClose = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "repeat.close", TGOpenRepeatCloseDialogAction.NAME, TGIconManager.REPEAT_CLOSE);
 
 		//--REPEAT ALTERNATIVE--
-		this.repeatAlternative = this.named(this.compositionMenuItem.getMenu().createActionItem(), "repeat.alternative", TGOpenRepeatAlternativeDialogAction.NAME, TGIconManager.REPEAT_ALTERNATIVE);
-		this.act(this.repeatAlternative, this.createActionProcessor(TGOpenRepeatAlternativeDialogAction.NAME));
+		this.repeatAlternative = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "repeat.alternative", TGOpenRepeatAlternativeDialogAction.NAME, TGIconManager.REPEAT_ALTERNATIVE);
 
 		//--SEPARATOR--
 		this.compositionMenuItem.getMenu().createSeparator();
 
 		//--INFO--
-		this.properties = this.named(this.compositionMenuItem.getMenu().createActionItem(), "composition.properties", TGOpenSongInfoDialogAction.NAME, TGIconManager.SONG_PROPERTIES);
-		this.act(this.properties, this.createActionProcessor(TGOpenSongInfoDialogAction.NAME));
+		this.properties = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.properties", TGOpenSongInfoDialogAction.NAME, TGIconManager.SONG_PROPERTIES);
 
 		this.loadIcons();
 		this.loadProperties();
@@ -102,8 +93,7 @@ public class CompositionMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties() {
-		this.loadNames();
-		this.difficulty.loadProperties();
+		this.loadNames(this.difficulty);
 	}
 
 	public void loadIcons() {

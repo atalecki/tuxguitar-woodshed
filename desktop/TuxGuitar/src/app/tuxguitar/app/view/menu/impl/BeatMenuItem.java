@@ -65,18 +65,15 @@ public class BeatMenuItem extends TGMenuItem {
 	private ChordMenuItem chordMenuItem;
 
 	public BeatMenuItem(UIMenu parent) {
-		this.noteMenuItem = parent.createSubMenuItem();
+		this.noteMenuItem = this.named(parent.createSubMenuItem(), "beat", null, null);
 	}
 
 	public void showItems(){
-		this.insertRestBeat = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.insertRestBeat, this.createActionProcessor(TGInsertRestBeatAction.NAME));
+		this.insertRestBeat = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.insert-rest", TGInsertRestBeatAction.NAME, null);
 
-		this.deleteNoteOrRest = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.deleteNoteOrRest, this.createActionProcessor(TGDeleteNoteOrRestAction.NAME));
+		this.deleteNoteOrRest = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.delete-note-or-rest", TGDeleteNoteOrRestAction.NAME, null);
 
-		this.cleanBeat = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.cleanBeat, this.createActionProcessor(TGCleanBeatAction.NAME));
+		this.cleanBeat = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.clean", TGCleanBeatAction.NAME, null);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
@@ -94,65 +91,49 @@ public class BeatMenuItem extends TGMenuItem {
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.insertText = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.insertText, this.createActionProcessor(TGOpenTextDialogAction.NAME));
+		this.insertText = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "text.insert", TGOpenTextDialogAction.NAME, TGIconManager.TEXT);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.voiceAuto = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.voiceAuto, this.createActionProcessor(TGSetVoiceAutoAction.NAME));
+		this.voiceAuto = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.voice-auto", TGSetVoiceAutoAction.NAME, null);
 
-		this.voiceUp = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.voiceUp, this.createActionProcessor(TGSetVoiceUpAction.NAME));
+		this.voiceUp = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.voice-up", TGSetVoiceUpAction.NAME, null);
 
-		this.voiceDown = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.voiceDown, this.createActionProcessor(TGSetVoiceDownAction.NAME));
+		this.voiceDown = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.voice-down", TGSetVoiceDownAction.NAME, null);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.strokeUp = this.noteMenuItem.getMenu().createCheckItem();
-		this.act(this.strokeUp, this.createActionProcessor(TGOpenStrokeUpDialogAction.NAME));
+		this.strokeUp = this.actionItem(this.noteMenuItem.getMenu().createCheckItem(), "beat.stroke-up", TGOpenStrokeUpDialogAction.NAME, TGIconManager.STROKE_UP);
 
-		this.strokeDown = this.noteMenuItem.getMenu().createCheckItem();
-		this.act(this.strokeDown, this.createActionProcessor(TGOpenStrokeDownDialogAction.NAME));
+		this.strokeDown = this.actionItem(this.noteMenuItem.getMenu().createCheckItem(), "beat.stroke-down", TGOpenStrokeDownDialogAction.NAME, TGIconManager.STROKE_DOWN);
 
-		this.pickStrokeDown = this.noteMenuItem.getMenu().createCheckItem();
-		this.act(this.pickStrokeDown, this.createActionProcessor(TGChangePickStrokeDownAction.NAME));
+		this.pickStrokeDown = this.actionItem(this.noteMenuItem.getMenu().createCheckItem(), "beat.pick-stroke-down", TGChangePickStrokeDownAction.NAME, TGIconManager.PICK_STROKE_DOWN);
 
-		this.pickStrokeUp = this.noteMenuItem.getMenu().createCheckItem();
-		this.act(this.pickStrokeUp, this.createActionProcessor(TGChangePickStrokeUpAction.NAME));
+		this.pickStrokeUp = this.actionItem(this.noteMenuItem.getMenu().createCheckItem(), "beat.pick-stroke-up", TGChangePickStrokeUpAction.NAME, TGIconManager.PICK_STROKE_UP);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.altEnharmonic = this.noteMenuItem.getMenu().createCheckItem();
-		this.act(this.altEnharmonic, this.createActionProcessor(TGToggleNoteEnharmonicAction.NAME));
+		this.altEnharmonic = this.actionItem(this.noteMenuItem.getMenu().createCheckItem(), "note.alternative-enharmonic", TGToggleNoteEnharmonicAction.NAME, TGIconManager.ALTERNATIVE_ENHARMONIC);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.semitoneUp = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.semitoneUp, this.createActionProcessor(TGIncrementNoteSemitoneAction.NAME));
+		this.semitoneUp = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "note.semitone-up", TGIncrementNoteSemitoneAction.NAME, null);
 
-		this.semitoneDown = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.semitoneDown, this.createActionProcessor(TGDecrementNoteSemitoneAction.NAME));
+		this.semitoneDown = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "note.semitone-down", TGDecrementNoteSemitoneAction.NAME, null);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.shiftUp = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.shiftUp, this.createActionProcessor(TGShiftNoteUpAction.NAME));
+		this.shiftUp = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "note.shift-up", TGShiftNoteUpAction.NAME, null);
 
-		this.shiftDown = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.shiftDown, this.createActionProcessor(TGShiftNoteDownAction.NAME));
+		this.shiftDown = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "note.shift-down", TGShiftNoteDownAction.NAME, null);
 
 		this.noteMenuItem.getMenu().createSeparator();
 
-		this.moveBeatsLeft = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.moveBeatsLeft, this.createActionProcessor(TGMoveBeatsLeftAction.NAME));
+		this.moveBeatsLeft = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.move-left", TGMoveBeatsLeftAction.NAME, null);
 
-		this.moveBeatsRight = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.moveBeatsRight, this.createActionProcessor(TGMoveBeatsRightAction.NAME));
+		this.moveBeatsRight = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.move-right", TGMoveBeatsRightAction.NAME, null);
 
-		this.moveBeatsCustom = this.noteMenuItem.getMenu().createActionItem();
-		this.act(this.moveBeatsCustom, this.createActionProcessor(TGOpenBeatMoveDialogAction.NAME));
+		this.moveBeatsCustom = this.actionItem(this.noteMenuItem.getMenu().createActionItem(), "beat.move-custom", TGOpenBeatMoveDialogAction.NAME, null);
 
 		this.loadIcons();
 		this.loadProperties();
@@ -206,39 +187,10 @@ public class BeatMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.noteMenuItem, "beat", null);
-		setMenuItemTextAndAccelerator(this.cleanBeat, "beat.clean", TGCleanBeatAction.NAME);
-		setMenuItemTextAndAccelerator(this.insertRestBeat, "beat.insert-rest", TGInsertRestBeatAction.NAME);
-		setMenuItemTextAndAccelerator(this.deleteNoteOrRest, "beat.delete-note-or-rest", TGDeleteNoteOrRestAction.NAME);
-		setMenuItemTextAndAccelerator(this.voiceAuto, "beat.voice-auto", TGSetVoiceAutoAction.NAME);
-		setMenuItemTextAndAccelerator(this.voiceUp, "beat.voice-up", TGSetVoiceUpAction.NAME);
-		setMenuItemTextAndAccelerator(this.voiceDown, "beat.voice-down", TGSetVoiceDownAction.NAME);
-		setMenuItemTextAndAccelerator(this.strokeUp, "beat.stroke-up", TGOpenStrokeUpDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.strokeDown, "beat.stroke-down", TGOpenStrokeDownDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.pickStrokeUp, "beat.pick-stroke-up", TGChangePickStrokeUpAction.NAME);
-		setMenuItemTextAndAccelerator(this.pickStrokeDown, "beat.pick-stroke-down", TGChangePickStrokeDownAction.NAME);
-		setMenuItemTextAndAccelerator(this.altEnharmonic, "note.alternative-enharmonic", TGToggleNoteEnharmonicAction.NAME);
-		setMenuItemTextAndAccelerator(this.semitoneUp, "note.semitone-up", TGIncrementNoteSemitoneAction.NAME);
-		setMenuItemTextAndAccelerator(this.semitoneDown, "note.semitone-down", TGDecrementNoteSemitoneAction.NAME);
-		setMenuItemTextAndAccelerator(this.shiftUp, "note.shift-up", TGShiftNoteUpAction.NAME);
-		setMenuItemTextAndAccelerator(this.shiftDown, "note.shift-down", TGShiftNoteDownAction.NAME);
-		setMenuItemTextAndAccelerator(this.insertText, "text.insert", TGOpenTextDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.moveBeatsLeft, "beat.move-left", TGMoveBeatsLeftAction.NAME);
-		setMenuItemTextAndAccelerator(this.moveBeatsRight, "beat.move-right", TGMoveBeatsRightAction.NAME);
-		setMenuItemTextAndAccelerator(this.moveBeatsCustom, "beat.move-custom", TGOpenBeatMoveDialogAction.NAME);
-
-		this.durationMenuItem.loadProperties();
-		this.chordMenuItem.loadProperties();
-		this.effectMenuItem.loadProperties();
-		this.dynamicMenuItem.loadProperties();
+		this.loadNames(this.durationMenuItem, this.chordMenuItem, this.effectMenuItem, this.dynamicMenuItem);
 	}
 
 	public void loadIcons(){
-		this.insertText.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TEXT));
-		this.strokeUp.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.STROKE_UP));
-		this.strokeDown.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.STROKE_DOWN));
-		this.pickStrokeUp.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.PICK_STROKE_UP));
-		this.pickStrokeDown.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.PICK_STROKE_DOWN));
-		this.altEnharmonic.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.ALTERNATIVE_ENHARMONIC));
+		this.loadImages();
 	}
 }

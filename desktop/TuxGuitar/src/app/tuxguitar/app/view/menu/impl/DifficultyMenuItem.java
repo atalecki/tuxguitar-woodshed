@@ -30,9 +30,7 @@ public class DifficultyMenuItem extends TGMenuItem {
 	}
 
 	private TGActionProcessorListener createFlagAction(int difficulty) {
-		TGActionProcessorListener processor = this.createActionProcessor(TGChangeDifficultyAction.NAME);
-		processor.setAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY, difficulty);
-		return processor;
+		return this.createActionProcessor(TGChangeDifficultyAction.NAME, TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY, difficulty);
 	}
 
 	public void update() {

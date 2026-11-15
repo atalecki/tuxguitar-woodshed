@@ -49,68 +49,55 @@ public class TrackMenu extends TGMenuItem {
 	public void showItems(){
 		if(!isDisposed()){
 			//--FIRST--
-			this.first = this.menu.createActionItem();
-			this.act(this.first, this.createActionProcessor(TGGoFirstTrackAction.NAME));
+			this.first = this.actionItem(this.menu.createActionItem(), "track.first", TGGoFirstTrackAction.NAME, TGIconManager.TRACK_FIRST);
 
 			//--PREVIOUS--
-			this.previous = this.menu.createActionItem();
-			this.act(this.previous, this.createActionProcessor(TGGoPreviousTrackAction.NAME));
+			this.previous = this.actionItem(this.menu.createActionItem(), "track.previous", TGGoPreviousTrackAction.NAME, TGIconManager.TRACK_PREVIOUS);
 
 			//--NEXT--
-			this.next = this.menu.createActionItem();
-			this.act(this.next, this.createActionProcessor(TGGoNextTrackAction.NAME));
+			this.next = this.actionItem(this.menu.createActionItem(), "track.next", TGGoNextTrackAction.NAME, TGIconManager.TRACK_NEXT);
 
 			//--LAST--
-			this.last = this.menu.createActionItem();
-			this.act(this.last, this.createActionProcessor(TGGoLastTrackAction.NAME));
+			this.last = this.actionItem(this.menu.createActionItem(), "track.last", TGGoLastTrackAction.NAME, TGIconManager.TRACK_LAST);
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--ADD TRACK--
-			this.addTrack = this.menu.createActionItem();
-			this.act(this.addTrack, this.createActionProcessor(TGAddNewTrackAction.NAME));
+			this.addTrack = this.actionItem(this.menu.createActionItem(), "track.add", TGAddNewTrackAction.NAME, TGIconManager.TRACK_ADD);
 
 			//--CLONE TRACK--
-			this.cloneTrack = this.menu.createActionItem();
-			this.act(this.cloneTrack, this.createActionProcessor(TGCloneTrackAction.NAME));
+			this.cloneTrack = this.actionItem(this.menu.createActionItem(), "track.clone", TGCloneTrackAction.NAME, TGIconManager.TRACK_CLONE);
 
 			//--REMOVE TRACK--
-			this.removeTrack = this.menu.createActionItem();
-			this.act(this.removeTrack, this.createActionProcessor(TGRemoveTrackAction.NAME));
+			this.removeTrack = this.actionItem(this.menu.createActionItem(), "track.remove", TGRemoveTrackAction.NAME, TGIconManager.TRACK_REMOVE);
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--MOVE UP--
-			this.moveUp = this.menu.createActionItem();
-			this.act(this.moveUp, this.createActionProcessor(TGMoveTrackUpAction.NAME));
+			this.moveUp = this.actionItem(this.menu.createActionItem(), "track.move-up", TGMoveTrackUpAction.NAME, TGIconManager.ARROW_UP);
 
 			//--MOVE DOWN--
-			this.moveDown = this.menu.createActionItem();
-			this.act(this.moveDown, this.createActionProcessor(TGMoveTrackDownAction.NAME));
+			this.moveDown = this.actionItem(this.menu.createActionItem(), "track.move-down", TGMoveTrackDownAction.NAME, TGIconManager.ARROW_DOWN);
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--SOLO--
-			this.changeSolo = this.menu.createCheckItem();
-			this.act(this.changeSolo, this.createActionProcessor(TGChangeTrackSoloAction.NAME));
+			this.changeSolo = this.actionItem(this.menu.createCheckItem(), "track.solo", TGChangeTrackSoloAction.NAME, TGIconManager.TRACK_SOLO);
 
 			//--MUTE--
-			this.changeMute = this.menu.createCheckItem();
-			this.act(this.changeMute, this.createActionProcessor(TGChangeTrackMuteAction.NAME));
+			this.changeMute = this.actionItem(this.menu.createCheckItem(), "track.mute", TGChangeTrackMuteAction.NAME, TGIconManager.TRACK_MUTE);
 
 			//--SEPARATOR--
 			this.menu.createSeparator();
 
 			//--LYRICS--
-			this.lyrics = this.menu.createActionItem();
-			this.act(this.lyrics, this.createActionProcessor(TGToggleLyricEditorAction.NAME));
+			this.lyrics = this.actionItem(this.menu.createActionItem(), "track.lyrics", TGToggleLyricEditorAction.NAME, null);
 
 			//--PROPERTIES--
-			this.properties = this.menu.createActionItem();
-			this.act(this.properties, this.createActionProcessor(TGOpenTrackPropertiesDialogAction.NAME));
+			this.properties = this.actionItem(this.menu.createActionItem(), "track.properties", TGOpenTrackPropertiesDialogAction.NAME, null);
 
 			this.loadIcons();
 			this.loadProperties();
@@ -119,19 +106,7 @@ public class TrackMenu extends TGMenuItem {
 
 	public void loadProperties(){
 		if(!isDisposed()){
-			setMenuItemTextAndAccelerator(this.first, "track.first", TGGoFirstTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.previous, "track.previous", TGGoPreviousTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.next, "track.next", TGGoNextTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.last, "track.last", TGGoLastTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.addTrack, "track.add", TGAddNewTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.cloneTrack, "track.clone", TGCloneTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.removeTrack, "track.remove", TGRemoveTrackAction.NAME);
-			setMenuItemTextAndAccelerator(this.moveUp, "track.move-up", TGMoveTrackUpAction.NAME);
-			setMenuItemTextAndAccelerator(this.moveDown, "track.move-down", TGMoveTrackDownAction.NAME);
-			setMenuItemTextAndAccelerator(this.changeSolo, "track.solo", TGChangeTrackSoloAction.NAME);
-			setMenuItemTextAndAccelerator(this.changeMute, "track.mute", TGChangeTrackMuteAction.NAME);
-			setMenuItemTextAndAccelerator(this.lyrics, "track.lyrics", TGToggleLyricEditorAction.NAME);
-			setMenuItemTextAndAccelerator(this.properties, "track.properties", TGOpenTrackPropertiesDialogAction.NAME);
+			this.loadNames();
 		}
 	}
 
@@ -158,17 +133,7 @@ public class TrackMenu extends TGMenuItem {
 	}
 
 	public void loadIcons(){
-		this.first.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_FIRST));
-		this.previous.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_PREVIOUS));
-		this.next.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_NEXT));
-		this.last.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_LAST));
-		this.addTrack.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_ADD));
-		this.cloneTrack.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_CLONE));
-		this.removeTrack.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_REMOVE));
-		this.moveUp.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.ARROW_UP));
-		this.moveDown.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.ARROW_DOWN));
-		this.changeSolo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_SOLO));
-		this.changeMute.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRACK_MUTE));
+		this.loadImages();
 	}
 
 	public boolean isDisposed(){

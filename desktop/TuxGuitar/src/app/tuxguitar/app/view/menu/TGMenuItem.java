@@ -25,6 +25,11 @@ public abstract class TGMenuItem {
 		return this.greyable(item, listener.getActionName());
 	}
 
+	// the item named (see named), running its action when selected (see act)
+	public <T extends UIMenuActionItem> T actionItem(T item, String key, String action, String icon) {
+		return this.act(this.named(item, key, action, icon), this.createActionProcessor(action));
+	}
+
 	// the item, greyed out while a practice session refuses the action (see TGMenuGreying)
 	public <T extends UIMenuItem> T greyable(T item, String action) {
 		TGMenuGreying.getInstance(this.findContext()).add(item, action);
@@ -44,6 +49,13 @@ public abstract class TGMenuItem {
 		return new TGActionProcessorListener(findContext(), actionId);
 	}
 
+	// the action's processor, the attribute set to the value
+	public TGActionProcessorListener createActionProcessor(String actionId, String attribute, Object value) {
+		TGActionProcessorListener processor = this.createActionProcessor(actionId);
+		processor.setAttribute(attribute, value);
+		return processor;
+	}
+
 	// the item, its text the property of the key, its key binding the action's (none: null), its image the icon's (none:
 	// null), set by loadNames and loadImages, each time they are called
 	public <T extends UIMenuItem> T named(T item, String key, String action, String icon) {
@@ -54,6 +66,14 @@ public abstract class TGMenuItem {
 	public void loadNames() {
 		for (Named item : this.named) {
 			this.setMenuItemTextAndAccelerator(item.item, item.key, item.action);
+		}
+	}
+
+	// the items' names, then the submenus' (their loadProperties)
+	public void loadNames(TGMenuItem... submenus) {
+		this.loadNames();
+		for (TGMenuItem submenu : submenus) {
+			submenu.loadProperties();
 		}
 	}
 
