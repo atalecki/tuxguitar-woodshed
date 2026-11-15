@@ -1,6 +1,7 @@
 package app.tuxguitar.player.base;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
@@ -27,6 +28,8 @@ final class MidiPractice {
 	private final ToIntFunction<TGMeasureHeader> clicks;
 	// the turns in the sequence, from its first
 	private final List<MidiPracticeTurn> turns = new ArrayList<MidiPracticeTurn>();
+	// the same, as read by other threads: a copy made each time a turn is laid (the player's thread lays them)
+	private volatile List<MidiPracticeTurn> laid = Collections.emptyList();
 	// the session's turns before the sequence's first: those played before a pause
 	private int before;
 	// adds a turn to the sequence; true for its first turn
@@ -90,6 +93,11 @@ final class MidiPractice {
 		}
 	}
 
+	// the turns in the sequence, from its first: read without the player's lock
+	List<MidiPracticeTurn> getLaid() {
+		return this.laid;
+	}
+
 	// where the session starts in the sequence
 	long getStart() {
 		return this.turns.get(0).getStart();
@@ -133,6 +141,7 @@ final class MidiPractice {
 
 	private void lay(MidiPracticeTurn turn) {
 		this.turns.add(turn);
+		this.laid = Collections.unmodifiableList(new ArrayList<MidiPracticeTurn>(this.turns));
 		this.sequence.accept(turn, this.turns.size() == 1);
 	}
 }

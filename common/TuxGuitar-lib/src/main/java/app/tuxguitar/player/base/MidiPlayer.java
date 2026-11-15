@@ -1,6 +1,7 @@
 package app.tuxguitar.player.base;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -77,8 +78,8 @@ public class MidiPlayer{
 	// given to it, parsed at the percent the mode plays it at, until it starts
 	private int passes;
 	private MidiSequenceParser nextPass;
-	// the interleaved practice session playing (null: the song plays)
-	private MidiPractice practice;
+	// the interleaved practice session playing (null: the song plays); volatile, read without the lock (getPracticeTurns)
+	private volatile MidiPractice practice;
 	protected TGLock lock;
 
 	private MidiPlayer(TGContext context) {
@@ -211,6 +212,13 @@ public class MidiPlayer{
 	// the turn of the session held, as the app shows it (turn 3 of 12, line 5); none without one
 	public Optional<TGPracticeTurn> getPracticeTurn() {
 		return this.readLocked(() -> (this.isPractising() ? Optional.of(this.practice.turn(this.tickPosition)) : Optional.empty()));
+	}
+
+	// the turns of the session playing that its sequence holds, from its first (see MidiPractice); none without one.
+	// Read without the player's lock (the audio thread reads it each block)
+	public List<MidiPracticeTurn> getPracticeTurns() {
+		MidiPractice playing = this.practice;
+		return (playing != null ? playing.getLaid() : Collections.<MidiPracticeTurn>emptyList());
 	}
 
 	// a pause keeps the session

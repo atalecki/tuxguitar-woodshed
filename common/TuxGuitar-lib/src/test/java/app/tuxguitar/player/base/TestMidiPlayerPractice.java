@@ -288,6 +288,29 @@ public class TestMidiPlayerPractice {
 		assertEquals("false false  | true true " + turn + " | true true " + turn + " | false false ", before + " | " + playing + " | " + paused + " | " + shown());
 	}
 
+	// the turns the sequence holds, "measure@tick" (what the takes play live): the first one when the session starts,
+	// the next once it has started (after a block), the third once the second has (in turn 2's Count In, block 400);
+	// none once Stop ends the session
+	@Test
+	public void theTurnsTheSequenceHoldsAreReadable() throws Exception {
+		player.getCountDown().setEnabled(true);
+		practise(3);
+		String first = laid();
+		blocks(1);
+		String next = laid();
+		blocks(399);
+		String third = laid();
+		player.stop();
+		List<Integer> measures = chosen(3);
+		String turns = measures.get(0) + "@960 " + measures.get(1) + "@8640 " + measures.get(2) + "@16320";
+		assertEquals(turns.substring(0, turns.indexOf(' ')) + " | " + turns.substring(0, turns.lastIndexOf(' ')) + " | " + turns + " | ",
+			first + " | " + next + " | " + third + " | " + laid());
+	}
+
+	private String laid() {
+		return player.getPracticeTurns().stream().map(turn -> turn.getFirst().getNumber() + "@" + turn.getStart()).collect(Collectors.joining(" "));
+	}
+
 	// during a session the player reports the song's tick as written (see throughATurnsCountIn...): it maps to itself,
 	// though the song repeats measures 2 and 3, where the tick of measure 4 would play measure 2 again
 	@Test
