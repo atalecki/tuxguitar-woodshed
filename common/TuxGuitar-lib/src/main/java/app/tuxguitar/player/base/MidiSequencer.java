@@ -40,6 +40,12 @@ public interface MidiSequencer extends MidiDevice{
 		return false;
 	}
 
+	// whether events added to its sequence while it plays go out on their ticks (an interleaved practice session adds
+	// each next turn while the turn before plays)
+	public default boolean takesEventsWhilePlaying() {
+		return false;
+	}
+
 	// how many times the sequence started again by itself (see loop), since the sequencer was made
 	public default int getPasses() throws MidiPlayerException {
 		return 0;

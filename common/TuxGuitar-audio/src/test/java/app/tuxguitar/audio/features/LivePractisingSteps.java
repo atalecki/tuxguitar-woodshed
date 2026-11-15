@@ -16,6 +16,7 @@ import app.tuxguitar.audio.device.TGAudioDeviceException;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
+import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -62,7 +63,7 @@ public class LivePractisingSteps {
 
 	// practises so many turns live (random seed 1), the change made half way through the turn (from 1), then plays on
 	// for AFTER blocks; the player stopped then, the synthesizer's channels close
-	private void practiseLive(int turns, int during, Runnable changing) throws MidiPlayerException, TGAudioDeviceException {
+	private void practiseLive(int turns, int during, Runnable changing) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practice.settings().setTurns(turns);
 		practice.start();
 		planned = TGPractiseAction.timeline(world.fixture().context, world.song(), practice.session(), Practice.SEED);
@@ -87,12 +88,12 @@ public class LivePractisingSteps {
 
 	// as the app moves it (TGTransport: the song's tick, here with no repeats)
 	@When("I practise {int} turns live, moving the position to {position} during turn {int}")
-	public void practiseLiveMoving(int turns, SongPosition to, int during) throws MidiPlayerException, TGAudioDeviceException {
+	public void practiseLiveMoving(int turns, SongPosition to, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practiseLive(turns, during, () -> player().setTickPosition(to.tick(world.song())));
 	}
 
 	@When("I practise {int} turns live, removing measure {int} during turn {int}")
-	public void practiseLiveRemoving(int turns, int measure, int during) throws MidiPlayerException, TGAudioDeviceException {
+	public void practiseLiveRemoving(int turns, int measure, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practiseLive(turns, during, () -> songSteps.removeMeasure(measure));
 	}
 

@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.event.TGEventManager;
+import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.song.managers.TGSongManager;
@@ -182,8 +183,14 @@ public class MidiPlayer{
 
 	// plays the session from its first turn, its turns chosen from the seed (see MidiPractice), at the percent the mode
 	// starts at; Play looped and the selection take no part. Stop, moving the position and the session ending end it;
-	// Pause keeps it, and Play then plays the paused turn again from its Count In
-	public void practise(TGPracticeSession session, long seed) throws MidiPlayerException {
+	// Pause keeps it, and Play then plays the paused turn again from its Count In. A sequencer that cannot take the turns
+	// added while it plays refuses it, before anything changes
+	public void practise(TGPracticeSession session, long seed) throws MidiPlayerException, TGPracticeRefusal {
+		MidiSequencer sequencer = this.getSequencer();
+		if( !sequencer.takesEventsWhilePlaying() ){
+			throw new TGPracticeRefusal("Interleaved practice needs a sequencer that takes turns added while it plays, and \"" + sequencer.getName()
+				+ "\" does not: choose the TuxGuitar Sequencer in Settings > Sound.");
+		}
 		this.runLocked(() -> {
 			this.stop();
 			this.practice = new MidiPractice(session.chooser(seed), this.getSong(), this.getCountDown()::clicksBefore);

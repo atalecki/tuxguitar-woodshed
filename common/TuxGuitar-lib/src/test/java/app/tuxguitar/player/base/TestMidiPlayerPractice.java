@@ -246,4 +246,22 @@ public class TestMidiPlayerPractice {
 		String keys = IntStream.rangeClosed(chosen(2).get(1), 4).mapToObj(measure -> "1 " + (64 + measure)).collect(Collectors.joining(", "));
 		assertEquals(keys, started().replaceAll("\\d+ (1 \\d+)", "$1"));
 	}
+
+	// a sequencer that cannot take the turns added while it plays (the fake one, as Java Sound's) refuses a session,
+	// saying why, before anything plays
+	@Test
+	public void aSequencerThatCannotTakeTurnsAddedWhilePlayingRefusesASession() throws Exception {
+		player.loadSequencer(new FakeSequencer(new ArrayList<String>()));
+		TGPracticeSettings settings = new TGPracticeSettings();
+		session = TGPracticeSession.start(settings, fixture.song);
+		String refusal;
+		try {
+			player.practise(session, SEED);
+			refusal = "started";
+		} catch (TGPracticeRefusal refused) {
+			refusal = refused.getMessage();
+		}
+		assertEquals("Interleaved practice needs a sequencer that takes turns added while it plays, and \"fake\" does not:"
+			+ " choose the TuxGuitar Sequencer in Settings > Sound. | false false false", refusal + " | " + state());
+	}
 }
