@@ -69,11 +69,6 @@ public class TestPracticeGrouping {
 	}
 
 	private static String refusal(int perLine, int perPage) {
-		try {
-			TGPracticeGrouping.of(perLine, perPage);
-			return "accepted";
-		} catch (TGPracticeRefusal refusal) {
-			return refusal.getMessage();
-		}
+		return PracticeRefusals.outcome(() -> TGPracticeGrouping.of(perLine, perPage));
 	}
 }
