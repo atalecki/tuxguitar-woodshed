@@ -17,7 +17,10 @@ public final class TGPlayedMeasure {
 	private final int percent;
 	private final int step;
 
-	// step: where it comes in its pass, from 0; -1 for a measure no pass reaches (interleaved practice plays it)
+	// the step of a measure no pass reaches (interleaved practice plays it)
+	public static final int NO_STEP = -1;
+
+	// step: where it comes in its pass, from 0; NO_STEP for a measure no pass reaches
 	public TGPlayedMeasure(TGMeasureHeader header, long from, long to, boolean jump, int pass, int percent, int step) {
 		this.header = header;
 		this.from = from;

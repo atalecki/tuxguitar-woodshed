@@ -79,6 +79,13 @@ public class TestSequenceParserTurn {
 			+ " off 1920 t0 c9 k37 v95 s-1 b0, ts 1920 t0 6/8, tempo 1920 t0 1333332", parsed(turn(3, 3, 960, 2), false, 50, "ts", "tempo", "on 960", "off 1440", "on 1440", "off 1920"));
 	}
 
+	// as in the song's sequence, a muted track is left out
+	@Test
+	public void aMutedTracksNotesAreLeftOut() {
+		song.track.setMute(true);
+		assertEquals("", parsed(turn(3, 3, 3840, 0), false, 100, "on"));
+	}
+
 	@Test
 	public void onlyTheFirstTurnSetsTheChannelsUp() {
 		assertEquals("program 960 t1 c1 25, name 960 t1 track 1 | ",

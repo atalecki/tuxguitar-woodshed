@@ -89,7 +89,8 @@ public class TestMidiPractice {
 		assertEquals(2, added.size(), added.toString());
 	}
 
-	// during a turn's Count In the song plays its first measure's first tick; then its measures' ticks
+	// during a turn's Count In the song plays its first measure's first tick; then its measures' ticks. Before the session
+	// starts (the sequencer before its first block) it is in the first turn
 	@Test
 	public void theSongTickAndTheTurnOfATickOfTheSequence() throws TGPracticeRefusal {
 		MidiPractice practice = practice(3);
@@ -97,8 +98,10 @@ public class TestMidiPractice {
 		List<Integer> first = chosen(2);
 		long secondStart = 960 + 3 * MEASURE;
 		TGMeasureHeader secondFirst = song.getMeasureHeader(first.get(1) - 1);
-		assertEquals(secondFirst.getStart() + " " + (secondFirst.getStart() + 10) + " " + song.getMeasureHeader(first.get(0) - 1).getStart() + " 1 2 2",
-			practice.songTick(secondStart + MEASURE - 1) + " " + practice.songTick(secondStart + MEASURE + 10) + " " + practice.songTick(960)
-				+ " " + practice.turnAt(secondStart - 1) + " " + practice.turnAt(secondStart) + " " + practice.turnAt(secondStart + 3 * MEASURE));
+		long firstStart = song.getMeasureHeader(first.get(0) - 1).getStart();
+		assertEquals(secondFirst.getStart() + " " + (secondFirst.getStart() + 10) + " " + firstStart + " " + firstStart + " 1 1 2 2",
+			practice.songTick(secondStart + MEASURE - 1) + " " + practice.songTick(secondStart + MEASURE + 10) + " " + practice.songTick(960) + " "
+				+ practice.songTick(0) + " " + practice.turnAt(0) + " " + practice.turnAt(secondStart - 1) + " " + practice.turnAt(secondStart) + " "
+				+ practice.turnAt(secondStart + 3 * MEASURE));
 	}
 }

@@ -170,8 +170,9 @@ public final class TGMidiTaps {
 		TreeMap<Long, List<Event>> scheduled = new TreeMap<Long, List<Event>>();
 		for (int i = 0; i < timeline.count(); i++) {
 			TGPlayedMeasure measure = timeline.get(i);
-			Events events = (measure.getStep() >= 0 ? parsed : alone(parser, measure.getHeader(), parsed.getTracks()));
-			long start = measure.getHeader().getStart() + (measure.getStep() >= 0 ? moves.get(measure.getStep()) : 0);
+			boolean unreached = (measure.getStep() == TGPlayedMeasure.NO_STEP);
+			Events events = (unreached ? alone(parser, measure.getHeader(), parsed.getTracks()) : parsed);
+			long start = (unreached ? measure.getHeader().getStart() : measure.getHeader().getStart() + moves.get(measure.getStep()));
 			long from = (i == 0 ? Long.MIN_VALUE : start + measure.getFrom());
 			List<Event> due = events.between(from, start + measure.getTo());
 			if (timeline.endsTurn(i)) {

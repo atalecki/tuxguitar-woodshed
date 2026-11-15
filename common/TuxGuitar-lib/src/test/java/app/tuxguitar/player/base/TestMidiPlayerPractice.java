@@ -177,4 +177,16 @@ public class TestMidiPlayerPractice {
 		blocks(400);
 		assertEquals("true true false | 102400 1 67, 190600 1 68", moved + " | " + started());
 	}
+
+	// Play looped turned on during the session counts once it has ended: after measure 4 the song plays measure 3 again
+	@Test
+	public void afterASessionTheSongLoopsAsTheModeSaysNow() throws Exception {
+		practise(3);
+		blocks(200);
+		fixture.loopMode(3, 4);
+		player.setTickPosition(fixture.start(3));
+		received.clear();
+		blocks(500);
+		assertEquals("102400 1 67, 190600 1 68, 278800 1 67", started());
+	}
 }
