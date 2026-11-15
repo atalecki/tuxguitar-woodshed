@@ -74,6 +74,11 @@ public final class TGRender {
 		return TGReportedPositions.of(this.timeline, this.latency + outputLatency);
 	}
 
+	// the same at every sample of the clock
+	public TGReportedPositions getReportedAt(int outputLatency) {
+		return TGReportedPositions.at(this.timeline, this.latency + outputLatency);
+	}
+
 	// how many samples the chains heard sound on after the last measure: the longest of their tails
 	// (TGAudioProcessor.INFINITE_TAIL: for ever)
 	public int getTail() {
