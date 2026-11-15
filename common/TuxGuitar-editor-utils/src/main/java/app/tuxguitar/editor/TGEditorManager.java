@@ -188,6 +188,25 @@ public class TGEditorManager {
 		}
 	}
 
+	// locks for the action about to run, noting it in the action's context (see unlockFor)
+	public void lockFor(String actionId, TGAbstractContext actionContext) {
+		this.lock();
+		actionContext.setAttribute(lockedFor(actionId), Boolean.TRUE);
+	}
+
+	// gives back the lock taken for the action once it has run or failed; an action that failed before it ran (refused
+	// by an interceptor) took none, and gives none back
+	public void unlockFor(String actionId, TGAbstractContext actionContext) {
+		if( Boolean.TRUE.equals(actionContext.getAttribute(lockedFor(actionId))) ) {
+			actionContext.setAttribute(lockedFor(actionId), null);
+			this.unlock();
+		}
+	}
+
+	private static String lockedFor(String actionId) {
+		return TGEditorManager.class.getName() + "-locked-for-" + actionId;
+	}
+
 	public boolean tryLock(){
 		if( this.lockControl != null ) {
 			return this.lockControl.tryLock();

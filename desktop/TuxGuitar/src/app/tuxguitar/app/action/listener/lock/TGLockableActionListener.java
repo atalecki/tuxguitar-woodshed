@@ -1,6 +1,7 @@
 package app.tuxguitar.app.action.listener.lock;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import app.tuxguitar.action.TGActionContext;
@@ -14,9 +15,12 @@ import app.tuxguitar.app.action.listener.thread.TGSyncThreadAction;
 import app.tuxguitar.editor.TGEditorManager;
 import app.tuxguitar.event.TGEvent;
 import app.tuxguitar.event.TGEventListener;
+import app.tuxguitar.util.TGAbstractContext;
 import app.tuxguitar.util.TGContext;
 
 public class TGLockableActionListener extends TGSyncThreadAction implements TGActionInterceptor, TGEventListener {
+
+	private static final List<String> ENDS = Arrays.asList(TGActionPostExecutionEvent.EVENT_TYPE, TGActionErrorEvent.EVENT_TYPE);
 
 	private static final String INTERCEPTOR_BY_PASS = TGLockableActionListener.class.getSimpleName() + "-interceptor-by-pass";
 
@@ -40,15 +44,16 @@ public class TGLockableActionListener extends TGSyncThreadAction implements TGAc
 		this.actionIds.remove(id);
 	}
 
-	public void checkForLock(String actionId) {
+	public void checkForLock(String actionId, TGAbstractContext actionContext) {
 		if( this.containsActionId(actionId)) {
-			TGEditorManager.getInstance(this.getContext()).lock();
+			TGEditorManager.getInstance(this.getContext()).lockFor(actionId, actionContext);
 		}
 	}
 
-	public void checkForUnlock(String actionId) {
+	// gives back only a lock taken for the action: one refused before it ran took none
+	public void checkForUnlock(String actionId, TGAbstractContext actionContext) {
 		if( this.containsActionId(actionId)) {
-			TGEditorManager.getInstance(this.getContext()).unlock();
+			TGEditorManager.getInstance(this.getContext()).unlockFor(actionId, actionContext);
 		}
 	}
 
@@ -61,14 +66,19 @@ public class TGLockableActionListener extends TGSyncThreadAction implements TGAc
 	}
 
 	public void processEvent(TGEvent event) {
+		String actionId = event.getAttribute(TGActionEvent.ATTRIBUTE_ACTION_ID);
+		TGAbstractContext actionContext = event.getAttribute(TGEvent.ATTRIBUTE_SOURCE_CONTEXT);
 		if( TGActionPreExecutionEvent.EVENT_TYPE.equals(event.getEventType()) ) {
-			this.checkForLock((String) event.getAttribute(TGActionEvent.ATTRIBUTE_ACTION_ID));
+			this.checkForLock(actionId, actionContext);
+		} else {
+			this.checkForEnd(event.getEventType(), actionId, actionContext);
 		}
-		else if( TGActionPostExecutionEvent.EVENT_TYPE.equals(event.getEventType()) ) {
-			this.checkForUnlock((String) event.getAttribute(TGActionEvent.ATTRIBUTE_ACTION_ID));
-		}
-		else if( TGActionErrorEvent.EVENT_TYPE.equals(event.getEventType()) ) {
-			this.checkForUnlock((String) event.getAttribute(TGActionEvent.ATTRIBUTE_ACTION_ID));
+	}
+
+	// an action that ran, or failed
+	private void checkForEnd(String eventType, String actionId, TGAbstractContext actionContext) {
+		if( ENDS.contains(eventType) ) {
+			this.checkForUnlock(actionId, actionContext);
 		}
 	}
 
