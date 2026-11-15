@@ -39,7 +39,7 @@ public final class TGCountIn {
 		}
 		TGPlayedMeasure first = played.get(0);
 		TGTimeSignature signature = first.getHeader().getTimeSignature();
-		int clicks = (countDown.getTickCount() != 0 ? countDown.getTickCount() : signature.getNumerator());
+		int clicks = countDown.clicksBefore(first.getHeader());
 		double quarters = signature.getDenominator().getTime() / (double) TGDuration.QUARTER_TIME;
 		double beat = quarters * 60.0 * sampleRate / first.getTempo();
 		return new TGCountIn(clicks, beat, Math.round(clicks * beat));

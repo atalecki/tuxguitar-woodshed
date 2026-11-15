@@ -58,7 +58,7 @@ public class TGPractiseAction extends TGPlayAction {
 	public static TGTimeline timeline(TGContext context, TGSong song, TGPracticeSession session, long seed) {
 		MidiPlayer player = MidiPlayer.getInstance(context);
 		int sampleRate = TGAudioSession.getInstance(context).getDevice().getSampleRate();
-		int percent = startPercent(player.getMode());
+		int percent = player.getMode().getStartPercent();
 		TGPracticeChooser chooser = session.chooser(seed);
 		List<TGTurn> turns = new ArrayList<TGTurn>();
 		for (int turn = 0; turn < session.getTurns(); turn++) {
@@ -67,13 +67,5 @@ public class TGPractiseAction extends TGPlayAction {
 			turns.add(new TGTurn(TGCountIn.before(player.getCountDown(), measures, sampleRate), measures));
 		}
 		return TGTimeline.of(song, turns, sampleRate);
-	}
-
-	// the Percentage of Tempo the Play Mode starts at: Training Mode's start percentage, not one it has raised to
-	private static int startPercent(MidiPlayerMode mode) {
-		MidiPlayerMode start = new MidiPlayerMode();
-		start.copyFrom(mode);
-		start.reset();
-		return start.getCurrentPercent();
 	}
 }
