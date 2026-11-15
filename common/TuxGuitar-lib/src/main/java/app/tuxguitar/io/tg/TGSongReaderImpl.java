@@ -219,6 +219,14 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 		if (getChildNode(nodeMeasureHeader, TAG_LINE_BREAK) != null) {
 			header.setLineBreak(true);
 		}
+		this.readDifficulty(nodeMeasureHeader, header);
+	}
+
+	// a difficulty no version writes (outside 1 to 5) reads as not flagged
+	private void readDifficulty(Node nodeMeasureHeader, TGMeasureHeader header) {
+		Node node = getChildNode(nodeMeasureHeader, TAG_DIFFICULTY);
+		int difficulty = (node != null ? readInt(node) : TGMeasureHeader.DIFFICULTY_NONE);
+		header.setDifficulty(TGMeasureHeader.isDifficulty(difficulty) ? difficulty : TGMeasureHeader.DIFFICULTY_NONE);
 	}
 
 	private void readTimeSignature(Node nodeMeasureHeader, TGTimeSignature timeSignature, TGTimeSignature previous) {

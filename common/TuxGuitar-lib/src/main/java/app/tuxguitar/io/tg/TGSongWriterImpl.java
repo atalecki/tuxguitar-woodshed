@@ -192,6 +192,9 @@ public class TGSongWriterImpl extends TGStream implements TGSongWriter {
 		if (header.isLineBreak()) {
 			this.addNode(nodeMeasureHeader, TAG_LINE_BREAK);
 		}
+		if (header.getDifficulty() != TGMeasureHeader.DIFFICULTY_NONE) {
+			this.addNodeInt(nodeMeasureHeader, TAG_DIFFICULTY, header.getDifficulty());
+		}
 	}
 
 	private void writeTempo(TGTempo tempo, Node nodeMeasureHeader) {

@@ -45,23 +45,26 @@ public class TestSongMeasures extends SegmentFixture {
 		first.setRepeatClose(2);
 		first.setRepeatAlternative(1);
 		first.setLineBreak(true);
+		first.setDifficulty(3);
 		songManager.addNewMeasure(song, 2);
 
 		assertEquals(""
 			+ "track 1: 1@1/1/1:11+0 2@5/1/1: 3@9/2/2:12+0 4@13/3/3:13+0\n"
 			+ "track 2: 1@1/1/1:21+0 2@5/1/1: 3@9/2/2:22+0 4@13/3/3:23+0\n"
 			, describe());
-		// the new header copies the one before, without its marker, repeats or line break
+		// the new header copies the one before, without its marker, repeats, line break or difficulty flag
 		assertEquals("true false false false", headers(h -> h.hasMarker()));
 		assertEquals("true false false false", headers(h -> h.isRepeatOpen()));
 		assertEquals("2 0 0 0", headers(h -> h.getRepeatClose()));
 		assertEquals("1 0 0 0", headers(h -> h.getRepeatAlternative()));
 		assertEquals("true false false false", headers(h -> h.isLineBreak()));
+		assertEquals("3 1 1 1", headers(h -> h.getDifficulty()));
 	}
 
 	@Test
 	public void aNewFirstMeasureTakesTheKeyAndClefOfTheMeasureAfterAndKeepsTheLineBreak() {
 		song.getMeasureHeader(0).setLineBreak(true);
+		song.getMeasureHeader(0).setDifficulty(3);
 		songManager.addNewMeasure(song, 1);
 
 		assertEquals(""
@@ -69,6 +72,8 @@ public class TestSongMeasures extends SegmentFixture {
 			+ "track 2: 1@1/1/1: 2@5/1/1:21+0 3@9/2/2:22+0 4@13/3/3:23+0\n"
 			, describe());
 		assertEquals("true true false false", headers(h -> h.isLineBreak()));
+		// but not the difficulty flag: a new measure is not difficult
+		assertEquals("1 3 1 1", headers(h -> h.getDifficulty()));
 	}
 
 	@Test

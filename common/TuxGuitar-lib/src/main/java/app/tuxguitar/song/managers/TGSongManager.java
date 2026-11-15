@@ -630,6 +630,7 @@ public class TGSongManager {
 			header.setLineBreak(false);
 		}
 		header.setMarker(null);
+		header.setDifficulty(TGMeasureHeader.DIFFICULTY_NONE);
 		header.setRepeatOpen(false);
 		header.setRepeatAlternative(0);
 		header.setRepeatClose(0);
