@@ -103,6 +103,16 @@ public class TGClickUpSettings {
 		this.passes = passes;
 	}
 
+	// the ladder given anew in the mode: from 60% of the written tempo (rounded) to it, by 5, in the mode's unit; in
+	// percent 60% to 100%, in bpm against the written bpm it is read against (see TGClickUpLadder.getWrittenBpm)
+	public void setTempo(TGClickUpTempoMode tempoMode, int writtenBpm) {
+		int written = (tempoMode == TGClickUpTempoMode.PERCENT ? DEFAULT_GOAL : writtenBpm);
+		this.tempoMode = tempoMode;
+		this.start = (written * DEFAULT_START + DEFAULT_GOAL / 2) / DEFAULT_GOAL;
+		this.goal = written;
+		this.increment = DEFAULT_INCREMENT;
+	}
+
 	public boolean isCountInEveryPass() {
 		return this.countInEveryPass;
 	}

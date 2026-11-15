@@ -109,6 +109,23 @@ public class TestClickUpLadder {
 			percent + " | " + bpm + " | " + scales());
 	}
 
+	private String tempo(TGClickUpTempoMode mode, int writtenBpm) {
+		settings.setTempo(mode, writtenBpm);
+		return settings.getTempoMode() + " " + settings.getStart() + "-" + settings.getGoal() + " by " + settings.getIncrement();
+	}
+
+	// the ladder knows the written tempo it is read against: the passage's first measure's (84 from measure 9 on, 120
+	// before); the ladder given anew in a unit starts at 60% of the written tempo and climbs to it by 5, in that unit:
+	// 60% to 100%, at 84 bpm 50 bpm (50.4 rounded) to 84 bpm, at 1 bpm 1 to 1
+	@Test
+	public void aLadderGivenAnewInAUnitClimbsFromSixtyPercentOfTheWrittenTempoToItByFive() throws TGPracticeRefusal {
+		writtenTempo(9, 84);
+		passage(TGPracticeUnitKind.MEASURE, 9, 10).ladder(TGClickUpTempoMode.BPM, 30, 40, 2);
+		int written = TGClickUpLadder.of(settings, song).getWrittenBpm();
+		assertEquals("84 | PERCENT 60-100 by 5 | BPM 50-84 by 5 | BPM 72-120 by 5 | BPM 1-1 by 5", written + " | " + tempo(TGClickUpTempoMode.PERCENT, written) + " | "
+			+ tempo(TGClickUpTempoMode.BPM, written) + " | " + tempo(TGClickUpTempoMode.BPM, 120) + " | " + tempo(TGClickUpTempoMode.BPM, 1));
+	}
+
 	@Test
 	public void aStepKnowsItsSectionsInPlayItsSectionsAndItsRung() throws TGPracticeRefusal {
 		passage(TGPracticeUnitKind.MEASURE, 1, 3).ladder(TGClickUpTempoMode.BPM, 60, 80, 20);

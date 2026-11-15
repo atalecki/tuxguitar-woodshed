@@ -18,9 +18,11 @@ public final class TGClickUpLadder {
 	private final List<TGClickUpStep> steps;
 	private final int passes;
 	private final boolean countInEveryPass;
+	private final int writtenBpm;
 
-	private TGClickUpLadder(List<TGClickUpStep> steps, TGClickUpSettings settings) {
+	private TGClickUpLadder(List<TGClickUpStep> steps, TGClickUpSettings settings, int writtenBpm) {
 		this.steps = Collections.unmodifiableList(steps);
+		this.writtenBpm = writtenBpm;
 		this.passes = settings.getPasses();
 		this.countInEveryPass = settings.isCountInEveryPass();
 	}
@@ -34,7 +36,7 @@ public final class TGClickUpLadder {
 			throw new TGPracticeRefusal("A step needs at least 1 pass.");
 		}
 		int writtenBpm = song.getMeasureHeader(sections.get(0).getFirst() - 1).getTempo().getQuarterValue();
-		return new TGClickUpLadder(steps(sections, rungs, settings.getTempoMode(), writtenBpm), settings);
+		return new TGClickUpLadder(steps(sections, rungs, settings.getTempoMode(), writtenBpm), settings, writtenBpm);
 	}
 
 	// the steps, the sections coming into play one at a time, the tail of each at the goal, the last rung
@@ -83,6 +85,11 @@ public final class TGClickUpLadder {
 	// a play of it: its steps, one turn each, in order, from the first (each play its own course)
 	public TGPracticeCourse course() {
 		return new TGClickUpCourse(this);
+	}
+
+	// the written bpm of the passage's first measure, which a ladder in bpm is read against
+	public int getWrittenBpm() {
+		return this.writtenBpm;
 	}
 
 	public List<TGClickUpStep> getSteps() {
