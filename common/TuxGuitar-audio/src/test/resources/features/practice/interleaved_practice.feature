@@ -178,6 +178,16 @@ Feature: Interleaved practice
     And no two turns in a row choose the same measure
     And measure 2 is flagged 3x difficult
 
+  # live, the player chooses a turn while the turn before plays: a flag set during a cycle's last turn still counts from
+  # the next cycle, none of whose turns has started
+  Scenario: flagging a measure during a cycle's last turn, live, changes the turns from the next cycle on
+    Given I have set interleaved practice to measures over measures 1 to 4
+    When I practise 10 turns live, flagging measure 2 as 3x difficult during turn 4
+    Then turns 1 to 4 choose measures 1 to 4 once each
+    And turns 5 to 10 choose measure 2 three times and measures 1, 3 and 4 once each
+    And no two turns in a row choose the same measure
+    And measure 2 is flagged 3x difficult
+
   Scenario: flagging a measure during a session is refused when the next cycles could not be played
     Given I have set interleaved practice to measures over measures 1 to 2
     When interleaved practice chooses 6 turns with random seed 1, while I flag measure 2 as 3x difficult during turn 1
@@ -337,6 +347,13 @@ Feature: Interleaved practice
     And I have practised 6 turns and stopped at turn 2's first measure beat 3
     When I play the song from measure 1 beat 1 to measure 9 beat 1
     Then TuxGuitar reports each of the 32 beats within 1 sample of the output sounding it
+
+  Scenario: Pause keeps the session: Play plays the paused turn again from its Count In, then the turns after it
+    Given I have turned Count In on
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, pausing during turn 2 and playing again
+    Then after Play, turn 2's measure sounds again after a Count In of 4 beats, then turn 3's after another
+    And the player stopped by itself within 512 samples of turn 3's end, 16 beats after Play
 
   Scenario: moving the position during a session ends it, and the song plays on from there
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures

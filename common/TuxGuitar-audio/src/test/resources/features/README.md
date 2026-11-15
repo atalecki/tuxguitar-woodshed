@@ -18,11 +18,18 @@ of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's me
 unit too, its events parsed alone), and live: lib's `MidiPlayer.practise` plays the session through the player's
 sequencer, with or without this module (`MidiPractice`: the turns one after the other in the sequence's ticks, each a
 `MidiPracticeTurn` that `MidiSequenceParser.parseTurn` makes, its Count In clicks in the sequence at its first measure's
-tempo, the next turn chosen and added once the one before has started; the player reports the song's tick, a turn's
-first measure all through its Count In). Stop ends a live session, moving the position ends it and the song plays on
-from there, and the session ending stops the player: editor-utils' `TGPracticeEdits` (installed by the app) ends the
+tempo, the next turn chosen ahead and added once the one before has started, the chooser told when it starts so that
+a cycle opened ahead takes the weights it starts with, `TGPracticeChooser.ahead`/`started`; the player reports the
+song's tick, a turn's first measure all through its Count In, and lib's `MidiSongTicks` maps it to itself during a
+session). Stop ends a live session, Pause keeps it and Play then plays the paused turn again from its Count In
+(`MidiPractice.play`), moving the position ends it and the song plays on from there, and the session ending stops the
+player; a sequencer that cannot take turns added while it plays (`MidiSequencer.takesEventsWhilePlaying`: only
+TuxGuitar's own can) refuses a session: editor-utils' `TGPracticeEdits` (installed by the app) ends the
 session under way (`TGPracticeUnderWay`) on any edit but a flag, and checks a flag, its undo and its redo against the
-session's chooser, refusing one the next cycles could not play. Live practice scenarios play on the live device as the
+session's chooser, refusing one the next cycles could not play; it also tells the app which edits to refuse while
+playing (`TGPracticeEdits.disables`: during a session, playing or paused, all but a flag and the undo or redo of a
+flag). The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
+Live practice scenarios play on the live device as the
 other live scenarios do (`LivePractisingSteps`). Known and pinned, not fixed (ordinary playback): offline, a note ending
 where the song ends or a loop jumps back is never sent its note off (`TestGeneralMidiRender.pinnedDefect...`); live, a
 VST3 instrument ignores All Notes Off, so a note held when the player moves or stops rings on. Export is implemented headless (TGAudioExporter in this module), in
@@ -462,7 +469,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   itself. A turn's end is a jump in song time: takes fade out before it and start at full level after it (see
   Crossfade), and effect tails ring on into the next turn as across a loop's jump back. The Metronome clicks on the
   turns' beats as usual. Stop, moving the position, or an edit to the song ends the session, except flagging a measure
-  (see Difficulty flag). Play looped, the Loop Range and Training Mode take no part in a session: it plays at the
+  (see Difficulty flag). Pause keeps the session: Play then plays the paused turn again from the start of its Count In,
+  and the session goes on from there with the turns it had chosen; the turns before it count as played. A session
+  needs a sequencer that takes the turns added while it plays (TuxGuitar's own); on another it is refused, saying why. Play looped, the Loop Range and Training Mode take no part in a session: it plays at the
   Percentage of Tempo in effect when it starts (Training Mode's start percentage with Training Mode on), and they are as
   they were afterwards. Every track plays, with its mute and solo as usual. **The output holds N turns started**: N
   turns whose Count In or first measure began. "Turn 2" counts from 1, in the order played.
@@ -480,7 +489,7 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - **Difficulty flag**: a measure's weight, 1x (not flagged) to 5x, kept in the song (saved with it, an undoable edit;
   a TuxGuitar file stays format 2.0, whose older readers open it and ignore the flags; other file formats drop them).
   Flagging during a session does not end it: the cycle under way keeps its turns and the next cycles use the new
-  weights; a flag those weights could not play (see No consecutive repeats) is refused, saying why. Undoing or redoing
+  weights (every cycle none of whose turns has started playing, also when, live, its first turn is already chosen); a flag those weights could not play (see No consecutive repeats) is refused, saying why. Undoing or redoing
   a flag during a session is a flag: the same rule, the same refusal, and a refused undo or redo changes nothing.
   A line or page weighs as much as its most difficult measure.
 - **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
@@ -500,5 +509,5 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - Editing takes beyond what the features say (trimming, fades, gain, moving a take by hand).
 - What the channel's Reverb, Chorus, Tremolo and Phaser do on audio tracks and with VST3 instruments.
 - Which native audio library the backend uses.
-- Interleaved practice: how the desktop shows a session (the dialog, the turn counter); hiding the notation while a
-  turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections).
+- Interleaved practice: how the desktop shows a session (the dialog, the turn shown in the Transport window, the
+  Difficulty menu: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections).
