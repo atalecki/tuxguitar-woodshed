@@ -9,8 +9,8 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * Interleaved practice of a song as it was started: its settings checked once, its pool (the units it chooses from, in
- * order), its number of turns and its rules. The units' weights are read from the song's difficulty flags when asked,
- * so a flag set during the session counts.
+ * order), its number of turns and its rules; under way until it ends. The units' weights are read from the song's
+ * difficulty flags when asked, so a flag set during the session counts.
  */
 public final class TGPracticeSession {
 
@@ -19,6 +19,8 @@ public final class TGPracticeSession {
 	private final int turns;
 	private final boolean noConsecutiveRepeats;
 	private final boolean completeCycle;
+	// whether it has ended: set once, on the thread that ends it (the player's or the app's), read on any
+	private volatile boolean ended;
 
 	private TGPracticeSession(TGSong song, List<TGPracticeUnit> pool, TGPracticeSettings settings) {
 		this.song = song;
@@ -95,6 +97,16 @@ public final class TGPracticeSession {
 
 	private int[] weights(IntUnaryOperator difficulties) {
 		return this.pool.stream().mapToInt(unit -> unit.weight(difficulties)).toArray();
+	}
+
+	// whether the session has ended: after its last turn, or as Stop, moving the position or an edit ends it
+	public boolean isEnded() {
+		return this.ended;
+	}
+
+	// ends the session; one that has ended stays ended
+	public void end() {
+		this.ended = true;
 	}
 
 	// chooses the session's turns, one by one, at random: the same seed, the same turns

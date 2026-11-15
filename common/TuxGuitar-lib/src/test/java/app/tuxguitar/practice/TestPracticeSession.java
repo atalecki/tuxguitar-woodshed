@@ -144,4 +144,17 @@ public class TestPracticeSession {
 		flag(2, 4);
 		assertEquals("[1, 4, 1] [1, 4, 5]", Arrays.toString(session.weights()) + " " + Arrays.toString(session.weights(3, 5)));
 	}
+
+	// a session plays until it ends (Stop, the last turn, moving the position, an edit): it starts under way, and ends
+	// once, whatever ends it again
+	@Test
+	public void aSessionIsUnderWayUntilItEnds() throws TGPracticeRefusal {
+		TGPracticeSession session = TGPracticeSession.start(set(TGPracticeUnitKind.MEASURE, 1, 4, 6).settings, song);
+		boolean before = session.isEnded();
+		session.end();
+		boolean once = session.isEnded();
+		session.end();
+
+		assertEquals("false true true", before + " " + once + " " + session.isEnded());
+	}
 }
