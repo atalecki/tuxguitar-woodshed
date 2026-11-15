@@ -166,7 +166,7 @@ public class MidiPlayer{
 			this.setPaused(paused);
 			this.stopSequencer();
 			this.setRunning(false);
-			this.endPractice();
+			this.endPracticeUnless(paused);
 		} finally {
 			this.unlock();
 		}
@@ -181,7 +181,8 @@ public class MidiPlayer{
 	}
 
 	// plays the session from its first turn, its turns chosen from the seed (see MidiPractice), at the percent the mode
-	// starts at; Play looped and the selection take no part. Stop, moving the position and the session ending end it
+	// starts at; Play looped and the selection take no part. Stop, moving the position and the session ending end it;
+	// Pause keeps it, and Play then plays the paused turn again from its Count In
 	public void practise(TGPracticeSession session, long seed) throws MidiPlayerException {
 		this.runLocked(() -> {
 			this.stop();
@@ -189,6 +190,21 @@ public class MidiPlayer{
 			TGPracticeUnderWay.getInstance(this.context).begin(this.practice.getChooser());
 		});
 		this.play();
+	}
+
+	// a pause keeps the session
+	private void endPracticeUnless(boolean paused) {
+		if( !paused ){
+			this.endPractice();
+		}
+	}
+
+	// a session that ended while paused (an edit ends it) is left: the song plays from where the player paused
+	private void leaveEndedPractice() {
+		if( this.practice != null && this.practice.getSession().isEnded() ){
+			this.tickPosition = this.practice.songTick(this.tickPosition);
+			this.practice = null;
+		}
 	}
 
 	// the session playing ends (it stays ended); the song plays from now on
@@ -208,6 +224,7 @@ public class MidiPlayer{
 			this.stopSequencer();
 			this.checkDevices();
 			this.updateLoop(true);
+			this.leaveEndedPractice();
 			this.addSequence();
 			this.updateTracks();
 			this.updateChannels();
@@ -699,11 +716,12 @@ public class MidiPlayer{
 		}
 	}
 
-	// the session's first turn into a new sequence, at the percent the mode starts at: the parser of its turns
+	// the session's first turn (after a pause, the paused one) into a new sequence, at the percent the mode starts at:
+	// the parser of its turns
 	private MidiSequenceParser startPractice() throws MidiPlayerException {
 		MidiSequenceHandler sequence = getSequencer().createSequence(this.sequenceTracks());
 		MidiSequenceParser parser = this.parser(getMode().getStartPercent());
-		this.practice.start(TGDuration.QUARTER_TIME, (turn, setup) -> parser.parseTurn(sequence, turn, setup));
+		this.practice.play(this.tickPosition, TGDuration.QUARTER_TIME, (turn, setup) -> parser.parseTurn(sequence, turn, setup));
 		return parser;
 	}
 

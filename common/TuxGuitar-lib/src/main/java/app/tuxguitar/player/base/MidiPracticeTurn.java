@@ -53,6 +53,11 @@ public final class MidiPracticeTurn {
 		return this.last.getStart() + this.last.getLength() + this.getMove();
 	}
 
+	// the same turn from another tick
+	public MidiPracticeTurn from(long tick) {
+		return new MidiPracticeTurn(this.first, this.last, tick, this.clicks);
+	}
+
 	// the song's tick its tick plays: its first measure's start all through its Count In
 	public long songTick(long tick) {
 		return Math.max(this.first.getStart(), tick - this.getMove());

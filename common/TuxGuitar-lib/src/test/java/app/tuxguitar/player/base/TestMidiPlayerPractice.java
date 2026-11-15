@@ -189,4 +189,61 @@ public class TestMidiPlayerPractice {
 		blocks(500);
 		assertEquals("102400 1 67, 190600 1 68, 278800 1 67", started());
 	}
+
+	// Play after Pause: the sequencer starts again on the clock
+	private void playAgain() throws MidiPlayerException {
+		player.play();
+		threads.runStarted();
+		threads.runLoop();
+	}
+
+	// paused during turn 1's measure (block 200), the session is kept; Play plays turn 1 again from its Count In, then
+	// turns 2 and 3, the same turns as without the pause, from the frame Play starts on
+	@Test
+	public void pauseKeepsTheSessionAndPlayPlaysThePausedTurnAgainFromItsCountIn() throws Exception {
+		player.getCountDown().setEnabled(true);
+		practise(3);
+		blocks(200);
+		player.pause();
+		String paused = state();
+		received.clear();
+		playAgain();
+		blocksToTheEnd();
+		List<Integer> measures = chosen(3);
+		long from = Long.parseLong(started().replaceAll(" .*", ""));
+		assertEquals("false false true | " + turn(from, measures.get(0)) + ", " + turn(from + 8 * BEAT, measures.get(1)) + ", "
+			+ turn(from + 16 * BEAT, measures.get(2)) + " | false true false", paused + " | " + started() + " | " + state());
+	}
+
+	// paused in turn 2's Count In (block 400), Play plays turn 2 again from its Count In: the turns before it are not
+	// played again, and the session still has 3 turns
+	@Test
+	public void playAfterPausePlaysFromThePausedTurnOn() throws Exception {
+		player.getCountDown().setEnabled(true);
+		practise(3);
+		blocks(400);
+		player.pause();
+		received.clear();
+		playAgain();
+		blocksToTheEnd();
+		List<Integer> measures = chosen(3);
+		long from = Long.parseLong(started().replaceAll(" .*", ""));
+		assertEquals(turn(from, measures.get(1)) + ", " + turn(from + 8 * BEAT, measures.get(2)), started());
+	}
+
+	// a session that ended while paused (as an edit ends it), in turn 2's Count In: Play plays the song from where the
+	// player paused, turn 2's first measure, to the song's end
+	@Test
+	public void aSessionEndedWhilePausedPlaysTheSongFromWhereItPaused() throws Exception {
+		player.getCountDown().setEnabled(true);
+		practise(3);
+		blocks(400);
+		player.pause();
+		session.end();
+		received.clear();
+		playAgain();
+		blocksToTheEnd();
+		String keys = IntStream.rangeClosed(chosen(2).get(1), 4).mapToObj(measure -> "1 " + (64 + measure)).collect(Collectors.joining(", "));
+		assertEquals(keys, started().replaceAll("\\d+ (1 \\d+)", "$1"));
+	}
 }
