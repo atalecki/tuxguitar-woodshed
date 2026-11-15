@@ -122,6 +122,61 @@ public class TestTimeline {
 		assertEquals("@0 true 120 bpm 4/4 q16.0000 s352800; ", told(timeline, 264600));
 	}
 
+	// measure 2 alone, then measure 4 alone, each after its own Count In
+	private TGTimeline measures2And4() {
+		return TGTimeline.of(song, List.of(turn(2), turn(4)), 44100);
+	}
+
+	private TGTurn turn(int measure) {
+		long start = song.getMeasureHeader(measure - 1).getStart();
+		List<TGPlayedMeasure> played = TGSongTime.play(song, new MidiPlayerMode(), start, start + BAR, 1);
+		return new TGTurn(TGCountIn.before(countDown, played, 44100), played);
+	}
+
+	// where each turn starts, and its first measure
+	private static String turns(TGTimeline timeline) {
+		StringBuilder turns = new StringBuilder();
+		for (int turn = 0; turn < timeline.turns(); turn++) {
+			turns.append(" " + timeline.turnStart(turn) + ":" + timeline.firstOf(turn) + "-" + timeline.turnEnd(turn));
+		}
+		return turns.toString();
+	}
+
+	// each turn starts where the one before ends, its Count In first: the clock is where the first turn starts
+	@Test
+	public void turnsFollowOneAnotherEachAfterItsOwnCountIn() {
+		countDown.setEnabled(true);
+		TGTimeline timeline = measures2And4();
+
+		assertEquals("0 | [0, 22050, 44100, 66150, 176400, 198450, 220500, 242550] | m2:0-3840 m4:0-3840 | 352800 | 0:0-176400 176400:1-352800 | 264600 352800",
+			read(timeline) + " |" + turns(timeline) + " | " + timeline.start(1) + " " + timeline.end(1));
+	}
+
+	// with Count In off, the next turn's first measure starts where the turn before ends
+	@Test
+	public void withoutCountInTheNextTurnStartsWhereTheOneBeforeEnds() {
+		assertEquals("88200 | [] | m2:0-3840 m4:0-3840 | 176400 | 0:0-88200 88200:1-176400", read(measures2And4()) + " |" + turns(measures2And4()));
+	}
+
+	// stopped in the second turn's Count In: that Count In up to there, no measure of it
+	@Test
+	public void stoppedInATurnsCountInItKeepsTheTurnsBefore() {
+		countDown.setEnabled(true);
+
+		assertEquals("0 | [0, 22050, 44100, 66150, 176400, 198450] | m2:0-3840 | 200000 | 0:0-176400 176400:1-200000", read(measures2And4().until(200000)) + " |"
+			+ turns(measures2And4().until(200000)));
+	}
+
+	// in a turn's Count In its first measure's state runs back before it, as in the first turn's (quarter 12 is where
+	// measure 4 starts); a block that ends in it is told the measure before running on, then that from the turn's start
+	@Test
+	public void aTurnsCountInIsToldItsFirstMeasureRunningBack() {
+		countDown.setEnabled(true);
+
+		assertEquals("@0 true 120 bpm 4/4 q8.0000 s176400; | @0 true 120 bpm 4/4 q7.9819 s176000; @400 true 120 bpm 4/4 q8.0000 s176400; ",
+			told(measures2And4(), 176400) + "| " + told(measures2And4(), 176000));
+	}
+
 	@Test
 	public void withCountInOffTheFirstMeasureStartsPlaying() {
 		assertEquals("88200 | [] | m2:0-3840 m3:0-3840 m4:0-3840 | 264600", read(fromMeasure2()));

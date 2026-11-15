@@ -20,6 +20,19 @@ public final class TGClicks {
 		this.holds = array(holds);
 	}
 
+	// the clicks of each, one list after the other
+	static TGClicks join(List<TGClicks> parts) {
+		List<Long> positions = new ArrayList<Long>();
+		List<Long> holds = new ArrayList<Long>();
+		for (TGClicks part : parts) {
+			for (int click = 0; click < part.positions.length; click++) {
+				positions.add(part.positions[click]);
+				holds.add(part.holds[click]);
+			}
+		}
+		return new TGClicks(positions, holds);
+	}
+
 	private static long[] array(List<Long> values) {
 		return values.stream().mapToLong(Long::longValue).toArray();
 	}
