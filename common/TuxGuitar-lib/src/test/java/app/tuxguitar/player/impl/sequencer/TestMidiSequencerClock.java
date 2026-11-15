@@ -151,6 +151,18 @@ public class TestMidiSequencerClock {
 		assertEquals("all notes off, pitch bend reset, @230 on 1 61 100 1 0, @13781 on 1 60 100 1 0", blocks(27));
 	}
 
+	// interleaved practice adds the next turn while the one before plays, a track's events, then the next track's
+	@Test
+	public void eventsAddedWhilePlayingGoOutInTickOrder() throws MidiPlayerException {
+		playOnTheClockFrom(0);
+		blocks(1);
+		note(600, 0, 60);
+		note(60, 1, 61);
+		note(30, 1, 62);
+
+		assertEquals("@689 on 1 62 100 1 0, @1378 on 1 61 100 1 0, @13781 on 1 60 100 1 0", blocks(26));
+	}
+
 	// at 696599 microseconds per quarter tick 16 sounds on frame 512.0003: the first of the second block
 	@Test
 	public void anEventOnTheFirstFrameOfABlockGoesOutWithThatBlock() throws MidiPlayerException {
