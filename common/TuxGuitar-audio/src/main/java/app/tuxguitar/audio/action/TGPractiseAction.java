@@ -5,9 +5,6 @@ import java.util.List;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.audio.TGAudioSession;
-import app.tuxguitar.audio.TGCountIn;
-import app.tuxguitar.audio.TGPlayedMeasure;
-import app.tuxguitar.audio.TGSongTime;
 import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.audio.TGTurn;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -63,8 +60,8 @@ public class TGPractiseAction extends TGPlayAction {
 		List<TGTurn> turns = new ArrayList<TGTurn>();
 		for (int turn = 0; turn < session.getTurns(); turn++) {
 			TGPracticeUnit unit = chooser.next();
-			List<TGPlayedMeasure> measures = TGSongTime.unit(song, unit.getFirst(), unit.getLast(), turn, percent);
-			turns.add(new TGTurn(TGCountIn.before(player.getCountDown(), measures, sampleRate), measures));
+			int clicks = player.getCountDown().clicksBefore(song.getMeasureHeader(unit.getFirst() - 1));
+			turns.add(TGTurn.unit(song, unit.getFirst(), unit.getLast(), turn, percent, clicks, sampleRate));
 		}
 		return TGTimeline.of(song, turns, sampleRate);
 	}

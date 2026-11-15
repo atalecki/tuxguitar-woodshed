@@ -34,12 +34,16 @@ public final class TGCountIn {
 
 	// the Count In before the measures played, with Count In on (none with it off, or when nothing plays)
 	public static TGCountIn before(MidiPlayerCountDown countDown, List<TGPlayedMeasure> played, int sampleRate) {
-		if (!countDown.isEnabled() || played.isEmpty()) {
+		return of((played.isEmpty() ? 0 : countDown.clicksBefore(played.get(0).getHeader())), played, sampleRate);
+	}
+
+	// so many clicks before the measures played (none for none, or when nothing plays)
+	public static TGCountIn of(int clicks, List<TGPlayedMeasure> played, int sampleRate) {
+		if (clicks == 0 || played.isEmpty()) {
 			return NONE;
 		}
 		TGPlayedMeasure first = played.get(0);
 		TGTimeSignature signature = first.getHeader().getTimeSignature();
-		int clicks = countDown.clicksBefore(first.getHeader());
 		double quarters = signature.getDenominator().getTime() / (double) TGDuration.QUARTER_TIME;
 		double beat = quarters * 60.0 * sampleRate / first.getTempo();
 		return new TGCountIn(clicks, beat, Math.round(clicks * beat));
