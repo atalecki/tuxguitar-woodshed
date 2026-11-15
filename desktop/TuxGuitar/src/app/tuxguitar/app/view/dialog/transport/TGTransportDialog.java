@@ -29,6 +29,7 @@ import app.tuxguitar.app.view.util.TGDialogUtil;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
+import app.tuxguitar.editor.action.transport.TGTransportStepAction;
 import app.tuxguitar.editor.event.TGRedrawEvent;
 import app.tuxguitar.editor.event.TGUpdateEvent;
 import app.tuxguitar.editor.util.TGProcess;
@@ -87,6 +88,8 @@ public class TGTransportDialog implements TGEventListener {
 	private UIToggleButton countInToggle;
 	private UISpinner countInTicks;
 	private UIButton mode;
+	private UIButton previousStep;
+	private UIButton repeatStep;
 	private UIToolBar toolBar;
 	private UIToolActionItem first;
 	private UIToolActionItem last;
@@ -209,13 +212,26 @@ public class TGTransportDialog implements TGEventListener {
 		initPracticeTurn(composite);
 	}
 
-	// under the position: the turn of a practice session (see TGPracticeTurnLabel)
+	// under the position: the turn of a practice session, then Previous step and Repeat step (see TGPracticeTurnLabel)
 	private void initPracticeTurn(UILayoutContainer parent) {
-		UILabel practiceTurn = getUIFactory().createLabel(parent);
-		UITableLayout parentLayout = (UITableLayout) parent.getLayout();
-		parentLayout.set(practiceTurn, 3, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
-		parentLayout.set(practiceTurn, UITableLayout.MINIMUM_PACKED_WIDTH, 220f);
-		TGPracticeTurnLabel.attach(this.context, practiceTurn);
+		UITableLayout rowLayout = new UITableLayout(0f);
+		UIPanel row = getUIFactory().createPanel(parent, false);
+		row.setLayout(rowLayout);
+		((UITableLayout) parent.getLayout()).set(row, 3, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false);
+		UILabel practiceTurn = getUIFactory().createLabel(row);
+		rowLayout.set(practiceTurn, 1, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
+		rowLayout.set(practiceTurn, UITableLayout.MINIMUM_PACKED_WIDTH, 260f);
+		this.previousStep = this.stepButton(row, 2, TGTransportStepAction.NAME_PREVIOUS);
+		this.repeatStep = this.stepButton(row, 3, TGTransportStepAction.NAME_REPEAT);
+		TGPracticeTurnLabel.attach(this.context, practiceTurn, this.previousStep, this.repeatStep);
+	}
+
+	// a button in the row's column running the step command (its text set by loadProperties)
+	private UIButton stepButton(UIPanel row, int column, String action) {
+		UIButton button = getUIFactory().createButton(row);
+		button.addSelectionListener(new TGActionProcessorListener(this.context, action));
+		((UITableLayout) row.getLayout()).set(button, 1, column, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_CENTER, false, false);
+		return button;
 	}
 
 	private void initLabel(UILayoutContainer parent) {
@@ -389,6 +405,8 @@ public class TGTransportDialog implements TGEventListener {
 			this.mode.setToolTipText(TuxGuitar.getProperty("transport.mode"));
 			this.countInToggle.setToolTipText(TuxGuitar.getProperty("transport.count-down"));
 			this.countInTicks.setToolTipText(TuxGuitar.getProperty("transport.count-down-ticks"));
+			this.previousStep.setText(TuxGuitar.getProperty("transport.previous-step"));
+			this.repeatStep.setText(TuxGuitar.getProperty("transport.repeat-step"));
 			this.loadPlayText();
 		}
 	}

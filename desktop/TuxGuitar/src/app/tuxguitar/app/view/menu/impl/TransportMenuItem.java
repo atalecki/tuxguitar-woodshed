@@ -1,6 +1,7 @@
 package app.tuxguitar.app.view.menu.impl;
 
 import app.tuxguitar.app.TuxGuitar;
+import app.tuxguitar.app.action.impl.transport.TGOpenClickUpDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenPracticeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenTransportModeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayPauseAction;
@@ -12,6 +13,7 @@ import app.tuxguitar.app.view.component.tab.Tablature;
 import app.tuxguitar.app.view.component.tab.TablatureEditor;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
+import app.tuxguitar.editor.action.transport.TGTransportStepAction;
 import app.tuxguitar.graphics.control.TGLayout;
 import app.tuxguitar.app.action.impl.layout.TGToggleContinuousScrollingAction;
 import app.tuxguitar.app.action.impl.layout.TGToggleHighlightPlayedBeatAction;
@@ -33,6 +35,8 @@ public class TransportMenuItem extends TGMenuItem {
 	private UIMenuCheckableItem countDown;
 	private UIMenuActionItem mode;
 	private UIMenuActionItem practice;
+	private UIMenuActionItem repeatStep;
+	private UIMenuActionItem previousStep;
 	private UIMenuCheckableItem loopSHeader;
 	private UIMenuCheckableItem loopEHeader;
 	private UIMenuCheckableItem highlightPlayedBeat;
@@ -73,6 +77,11 @@ public class TransportMenuItem extends TGMenuItem {
 		this.practice = this.named(this.transportMenuItem.getMenu().createActionItem(), "transport.practice", TGOpenPracticeDialogAction.NAME, null);
 		this.practice.addSelectionListener(this.createActionProcessor(TGOpenPracticeDialogAction.NAME));
 
+		//--INTERLEAVED CLICK-UP, ITS STEPS--
+		this.actionItem(this.transportMenuItem.getMenu().createActionItem(), "transport.click-up", TGOpenClickUpDialogAction.NAME, null);
+		this.repeatStep = this.actionItem(this.transportMenuItem.getMenu().createActionItem(), "transport.repeat-step", TGTransportStepAction.NAME_REPEAT, null);
+		this.previousStep = this.actionItem(this.transportMenuItem.getMenu().createActionItem(), "transport.previous-step", TGTransportStepAction.NAME_PREVIOUS, null);
+
 		//--SEPARATOR--
 		this.transportMenuItem.getMenu().createSeparator();
 
@@ -103,6 +112,8 @@ public class TransportMenuItem extends TGMenuItem {
 		MidiPlayerMode pm = TuxGuitar.getInstance().getPlayer().getMode();
 		boolean running = TuxGuitar.getInstance().getPlayer().isRunning();
 		this.stop.setEnabled(TuxGuitar.getInstance().getPlayer().isRunningOrPractising());
+		this.repeatStep.setEnabled(TGTransportStepAction.isEnabled(this.findContext()));
+		this.previousStep.setEnabled(TGTransportStepAction.isEnabled(this.findContext()));
 		this.metronome.setChecked(TuxGuitar.getInstance().getPlayer().isMetronomeEnabled());
 		this.countDown.setChecked(TuxGuitar.getInstance().getPlayer().getCountDown().isEnabled());
 		this.loopSHeader.setEnabled( pm.isLoop() );
