@@ -14,6 +14,8 @@ import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGPracticeUnderWay;
+import app.tuxguitar.practice.TGPracticeUnit;
+import app.tuxguitar.practice.TGPracticeUnitKind;
 
 /**
  * An interleaved practice session played live (MidiPlayer.practise) as LivePracticeFixture plays it: its turns back to
@@ -34,8 +36,14 @@ public class TestMidiPlayerPractice {
 
 	// practises so many turns: the start runs, the sequencer starts on the clock
 	private void practise(int turns) throws MidiPlayerException, TGPracticeRefusal {
+		practise(TGPracticeUnitKind.MEASURE, 4, turns);
+	}
+
+	// as practise(turns), the units of the kind in measures 1 to the one given
+	private void practise(TGPracticeUnitKind kind, int to, int turns) throws MidiPlayerException, TGPracticeRefusal {
 		TGPracticeSettings settings = new TGPracticeSettings();
-		settings.setPool(1, 4);
+		settings.setUnit(kind);
+		settings.setPool(1, to);
 		settings.setTurns(turns);
 		session = TGPracticeSession.start(settings, fixture.song);
 		player.practise(session, SEED);
@@ -90,8 +98,12 @@ public class TestMidiPlayerPractice {
 
 	// the Count In's clicks from the frame, then the measure's note
 	private static String turn(long frame, int measure) {
-		return IntStream.range(0, 4).mapToObj(click -> (frame + click * BEAT) + " -2 37").collect(Collectors.joining(", ")) + ", "
-			+ (frame + 4 * BEAT) + " 1 " + (64 + measure);
+		return clicks(frame) + ", " + (frame + 4 * BEAT) + " 1 " + (64 + measure);
+	}
+
+	// the Count In's 4 clicks from the frame
+	private static String clicks(long frame) {
+		return IntStream.range(0, 4).mapToObj(click -> (frame + click * BEAT) + " -2 37").collect(Collectors.joining(", "));
 	}
 
 	private String state() {
@@ -298,5 +310,25 @@ public class TestMidiPlayerPractice {
 		live.blocks(10);
 		long tick = fixture.start(4) + 5;
 		assertEquals(tick, MidiSongTicks.getStart(player, fixture.song, tick));
+	}
+
+	// the keys of measure 1's beats (from 1) once beatsOfMeasure1 has added theirs, then measure 2's first
+	private static final int[] BEAT_KEYS = {0, 65, 70, 71, 72, 66};
+
+	// a session of measure 1's beats, Count In on, its beats 2 to 4 given quarters (keys 70 to 72): each turn its 4 clicks,
+	// then its beat's note and its joint's (the next beat's; beat 4's is measure 2's first), the next turn 6 beats on
+	@Test
+	public void aBeatsTurnPlaysItsCountInThenItsBeatAndItsJoint() throws Exception {
+		IntStream.rangeClosed(2, 4).forEach(beat -> live.quarter(1, beat, 4 + beat));
+		player.getCountDown().setEnabled(true);
+		practise(TGPracticeUnitKind.BEAT, 1, 3);
+		live.blocksToTheEnd();
+		List<Integer> beats = TestMidiPractice.chosen(session, SEED, 3, TGPracticeUnit::getNumber);
+		assertEquals(IntStream.range(0, 3).mapToObj(turn -> beat(turn * 6L * BEAT, beats.get(turn))).collect(Collectors.joining(", ")), live.started());
+	}
+
+	// the Count In's clicks from the frame, then the beat's note and its joint's
+	private static String beat(long frame, int beat) {
+		return clicks(frame) + ", " + (frame + 4 * BEAT) + " 1 " + BEAT_KEYS[beat] + ", " + (frame + 5 * BEAT) + " 1 " + BEAT_KEYS[beat + 1];
 	}
 }

@@ -36,17 +36,19 @@ final class LivePracticeFixture {
 		player.loadSequencer(new MidiSequencerImpl(song.context));
 		player.getSynthesizerProxy().setMidiSynthesizer(synthesizer);
 		for (int measure = 1; measure <= 4; measure++) {
-			quarter(measure);
+			quarter(measure, 1, measure);
 		}
 	}
 
-	private void quarter(int measure) {
+	// a quarter note on the beat (from 1) of the measure, string 1 at the fret (key 64 + fret)
+	void quarter(int measure, int beat, int fret) {
 		TGVoice voice = song.beat(measure).getVoice(0);
+		voice.getBeat().setStart(song.start(measure) + (beat - 1) * TGDuration.QUARTER_TIME);
 		voice.setEmpty(false);
 		voice.getDuration().setValue(TGDuration.QUARTER);
 		TGNote note = song.songManager.getFactory().newNote();
 		note.setString(1);
-		note.setValue(measure);
+		note.setValue(fret);
 		voice.addNote(note);
 	}
 

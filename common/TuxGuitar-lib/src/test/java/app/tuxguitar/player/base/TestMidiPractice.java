@@ -126,7 +126,7 @@ public class TestMidiPractice {
 	}
 
 	// what the function says of each unit the seed chooses for the session, in order
-	private static <T> List<T> chosen(TGPracticeSession session, long seed, int turns, Function<TGPracticeUnit, T> of) {
+	static <T> List<T> chosen(TGPracticeSession session, long seed, int turns, Function<TGPracticeUnit, T> of) {
 		TGPracticeChooser chooser = session.chooser(seed);
 		return IntStream.range(0, turns).mapToObj(turn -> of.apply(chooser.next())).collect(Collectors.toList());
 	}
