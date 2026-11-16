@@ -28,7 +28,8 @@ import app.tuxguitar.ui.widget.UISpinner;
  * TGTransportClickUpAction with them (a refusal shows as the app's error message). It opens with the settings of the
  * last start. The fields stop a value the click-up could not play: the passage lies in the song's units of the kind
  * chosen, from not past to; the ladder starts at 1 or more, its goal not below its start, its increment and the passes
- * 1 or more; the group sizes 1 or more, each greyed out unless the kind is made of it. Choosing another tempo unit gives
+ * 1 or more; the group sizes 1 or more, each greyed out unless the kind is made of it (beats are not: their passage is
+ * in measures, and the passage's labels say so). Choosing another tempo unit gives
  * the ladder anew in it (TGClickUpSettings.setTempo).
  */
 public class TGClickUpDialog {
@@ -59,8 +60,8 @@ public class TGClickUpDialog {
 		TGClickUpSettings last = TGTransportClickUpAction.getLastSettings(this.context.getContext());
 		this.form = new TGPracticeForm(this.context, "transport.click-up.title");
 		this.unit = this.form.units(1, "transport.click-up.unit", last.getUnit());
-		this.from = this.spinner(2, "transport.click-up.passage-from", last.getPassageFrom());
-		this.to = this.spinner(3, "transport.click-up.passage-to", last.getPassageTo());
+		this.from = this.form.rangeSpinner(2, "transport.click-up.passage-from", last.getPassageFrom(), 1, MOST);
+		this.to = this.form.rangeSpinner(3, "transport.click-up.passage-to", last.getPassageTo(), 1, MOST);
 		this.measuresPerLine = this.spinner(4, "transport.practice.measures-per-line", last.getMeasuresPerLine());
 		this.linesPerPage = this.spinner(5, "transport.practice.lines-per-page", last.getLinesPerPage());
 		this.tempoMode = this.tempoModes(6, last.getTempoMode());
@@ -107,7 +108,7 @@ public class TGClickUpDialog {
 		TGPracticeForm.limit(this.from, 1, units);
 		TGPracticeForm.limit(this.to, this.from.getValue(), units);
 		TGPracticeForm.limit(this.goal, this.start.getValue(), MOST);
-		this.measuresPerLine.setEnabled(kind != TGPracticeUnitKind.MEASURE);
+		this.measuresPerLine.setEnabled(kind.rangeKind() != TGPracticeUnitKind.MEASURE);
 		this.linesPerPage.setEnabled(kind == TGPracticeUnitKind.PAGE);
 		this.countInEveryPass.setEnabled(this.countInEachStep.isSelected());
 		this.steps.setText(steps(this.settings(), song()));

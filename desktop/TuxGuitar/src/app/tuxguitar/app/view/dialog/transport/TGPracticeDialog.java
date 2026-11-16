@@ -11,10 +11,11 @@ import app.tuxguitar.ui.widget.UIDropDownSelect;
 import app.tuxguitar.ui.widget.UISpinner;
 
 /**
- * Transport > Interleaved Practice: what a turn plays (measures, lines or pages), the pool (from, to), the number of
+ * Transport > Interleaved Practice: what a turn plays (measures, lines, pages or beats), the pool (from, to), the number of
  * turns, the fixed groups (measures per line, lines per page) and the two rules; Start runs TGTransportPractiseAction
  * with them (a refusal shows as the app's error message). It opens with the settings of the last start. The pool's
- * fields cannot go past the song's last unit of the kind chosen. With the interval clock on, the session is timed (a
+ * fields cannot go past the song's last unit of the kind chosen (for beats, its last measure: a pool of beats is given in
+ * measures, and the pool's labels say so). With the interval clock on, the session is timed (a
  * turn's minutes, a break's seconds, the session's minutes, at least a turn's, and a Count In before every pass or not)
  * instead of counting its turns: the fields of the one not in use are greyed out.
  */
@@ -49,8 +50,8 @@ public class TGPracticeDialog {
 		TGPracticeSettings last = TGTransportPractiseAction.getLastSettings(this.context.getContext());
 		this.form = new TGPracticeForm(this.context, "transport.practice.title");
 		this.unit = this.form.units(1, "transport.practice.unit", last.getUnit());
-		this.from = this.spinner(2, "transport.practice.pool-from", last.getPoolFrom());
-		this.to = this.spinner(3, "transport.practice.pool-to", last.getPoolTo());
+		this.from = this.form.rangeSpinner(2, "transport.practice.pool-from", last.getPoolFrom(), 0, MOST);
+		this.to = this.form.rangeSpinner(3, "transport.practice.pool-to", last.getPoolTo(), 0, MOST);
 		this.turns = this.spinner(4, "transport.practice.turns", last.getTurns());
 		this.measuresPerLine = this.spinner(5, "transport.practice.measures-per-line", last.getMeasuresPerLine());
 		this.linesPerPage = this.spinner(6, "transport.practice.lines-per-page", last.getLinesPerPage());
