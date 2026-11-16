@@ -20,7 +20,8 @@ import app.tuxguitar.util.TGContext;
 
 /**
  * Plays an interleaved practice session offline, as TGPlayAction plays the song: its turns, chosen from a seed, back to
- * back, each its Count In (when Count In is on, in its first measure's time signature and tempo) then its unit's
+ * back, each its own Count In (with Count In before each turn on, as long as the player's Count In, which need not be
+ * on, in its first measure's time signature and tempo) then its unit's
  * measures once each in score order (TGSongTime.unit), all at the Percentage of Tempo in effect when it starts (Training
  * Mode's start percentage with Training Mode on); Play looped, the Loop Range and Training Mode take no part and stay as
  * they were. The session's schedule plans each turn as it is chosen: with the interval clock a turn loops its unit for
@@ -63,10 +64,11 @@ public class TGPractiseAction extends TGPlayAction {
 		return course(context, actionContext.getAttribute(ATTRIBUTE_SESSION), actionContext.getAttribute(ATTRIBUTE_SEED));
 	}
 
-	// the session's course, with the turns the seed chooses, with Count In and the Percentage of Tempo as they are now
+	// the session's course, with the turns the seed chooses, each turn's Count In as long as the player's Count In, on or
+	// off, at the Percentage of Tempo as it is now
 	private static TGPracticeCourse course(TGContext context, TGPracticeSession session, long seed) {
 		MidiPlayer player = MidiPlayer.getInstance(context);
-		return session.course(seed, player.getCountDown()::clicksBefore, TGTempoScale.percent(player.getMode().getStartPercent()));
+		return session.course(seed, player.getCountDown()::clicks, TGTempoScale.percent(player.getMode().getStartPercent()));
 	}
 
 	// the click-up's course, each step's Count In as long as the player's Count In, on or off

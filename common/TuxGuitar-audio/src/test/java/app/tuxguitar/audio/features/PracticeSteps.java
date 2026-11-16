@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -13,6 +16,7 @@ import app.tuxguitar.practice.TGClickUpSettings;
 import app.tuxguitar.practice.TGClickUpStep;
 import app.tuxguitar.practice.TGPracticeGrouping;
 import app.tuxguitar.practice.TGPracticeRefusal;
+import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import io.cucumber.java.ParameterType;
@@ -25,6 +29,15 @@ import io.cucumber.java.en.When;
  * settings and makes the session; it plays nothing yet.
  */
 public class PracticeSteps {
+
+	private static final String NO_REPEATS = "No consecutive repeats";
+	private static final String CYCLE = "Complete cycle before reshuffle";
+	private static final String EACH_TURN = "Count In before each turn";
+	// interleaved practice's rules and options, by name, as the settings set and read them
+	private static final Map<String, BiConsumer<TGPracticeSettings, Boolean>> SET = Map.of(NO_REPEATS, TGPracticeSettings::setNoConsecutiveRepeats, CYCLE,
+		TGPracticeSettings::setCompleteCycle, EACH_TURN, TGPracticeSettings::setCountInEachTurn);
+	private static final Map<String, Predicate<TGPracticeSettings>> IS = Map.of(NO_REPEATS, TGPracticeSettings::isNoConsecutiveRepeats, CYCLE,
+		TGPracticeSettings::isCompleteCycle, EACH_TURN, TGPracticeSettings::isCountInEachTurn);
 
 	private final AudioWorld world;
 	private final Practice practice;
@@ -67,20 +80,27 @@ public class PracticeSteps {
 		practice.settings().setLinesPerPage(lines);
 	}
 
-	@Given("I have turned interleaved practice's {string} {word}")
-	public void turnTheRule(String rule, String onOrOff) {
+	// interleaved practice or interleaved click-up: whether it is the click-up
+	@ParameterType("practice|click-up")
+	public boolean mode(String name) {
+		return "click-up".equals(name);
+	}
+
+	// an option of interleaved practice's or click-up's, by name, as its settings set it
+	@Given("I have turned interleaved {mode}'s {string} {word}")
+	public void turnOption(boolean ofClickUp, String option, String onOrOff) {
 		boolean on = "on".equals(onOrOff);
-		if ("No consecutive repeats".equals(rule)) {
-			practice.settings().setNoConsecutiveRepeats(on);
+		if (ofClickUp) {
+			ClickUpSteps.SET.get(option).accept(clickUp.settings(), on);
 		} else {
-			assertEquals("Complete cycle before reshuffle", rule);
-			practice.settings().setCompleteCycle(on);
+			SET.get(option).accept(practice.settings(), on);
 		}
 	}
 
-	@Then("interleaved practice's {string} is on")
-	public void theRuleIsOn(String rule) {
-		assertTrue("No consecutive repeats".equals(rule) ? practice.settings().isNoConsecutiveRepeats() : practice.settings().isCompleteCycle(), rule);
+	@Then("interleaved {mode}'s {string} is {word}")
+	public void optionIs(boolean ofClickUp, String option, String onOrOff) {
+		boolean on = (ofClickUp ? ClickUpSteps.IS.get(option).test(clickUp.settings()) : IS.get(option).test(practice.settings()));
+		assertEquals(option + " " + onOrOff, option + (on ? " on" : " off"));
 	}
 
 	@When("I start interleaved practice of {unit}s over {pool} for {int} turn(s)")

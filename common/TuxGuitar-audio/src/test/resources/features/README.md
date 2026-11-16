@@ -16,7 +16,9 @@ and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChange
 of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's measures once each in score order,
 `TGSongTime.unit`; a turn that another follows ends its notes there; a measure no pass of the song reaches plays in its
 unit too, its events parsed alone; with the interval clock, offline and live, lib's `TGPracticeSchedule` plans each
-turn as it is chosen, the one place that decides its passes and the last turn, and each pass is a turn of the timeline,
+turn as it is chosen, the one place that decides its passes, the last turn and its Count In clicks
+(`TGPracticeCourse.clicks`: with the session's "Count In before each turn" on, as long as the player's Count In whether
+on or not, `MidiPlayerCountDown.clicks`; none with it off), and each pass is a turn of the timeline,
 `TGTurn.planned`: the first opens the practice turn after the break the turn before planned, its silence placed before
 it, `TGTurn.afterBreak`, through which plugins are told and TuxGuitar reports the turn's first measure as in its Count
 In; the others continue it, `TGTurn.continuing`, each pass's start a jump), and live: lib's `MidiPlayer.practise` plays the session through the player's
@@ -140,8 +142,8 @@ the ladder and its tail; `TGTempoScale`, a step's tempo as an exact fraction of 
 course (`TGClickUpLadder.course`, a `TGPracticeCourse`: a turn per step, in order, each its sections' measures at its
 tempo scale for the passes set, no break, the last step the last turn; not timed; it takes any flag; its steps, which
 `TGPracticeSteps` goes back over: Repeat step and Previous step move its cursor; its Count In clicks,
-`TGPracticeCourse.clicks`, as long as the player's Count In whether on or not, `MidiPlayerCountDown.clicks`, where
-interleaved practice's follow Count In, `clicksBefore`), which `TGPractiseAction` plays
+`TGPracticeCourse.clicks`, as long as the player's Count In whether on or not, `MidiPlayerCountDown.clicks`, as
+interleaved practice's are), which `TGPractiseAction` plays
 offline given the ladder (`ATTRIBUTE_CLICK_UP`) on the same timeline of turns as interleaved practice, and the player
 live (`MidiPlayer.practise` of the course, started by editor-utils' `TGTransportClickUpAction`; Repeat step and
 Previous step are `TGTransportStepAction`'s, `MidiPlayer.repeatStep` and `previousStep`, which lay the step chosen again
@@ -498,9 +500,10 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - **Interleaved practice**: a session of a number of **turns**. Each turn plays one **unit** chosen from the **pool**,
   each of its measures once and in score order (repeat signs and alternate endings inside it are not followed; a measure
   no pass of the song reaches, such as a third ending of a repeat played twice, plays too), with a
-  Count In before it when Count In is on: the existing Count In, in the time signature and tempo of the unit's first
-  measure at the Percentage of Tempo (Count In ticks set its length as usual). The next turn's Count In (or, with Count
-  In off, its first measure) starts at the end of the turn before, with no gap; after the last turn the player stops by
+  Count In before it: interleaved practice's own **"Count In before each turn"**, on until I turn it off, whether or not
+  Count In is on, in the time signature and tempo of the unit's first measure at the Percentage of Tempo (Count In
+  ticks set its length as usual). The next turn's Count In (or, with "Count In before each turn" off, its first
+  measure) starts at the end of the turn before, with no gap; after the last turn the player stops by
   itself. A turn's end is a jump in song time: takes fade out before it and start at full level after it (see
   Crossfade), live as offline, and effect tails ring on into the next turn as across a loop's jump back. The Metronome
   clicks on the turns' beats as usual. Stop, moving the position, or an edit to the song ends the session, except
@@ -515,9 +518,11 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   turns whose Count In or first measure began. "Turn 2" counts from 1, in the order played.
 - **Interval clock** (off until I turn it on): times the session instead of counting its turns. Each turn **loops**
   its unit: it plays it **pass** after pass, back to back, with the Count In before its first pass only ("Count In
-  before every pass", off until I turn it on, puts one before each pass; with Count In off there is none). A pass
+  before every pass", off until I turn it on, puts one before each pass; with "Count In before each turn" off there is
+  none to put). A pass
   starts only before the **turn's time** (whole minutes, 3 until I change it) is up, counted from the turn's start (its
-  first Count In click, or with Count In off its first measure), and then plays to its end, its Count In included; so
+  first Count In click, or with "Count In before each turn" off its first measure), and then plays to its end, its
+  Count In included; so
   a turn lasts its time or a little more. A pass lasts as long as its measures take at their own tempos, at the
   Percentage of Tempo, so how many passes a turn plays is known when it starts. A **break** of silence (whole seconds,
   30 until I change it; 0: none) follows every turn but the last: nothing sounds in it but what rings on, such as an
@@ -531,8 +536,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   second and counts to the turn's end, the pass under way included. A pass's end is a jump in song time, as a turn's
   end is (takes fade, tails ring on). With No consecutive repeats on, the weight rule counts the most turns the
   session can hold: its time over a turn's time plus a break, rounded up; a pool of one unit is not held to the rule
-  and plays it every turn. Pause during a turn: Play plays the paused pass again from a Count In (with Count In on,
-  even when the pass had none of its own), then the turn's passes left; pause during a break: Play starts the next
+  and plays it every turn. Pause during a turn: Play plays the paused pass again from a Count In (with "Count In
+  before each turn" on, even when the pass had none of its own), then the turn's passes left; pause during a break: Play starts the next
   turn's Count In at once. Stop, moving the position or an edit ends a session in a break as in a turn. Without the
   interval clock a turn plays its unit once and the session plays the number of turns set.
 - **Unit**: a **measure**, a **line**, a **page** or a **beat** (see A beat). A line is a fixed group of measures and a page a fixed group of

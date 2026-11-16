@@ -22,8 +22,8 @@ import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 
 /**
- * Practising offline: the session's turns, chosen from the seed, back to back, each after its Count In, at the
- * Percentage of Tempo the session starts at; stopped at a sample, up to there. Either way the session ends, and the
+ * Practising offline, the player's Count In off: the session's turns, chosen from the seed, back to back, each after its
+ * own Count In (Count In before each turn, on until turned off), at the Percentage of Tempo the session starts at; stopped at a sample, up to there. Either way the session ends, and the
  * Play Mode is as it was. The song has 8 measures of 4/4 at 120 bpm (88200 samples each); the session plays measures 1
  * to 4 for 3 turns, seed 7. Read as "<measure of each turn> | <Count In clicks of each turn> | <where each turn starts>
  * | <length> | <ended>".
@@ -96,26 +96,27 @@ public class TestPractiseAction {
 
 	@Test
 	public void eachTurnPlaysItsChosenUnitAfterItsCountInAndTheSessionEnds() {
-		player.getCountDown().setEnabled(true);
-
 		assertEquals(chosen() + " | 4 4 4 | 0 176400 352800 | 529200 | true success", practise(null));
 	}
 
+	// with Count In before each turn off, the player's Count In on
 	@Test
-	public void withCountInOffTheTurnsFollowWithoutAGap() {
+	public void withCountInBeforeEachTurnOffTheTurnsFollowWithoutAGap() throws TGPracticeRefusal {
+		settings.setCountInEachTurn(false);
+		session = TGPracticeSession.start(settings, fixture.song);
+		player.getCountDown().setEnabled(true);
+
 		assertEquals(chosen() + " | 0 0 0 | 0 88200 176400 | 264600 | true success", practise(null));
 	}
 
 	// stopped in the second turn's Count In: two turns started, the second up to there
 	@Test
 	public void stoppedTheSessionEndsWhereItStopped() {
-		player.getCountDown().setEnabled(true);
-
 		assertEquals(chosen().substring(0, 2) + " - | 4 2 | 0 176400 | 200000 | true success", practise(200000L));
 	}
 
 	// Training Mode from 50% over measures 1 to 4, already raised to 70%: the session plays at 50%, without its loop,
-	// and the Play Mode is as it was
+	// and the Play Mode is as it was; each turn's Count In of 4 clicks a beat at 50% apart
 	@Test
 	public void playLoopedAndTrainingModeTakeNoPart() {
 		MidiPlayerMode mode = player.getMode();
@@ -128,7 +129,7 @@ public class TestPractiseAction {
 		mode.setLoopEHeader(4);
 		mode.setCurrentPercent(70);
 
-		assertEquals(chosen() + " | 0 0 0 | 0 176400 352800 | 529200 | true success | 70 true", practise(null) + " | " + mode.getCurrentPercent() + " " + mode.isLoop());
+		assertEquals(chosen() + " | 4 4 4 | 0 352800 705600 | 1058400 | true success | 70 true", practise(null) + " | " + mode.getCurrentPercent() + " " + mode.isLoop());
 	}
 
 	// with the interval clock (turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes), each turn, read as
@@ -178,7 +179,7 @@ public class TestPractiseAction {
 		return java.util.Arrays.stream(positions).filter(position -> position >= from && position < to).count();
 	}
 
-	// with Count In on, two turns of the measures the seed chooses, each its passes and Count In clicks as read, every
+	// two turns of the measures the seed chooses, each its passes and Count In clicks as read, every
 	// pass but the session's first a jump in song time; turn 2
 	// starts after a break of 10 seconds (441000 samples) and is the last: 3087000 + 2646000 is past the session's 2
 	// minutes
@@ -192,8 +193,6 @@ public class TestPractiseAction {
 	@Test
 	public void withTheIntervalClockEachTurnLoopsItsUnitAndABreakComesBetweenTurns() throws TGPracticeRefusal {
 		TestPractiseAction everyPass = new TestPractiseAction();
-		player.getCountDown().setEnabled(true);
-		everyPass.player.getCountDown().setEnabled(true);
 
 		assertEquals(List.of(twoTimedTurns(" x29 4", 29), twoTimedTurns(" x15 60", 15)), List.of(practiseTimed(false), everyPass.practiseTimed(true)));
 	}

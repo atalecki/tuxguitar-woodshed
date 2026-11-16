@@ -3,7 +3,8 @@ Feature: Interleaved practice
   To learn a piece by heart, I practise its measures, lines or pages in a random order instead of from start to end,
   so that I recall each part on its own and not only from the part before it. A session plays a number of turns. Each
   turn is one unit of the song chosen from the units I practise (the pool), with a Count In before it in that unit's
-  own time signature and tempo; the next turn's Count In starts as soon as a unit ends, until the last turn or Stop.
+  own time signature and tempo, interleaved practice's own whether or not Count In is on; the next turn's Count In
+  starts as soon as a unit ends, until the last turn or Stop.
   A line is a fixed group of measures and a page a fixed group of lines, both set for the session, whatever the
   score's layout shows. Measures I flag as difficult come up more often.
 
@@ -18,8 +19,7 @@ Feature: Interleaved practice
   # Units and the pool
 
   Scenario Outline: each turn plays one <unit> of the pool after a Count In of one measure, and the session stops by itself
-    Given I have turned Count In on
-    And I have set interleaved practice to <unit>s over <pool>, with lines of 4 measures and pages of 4 lines
+    Given I have set interleaved practice to <unit>s over <pool>, with lines of 4 measures and pages of 4 lines
     When I practise 6 turns
     Then each turn sounds the notes of one <unit> of <pool>, each measure once and in order, each within 1 sample of its beat
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
@@ -73,8 +73,7 @@ Feature: Interleaved practice
   # Count In
 
   Scenario Outline: each turn's Count In is in its first measure's time signature and tempo, at the Percentage of Tempo
-    Given I have turned Count In on
-    And I have set the time signature of measure 10 only to <signature>
+    Given I have set the time signature of measure 10 only to <signature>
     And I have set the tempo of measure 10 only to <bpm> bpm
     And I have set the Percentage of Tempo to <percent>
     And I have set interleaved practice to measures over measures 9 to 10
@@ -89,37 +88,76 @@ Feature: Interleaved practice
       | 4/4       | 120 | 50      | 4      | 44100 | 44100   |
 
   Scenario: a line's Count In follows its first measure, not a measure later in the line
-    Given I have turned Count In on
-    And I have set the tempo from measure 10 to the end to 90 bpm
+    Given I have set the tempo from measure 10 to the end to 90 bpm
     And I have set interleaved practice to lines over lines 3 to 4, with lines of 4 measures
     When I practise 2 turns
     Then before the turn of line 3 the output holds 4 Count In clicks, 22050 samples apart within 1 sample
     And before the turn of line 4 the output holds 4 Count In clicks, 29400 samples apart within 1 sample
 
-  Scenario: Count In ticks set the length of every turn's Count In
-    Given I have turned Count In on with 2 Count In ticks
-    And I have set interleaved practice to measures over measures 1 to 4
-    When I practise 3 turns
-    Then before each turn the output holds 2 Count In clicks, 22050 samples apart within 1 sample
-
-  Scenario: the next turn's Count In starts as soon as a turn ends
-    Given I have turned Count In on
+  # a turn's Count In is interleaved practice's own, "Count In before each turn", on until I turn it off; Count In
+  # (Transport > Count In) only lends it its length. The next turn's Count In starts as soon as a turn ends
+  Scenario Outline: with "Count In before each turn" on, each turn has its Count In, Count In <count in> or not
+    Given I have turned Count In <count in>
     And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 3 turns
-    Then the first Count In click of turns 2 and 3 sounds at the end of the turn before, within 1 sample
+    Then before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
+    And the first Count In click of turns 2 and 3 sounds at the end of the turn before, within 1 sample
 
-  Scenario: with Count In off, each turn starts where the turn before ended
-    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    Examples:
+      | count in |
+      | on       |
+      | off      |
+
+  Scenario: with "Count In before each turn" off, each turn starts where the turn before ended, even with Count In on
+    Given I have turned Count In on
+    And I have turned interleaved practice's "Count In before each turn" off
+    And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 3 turns
     Then the output holds no Count In clicks
     And turns 2 and 3 start at the end of the turn before, within 1 sample
 
+  Scenario Outline: Count In ticks set the length of every turn's Count In, Count In <count in> or not
+    Given I have set the Count In ticks to 2
+    And I have turned Count In <count in>
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns
+    Then before each turn the output holds 2 Count In clicks, 22050 samples apart within 1 sample
+
+    Examples:
+      | count in |
+      | on       |
+      | off      |
+
+  # live, as offline: the turn's own Count In, whatever Count In says
+  Scenario Outline: live, with "Count In before each turn" on, each turn has its Count In, Count In <count in> or not
+    Given I have turned Count In <count in>
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live
+    Then before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
+    And the player stopped by itself within 512 samples of turn 3's end
+
+    Examples:
+      | count in |
+      | on       |
+      | off      |
+
+  # the player sees the session's end at the end of a block of 512 samples, which falls up to two blocks after the turn
+  # ends as heard: here turn 3 ends 0.8 of a block into one
+  Scenario: live, with "Count In before each turn" off, each turn starts where the turn before ended, even with Count In on
+    Given I have turned Count In on
+    And I have turned interleaved practice's "Count In before each turn" off
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live
+    Then each turn sounds the notes of one measure of measures 1 to 4, each within 1 sample of its beat
+    And the player stopped by itself within 1024 samples of turn 3's end
+
   # Choosing the turns (no sound: the choosing alone, for many random seeds)
 
-  Scenario: "No consecutive repeats" and "Complete cycle before reshuffle" are on until I turn them off
+  Scenario: "No consecutive repeats", "Complete cycle before reshuffle" and "Count In before each turn" are on until I turn them off
     When I set interleaved practice to lines over lines 1 to 4
     Then interleaved practice's "No consecutive repeats" is on
     And interleaved practice's "Complete cycle before reshuffle" is on
+    And interleaved practice's "Count In before each turn" is on
 
   Scenario: every cycle visits each unit once, and no unit comes twice in a row, not even from one cycle to the next
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
@@ -293,16 +331,14 @@ Feature: Interleaved practice
     And the player has stopped by itself at the end of turn 2
 
   Scenario: TuxGuitar shows each turn's first measure during its Count In, then follows the turn as it sounds
-    Given I have turned Count In on
-    And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 3 turns
     Then during each turn's Count In TuxGuitar reports beat 1 of the turn's first measure
     And during each turn TuxGuitar reports each of its beats within 1 sample of the output sounding it
 
   # a turn's end is a jump in song time: the take fades out before it, and starts at full level after it
   Scenario: an audio track's take fades out at the end of every turn but the last, and comes back at full level
-    Given I have turned Count In on
-    And I have added an audio track recording input channel 1
+    Given I have added an audio track recording input channel 1
     And track 2 has a take of a constant level of 0.4 from measure 1 beat 1 to the end of measure 64
     And I have set interleaved practice to measures over measures 1 to 8
     When I practise 3 turns
@@ -313,8 +349,7 @@ Feature: Interleaved practice
   # notes do, so what the output sounds is read as heard. Track 2 alone sounds on the output's right side, but for the
   # Count In clicks, which start where a turn ends and still ring a little where its first measure starts
   Scenario: live, an audio track's take fades out at the end of every turn but the last, and comes back at full level
-    Given I have turned Count In on
-    And I have set the Balance of track 1's channel to 0
+    Given I have set the Balance of track 1's channel to 0
     And I have added an audio track recording input channel 1
     And I have set the Balance of track 2's channel to 127
     And track 2 has a take of a constant level of 0.4 from measure 1 beat 1 to the end of measure 64
@@ -324,15 +359,13 @@ Feature: Interleaved practice
     And the output's right side steps up by 0.4 on the first sample of each turn
 
   Scenario: an effect's tail rings on into the next turn's Count In
-    Given I have turned Count In on
-    And I have added the VST3 effect "Test Echo" to track 1
+    Given I have added the VST3 effect "Test Echo" to track 1
     And I have set interleaved practice to measures over measures 1 to 8
     When I practise 2 turns
     Then the output holds the echo of turn 1's last note 13230 samples after it, within 1 sample, during turn 2's Count In
 
   Scenario: the Metronome clicks on every beat of every turn
-    Given I have turned Count In on
-    And I have turned the Metronome on
+    Given I have turned the Metronome on
     And I have set interleaved practice to measures over measures 1 to 8
     When I practise 3 turns
     Then the output holds 12 Metronome clicks, each within 1 sample of a beat of a turn
@@ -350,8 +383,7 @@ Feature: Interleaved practice
     And Training Mode is on from 50% to 100% by 10% over measures 1 to 4
 
   Scenario: Stop ends the session
-    Given I have turned Count In on
-    And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 6 turns and stop at turn 2's first measure beat 3
     Then the output holds 2 turns started
     And interleaved practice has ended
@@ -363,8 +395,7 @@ Feature: Interleaved practice
     Then TuxGuitar reports each of the 32 beats within 1 sample of the output sounding it
 
   Scenario: Pause keeps the session: Play plays the paused turn again from its Count In, then the turns after it
-    Given I have turned Count In on
-    And I have set interleaved practice to measures over measures 1 to 4
+    Given I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, pausing during turn 2 and playing again
     Then after Play, turn 2's measure sounds again after a Count In of 4 beats, then turn 3's after another
     And the player stopped by itself within 512 samples of turn 3's end, 16 beats after Play
@@ -384,17 +415,19 @@ Feature: Interleaved practice
 
   # The interval clock: timed turns that loop their unit, with a break between turns, for a session of so many minutes.
   # At 120 bpm in 4/4 a measure lasts 2 seconds (88200 samples), a line of 4 measures 8 seconds, a page 32 seconds, and
-  # a Count In of 4 clicks 2 seconds. A turn starts with its first Count In click (or, with Count In off, its first
-  # measure) and ends where its last pass ends.
+  # a Count In of 4 clicks 2 seconds. A turn starts with its first Count In click (or, with "Count In before each turn"
+  # off, its first measure) and ends where its last pass ends.
 
   Scenario: the interval clock is off until I turn it on, set to turns of 3 minutes, breaks of 30 seconds and sessions of 30 minutes
     When I set interleaved practice to lines over lines 1 to 4
     Then interleaved practice's interval clock is off, set to turns of 3 minutes, breaks of 30 seconds and sessions of 30 minutes
     And "Count In before every pass" is off
 
-  # a pass starts only before the turn's time is up, and then plays to its end
+  # a pass starts only before the turn's time is up, and then plays to its end. Without a Count In before each turn there
+  # is none to put before every pass (the dialog greys "Count In before every pass" out), Count In on or not
   Scenario Outline: with the interval clock, a turn loops its <unit> until the turn's time is up, and the pass under way plays to its end
     Given I have turned Count In <count in>
+    And I have turned interleaved practice's "Count In before each turn" <each turn>
     And I have turned "Count In before every pass" <every pass>
     And I have set the Percentage of Tempo to <percent>
     And I have set interleaved practice to <unit>s over <pool>, with lines of 4 measures and pages of 4 lines
@@ -408,18 +441,18 @@ Feature: Interleaved practice
 
     # seconds the turn lasts: 60, 66, 64, 60, 64, 66, 68
     Examples:
-      | unit    | pool             | count in | every pass | percent | passes | count ins                                       | samples |
-      | measure | measures 1 to 4  | on       | off        | 100     | 29     | a Count In of 4 clicks before the first pass only | 2646000 |
-      | line    | lines 1 to 4     | on       | off        | 100     | 8      | a Count In of 4 clicks before the first pass only | 2910600 |
-      | line    | lines 1 to 4     | off      | off        | 100     | 8      | no Count In clicks                              | 2822400 |
-      | line    | lines 1 to 4     | on       | on         | 100     | 6      | a Count In of 4 clicks before every pass        | 2646000 |
-      | line    | lines 1 to 4     | off      | on         | 100     | 8      | no Count In clicks                              | 2822400 |
-      | page    | pages 1 to 4     | on       | off        | 100     | 2      | a Count In of 4 clicks before the first pass only | 2910600 |
-      | line    | lines 1 to 4     | on       | off        | 50      | 4      | a Count In of 4 clicks before the first pass only | 2998800 |
+      | unit    | pool             | count in | each turn | every pass | percent | passes | count ins                                         | samples |
+      | measure | measures 1 to 4  | off      | on        | off        | 100     | 29     | a Count In of 4 clicks before the first pass only | 2646000 |
+      | line    | lines 1 to 4     | on       | on        | off        | 100     | 8      | a Count In of 4 clicks before the first pass only | 2910600 |
+      | line    | lines 1 to 4     | on       | off       | off        | 100     | 8      | no Count In clicks                                | 2822400 |
+      | line    | lines 1 to 4     | off      | on        | on         | 100     | 6      | a Count In of 4 clicks before every pass          | 2646000 |
+      | line    | lines 1 to 4     | on       | off       | on         | 100     | 8      | no Count In clicks                                | 2822400 |
+      | page    | pages 1 to 4     | off      | on        | off        | 100     | 2      | a Count In of 4 clicks before the first pass only | 2910600 |
+      | line    | lines 1 to 4     | off      | on        | off        | 50      | 4      | a Count In of 4 clicks before the first pass only | 2998800 |
 
   # a pass of 3.5 seconds (a Count In of 3 clicks, then a measure): pass 18 starts at 59.5 seconds, before the time is up
   Scenario: a pass whose Count In starts before the turn's time is up plays whole, its Count In and its measures
-    Given I have turned Count In on with 3 Count In ticks
+    Given I have set the Count In ticks to 3
     And I have turned "Count In before every pass" on
     And I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 1 minute
@@ -429,8 +462,7 @@ Feature: Interleaved practice
 
   # line 1: measures 1 and 2 at 120 bpm (2 seconds each), 3 and 4 at 60 bpm (4 seconds each), 12 seconds a pass
   Scenario: a pass lasts as long as its measures take at their own tempos
-    Given I have turned Count In on
-    And I have set the tempo from measure 3 to the end to 60 bpm
+    Given I have set the tempo from measure 3 to the end to 60 bpm
     And I have set interleaved practice to lines over lines 1 to 1, with lines of 4 measures
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 1 minute
     When I practise the session
@@ -440,8 +472,7 @@ Feature: Interleaved practice
   # another turn follows only when the turn's end and its break come before the session's time is up; the session
   # ends at the end of a turn, never in a break (session ends at 142, 218 and 132 seconds)
   Scenario Outline: the session's time decides the last turn, which plays to its end, with no break after it
-    Given I have turned Count In on
-    And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     And I have turned the interval clock on, with turns of 1 minute, breaks of <break> seconds and sessions of <session> minutes
     When I practise the session
     Then the output holds <turns> turns started
@@ -457,8 +488,7 @@ Feature: Interleaved practice
       | 0     | 0             | 2       | 2     | 5821200 |
 
   Scenario: a session whose time is up exactly at a turn's end ends there
-    Given I have turned Count In on
-    And I have set interleaved practice to measures over measures 1 to 4
+    Given I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 0 seconds and sessions of 2 minutes
     When I practise the session
     Then the output holds 2 turns started
@@ -466,16 +496,14 @@ Feature: Interleaved practice
 
   # with the interval clock, a session's one unit comes back turn after turn: "No consecutive repeats" cannot apply
   Scenario: with the interval clock, a pool of one unit plays it every turn
-    Given I have turned Count In on
-    And I have set interleaved practice to lines over lines 5 to 5, with lines of 4 measures
+    Given I have set interleaved practice to lines over lines 5 to 5, with lines of 4 measures
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 3 minutes
     When I practise the session
     Then the output holds 3 turns started
     And each turn sounds the notes of line 5 8 times back to back, after a Count In of 4 clicks
 
   Scenario: during a break TuxGuitar shows the next turn's first measure, then follows each pass as it sounds
-    Given I have turned Count In on
-    And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session
     Then during the break TuxGuitar reports beat 1 of turn 2's first measure
@@ -484,8 +512,7 @@ Feature: Interleaved practice
 
   # the time left is rounded up to the second, and counts to the turn's end (the pass under way included)
   Scenario: live, TuxGuitar reports the turn and the time left in it, and during a break the next turn and the time left in the break
-    Given I have turned Count In on
-    And I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
+    Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session live
     Then TuxGuitar reports, so many seconds after the first turn started:
@@ -518,8 +545,7 @@ Feature: Interleaved practice
 
   # each pass's end is a jump in song time, as a turn's end is
   Scenario: an audio track's take fades out at the end of every pass but the session's last, and comes back at full level
-    Given I have turned Count In on
-    And I have added an audio track recording input channel 1
+    Given I have added an audio track recording input channel 1
     And track 2 has a take of a constant level of 0.4 from measure 1 beat 1 to the end of measure 64
     And I have set interleaved practice to measures over measures 1 to 8
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
@@ -528,8 +554,7 @@ Feature: Interleaved practice
     And track 2's first sample of each pass is 0.4
 
   Scenario: an effect's tail rings on into the break
-    Given I have turned Count In on
-    And I have added the VST3 effect "Test Echo" to track 1
+    Given I have added the VST3 effect "Test Echo" to track 1
     And I have set interleaved practice to measures over measures 1 to 8
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session
@@ -537,8 +562,7 @@ Feature: Interleaved practice
 
   # 2 turns of 29 passes of 4 beats
   Scenario: the Metronome clicks on every beat of every pass, and not in the break
-    Given I have turned Count In on
-    And I have turned the Metronome on
+    Given I have turned the Metronome on
     And I have set interleaved practice to measures over measures 1 to 8
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session
@@ -568,24 +592,21 @@ Feature: Interleaved practice
       | 1x   | on           | measures 1 to 2  | 2    | 10    | 2       | accepted                                                                                     |
 
   Scenario: Pause during a timed turn keeps the session: Play plays the paused pass again from a Count In, then the turn's passes left
-    Given I have turned Count In on
-    And I have set interleaved practice to measures over measures 1 to 4
+    Given I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 1 minute
     When I practise the session live, pausing during pass 3 and playing again
     Then after Play, the turn's measure sounds again after a Count In of 4 beats, then 26 more times back to back
     And the player stopped by itself within 512 samples of the turn's end, 56 seconds after Play
 
   Scenario: Pause during a break keeps the session: Play starts the next turn's Count In at once
-    Given I have turned Count In on
-    And I have set interleaved practice to measures over measures 1 to 4
+    Given I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session live, pausing 5 seconds into the break and playing again
     Then after Play, turn 2's Count In of 4 beats starts within 512 samples
     And the player stopped by itself within 512 samples of turn 2's end, 60 seconds after Play
 
   Scenario: Stop during a break ends the session
-    Given I have turned Count In on
-    And I have set interleaved practice to measures over measures 1 to 4
+    Given I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session live and stop 5 seconds into the break
     Then the output holds 1 turn started
@@ -714,8 +735,7 @@ Feature: Interleaved practice
     And the turn of m3b4 lasts 33075 samples, within 1 sample
 
   Scenario Outline: a beat's Count In is in its measure's time signature and tempo, at the Percentage of Tempo
-    Given I have turned Count In on
-    And I have set the time signature of measure 10 only to <signature>
+    Given I have set the time signature of measure 10 only to <signature>
     And I have set the tempo of measure 10 only to <bpm> bpm
     And I have set the Percentage of Tempo to <percent>
     And I have set interleaved practice to beats over measures 10 to 10
@@ -731,15 +751,13 @@ Feature: Interleaved practice
 
   # 3 turns of a beat and its joint: 6 beats
   Scenario: the Metronome clicks on each turn's beat and on its joint's
-    Given I have turned Count In on
-    And I have turned the Metronome on
+    Given I have turned the Metronome on
     And I have set interleaved practice to beats over measures 1 to 2
     When I practise 3 turns
     Then the output holds 6 Metronome clicks, each within 1 sample of a beat of a turn
 
   Scenario: TuxGuitar shows each turn's beat during its Count In, then follows the beat and its joint as they sound
-    Given I have turned Count In on
-    And I have set interleaved practice to beats over measures 3 to 4
+    Given I have set interleaved practice to beats over measures 3 to 4
     When I practise 3 turns
     Then during each turn's Count In TuxGuitar reports the turn's beat
     And during each turn TuxGuitar reports its beat and its joint's, each within 1 sample of the output sounding it
@@ -747,8 +765,7 @@ Feature: Interleaved practice
   # a Count In of 4 clicks (2 seconds), then passes of a beat and its joint (1 second each): pass 58 starts at 59
   # seconds, before the turn's time is up
   Scenario: with the interval clock, a turn loops its beat, every pass with its joint
-    Given I have turned Count In on
-    And I have set interleaved practice to beats over measures 3 to 3
+    Given I have set interleaved practice to beats over measures 3 to 3
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 1 minute
     When I practise the session
     Then the output holds 1 turn started
@@ -756,8 +773,7 @@ Feature: Interleaved practice
     And the turn ends 2646000 samples after it started, within 1 sample
 
   Scenario: live, each turn plays its beat, then the joint's note, after a Count In of one measure
-    Given I have turned Count In on
-    And I have set interleaved practice to beats over measures 3 to 4
+    Given I have set interleaved practice to beats over measures 3 to 4
     When I practise 4 turns live
     Then each turn sounds the note of one beat of measures 3 to 4, then the note of the beat after it, each within 1 sample of its beat
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
