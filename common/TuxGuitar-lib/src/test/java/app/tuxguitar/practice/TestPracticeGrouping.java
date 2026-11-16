@@ -119,42 +119,41 @@ public class TestPracticeGrouping {
 		assertEquals("64 64", TGPracticeGrouping.poolLimit(TGPracticeUnitKind.BEAT, 5, 3, SONG) + " " + TGPracticeGrouping.of(5, 3).count(TGPracticeUnitKind.BEAT, SONG));
 	}
 
-	// the most units per block a form lets each pool of the kind take (from, to, from, to...; 4 measures a line, 4 lines a
-	// page), "4 2"
-	private static String blockLimits(TGSong song, TGPracticeUnitKind kind, int... pools) {
-		return IntStream.range(0, pools.length / 2).mapToObj(pool -> String.valueOf(TGPracticeGrouping.blockLimit(kind, 4, 4, pools[2 * pool], pools[2 * pool + 1], song)))
-			.collect(Collectors.joining(" "));
+	// how many units a form's pool of the kind holds, counted without building them, for each pool (from, to, from,
+	// to...), with lines of so many measures and pages of so many lines
+	private static String poolUnits(TGSong song, TGPracticeUnitKind kind, int measuresPerLine, int linesPerPage, int... pools) {
+		TGPracticeSettings form = new TGPracticeSettings();
+		form.setUnit(kind);
+		form.setMeasuresPerLine(measuresPerLine);
+		form.setLinesPerPage(linesPerPage);
+		return IntStream.range(0, pools.length / 2).mapToObj(pool -> {
+			form.setPool(pools[2 * pool], pools[2 * pool + 1]);
+			return String.valueOf(TGPracticeGrouping.poolUnits(form, song));
+		}).collect(Collectors.joining(" "));
 	}
 
-	// a block holds no more units than the pool: measures 2-5, lines 2-3, pages 1-4 of 64 measures
+	// measures 2-5, lines 2-3, pages 1-4 of 64 measures; the beats of measures 3-4, 4 of 4/4 and 6 of 6/8
 	@Test
-	public void aBlockHoldsNoMoreUnitsThanThePool() {
-		TGSong song = PracticeSongs.song(SONG);
-		assertEquals("4 2 4", blockLimits(song, TGPracticeUnitKind.MEASURE, 2, 5) + " " + blockLimits(song, TGPracticeUnitKind.LINE, 2, 3) + " "
-			+ blockLimits(song, TGPracticeUnitKind.PAGE, 1, 4));
-	}
-
-	// a pool of beats holds the beats of its measures: 4 of 4/4 and 6 of 6/8
-	@Test
-	public void aBlockOfBeatsHoldsNoMoreThanThePoolsMeasuresBeats() {
+	public void aFormsPoolHoldsItsUnitsOrItsMeasuresBeats() {
 		TGSong song = PracticeSongs.song(SONG);
 		PracticeSongs.signature(song, 4, 6, 8);
-		assertEquals("10", blockLimits(song, TGPracticeUnitKind.BEAT, 3, 4));
+		assertEquals("4 2 4 10", poolUnits(song, TGPracticeUnitKind.MEASURE, 4, 4, 2, 5) + " " + poolUnits(song, TGPracticeUnitKind.LINE, 4, 4, 2, 3) + " "
+			+ poolUnits(song, TGPracticeUnitKind.PAGE, 4, 4, 1, 4) + " " + poolUnits(song, TGPracticeUnitKind.BEAT, 4, 4, 3, 4));
 	}
 
-	// a pool refused when the session starts bounds a block by the part of it in the song (from before measure 1, to
-	// past the song's end), or as 1 when none is (an empty pool)
+	// a pool refused when the session starts holds the part of it in the song (from before measure 1, to past the
+	// song's end, beats past it too), none when it is empty
 	@Test
-	public void aPoolStillBeingFilledInBoundsABlockByItsPartInTheSongAtLeastOne() {
-		assertEquals("3 5 1", blockLimits(PracticeSongs.song(SONG), TGPracticeUnitKind.MEASURE, 0, 3, 60, 70, 5, 4));
-	}
-
-	// a group size of 0 bounds a block as 1 would: a line of one measure, a page of one line
-	@Test
-	public void aGroupSizeOfNoneBoundsABlockAsOneWould() {
+	public void aFormsPoolHoldsItsPartInTheSongNoneWhenEmpty() {
 		TGSong song = PracticeSongs.song(SONG);
-		assertEquals("64 64", TGPracticeGrouping.blockLimit(TGPracticeUnitKind.LINE, 0, 4, 1, 99, song) + " "
-			+ TGPracticeGrouping.blockLimit(TGPracticeUnitKind.PAGE, 1, 0, 1, 99, song));
+		assertEquals("3 5 0 | 20", poolUnits(song, TGPracticeUnitKind.MEASURE, 4, 4, 0, 3, 60, 70, 5, 4) + " | " + poolUnits(song, TGPracticeUnitKind.BEAT, 4, 4, 60, 70));
+	}
+
+	// a group size of 0 counts as 1 would: a line of one measure, a page of one line
+	@Test
+	public void aGroupSizeOfNoneCountsAsOneWould() {
+		TGSong song = PracticeSongs.song(SONG);
+		assertEquals("64 64", poolUnits(song, TGPracticeUnitKind.LINE, 0, 4, 1, 99) + " " + poolUnits(song, TGPracticeUnitKind.PAGE, 1, 0, 1, 99));
 	}
 
 	private static String beat(TGMeasureHeader header, int beat) {

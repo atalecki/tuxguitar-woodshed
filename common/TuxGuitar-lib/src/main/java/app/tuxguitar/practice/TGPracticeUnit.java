@@ -27,9 +27,14 @@ public final class TGPracticeUnit {
 		this.last = last;
 	}
 
-	// the beat (from 1) of the measure the header heads; a measure has as many beats as its time signature's numerator
+	// how many beats the measure the header heads has: as many as its time signature's numerator
+	static int beatCount(TGMeasureHeader header) {
+		return header.getTimeSignature().getNumerator();
+	}
+
+	// the beat (from 1) of the measure the header heads
 	static TGPracticeUnit beat(TGMeasureHeader header, int beat) {
-		if (beat < 1 || beat > header.getTimeSignature().getNumerator()) {
+		if (beat < 1 || beat > beatCount(header)) {
 			throw new IllegalArgumentException("Measure " + header.getNumber() + " has no beat " + beat + ".");
 		}
 		return new TGPracticeUnit(TGPracticeUnitKind.BEAT, beat, header.getNumber(), header.getNumber());
@@ -37,7 +42,7 @@ public final class TGPracticeUnit {
 
 	// every beat of the measure the header heads, in order
 	static List<TGPracticeUnit> beats(TGMeasureHeader header) {
-		return IntStream.rangeClosed(1, header.getTimeSignature().getNumerator()).mapToObj(beat -> beat(header, beat)).collect(Collectors.toList());
+		return IntStream.rangeClosed(1, beatCount(header)).mapToObj(beat -> beat(header, beat)).collect(Collectors.toList());
 	}
 
 	public TGPracticeUnitKind getKind() {

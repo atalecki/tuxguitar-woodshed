@@ -13,7 +13,8 @@ import app.tuxguitar.song.models.TGSong;
  * Interleaved practice of a song as it was started: its settings checked once, its pool (the blocks it chooses from, in
  * order, TGPracticeBlock), its number of turns (or its interval clock, which times it), its rules and whether each turn has a Count In
  * (its own, whether or not the player's Count In is on); under way until it ends. The blocks' weights are read from the song's
- * difficulty flags when asked, so a flag set during the session counts.
+ * difficulty flags when asked, so a flag set during the session counts. Before it starts, the form's field of units per
+ * block is bounded by blockLimit, which start accepts and one more it refuses (the flags aside).
  */
 public final class TGPracticeSession {
 
@@ -46,6 +47,19 @@ public final class TGPracticeSession {
 		TGPracticeSession session = new TGPracticeSession(song, pool, settings, clock);
 		session.check(session.weights(), session.turns);
 		return session;
+	}
+
+	// the most units per block a form still being filled in lets a block hold: as many as its pool holds
+	// (TGPracticeBlock refuses more), one fewer while "No consecutive repeats" would refuse a pool of one block; at least
+	// 1, the fewest a block holds. Refusals that hang on the flags stay start's
+	public static int blockLimit(TGPracticeSettings form, TGSong song) {
+		return Math.max(1, TGPracticeGrouping.poolUnits(form, song) - (refusesOneBlock(form) ? 1 : 0));
+	}
+
+	// whether the form's "No consecutive repeats" refuses a pool of one block (TGPracticeRule): on, for more than 1 turn,
+	// and the clock off (a timed pool of one block drops the rule)
+	private static boolean refusesOneBlock(TGPracticeSettings form) {
+		return (form.isNoConsecutiveRepeats() && !form.isIntervalClock() && form.getTurns() > 1);
 	}
 
 	// the interval clock as set (null: off, the number of turns set, at least 1)

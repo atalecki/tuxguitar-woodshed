@@ -3,6 +3,7 @@ package app.tuxguitar.practice;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.song.models.TGSong;
 
@@ -57,13 +58,15 @@ public final class TGPracticeGrouping {
 		return ofForm(measuresPerLine, linesPerPage).count(kind, songMeasures);
 	}
 
-	// the most units a block may hold in a pool of the kind from one number to another, for a form still being filled
-	// in: as many as the pool holds (TGPracticeBlock refuses more), the numbers before 1 or past the song's end left
-	// out; 1, the fewest a block holds, while that leaves none
-	public static int blockLimit(TGPracticeUnitKind kind, int measuresPerLine, int linesPerPage, int from, int to, TGSong song) {
-		TGPracticeGrouping grouping = ofForm(measuresPerLine, linesPerPage);
-		int last = Math.min(to, grouping.count(kind.rangeKind(), song.countMeasureHeaders()));
-		return Math.max(1, grouping.unitsIn(kind, Math.max(1, from), last, song).size());
+	// how many units the pool of a form still being filled in holds, counted without building them: 1 for each unit of
+	// its range, or each measure's beats for beats; the numbers before 1 or past the song's end left out; 0 when that
+	// leaves none
+	static int poolUnits(TGPracticeSettings form, TGSong song) {
+		TGPracticeUnitKind kind = form.getUnit();
+		TGPracticeGrouping grouping = ofForm(form.getMeasuresPerLine(), form.getLinesPerPage());
+		int last = Math.min(form.getPoolTo(), grouping.count(kind.rangeKind(), song.countMeasureHeaders()));
+		return IntStream.rangeClosed(Math.max(1, form.getPoolFrom()), last)
+			.map(number -> (kind == TGPracticeUnitKind.BEAT ? TGPracticeUnit.beatCount(song.getMeasureHeader(number - 1)) : 1)).sum();
 	}
 
 	// the units of the kind in a range from one number to another (from 1) of the kind's range kind, in score order (the

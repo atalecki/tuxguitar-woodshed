@@ -4,6 +4,7 @@ import app.tuxguitar.app.view.controller.TGViewContext;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.transport.TGTransportPractiseAction;
 import app.tuxguitar.practice.TGPracticeGrouping;
+import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import app.tuxguitar.song.models.TGSong;
@@ -101,8 +102,7 @@ public class TGPracticeDialog {
 
 	// a block holds from 1 unit to as many as the pool, as the fields set so far make it
 	private void limitBlock() {
-		int most = TGPracticeGrouping.blockLimit(this.unit.getSelectedValue(), this.measuresPerLine.getValue(), this.linesPerPage.getValue(), this.from.getValue(),
-			this.to.getValue(), this.song());
+		int most = TGPracticeSession.blockLimit(this.settings(), this.song());
 		TGPracticeForm.limit(this.unitsPerBlock, 1, most);
 	}
 
