@@ -112,7 +112,7 @@ public final class TGPracticeSession {
 	}
 
 	private int[] weights(IntUnaryOperator difficulties) {
-		return this.pool.stream().mapToInt(block -> block.weight(difficulties)).toArray();
+		return TGPracticeBlock.weights(this.pool, difficulties);
 	}
 
 	// whether the session has ended: after its last turn, or as Stop, moving the position or an edit ends it

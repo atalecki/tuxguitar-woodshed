@@ -55,12 +55,7 @@ public final class TGPracticeUnit {
 		return this.last;
 	}
 
-	// as difficult as its most difficult measure
-	public int weight(TGSong song) {
-		return this.weight(difficulties(song));
-	}
-
-	// as weight(song), each measure as difficult as the function of its number (from 1) says
+	// as difficult as its most difficult measure, each measure as difficult as the function of its number (from 1) says
 	int weight(IntUnaryOperator difficulties) {
 		return IntStream.rangeClosed(this.first, this.last).map(difficulties).max().getAsInt();
 	}

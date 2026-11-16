@@ -294,6 +294,8 @@ public class ChoosingSteps {
 	}
 
 	private List<Integer> unflagged() {
-		return practice.session().getPool().stream().filter(block -> block.weight(world.song()) == 1).map(block -> block.getFrom().getNumber()).collect(Collectors.toList());
+		List<TGPracticeBlock> pool = practice.session().getPool();
+		int[] weights = practice.session().weights();
+		return IntStream.range(0, pool.size()).filter(block -> weights[block] == 1).mapToObj(block -> pool.get(block).getFrom().getNumber()).collect(Collectors.toList());
 	}
 }

@@ -52,7 +52,7 @@ public class TestPracticeBlock {
 	}
 
 	private String pool() throws TGPracticeRefusal {
-		return start().getPool().stream().map(TestPracticeBlock::reading).collect(Collectors.joining(", "));
+		return readings(start().getPool());
 	}
 
 	@Test
@@ -108,7 +108,40 @@ public class TestPracticeBlock {
 		song.getMeasureHeader(3).setDifficulty(3);
 		int[] measures = set(TGPracticeUnitKind.MEASURE, 2, 6, 2).start().weights();
 		int[] beats = set(TGPracticeUnitKind.BEAT, 3, 4, 2).start().weights();
-		assertEquals("[1, 3, 3, 1] [1, 1, 1, 3, 3, 3, 3] 3", Arrays.toString(measures) + " " + Arrays.toString(beats) + " " + start().getPool().get(3).weight(song));
+		assertEquals("[1, 3, 3, 1] [1, 1, 1, 3, 3, 3, 3] 3", Arrays.toString(measures) + " " + Arrays.toString(beats) + " " + start().weights()[3]);
+	}
+
+	// that many measures in a list of their own, numbered from the first given
+	private static List<TGPracticeUnit> measures(int first, int count) {
+		return IntStream.range(first, first + count).mapToObj(number -> new TGPracticeUnit(TGPracticeUnitKind.MEASURE, number, number, number))
+			.collect(Collectors.toCollection(ArrayList::new));
+	}
+
+	// the list the blocks were cut from, its every unit then replaced by another, and then emptied
+	@Test
+	public void aBlockKeepsItsUnitsWhenTheListItWasCutFromChanges() throws TGPracticeRefusal {
+		List<TGPracticeUnit> units = measures(1, 4);
+		List<TGPracticeBlock> blocks = TGPracticeBlock.blocks(units, 2);
+		List<TGPracticeUnit> others = measures(9, 4);
+		IntStream.range(0, 4).forEach(index -> units.set(index, others.get(index)));
+		assertEquals("1-2, 2-3, 3-4", readings(blocks));
+		units.clear();
+		assertEquals("1-2, 2-3, 3-4", readings(blocks));
+	}
+
+	private static String readings(List<TGPracticeBlock> blocks) {
+		return blocks.stream().map(TestPracticeBlock::reading).collect(Collectors.joining(", "));
+	}
+
+	// 8 measures in blocks of 4: 5 blocks, each measure looked up once, not once for each block that holds it
+	@Test
+	public void theBlocksWeightsWeighEachUnitOnce() throws TGPracticeRefusal {
+		int[] lookups = new int[1];
+		int[] weights = TGPracticeBlock.weights(TGPracticeBlock.blocks(measures(1, 8), 4), number -> {
+			lookups[0]++;
+			return (number == 2 ? 3 : 1);
+		});
+		assertEquals("[3, 3, 1, 1, 1] 8", Arrays.toString(weights) + " " + lookups[0]);
 	}
 
 	// measures 1 to 4 in blocks of 2, measure 1 flagged 3x: 3x, 1x and 1x, a cycle of 5 turns

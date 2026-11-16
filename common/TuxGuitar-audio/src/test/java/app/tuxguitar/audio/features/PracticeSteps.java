@@ -177,9 +177,13 @@ public class PracticeSteps {
 		assertEquals(first + " to " + last, unit.getFirst() + " to " + unit.getLast());
 	}
 
+	// the weight of the block of the session started as set (one unit per block) that starts at the unit
 	@Then("interleaved practice's {unit} {int} weighs {int}x")
-	public void theUnitWeighs(TGPracticeUnitKind kind, int number, int weight) throws TGPracticeRefusal {
-		assertEquals(weight, unitOfTheSong(kind, number).weight(world.song()));
+	public void theUnitWeighs(TGPracticeUnitKind kind, int number, int weight) {
+		practice.start();
+		List<TGPracticeBlock> pool = practice.session().getPool();
+		int block = IntStream.range(0, pool.size()).filter(index -> pool.get(index).getFrom().getNumber() == number).findFirst().getAsInt();
+		assertEquals(kind + " " + number + " " + weight, pool.get(block).getFrom().getKind() + " " + number + " " + practice.session().weights()[block]);
 	}
 
 	@When("I flag measure {int} as {int}x difficult")
