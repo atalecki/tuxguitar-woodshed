@@ -14,6 +14,7 @@ import java.util.stream.IntStream;
 
 import app.tuxguitar.practice.TGClickUpSettings;
 import app.tuxguitar.practice.TGClickUpStep;
+import app.tuxguitar.practice.TGPracticeBlock;
 import app.tuxguitar.practice.TGPracticeGrouping;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSettings;
@@ -140,7 +141,7 @@ public class PracticeSteps {
 
 	@Then("interleaved practice's pool is the {int} beats {string}")
 	public void thePoolIsTheBeats(int count, String beats) {
-		List<TGPracticeUnit> pool = practice.session().getPool();
+		List<TGPracticeUnit> pool = practice.session().getPool().stream().map(TGPracticeBlock::getFrom).collect(Collectors.toList());
 		assertEquals(count + " " + beats, pool.size() + " " + Practice.beats(pool));
 	}
 

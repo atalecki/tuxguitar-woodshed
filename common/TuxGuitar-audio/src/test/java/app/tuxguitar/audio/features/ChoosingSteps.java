@@ -9,12 +9,15 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import app.tuxguitar.practice.TGPracticeBlock;
 import app.tuxguitar.practice.TGPracticeCourse;
+import app.tuxguitar.practice.TGPracticePlan;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
@@ -69,14 +72,22 @@ public class ChoosingSteps {
 		return practice.session().course(seed, header -> 0, TGTempoScale.percent(100));
 	}
 
-	// the units of so many turns of the course, as runs read them
+	// the blocks of so many turns of the course, as runs read them
 	private List<Integer> choose(TGPracticeCourse course, int turns) {
-		return IntStream.range(0, turns).mapToObj(turn -> reading(course.next().getFrom())).collect(Collectors.toCollection(ArrayList::new));
+		return IntStream.range(0, turns).mapToObj(turn -> reading(course.next())).collect(Collectors.toCollection(ArrayList::new));
 	}
 
-	// a unit as a run reads it: its number; a beat, numbered in its measure, by its place in the pool (from 1)
-	private int reading(TGPracticeUnit unit) {
-		return (unit.getKind() == TGPracticeUnitKind.BEAT ? practice.session().getPool().indexOf(unit) + 1 : unit.getNumber());
+	// the block a turn plays as a run reads it: its unit's number; a beat, numbered in its measure, by its place in the
+	// pool (from 1)
+	private int reading(TGPracticePlan plan) {
+		TGPracticeUnit unit = plan.getFrom();
+		return (unit.getKind() == TGPracticeUnitKind.BEAT ? place(block -> block.getFrom() == unit) : unit.getNumber());
+	}
+
+	// the place in the pool (from 1) of its first block that is so
+	private int place(Predicate<TGPracticeBlock> is) {
+		List<TGPracticeBlock> pool = practice.session().getPool();
+		return IntStream.range(0, pool.size()).filter(index -> is.test(pool.get(index))).findFirst().getAsInt() + 1;
 	}
 
 	@ParameterType("once|twice")
@@ -96,7 +107,9 @@ public class ChoosingSteps {
 
 	// the beats of the measure as runs read them: their places in the pool
 	private List<Integer> beatsOf(int measure) {
-		return practice.session().getPool().stream().filter(beat -> beat.getFirst() == measure).map(this::reading).collect(Collectors.toCollection(ArrayList::new));
+		List<TGPracticeBlock> pool = practice.session().getPool();
+		return IntStream.range(0, pool.size()).filter(index -> pool.get(index).getFrom().getFirst() == measure).mapToObj(index -> index + 1)
+			.collect(Collectors.toCollection(ArrayList::new));
 	}
 
 	@When("interleaved practice chooses {int} turn(s), with every random seed from {int} to {int}")
@@ -249,10 +262,10 @@ public class ChoosingSteps {
 
 	// the numbers of the pool's units
 	private List<Integer> pool() {
-		return practice.session().getPool().stream().map(TGPracticeUnit::getNumber).collect(Collectors.toCollection(ArrayList::new));
+		return practice.session().getPool().stream().map(block -> block.getFrom().getNumber()).collect(Collectors.toCollection(ArrayList::new));
 	}
 
 	private List<Integer> unflagged() {
-		return practice.session().getPool().stream().filter(unit -> unit.weight(world.song()) == 1).map(TGPracticeUnit::getNumber).collect(Collectors.toList());
+		return practice.session().getPool().stream().filter(block -> block.weight(world.song()) == 1).map(block -> block.getFrom().getNumber()).collect(Collectors.toList());
 	}
 }

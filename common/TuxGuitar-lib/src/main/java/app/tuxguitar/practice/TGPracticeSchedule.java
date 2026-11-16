@@ -7,7 +7,7 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * Plans a session's turns, one by one as they are chosen: the one place that decides how many passes a turn plays and
- * which turn is the last. Without the interval clock a turn plays its unit once, for the number of turns set. With it
+ * which turn is the last. Without the interval clock a turn plays its block once, for the number of turns set. With it
  * (TGPracticeClock), a turn's Count In and pass (TGPracticeSpan: a beat's with its joint) last as long as their
  * measures take at their own tempos, at the tempo scale the session plays at, and the session's time counts every turn
  * and break planned so far. One per play of a session, planned on the one thread that lays the turns.
@@ -29,25 +29,25 @@ public final class TGPracticeSchedule {
 		this.scale = scale;
 	}
 
-	// the next turn, which plays the unit at the session's tempo scale
-	public TGPracticePlan plan(TGPracticeUnit unit) {
+	// the next turn, which plays the block at the session's tempo scale
+	public TGPracticePlan plan(TGPracticeBlock block) {
 		this.planned++;
-		return this.session.getClock().map(clock -> this.timed(clock, unit)).orElseGet(() -> this.counted(unit));
+		return this.session.getClock().map(clock -> this.timed(clock, block)).orElseGet(() -> this.counted(block));
 	}
 
-	private TGPracticePlan counted(TGPracticeUnit unit) {
-		return new TGPracticePlan(unit, unit, this.scale, 1, false, 0, this.planned >= this.session.getTurns());
+	private TGPracticePlan counted(TGPracticeBlock block) {
+		return new TGPracticePlan(block.getFrom(), block.getTo(), this.scale, 1, false, 0, this.planned >= this.session.getTurns());
 	}
 
-	private TGPracticePlan timed(TGPracticeClock clock, TGPracticeUnit unit) {
-		TGPracticeSpan span = TGPracticeSpan.of(this.song, unit, unit);
+	private TGPracticePlan timed(TGPracticeClock clock, TGPracticeBlock block) {
+		TGPracticeSpan span = TGPracticeSpan.of(this.song, block.getFrom(), block.getTo());
 		TGMeasureHeader first = span.getFirst();
 		long countIn = this.clicks(first) * this.micros(first, first.getTimeSignature().getDenominator().getTime());
 		long pass = span.headers().stream().mapToLong(header -> this.micros(header, span.ticksIn(header))).sum();
 		long end = this.next + clock.length(countIn, pass);
 		boolean last = !clock.follows(end);
 		this.next = clock.after(end);
-		return new TGPracticePlan(unit, unit, this.scale, clock.passes(countIn, pass), clock.isCountInEveryPass(), (last ? 0 : clock.getBreakSeconds()), last);
+		return new TGPracticePlan(block.getFrom(), block.getTo(), this.scale, clock.passes(countIn, pass), clock.isCountInEveryPass(), (last ? 0 : clock.getBreakSeconds()), last);
 	}
 
 	// the Count In clicks before a turn whose first measure is the header: with Count In before each turn on, as the

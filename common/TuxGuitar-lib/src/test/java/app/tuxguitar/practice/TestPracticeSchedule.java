@@ -2,6 +2,7 @@ package app.tuxguitar.practice;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Collections;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DynamicTest;
@@ -41,16 +42,21 @@ public class TestPracticeSchedule {
 		return plan.getPasses() + " passes, break " + plan.getBreakSeconds();
 	}
 
-	private String plans(TGPracticeSchedule schedule, TGPracticeUnit unit, int turns) {
+	private String plans(TGPracticeSchedule schedule, TGPracticeBlock block, int turns) {
 		StringBuilder plans = new StringBuilder();
 		for (int turn = 0; turn < turns; turn++) {
-			plans.append(plan(schedule.plan(unit))).append("; ");
+			plans.append(plan(schedule.plan(block))).append("; ");
 		}
 		return plans.toString();
 	}
 
-	private TGPracticeUnit unit(TGPracticeUnitKind kind, int number) throws TGPracticeRefusal {
-		return TGPracticeGrouping.of(4, 4).unit(kind, number, 64);
+	// the unit of the kind with that number, a block of its own
+	private TGPracticeBlock unit(TGPracticeUnitKind kind, int number) throws TGPracticeRefusal {
+		return block(TGPracticeGrouping.of(4, 4).unit(kind, number, 64));
+	}
+
+	private static TGPracticeBlock block(TGPracticeUnit unit) {
+		return TGPracticeBlock.blocks(Collections.singletonList(unit)).get(0);
 	}
 
 	// so many turns of the first unit of the kind, planned by the schedule of a pool of units 1 to the one given
@@ -122,7 +128,7 @@ public class TestPracticeSchedule {
 	@Test
 	public void aPlanSpansItsUnitsAndABeatsJoint() throws TGPracticeRefusal {
 		TGPracticePlan line = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 2));
-		TGPracticePlan beat = schedule(TGPracticeUnitKind.BEAT, 1, 4, 4, 100).plan(TGPracticeUnit.beat(song.getMeasureHeader(0), 2));
+		TGPracticePlan beat = schedule(TGPracticeUnitKind.BEAT, 1, 4, 4, 100).plan(block(TGPracticeUnit.beat(song.getMeasureHeader(0), 2)));
 		assertEquals("16320 31680 31680 | 1920 2880 3840", spans(line) + " | " + spans(beat));
 	}
 
@@ -142,7 +148,7 @@ public class TestPracticeSchedule {
 	private String timedBeat(int measure, int beat) throws TGPracticeRefusal {
 		clockOn();
 		TGPracticeSchedule timed = schedule(TGPracticeUnitKind.BEAT, 1, 64, 4, 100);
-		return plan(timed.plan(TGPracticeUnit.beat(song.getMeasureHeader(measure - 1), beat)));
+		return plan(timed.plan(block(TGPracticeUnit.beat(song.getMeasureHeader(measure - 1), beat))));
 	}
 
 	// without a Count In before each turn a timed turn is its passes alone, the function's 4 clicks and "Count In before

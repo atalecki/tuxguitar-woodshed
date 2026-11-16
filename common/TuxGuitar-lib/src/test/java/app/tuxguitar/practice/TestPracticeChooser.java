@@ -37,7 +37,7 @@ public class TestPracticeChooser {
 	private static List<Integer> choose(TGPracticeChooser chooser, int turns) {
 		List<Integer> chosen = new ArrayList<Integer>();
 		for (int turn = 0; turn < turns; turn++) {
-			chosen.add(chooser.next().getNumber());
+			chosen.add(chooser.next().getFrom().getNumber());
 		}
 		return chosen;
 	}
@@ -275,7 +275,7 @@ public class TestPracticeChooser {
 		pool(1, 4, 10);
 		for (List<Integer> turns : withSeeds(200, chooser -> {
 			List<Integer> chosen = choose(chooser, 4);
-			chosen.add(chooser.ahead().getNumber());
+			chosen.add(chooser.ahead().getFrom().getNumber());
 			assertEquals("flagged", flagDuring(chooser, 2, 3));
 			chooser.started();
 			chosen.addAll(choose(chooser, 5));
@@ -294,7 +294,7 @@ public class TestPracticeChooser {
 		pool(1, 3, 8);
 		for (String outcome : withSeeds(100, chooser -> {
 			choose(chooser, 3);
-			int ahead = chooser.ahead().getNumber();
+			int ahead = chooser.ahead().getFrom().getNumber();
 			String flagged = flagDuring(chooser, 1, 3);
 			song.getMeasureHeader(0).setDifficulty(1);
 			return (ahead == 1 ? "flagged" : "Measure 1 comes up 3 times in a cycle of 5 turns and would come twice in a row.").equals(flagged) ? "ok" : ahead + " " + flagged;
@@ -311,7 +311,7 @@ public class TestPracticeChooser {
 		pool(2, 3, 2);
 		IntFunction<String> first = seed -> {
 			try {
-				TGPracticeUnit unit = chooser(seed).next();
+				TGPracticeUnit unit = chooser(seed).next().getFrom();
 				return unit + " " + unit.getFirst() + "-" + unit.getLast();
 			} catch (TGPracticeRefusal e) {
 				throw new IllegalStateException(e);

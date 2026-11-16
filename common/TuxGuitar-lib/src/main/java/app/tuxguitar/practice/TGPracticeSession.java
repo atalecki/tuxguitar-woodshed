@@ -10,15 +10,15 @@ import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
- * Interleaved practice of a song as it was started: its settings checked once, its pool (the units it chooses from, in
- * order), its number of turns (or its interval clock, which times it), its rules and whether each turn has a Count In
- * (its own, whether or not the player's Count In is on); under way until it ends. The units' weights are read from the song's
+ * Interleaved practice of a song as it was started: its settings checked once, its pool (the blocks it chooses from, in
+ * order, TGPracticeBlock), its number of turns (or its interval clock, which times it), its rules and whether each turn has a Count In
+ * (its own, whether or not the player's Count In is on); under way until it ends. The blocks' weights are read from the song's
  * difficulty flags when asked, so a flag set during the session counts.
  */
 public final class TGPracticeSession {
 
 	private final TGSong song;
-	private final List<TGPracticeUnit> pool;
+	private final List<TGPracticeBlock> pool;
 	private final int turns;
 	private final TGPracticeClock clock;
 	private final boolean noConsecutiveRepeats;
@@ -27,12 +27,12 @@ public final class TGPracticeSession {
 	// whether it has ended: set once, on the thread that ends it (the player's or the app's), read on any
 	private volatile boolean ended;
 
-	private TGPracticeSession(TGSong song, List<TGPracticeUnit> pool, TGPracticeSettings settings, TGPracticeClock clock) {
+	private TGPracticeSession(TGSong song, List<TGPracticeBlock> pool, TGPracticeSettings settings, TGPracticeClock clock) {
 		this.song = song;
 		this.pool = Collections.unmodifiableList(pool);
 		this.clock = clock;
 		this.turns = (clock != null ? clock.mostTurns() : settings.getTurns());
-		// with the clock, a pool of one unit plays it every turn
+		// with the clock, a pool of one block plays it every turn
 		this.noConsecutiveRepeats = settings.isNoConsecutiveRepeats() && !(clock != null && pool.size() == 1);
 		this.completeCycle = settings.isCompleteCycle();
 		this.countInEachTurn = settings.isCountInEachTurn();
@@ -41,7 +41,7 @@ public final class TGPracticeSession {
 	// the session as set, or the reason it cannot be played
 	public static TGPracticeSession start(TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(settings.getMeasuresPerLine(), settings.getLinesPerPage());
-		List<TGPracticeUnit> pool = pool(grouping, settings, song);
+		List<TGPracticeBlock> pool = pool(grouping, settings, song);
 		TGPracticeClock clock = clock(settings);
 		TGPracticeSession session = new TGPracticeSession(song, pool, settings, clock);
 		session.check(session.weights(), session.turns);
@@ -59,8 +59,9 @@ public final class TGPracticeSession {
 		return null;
 	}
 
-	private static List<TGPracticeUnit> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
-		return grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "pool");
+	// the blocks of the pool's units
+	private static List<TGPracticeBlock> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
+		return TGPracticeBlock.blocks(grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "pool"));
 	}
 
 	// refuses weights that cannot keep "No consecutive repeats" (when it is on) for that many turns
@@ -75,7 +76,7 @@ public final class TGPracticeSession {
 		return Optional.ofNullable(this.clock);
 	}
 
-	public List<TGPracticeUnit> getPool() {
+	public List<TGPracticeBlock> getPool() {
 		return this.pool;
 	}
 
@@ -84,7 +85,7 @@ public final class TGPracticeSession {
 		return this.turns;
 	}
 
-	// whether no unit may come twice in a row: as set, but never for a timed pool of one unit
+	// whether no block may come twice in a row: as set, but never for a timed pool of one block
 	public boolean isNoConsecutiveRepeats() {
 		return this.noConsecutiveRepeats;
 	}
@@ -98,7 +99,7 @@ public final class TGPracticeSession {
 		return this.countInEachTurn;
 	}
 
-	// each unit's weight, by unit of the pool, as the song's flags are now
+	// each block's weight, by block of the pool, as the song's flags are now
 	public int[] weights() {
 		return this.weights(TGPracticeUnit.difficulties(this.song));
 	}
@@ -110,7 +111,7 @@ public final class TGPracticeSession {
 	}
 
 	private int[] weights(IntUnaryOperator difficulties) {
-		return this.pool.stream().mapToInt(unit -> unit.weight(difficulties)).toArray();
+		return this.pool.stream().mapToInt(block -> block.weight(difficulties)).toArray();
 	}
 
 	// whether the session has ended: after its last turn, or as Stop, moving the position or an edit ends it
