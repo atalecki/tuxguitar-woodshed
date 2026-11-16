@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -15,6 +16,7 @@ import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeTurn;
+import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
@@ -45,11 +47,17 @@ public class TestMidiPractice {
 		}
 	}
 
+	// a pool of units of the kind, from one to the other
+	private static TGPracticeSettings pool(TGPracticeUnitKind kind, int from, int to) {
+		TGPracticeSettings settings = new TGPracticeSettings();
+		settings.setUnit(kind);
+		settings.setPool(from, to);
+		return settings;
+	}
+
 	// lines 1 to 4 of 2 measures
 	private static TGPracticeSettings lines() {
-		TGPracticeSettings settings = new TGPracticeSettings();
-		settings.setUnit(TGPracticeUnitKind.LINE);
-		settings.setPool(1, 4);
+		TGPracticeSettings settings = pool(TGPracticeUnitKind.LINE, 1, 4);
 		settings.setMeasuresPerLine(2);
 		return settings;
 	}
@@ -75,7 +83,11 @@ public class TestMidiPractice {
 
 	// lines 1 to 4, timed: turns of 1 minute, breaks of 10 seconds, sessions of so many minutes
 	private static TGPracticeSettings timedLines(int sessionMinutes) {
-		TGPracticeSettings settings = lines();
+		return timed(lines(), sessionMinutes);
+	}
+
+	// the settings, timed: turns of 1 minute, breaks of 10 seconds, sessions of so many minutes
+	private static TGPracticeSettings timed(TGPracticeSettings settings, int sessionMinutes) {
 		settings.setIntervalClock(true);
 		settings.setTurnMinutes(1);
 		settings.setBreakSeconds(10);
@@ -110,8 +122,13 @@ public class TestMidiPractice {
 
 	// the first measures of the turns the seed chooses for the session, in order
 	static List<Integer> chosen(TGPracticeSession session, long seed, int turns) {
+		return chosen(session, seed, turns, TGPracticeUnit::getFirst);
+	}
+
+	// what the function says of each unit the seed chooses for the session, in order
+	private static <T> List<T> chosen(TGPracticeSession session, long seed, int turns, Function<TGPracticeUnit, T> of) {
 		TGPracticeChooser chooser = session.chooser(seed);
-		return IntStream.range(0, turns).mapToObj(turn -> chooser.next().getFirst()).collect(Collectors.toList());
+		return IntStream.range(0, turns).mapToObj(turn -> of.apply(chooser.next())).collect(Collectors.toList());
 	}
 
 	private List<Integer> chosen(int turns) {
@@ -306,5 +323,33 @@ public class TestMidiPractice {
 		List<Integer> firsts = IntStream.rangeClosed(5, 8).mapToObj(turn -> passes.stream().filter(pass -> pass.getTurn() == turn).findFirst().get().getFirst().getNumber())
 			.sorted().collect(Collectors.toList());
 		assertEquals("[1, 3, 5, 7]", firsts.toString());
+	}
+
+	// the beats of measure 2 (ticks 4800 to 8640)
+	private static TGPracticeSettings beats() {
+		return pool(TGPracticeUnitKind.BEAT, 2, 2);
+	}
+
+	// a beat's turn, after its Count In (4 clicks, to tick 4800), plays its beat then the joint (to 6720), where the next
+	// turn's Count In starts; through its Count In the song plays the beat's first tick
+	@Test
+	public void aBeatsTurnPlaysItsBeatAndItsJointAfterItsCountIn() throws TGPracticeRefusal {
+		TGPracticeSettings settings = beats();
+		settings.setTurns(2);
+		MidiPractice practice = practice(settings, 100);
+		practice.follow(960);
+		List<Long> beats = chosen(session, SEED, 2, unit -> MEASURE + 960 + (unit.getNumber() - 1) * 960L);
+		long beat = beats.get(0);
+		assertEquals(beat + " " + (beat + 10) + " " + (beat + 1919) + " | 1:960+0/4, 2:6720+0/4 12480 " + (beats.get(1) + 5),
+			practice.songTick(960) + " " + practice.songTick(4810) + " " + practice.songTick(6719) + " | " + passes(0, 1) + " " + passes.get(1).getEnd() + " "
+				+ practice.songTick(10565));
+	}
+
+	// timed (turns of 1 minute): a pass is the beat and its joint, 1 second, so turn 1 is its Count In (2 seconds) then 58
+	// passes; halfway through its Count In 59 seconds are left
+	@Test
+	public void aTimedBeatsTurnPassesItsBeatAndItsJoint() throws TGPracticeRefusal {
+		MidiPractice practice = practice(timed(beats(), 2), 100);
+		assertEquals("58 turn 1 2 59 1:6720+0/0", passes.size() + " " + shown(practice.turn(960 + 1920)) + " " + passes(1));
 	}
 }

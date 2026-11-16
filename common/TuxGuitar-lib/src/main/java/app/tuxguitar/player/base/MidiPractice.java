@@ -9,16 +9,16 @@ import java.util.function.ToIntBiFunction;
 
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.practice.TGPracticeSteps;
 import app.tuxguitar.practice.TGPracticeTurn;
 import app.tuxguitar.practice.TGTempoScale;
-import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
  * A practice session as the player plays it live: its course's turns one after the other in the sequence's ticks,
  * from where it starts, each its passes as the course plans it (MidiPracticeTurn: the first after the break the turn
- * before planned, each its Count In, if any, then the measures its plan plays), each at the tempo scale its plan gives
+ * before planned, each its Count In, if any, then what its plan plays: its span), each at the tempo scale its plan gives
  * it. A turn is planned ahead and laid, all its passes, once the turn before it has started (the first one when the
  * session starts); a turn starts with its break, and the course is told then (random practice: so a flag set before
  * then counts from its cycle when it opens one); after the turn planned last the sequence ends. A course with steps
@@ -175,13 +175,12 @@ final class MidiPractice {
 		TGPracticePlan plan = this.course.ahead();
 		this.plans.add(plan);
 		int turn = this.plans.size();
-		TGMeasureHeader first = this.song.getMeasureHeader(plan.getFirstMeasure() - 1);
-		TGMeasureHeader last = this.song.getMeasureHeader(plan.getLastMeasure() - 1);
-		int clicks = this.course.clicks(first);
+		TGPracticeSpan span = plan.span(this.song);
+		int clicks = this.course.clicks(span.getFirst());
 		List<MidiPracticeTurn> passes = new ArrayList<MidiPracticeTurn>();
-		passes.add(MidiPracticeTurn.afterBreak(first, last, start, rest, plan.getScale(), clicks, turn));
+		passes.add(MidiPracticeTurn.afterBreak(span, start, rest, plan.getScale(), clicks, turn));
 		for (int pass = 1; pass < plan.getPasses(); pass++) {
-			passes.add(new MidiPracticeTurn(first, last, passes.get(pass - 1).getEnd(), 0, (plan.isCountInEveryPass() ? clicks : 0), turn, plan.getScale()));
+			passes.add(new MidiPracticeTurn(span, passes.get(pass - 1).getEnd(), 0, (plan.isCountInEveryPass() ? clicks : 0), turn, plan.getScale()));
 		}
 		return passes;
 	}
