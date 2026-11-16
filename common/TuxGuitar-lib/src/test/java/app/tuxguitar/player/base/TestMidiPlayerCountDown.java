@@ -20,7 +20,8 @@ import app.tuxguitar.util.TGContext;
  * Pins the count down played before the song (MidiPlayerCountDown.start): on the percussion channel, a side stick
  * (key 37, default velocity: the player's click sound until changed) per beat of the time signature of the measure being played (or the chosen number of ticks), at its tempo
  * scaled by the tempo percent; the first tick at once, and the count down lasts until the beat after the last tick.
- * It stops as soon as the player stops; without a percussion channel or a measure being played, it plays nothing.
+ * It stops as soon as the player stops; without a measure being played, it plays nothing. Without a percussion channel
+ * it ticks on the channel the player opens for the clicks.
  *
  * Time is virtual: the clock only moves while the count down waits. The song has 2 measures, 4/4 at 120;
  * the player is running at the start of the song. The result is the side stick's "on"/"off" with their time in ms,
@@ -34,6 +35,8 @@ public class TestMidiPlayerCountDown {
 	private final TGSong song = TGDocumentManager.getInstance(context).getSong();
 	private final VirtualCountDown countDown = new VirtualCountDown();
 	private final List<String> log = new ArrayList<String>();
+	// what the synthesizer's channels were sent
+	private final List<String> received = new ArrayList<String>();
 
 	private class VirtualCountDown extends MidiPlayerCountDown {
 		private long now = 0;
@@ -194,9 +197,25 @@ public class TestMidiPlayerCountDown {
 		assertEquals("3 0 | 2 0 | 2", beats + " | " + ticks + " | " + countDown.clicksBefore(header));
 	}
 
+	// without a percussion channel, on the channel the player opens for the clicks as playing starts: a percussion
+	// channel of its own on a port (see TestMidiPlayerMetronome), the drums of a synthesizer that has them (the TuxGuitar
+	// Synthesizer's)
+	private String ticksWithoutAPercussionChannelOn(MidiSynthesizer synthesizer) throws MidiPlayerException {
+		countDown.setTickCount(1);
+		player.getSynthesizerProxy().setMidiSynthesizer(synthesizer);
+		player.updateChannels();
+		received.clear();
+		return start() + " | " + received;
+	}
+
 	@Test
-	public void playsNothingWithoutAPercussionChannel() {
-		assertEquals(" -> end @0", start());
+	public void withoutAPercussionChannelItTicksOnThePlayersPercussionChannelOnAPort() throws MidiPlayerException {
+		assertEquals(" -> end @511 | [-3 on 37 95, -3 off 37 95]", ticksWithoutAPercussionChannelOn(new PortSynthesizer(received)));
+	}
+
+	@Test
+	public void withoutAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
+		assertEquals(" -> end @511 | [-2 on 37 95, -2 off 37 95]", ticksWithoutAPercussionChannelOn(new ClockedSynthesizer(received, true)));
 	}
 
 	@Test

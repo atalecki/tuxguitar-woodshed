@@ -14,7 +14,7 @@ import app.tuxguitar.thread.TGThreadManager;
 
 /**
  * Practice played live (MidiPlayer.practise) by TuxGuitar's sequencer on a synthesizer's sample clock with drums of its
- * own, blocks of 512 frames rendered one at a time, the play loop taking a turn after each. The song has 4 measures of
+ * own (or, made so, without: as on a port), blocks of 512 frames rendered one at a time, the play loop taking a turn after each. The song has 4 measures of
  * 4/4 at 120 bpm (a quarter note lasts BEAT frames at 44100 Hz), a quarter note on the first beat of each, key 64 + its
  * number on channel 1. A note or click started is written "frame channel key"; the drums are channel -2, the click key
  * 37.
@@ -29,9 +29,14 @@ final class LivePracticeFixture {
 	final MidiPlayer player = song.player;
 	final List<String> received = new ArrayList<String>();
 	private final SteppedThreads threads = new SteppedThreads();
-	private final ClockedSynthesizer synthesizer = new ClockedSynthesizer(received, true);
+	private final ClockedSynthesizer synthesizer;
 
 	LivePracticeFixture() {
+		this(true);
+	}
+
+	LivePracticeFixture(boolean drums) {
+		synthesizer = new ClockedSynthesizer(received, drums);
 		TGThreadManager.getInstance(song.context).setThreadHandler(threads);
 		player.loadSequencer(new MidiSequencerImpl(song.context));
 		player.getSynthesizerProxy().setMidiSynthesizer(synthesizer);

@@ -20,7 +20,8 @@ import app.tuxguitar.util.TGContext;
  * Pins how the player matches its synthesizer channels to the song channels (MidiPlayer.updateChannels): a
  * channel no longer in the song, or no longer open in the synthesizer, is closed and dropped; every song channel
  * without one gets one opened (unless the synthesizer has none to give); then every song channel is sent its
- * settings.
+ * settings. The song has no percussion channel: the player also opens a percussion channel of its own for the clicks,
+ * -3 (program 0), and sends it its settings first (see TestMidiPlayerMetronome).
  *
  * The song has channels 1 (program 25) and 2 (program 30). The synthesizer logs "open id" and "close id"; a channel
  * logs the program it is sent as "program id=value". The result is the log, then the channels the player routes to.
@@ -105,7 +106,7 @@ public class TestMidiPlayerChannels {
 	public void opensAChannelOnceForEverySongChannelThenSendsItsSettings() throws MidiPlayerException {
 		String first = update();
 
-		assertEquals("open 1, open 2, program 1=25, program 2=30 -> [1, 2] | program 1=25, program 2=30 -> [1, 2]",
+		assertEquals("open 1, open 2, open -3, program -3=0, program 1=25, program 2=30 -> [1, 2, -3] | program -3=0, program 1=25, program 2=30 -> [1, 2, -3]",
 			first + " | " + update());
 	}
 
@@ -114,7 +115,7 @@ public class TestMidiPlayerChannels {
 	public void anAudioChannelIsToldItIsOneWithItsSettings() throws MidiPlayerException {
 		songManager.getChannel(song, 2).setAudioInput(TGAudioInput.mono(1));
 
-		assertEquals("open 1, open 2, program 1=25, audio 2=true, program 2=30 -> [1, 2]", update());
+		assertEquals("open 1, open 2, open -3, program -3=0, program 1=25, audio 2=true, program 2=30 -> [1, 2, -3]", update());
 	}
 
 	@Test
@@ -122,7 +123,7 @@ public class TestMidiPlayerChannels {
 		update();
 		songManager.removeChannel(song, songManager.getChannel(song, 1));
 
-		assertEquals("close 1, program 2=30 -> [2]", update());
+		assertEquals("close 1, program -3=0, program 2=30 -> [2, -3]", update());
 	}
 
 	@Test
@@ -130,14 +131,14 @@ public class TestMidiPlayerChannels {
 		update();
 		synthesizer.channels.get(2).open = false;
 
-		assertEquals("close 2, open 2, program 1=25, program 2=30 -> [1, 2]", update());
+		assertEquals("close 2, open 2, program -3=0, program 1=25, program 2=30 -> [1, -3, 2]", update());
 	}
 
 	@Test
 	public void leavesOutAChannelTheSynthesizerCannotOpen() throws MidiPlayerException {
 		synthesizer.exhausted = true;
 
-		assertEquals("open 1, open 2 -> []", update());
+		assertEquals("open 1, open 2, open -3 -> []", update());
 	}
 
 	// the volume is kept, and only while playing are the channels updated at once
@@ -149,7 +150,7 @@ public class TestMidiPlayerChannels {
 		player.setVolume(7);
 		player.setRunning(false);
 
-		assertEquals(" -> 5 | open 1, open 2, program 1=25, program 2=30 -> 7",
+		assertEquals(" -> 5 | open 1, open 2, open -3, program -3=0, program 1=25, program 2=30 -> 7",
 			stopped + " | " + String.join(", ", log) + " -> " + player.getVolume());
 	}
 }

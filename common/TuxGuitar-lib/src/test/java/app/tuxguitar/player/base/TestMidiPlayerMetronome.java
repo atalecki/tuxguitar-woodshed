@@ -51,9 +51,28 @@ public class TestMidiPlayerMetronome {
 		return clicks();
 	}
 
+	// plays on a port (a synthesizer without a sample clock or drums of its own: a MIDI port, Java Sound, FluidSynth):
+	// the clicks, as clicks() writes them
+	private String clicksOnAPort() throws MidiPlayerException {
+		player.getSynthesizerProxy().setMidiSynthesizer(new PortSynthesizer(received));
+		return clicks();
+	}
+
+	// what the synthesizer's channel with the id was sent
+	private List<String> channel(int id) {
+		return received.stream().filter(line -> line.startsWith(id + " ")).collect(Collectors.toList());
+	}
+
 	// what the clock's drums channel was sent
 	private List<String> drums() {
-		return received.stream().filter(line -> line.startsWith(MidiSampleClock.DRUMS + " ")).collect(Collectors.toList());
+		return channel(MidiSampleClock.DRUMS);
+	}
+
+	// a new percussion channel's settings, as the player sends every channel's (scaled by its volume, 10 the whole)
+	private static String newPercussionChannel(int id, int volume) {
+		return "[" + id + " opened, " + id + " cc 0 128, " + id + " program 0, " + id + " cc 7 " + volume + ", " + id + " cc 10 64, "
+				+ id + " cc 93 0, " + id + " cc 91 0, " + id + " cc 95 0, " + id + " cc 92 0, " + id + " cc 11 127, "
+				+ id + " cc 101 0, " + id + " cc 100 0, " + id + " cc 6 12, " + id + " cc 38 0]";
 	}
 
 	// a MIDI Port without a sample clock (one that sends MIDI out): on the song's percussion channel
@@ -64,9 +83,34 @@ public class TestMidiPlayerMetronome {
 		assertEquals("16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95", clicks());
 	}
 
+	// without one, on a percussion channel of the player's own (CLICKS), not the song's: opened as playing starts with
+	// a new percussion channel's settings, so a port gives it General MIDI channel 10 (see TestClicksOnAPort in
+	// gm-utils); the song keeps its one channel
 	@Test
-	public void onAPortWithoutASampleClockTheMetronomeDoesNotClickWithoutAPercussionChannel() throws MidiPlayerException {
-		assertEquals("0", clicks());
+	public void onAPortWithoutAPercussionChannelTheMetronomeClicksOnAPercussionChannelOfThePlayersOwn() throws MidiPlayerException {
+		assertEquals("16 | on 960 c-3 k37 v95 | on 15360 c-3 k37 v95 | " + newPercussionChannel(-3, 127) + " | 1",
+				clicksOnAPort() + " | " + channel(MidiClickChannels.CLICKS) + " | " + fixture.song.countChannels());
+	}
+
+	// at the player's volume, as every channel
+	@Test
+	public void thePlayersPercussionChannelPlaysAtThePlayersVolume() throws MidiPlayerException {
+		player.setVolume(5);
+		clicksOnAPort();
+
+		assertEquals(newPercussionChannel(-3, 63), channel(MidiClickChannels.CLICKS).toString());
+	}
+
+	// with a percussion channel, on it: the player opens no channel of its own, and closes the one it had once the song
+	// has one
+	@Test
+	public void onAPortWithAPercussionChannelTheMetronomeClicksOnItAndThePlayerHasNoChannelOfItsOwn() throws MidiPlayerException {
+		String without = clicksOnAPort();
+		withPercussion();
+		received.clear();
+
+		assertEquals("16 | on 960 c-3 k37 v95 | on 15360 c-3 k37 v95 / 16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95 | [-3 closed]",
+				without + " / " + clicks() + " | " + channel(MidiClickChannels.CLICKS));
 	}
 
 	// on a sample clock without drums of its own, as on a port without one (the TuxGuitar Synthesizer's before it had
@@ -81,14 +125,14 @@ public class TestMidiPlayerMetronome {
 	}
 
 	@Test
-	public void onASampleClockWithoutDrumsTheMetronomeDoesNotClickWithoutAPercussionChannel() throws MidiPlayerException {
-		assertEquals("0 | []", clicksOnASampleClock(false) + " | " + drums());
+	public void onASampleClockWithoutDrumsTheMetronomeClicksOnThePlayersPercussionChannelWithoutOne() throws MidiPlayerException {
+		assertEquals("16 | on 960 c-3 k37 v95 | on 15360 c-3 k37 v95 | []", clicksOnASampleClock(false) + " | " + drums());
 	}
 
-	// with drums, percussion channel or not
+	// with drums, percussion channel or not: the player opens no percussion channel of its own
 	@Test
 	public void onASampleClockWithDrumsTheMetronomeClicksWithoutAPercussionChannel() throws MidiPlayerException {
-		assertEquals("16 | on 960 c-2 k37 v95 | on 15360 c-2 k37 v95", clicksOnASampleClock(true));
+		assertEquals("16 | on 960 c-2 k37 v95 | on 15360 c-2 k37 v95 | []", clicksOnASampleClock(true) + " | " + channel(MidiClickChannels.CLICKS));
 	}
 
 	// the drums open when playing starts, at the percussion channel's Volume and Balance (scaled by the player's volume,

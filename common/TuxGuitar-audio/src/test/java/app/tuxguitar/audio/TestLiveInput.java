@@ -13,6 +13,7 @@ import app.tuxguitar.audio.device.TGAudioDeviceException;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.player.base.MidiChannel;
+import app.tuxguitar.player.base.MidiClickChannels;
 import app.tuxguitar.player.base.MidiOutputPort;
 import app.tuxguitar.player.base.MidiOutputPortProvider;
 import app.tuxguitar.player.base.MidiPlayer;
@@ -24,7 +25,9 @@ import app.tuxguitar.song.models.TGTrack;
 /**
  * While the live device runs, TGLiveInput keeps an armed track monitored while stopped: when its channel is not open on
  * the TuxGuitar Synthesizer, it has the player open the song's channels (at install, and after each action). The MIDI
- * Ports' synthesizer writes down the channels it opens. The song has a guitar track and an audio track.
+ * Ports' synthesizer writes down the channels it opens. The song has a guitar track and an audio track, and no
+ * percussion channel: the player opens its own for the clicks too (MidiClickChannels.CLICKS), the ports having no
+ * drums of their own.
  */
 public class TestLiveInput {
 
@@ -85,7 +88,7 @@ public class TestLiveInput {
 	@Test
 	public void installedItOpensTheSongsChannelsForAnArmedTrackMonitoredAuto() throws TGAudioDeviceException {
 		arm(TGMonitoring.AUTO);
-		assertEquals(List.of(this.fixture.song.getTrack(0).getChannelId(), this.audio.getChannelId()), install(() -> { }));
+		assertEquals(List.of(this.fixture.song.getTrack(0).getChannelId(), this.audio.getChannelId(), MidiClickChannels.CLICKS), install(() -> { }));
 	}
 
 	@Test
@@ -111,7 +114,7 @@ public class TestLiveInput {
 	@Test
 	public void afterAnActionItOpensTheChannelsOfATrackArmedSince() throws TGAudioDeviceException {
 		this.session.setMonitoring(this.audio, TGMonitoring.AUTO);
-		assertEquals(2, install(this::armByAction).size());
+		assertEquals(3, install(this::armByAction).size());
 	}
 
 	@Test

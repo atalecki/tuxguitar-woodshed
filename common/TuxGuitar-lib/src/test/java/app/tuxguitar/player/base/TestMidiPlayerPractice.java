@@ -109,6 +109,21 @@ public class TestMidiPlayerPractice {
 		return player.isRunning() + " " + session.isEnded() + " " + (TGPracticeUnderWay.getInstance(fixture.context).getCourse() != null);
 	}
 
+	// on a synthesizer without drums of its own (as on a port), a song without a percussion channel counts each turn in on
+	// the player's own percussion channel, -3 (see TestMidiPlayerMetronome)
+	@Test
+	public void withoutDrumsOrAPercussionChannelATurnCountsInOnThePlayersPercussionChannel() throws Exception {
+		LivePracticeFixture port = new LivePracticeFixture(false);
+		settings.setPool(1, 4);
+		settings.setTurns(1);
+		session = TGPracticeSession.start(settings, port.song.song);
+		port.player.practise(session, SEED);
+		port.run();
+		port.blocksToTheEnd();
+
+		assertEquals(turn(0, chosen(1).get(0)).replace(" -2 ", " -3 "), port.started());
+	}
+
 	@Test
 	public void eachTurnPlaysItsCountInThenItsMeasureAndThePlayerStopsAfterTheLast() throws Exception {
 		practise(3);
