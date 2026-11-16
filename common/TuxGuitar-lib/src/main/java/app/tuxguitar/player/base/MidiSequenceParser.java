@@ -5,11 +5,13 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
@@ -127,7 +129,7 @@ public class MidiSequenceParser {
 	}
 
 	public void parse(MidiSequenceHandler sequence) {
-		MidiSequenceHelper helper = this.start(sequence);
+		MidiSequenceHelper helper = this.start(sequence, Optional.empty());
 		MidiRepeatController controller = new MidiRepeatController(this.song, this.sHeader, this.eHeader);
 		while(!controller.finished()){
 			int index = controller.getIndex();
@@ -143,14 +145,15 @@ public class MidiSequenceParser {
 		sequence.notifyFinish();
 	}
 
-	// a turn of interleaved practice: its Count In, then its measures, each once in score order whatever repeats and
-	// alternate endings say, moved to follow it, all at the turn's tempo scale, the parser's from then on; the channels
-	// set up before it when asked (a sequence's first turn)
+	// a turn of interleaved practice: its Count In, then its span (its measures, each once in score order whatever
+	// repeats and alternate endings say, or its beats and their joint: the notes starting on them, each cut at the joint
+	// or the joint's end), moved to follow it, all at the turn's tempo scale, the parser's from then on; the channels set
+	// up before it when asked (a sequence's first turn)
 	public void parseTurn(MidiSequenceHandler sequence, MidiPracticeTurn turn, boolean setup) {
 		this.tempoScale = turn.getScale();
-		MidiSequenceHelper helper = this.start(sequence);
-		for (int index = turn.getFirst().getNumber() - 1; index < turn.getLast().getNumber(); index++) {
-			helper.addMeasureHelper(new MidiMeasureHelper(index, turn.getMove()));
+		MidiSequenceHelper helper = this.start(sequence, Optional.of(turn.getSpan()));
+		for (TGMeasureHeader header : turn.getSpan().headers()) {
+			helper.addMeasureHelper(new MidiMeasureHelper(header.getNumber() - 1, turn.getMove()));
 		}
 		this.addCountIn(helper, turn);
 		if (setup) {
@@ -160,10 +163,11 @@ public class MidiSequenceParser {
 		sequence.notifyFinish();
 	}
 
-	private MidiSequenceHelper start(MidiSequenceHandler sequence) {
+	// what the sequence plays: the song's measures, or a turn's span of them
+	private MidiSequenceHelper start(MidiSequenceHandler sequence, Optional<TGPracticeSpan> span) {
 		this.infoTrack = 0;
 		this.metronomeTrack = (sequence.getTracks() - 1);
-		return new MidiSequenceHelper(sequence);
+		return new MidiSequenceHelper(sequence, span);
 	}
 
 	// every track's measures, a track heard unless muted or another one is soloed; its channel set up first when asked
@@ -238,7 +242,9 @@ public class MidiSequenceParser {
 		int[] stroke = new int[track.stringCount()];
 		for (int bIndex = 0; bIndex < measure.countBeats(); bIndex++) {
 			TGBeat beat = measure.getBeat(bIndex);
-			addNotes( sh, channel, track, beat, measure.getTempo(), mIndex, bIndex, startMove, getStroke(beat, stroke) );
+			if (sh.plays(beat.getStart())) {
+				addNotes( sh, channel, track, beat, measure.getTempo(), mIndex, bIndex, startMove, getStroke(beat, stroke) );
+			}
 		}
 	}
 
@@ -253,7 +259,7 @@ public class MidiSequenceParser {
 					PlayedNote played = new PlayedNote(sh, tgChannel, track, note, tempo, mIndex, bIndex, startMove);
 					played.key = (this.transpose + fretKey(track, note, note.getValue()));
 					played.start = applyStrokeStart(note, (th.getStart() + startMove) , stroke);
-					played.duration = applyStrokeDuration(note, getRealNoteDuration(sh, track, note, tempo, th.getDuration(), mIndex,bIndex), stroke);
+					played.duration = applyStrokeDuration(note, sh.cut(th.getStart(), getRealNoteDuration(sh, track, note, tempo, th.getDuration(), mIndex,bIndex)), stroke);
 					played.velocity = getRealVelocity(sh, note, track, tgChannel, mIndex, bIndex);
 					addPlayedNote(played);
 				}
@@ -401,14 +407,17 @@ public class MidiSequenceParser {
 		sh.getSequence().addTrackName(tick,trackNum,track.getName());
 	}
 
-	// on the Metronome's channel, unless that is -1 (none): a song channel, or a synthesizer's drums (MidiSampleClock.DRUMS)
+	// a click on each beat of the measure that the sequence plays, on the Metronome's channel, unless that is -1 (none): a
+	// song channel, or a synthesizer's drums (MidiSampleClock.DRUMS)
 	public void addMetronome(MidiSequenceHelper sh,TGMeasureHeader header, long startMove){
 		if( (this.flags & ADD_METRONOME) != 0) {
 			if( this.metronomeChannelId != NO_METRONOME_CHANNEL ){
 				long start = (startMove + header.getStart());
 				long length = header.getTimeSignature().getDenominator().getTime();
 				for(int i = 1; i <= header.getTimeSignature().getNumerator();i ++){
-					addNote(sh,getMetronomeTrack(),this.metronomeClick.getNote(),start,length,this.metronomeClick.getVelocity(),this.metronomeChannelId,-1,false);
+					if( sh.plays(start - startMove) ){
+						addNote(sh,getMetronomeTrack(),this.metronomeClick.getNote(),start,length,this.metronomeClick.getVelocity(),this.metronomeChannelId,-1,false);
+					}
 					start += length;
 				}
 			}
@@ -485,7 +494,7 @@ public class MidiSequenceParser {
 
 	private void addSlide(MidiSequenceHelper sh, TGNote note, TGTrack track, int mIndex, int bIndex, long startMove ,int channel, int midiVoice, boolean bendMode){
 		MidiNoteHelper nextNote = this.getNextNote(sh, note, track, mIndex, bIndex, true);
-		if( nextNote != null ){
+		if( nextNote != null && sh.plays(nextNote.getNote().getVoice().getBeat().getStart()) ){
 			int value1 = note.getValue();
 			int value2 = nextNote.getNote().getValue();
 
@@ -538,7 +547,7 @@ public class MidiSequenceParser {
 			}
 		}
 		if (addTimeSignature) {
-			sh.getSequence().addTimeSignature(getTick(currMeasure.getStart() + startMove), getInfoTrack(), currMeasure.getTimeSignature());
+			sh.getSequence().addTimeSignature(getTick(sh.startOf(currMeasure.getHeader()) + startMove), getInfoTrack(), currMeasure.getTimeSignature());
 		}
 	}
 
@@ -552,7 +561,7 @@ public class MidiSequenceParser {
 			}
 		}
 		if (addTempo) {
-			this.addTempo(sh, currMeasure.getTempo(), getTick(currMeasure.getStart() + startMove));
+			this.addTempo(sh, currMeasure.getTempo(), getTick(sh.startOf(currMeasure.getHeader()) + startMove));
 		}
 	}
 
@@ -1015,14 +1024,32 @@ public class MidiSequenceParser {
 		}
 	}
 
+	// the measures a sequence plays, and the turn's span of them, if it plays one (none: all of them, whole)
 	private class MidiSequenceHelper {
 
 		private List<MidiMeasureHelper> measureHeaderHelpers;
 		private MidiSequenceHandler sequence;
+		private final Optional<TGPracticeSpan> span;
 
-		public MidiSequenceHelper(MidiSequenceHandler sequence){
+		public MidiSequenceHelper(MidiSequenceHandler sequence, Optional<TGPracticeSpan> span){
 			this.sequence = sequence;
+			this.span = span;
 			this.measureHeaderHelpers = new ArrayList<MidiMeasureHelper>();
+		}
+
+		// where it starts playing the measure, in the song's ticks
+		public long startOf(TGMeasureHeader header) {
+			return this.span.map(played -> played.startIn(header)).orElse(header.getStart());
+		}
+
+		// whether it plays what starts on the song's tick
+		public boolean plays(long tick) {
+			return this.span.map(played -> played.plays(tick)).orElse(true);
+		}
+
+		// how long a note starting on the song's tick sounds, at most the ticks given
+		public long cut(long start, long duration) {
+			return this.span.map(played -> played.cut(start, duration)).orElse(duration);
 		}
 
 		public MidiSequenceHandler getSequence(){
