@@ -12,12 +12,14 @@ import app.tuxguitar.ui.widget.UISpinner;
 
 /**
  * Transport > Interleaved Practice: what a turn plays (measures, lines, pages or beats), the pool (from, to), the number of
- * turns, the fixed groups (measures per line, lines per page) and the two rules; Start runs TGTransportPractiseAction
+ * turns, the fixed groups (measures per line, lines per page), the two rules and whether each turn has a Count In
+ * (interleaved practice's own, whether or not Transport > Count In is on); Start runs TGTransportPractiseAction
  * with them (a refusal shows as the app's error message). It opens with the settings of the last start. The pool's
  * fields cannot go past the song's last unit of the kind chosen (for beats, its last measure: a pool of beats is given in
  * measures, and the pool's labels say so). With the interval clock on, the session is timed (a
  * turn's minutes, a break's seconds, the session's minutes, at least a turn's, and a Count In before every pass or not)
- * instead of counting its turns: the fields of the one not in use are greyed out.
+ * instead of counting its turns: the fields of the one not in use are greyed out, and "Count In before every pass" too
+ * without a Count In before each turn.
  */
 public class TGPracticeDialog {
 
@@ -36,6 +38,7 @@ public class TGPracticeDialog {
 	private UISpinner linesPerPage;
 	private UICheckBox noConsecutiveRepeats;
 	private UICheckBox completeCycle;
+	private UICheckBox countInEachTurn;
 	private UICheckBox intervalClock;
 	private UISpinner turnMinutes;
 	private UISpinner breakSeconds;
@@ -57,12 +60,13 @@ public class TGPracticeDialog {
 		this.linesPerPage = this.spinner(6, "transport.practice.lines-per-page", last.getLinesPerPage());
 		this.noConsecutiveRepeats = this.form.checkBox(7, "transport.practice.no-consecutive-repeats", last.isNoConsecutiveRepeats());
 		this.completeCycle = this.form.checkBox(8, "transport.practice.complete-cycle", last.isCompleteCycle());
-		this.intervalClock = this.form.checkBox(9, "transport.practice.interval-clock", last.isIntervalClock());
-		this.turnMinutes = this.form.spinner(10, "transport.practice.turn-minutes", last.getTurnMinutes(), 1, MOST_TURN_MINUTES);
-		this.breakSeconds = this.form.spinner(11, "transport.practice.break-seconds", last.getBreakSeconds(), 0, MOST_BREAK_SECONDS);
-		this.sessionMinutes = this.form.spinner(12, "transport.practice.session-minutes", last.getSessionMinutes(), 1, MOST_SESSION_MINUTES);
-		this.countInEveryPass = this.form.checkBox(13, "transport.practice.count-in-every-pass", last.isCountInEveryPass());
-		this.form.buttons(14, TGTransportPractiseAction.NAME, TGTransportPractiseAction.ATTRIBUTE_SETTINGS, this::settings);
+		this.countInEachTurn = this.form.checkBox(9, "transport.practice.count-in-each-turn", last.isCountInEachTurn());
+		this.intervalClock = this.form.checkBox(10, "transport.practice.interval-clock", last.isIntervalClock());
+		this.turnMinutes = this.form.spinner(11, "transport.practice.turn-minutes", last.getTurnMinutes(), 1, MOST_TURN_MINUTES);
+		this.breakSeconds = this.form.spinner(12, "transport.practice.break-seconds", last.getBreakSeconds(), 0, MOST_BREAK_SECONDS);
+		this.sessionMinutes = this.form.spinner(13, "transport.practice.session-minutes", last.getSessionMinutes(), 1, MOST_SESSION_MINUTES);
+		this.countInEveryPass = this.form.checkBox(14, "transport.practice.count-in-every-pass", last.isCountInEveryPass());
+		this.form.buttons(15, TGTransportPractiseAction.NAME, TGTransportPractiseAction.ATTRIBUTE_SETTINGS, this::settings);
 		this.limitPool();
 		this.unit.addSelectionListener(event -> this.limitPool());
 		this.measuresPerLine.addSelectionListener(event -> this.limitPool());
@@ -71,6 +75,7 @@ public class TGPracticeDialog {
 		this.turnMinutes.addSelectionListener(event -> this.limitSession());
 		this.timeTheSession();
 		this.intervalClock.addSelectionListener(event -> this.timeTheSession());
+		this.countInEachTurn.addSelectionListener(event -> this.timeTheSession());
 		this.form.open();
 	}
 
@@ -92,14 +97,15 @@ public class TGPracticeDialog {
 		TGPracticeForm.limit(this.sessionMinutes, this.turnMinutes.getValue(), MOST_SESSION_MINUTES);
 	}
 
-	// the interval clock's fields in use while it is on, the number of turns while it is off
+	// the interval clock's fields in use while it is on, the number of turns while it is off; a Count In before every
+	// pass only with one before each turn
 	private void timeTheSession() {
 		boolean timed = this.intervalClock.isSelected();
 		this.turns.setEnabled(!timed);
 		this.turnMinutes.setEnabled(timed);
 		this.breakSeconds.setEnabled(timed);
 		this.sessionMinutes.setEnabled(timed);
-		this.countInEveryPass.setEnabled(timed);
+		this.countInEveryPass.setEnabled(timed && this.countInEachTurn.isSelected());
 	}
 
 	private TGPracticeSettings settings() {
@@ -111,6 +117,7 @@ public class TGPracticeDialog {
 		settings.setLinesPerPage(this.linesPerPage.getValue());
 		settings.setNoConsecutiveRepeats(this.noConsecutiveRepeats.isSelected());
 		settings.setCompleteCycle(this.completeCycle.isSelected());
+		settings.setCountInEachTurn(this.countInEachTurn.isSelected());
 		settings.setIntervalClock(this.intervalClock.isSelected());
 		settings.setTurnMinutes(this.turnMinutes.getValue());
 		settings.setBreakSeconds(this.breakSeconds.getValue());
