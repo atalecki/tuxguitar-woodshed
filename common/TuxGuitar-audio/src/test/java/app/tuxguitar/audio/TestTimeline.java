@@ -271,6 +271,43 @@ public class TestTimeline {
 		assertEquals("87200 | [] | m2:0-3840 | 89200 | 1000", read(timeline) + " | " + timeline.start(0));
 	}
 
+	// measures 2 and 3, then after a break measure 4 played twice (its second pass without a Count In), then measure 2:
+	// four turns of five measures, where a turn's first measure is told from its break's start
+	private TGTimeline fourTurns() {
+		TGTurn twoAndThree = new TGTurn(TGCountIn.before(countDown, played(2, 3), 44100), played(2, 3));
+		TGTurn four = turn(4);
+		return TGTimeline.of(song, List.of(twoAndThree, TGTurn.afterBreak(44100, four.getCountIn(), four.getMeasures()), TGTurn.pass(TGCountIn.NONE, four.getMeasures()),
+			turn(2)), 44100);
+	}
+
+	// the measures first to last as the song plays them
+	private List<TGPlayedMeasure> played(int first, int last) {
+		return TGSongTime.play(song, new MidiPlayerMode(), song.getMeasureHeader(first - 1).getStart(), song.getMeasureHeader(last - 1).getStart() + BAR, 1);
+	}
+
+	// which measures end their turn, and the measure each block is told from first: blocks starting a sample before, on
+	// and a sample after where each measure is told from (a turn's first: its break's start), and in its middle
+	@Test
+	public void eachMeasureIsFoundInItsTurnAndEachBlockToldFromTheMeasureItStartsIn() {
+		countDown.setEnabled(true);
+		TGTimeline timeline = fourTurns();
+		StringBuilder found = new StringBuilder();
+		for (int index = 0; index < timeline.count(); index++) {
+			found.append(timeline.endsTurn(index) ? "E" : "-");
+		}
+		for (int turn = 0; turn < timeline.turns(); turn++) {
+			for (int index = timeline.firstOf(turn); index < timeline.firstOf(turn + 1); index++) {
+				long from = (index == timeline.firstOf(turn) ? timeline.breakStart(turn) : timeline.start(index));
+				for (long sample : new long[] {from - 1, from, from + 1, (timeline.start(index) + timeline.end(index)) / 2}) {
+					found.append(" " + told(timeline, Math.max(0, sample)).split(" ")[5]);
+				}
+			}
+		}
+
+		assertEquals("-EEE- q0.0000 q0.0000 q0.0000 q6.0000 q8.0000 q8.0000 q8.0000 q10.0000 q12.0000 q6.0000 q6.0000 q14.0000 q16.0000 q12.0000 q12.0000 q14.0000"
+			+ " q16.0000 q0.0000 q0.0000 q6.0000", found.toString());
+	}
+
 	// stopped in a break: the turns before it, not the break; stopped in a pass: the turns before it with their breaks,
 	// and the pass up to there, still not opening a turn
 	@Test

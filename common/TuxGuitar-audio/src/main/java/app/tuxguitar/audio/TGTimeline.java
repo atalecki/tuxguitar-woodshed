@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 import app.tuxguitar.player.base.MidiTransport;
 import app.tuxguitar.song.models.TGDuration;
@@ -226,10 +227,7 @@ public final class TGTimeline {
 			return;
 		}
 		transport.clear();
-		int index = 0;
-		while (index + 1 < this.count() && this.toldFrom(index + 1) <= start) {
-			index++;
-		}
+		int index = last(this.count() - 1, measure -> this.toldFrom(measure) <= start);
 		this.tell(transport, index, start, start);
 		for (index++; index < this.count() && this.toldFrom(index) < start + frames; index++) {
 			this.tell(transport, index, start, this.toldFrom(index));
@@ -242,13 +240,26 @@ public final class TGTimeline {
 		return (index == this.firstOf(turn) ? this.breakStart(turn) : this.start(index));
 	}
 
-	// the turn the played measure is in
+	// the turn the played measure is in: the last that starts at it or before (a turn without measures, stopped in its
+	// Count In, comes last; the first of the turn after the last is the number of measures, past every one)
 	private int turnOf(int index) {
-		int turn = 0;
-		while (this.firstOf(turn + 1) <= index) {
-			turn++;
+		return last(this.turns(), turn -> this.firstOf(turn) <= index);
+	}
+
+	// the last of 0 to the highest that holds, where it holds from 0 up to some point and not after it (0 when none
+	// does): a binary search, so a session of hundreds of passes stays fast
+	private static int last(int highest, IntPredicate holds) {
+		int low = 0;
+		int high = highest;
+		while (low < high) {
+			int middle = (low + high + 1) / 2;
+			if (holds.test(middle)) {
+				low = middle;
+			} else {
+				high = middle - 1;
+			}
 		}
-		return turn;
+		return low;
 	}
 
 	// the span of the played measure from the sample
