@@ -55,8 +55,8 @@ public class TestPracticeSchedule {
 		return block(TGPracticeGrouping.of(4, 4).unit(kind, number, 64));
 	}
 
-	private static TGPracticeBlock block(TGPracticeUnit unit) {
-		return TGPracticeBlock.blocks(Collections.singletonList(unit)).get(0);
+	private static TGPracticeBlock block(TGPracticeUnit unit) throws TGPracticeRefusal {
+		return TGPracticeBlock.blocks(Collections.singletonList(unit), 1).get(0);
 	}
 
 	// so many turns of the first unit of the kind, planned by the schedule of a pool of units 1 to the one given
@@ -130,6 +130,28 @@ public class TestPracticeSchedule {
 		TGPracticePlan line = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 2));
 		TGPracticePlan beat = schedule(TGPracticeUnitKind.BEAT, 1, 4, 4, 100).plan(block(TGPracticeUnit.beat(song.getMeasureHeader(0), 2)));
 		assertEquals("16320 31680 31680 | 1920 2880 3840", spans(line) + " | " + spans(beat));
+	}
+
+	// measures 2-3 in blocks of 2 of measures 1 to 3; the block m1b4-m2b1 of beats over measures 1 to 2 plays from
+	// m1b4 (tick 3840) through the barline to its joint m2b2 (5760 to 6720)
+	@Test
+	public void aTurnPlansItsBlockFromItsFirstUnitToItsLastAndABeatBlocksJoint() throws TGPracticeRefusal {
+		settings.setUnitsPerBlock(2);
+		TGPracticeSchedule measures = schedule(TGPracticeUnitKind.MEASURE, 1, 3, 4, 100);
+		TGPracticePlan measure = measures.plan(TGPracticeSession.start(settings, song).getPool().get(1));
+		TGPracticeSchedule beats = schedule(TGPracticeUnitKind.BEAT, 1, 2, 4, 100);
+		TGPracticePlan beat = beats.plan(TGPracticeSession.start(settings, song).getPool().get(3));
+		assertEquals("Measure 2 Measure 3 2-3 | Measure 1 beat 4 Measure 2 beat 1 3840 5760 6720", measure.getFrom() + " " + measure.getTo() + " "
+			+ measure.getFirstMeasure() + "-" + measure.getLastMeasure() + " | " + beat.getFrom() + " " + beat.getTo() + " " + spans(beat));
+	}
+
+	// a block of 2 measures, 4 seconds, after a Count In of 2: pass 15 starts at 58 seconds
+	@Test
+	public void aTimedTurnLoopsItsBlock() throws TGPracticeRefusal {
+		settings.setUnitsPerBlock(2);
+		clockOn();
+		TGPracticeSchedule timed = schedule(TGPracticeUnitKind.MEASURE, 1, 3, 4, 100);
+		assertEquals("15 passes, last", plan(timed.plan(TGPracticeSession.start(settings, song).getPool().get(0))));
 	}
 
 	private String spans(TGPracticePlan plan) {

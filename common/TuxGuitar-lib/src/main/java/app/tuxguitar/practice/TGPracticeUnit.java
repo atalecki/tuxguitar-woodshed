@@ -70,11 +70,17 @@ public final class TGPracticeUnit {
 		return number -> song.getMeasureHeader(number - 1).getDifficulty();
 	}
 
+	// "line 3", a beat "measure 2 beat 3"
+	String name() {
+		if (this.kind == TGPracticeUnitKind.BEAT) {
+			return TGPracticeUnitKind.MEASURE.getName() + " " + this.first + " " + this.kind.getName() + " " + this.number;
+		}
+		return this.kind.getName() + " " + this.number;
+	}
+
 	// "Line 3", a beat "Measure 2 beat 3"
 	public String toString() {
-		if (this.kind == TGPracticeUnitKind.BEAT) {
-			return TGPracticeUnitKind.MEASURE.title() + " " + this.first + " " + this.kind.getName() + " " + this.number;
-		}
-		return this.kind.title() + " " + this.number;
+		String name = this.name();
+		return Character.toUpperCase(name.charAt(0)) + name.substring(1);
 	}
 }

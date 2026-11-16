@@ -59,9 +59,10 @@ public final class TGPracticeSession {
 		return null;
 	}
 
-	// the blocks of the pool's units
+	// the blocks of the pool's units, so many units each
 	private static List<TGPracticeBlock> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
-		return TGPracticeBlock.blocks(grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "pool"));
+		List<TGPracticeUnit> units = grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "pool");
+		return TGPracticeBlock.blocks(units, settings.getUnitsPerBlock());
 	}
 
 	// refuses weights that cannot keep "No consecutive repeats" (when it is on) for that many turns

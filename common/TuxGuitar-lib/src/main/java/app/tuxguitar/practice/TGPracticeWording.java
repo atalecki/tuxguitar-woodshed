@@ -8,7 +8,9 @@ import java.util.stream.Stream;
  * its own language. A turn under the Transport window's position: of interleaved practice, "Turn 3 of 12: Line 5"
  * (transport.practice.turn), with the interval clock "Turn 3: Line 5, 1:42 left" (transport.practice.timed-turn) or in
  * a break "Break, 0:12 left. Next: Line 7" (transport.practice.break), a beat named by its measure and beat
- * (transport.practice.beat-turn, beat-timed-turn, beat-break); a click-up step, "Step 7 of 23: lines 2-3 at 84 bpm"
+ * (transport.practice.beat-turn, beat-timed-turn, beat-break), a block of more than one unit by its run as a click-up
+ * step's sections are named, "Turn 3 of 12: lines 4–5" (transport.practice.block-turn, block-timed-turn, block-break);
+ * a click-up step, "Step 7 of 23: lines 2-3 at 84 bpm"
  * (transport.click-up.step), its sections one alone (transport.click-up.section.&lt;kind&gt;: "line 3", "measure 2 beat
  * 3") or a run (transport.click-up.sections.&lt;kind&gt;), its tempo by transport.click-up.tempo.&lt;mode&gt;. And the
  * label of a field of a range of units: as it is, or, when the range is given in another kind (beats in measures), in
@@ -59,17 +61,45 @@ public final class TGPracticeWording {
 		return new String[] {String.valueOf(unit.getNumber())};
 	}
 
-	// a turn of interleaved practice, counted or timed: its unit named by its kind's word and number, a beat by its
-	// measure and beat (the keys' beat- forms)
+	// a turn of interleaved practice, counted or timed: its block named as named says, in the keys of its form
 	private static String practice(TGPracticeTurn turn, Messages messages) {
-		TGPracticeUnit unit = turn.getFrom();
-		boolean beat = (unit.getKind() == TGPracticeUnitKind.BEAT);
-		String key = "transport.practice." + (beat ? "beat-" : "");
-		String[] named = (beat ? place(unit) : new String[] {messages.get("transport.practice.turn." + unit.getKind().getName(), NONE), String.valueOf(unit.getNumber())});
+		String key = "transport.practice." + form(turn);
+		String[] named = named(turn, messages);
 		if (!turn.isTimed()) {
-			return messages.get(key + "turn", new String[] {String.valueOf(turn.getTurn()), String.valueOf(turn.getTurns()), named[0], named[1]});
+			return messages.get(key + "turn", arguments(new String[] {String.valueOf(turn.getTurn()), String.valueOf(turn.getTurns())}, named, NONE));
 		}
 		String left = String.format("%d:%02d", turn.getSecondsLeft() / 60, turn.getSecondsLeft() % 60);
-		return messages.get(key + (turn.isBreak() ? "break" : "timed-turn"), new String[] {String.valueOf(turn.getTurn()), named[0], named[1], left});
+		return messages.get(key + (turn.isBreak() ? "break" : "timed-turn"), arguments(new String[] {String.valueOf(turn.getTurn())}, named, new String[] {left}));
+	}
+
+	// a block of more than one unit; else of one unit, a beat
+	private static boolean isBlock(TGPracticeTurn turn) {
+		return turn.getFrom() != turn.getTo();
+	}
+
+	// the keys' form: block- for a block of more than one unit, beat- for a beat, none for any other unit
+	private static String form(TGPracticeTurn turn) {
+		if (isBlock(turn)) {
+			return "block-";
+		}
+		return (turn.getFrom().getKind() == TGPracticeUnitKind.BEAT ? "beat-" : "");
+	}
+
+	// a block of more than one unit by its run, as a step's sections; a beat by its measure and beat; any other unit by
+	// its kind's word and its number
+	private static String[] named(TGPracticeTurn turn, Messages messages) {
+		TGPracticeUnit unit = turn.getFrom();
+		if (isBlock(turn)) {
+			return new String[] {sections(turn, messages)};
+		}
+		if (unit.getKind() == TGPracticeUnitKind.BEAT) {
+			return place(unit);
+		}
+		return new String[] {messages.get("transport.practice.turn." + unit.getKind().getName(), NONE), String.valueOf(unit.getNumber())};
+	}
+
+	// the turn's arguments before its block's names, those names, and the arguments after them
+	private static String[] arguments(String[] before, String[] named, String[] after) {
+		return Stream.of(before, named, after).flatMap(Stream::of).toArray(String[]::new);
 	}
 }

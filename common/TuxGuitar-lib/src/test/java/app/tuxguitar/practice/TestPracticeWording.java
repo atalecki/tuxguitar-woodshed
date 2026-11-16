@@ -31,6 +31,11 @@ public class TestPracticeWording {
 		return new TGPracticePlan(unit, unit, TGTempoScale.percent(100), 1, false, 0, false);
 	}
 
+	// a block of the units from and to
+	private static TGPracticePlan plan(TGPracticeUnit from, TGPracticeUnit to) {
+		return new TGPracticePlan(from, to, TGTempoScale.percent(100), 1, false, 0, false);
+	}
+
 	private static String turn(TGPracticeTurn turn) {
 		return TGPracticeWording.turn(turn, MESSAGES);
 	}
@@ -75,6 +80,23 @@ public class TestPracticeWording {
 	@Test
 	public void aBreakBeforeABeatNamesItsMeasureAndBeat() {
 		assertEquals("transport.practice.beat-break(4, 9, 1, 0:00)", turn(TGPracticeTurn.inBreak(4, plan(beat(9, 1)), 0)));
+	}
+
+	@Test
+	public void aCountedTurnOfABlockNamesItsFirstAndLastUnitAsARun() {
+		assertEquals("transport.practice.block-turn(3, 12, transport.click-up.sections.line(4, 5)) | "
+			+ "transport.practice.block-turn(3, 12, transport.click-up.sections.beat(3, 2, 4, 1))", turn(new TGPracticeTurn(3, 12, plan(line(4), line(5)))) + " | "
+				+ turn(new TGPracticeTurn(3, 12, plan(beat(3, 2), beat(4, 1)))));
+	}
+
+	@Test
+	public void aTimedTurnOfABlockNamesItsRunAndTheTimeLeft() {
+		assertEquals("transport.practice.block-timed-turn(3, transport.click-up.sections.line(4, 5), 1:42)", turn(TGPracticeTurn.timed(3, plan(line(4), line(5)), 102)));
+	}
+
+	@Test
+	public void aBreakBeforeABlockNamesItsRun() {
+		assertEquals("transport.practice.block-break(4, transport.click-up.sections.beat(3, 2, 4, 1), 0:12)", turn(TGPracticeTurn.inBreak(4, plan(beat(3, 2), beat(4, 1)), 12)));
 	}
 
 	@Test
