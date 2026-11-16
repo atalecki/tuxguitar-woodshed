@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import app.tuxguitar.player.base.MidiPlayerMode;
 import app.tuxguitar.player.base.MidiRepeatController;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -51,16 +52,17 @@ public final class TGSongTime {
 		return new TGPlayedMeasure(header, from, to, jump, i / passLength, scale, i % passLength);
 	}
 
-	// a unit of interleaved practice in its turn (from 0, its pass): its measures, numbers first to last, each once,
-	// whole and in score order, whatever repeats and alternate endings say, at the tempo scale; each where the
-	// song as written first plays it (its step), the first one starting a stretch in a turn after the first. A measure
-	// the song never plays (an alternate ending no pass reaches) plays too, at TGPlayedMeasure.NO_STEP (List.indexOf's -1)
-	public static List<TGPlayedMeasure> unit(TGSong song, int first, int last, int turn, TGTempoScale scale) {
+	// a unit of interleaved practice in its turn (from 0, its pass): what its span plays of each of its measures (whole
+	// measures; a beat and its joint, parts of one or two), each once and in score order, whatever repeats and alternate
+	// endings say, at the tempo scale; each where the song as written first plays it (its step), the first one starting a
+	// stretch in a turn after the first. A measure the song never plays (an alternate ending no pass reaches) plays too,
+	// at TGPlayedMeasure.NO_STEP (List.indexOf's -1)
+	public static List<TGPlayedMeasure> unit(TGSong song, TGPracticeSpan span, int turn, TGTempoScale scale) {
 		List<TGMeasureHeader> written = pass(song, new MidiPlayerMode());
 		List<TGPlayedMeasure> unit = new ArrayList<TGPlayedMeasure>();
-		for (int number = first; number <= last; number++) {
-			TGMeasureHeader header = song.getMeasureHeader(number - 1);
-			unit.add(new TGPlayedMeasure(header, 0, header.getLength(), turn > 0 && unit.isEmpty(), turn, scale, written.indexOf(header)));
+		for (TGMeasureHeader header : span.headers()) {
+			long from = span.startIn(header) - header.getStart();
+			unit.add(new TGPlayedMeasure(header, from, from + span.ticksIn(header), turn > 0 && unit.isEmpty(), turn, scale, written.indexOf(header)));
 		}
 		return unit;
 	}

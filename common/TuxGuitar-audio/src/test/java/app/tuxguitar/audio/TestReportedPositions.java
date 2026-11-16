@@ -95,7 +95,7 @@ public class TestReportedPositions {
 	public void inABreakThePositionIsTheNextTurnsFirstTick() {
 		countDown.setEnabled(true);
 		TGTurn four = turn(4);
-		TGTimeline timeline = TGTimeline.of(song, List.of(turn(2), TGTurn.afterBreak(44100, four.getCountIn(), four.getMeasures())), 44100);
+		TGTimeline timeline = TGTimeline.of(song, List.of(turn(2), four.afterBreak(44100)), 44100);
 		TGReportedPositions positions = TGReportedPositions.at(timeline, 0);
 
 		assertEquals("8640 12480 12480 12480 12481", LongStream.of(176400, 176401, 220501, 308700, 308724).mapToObj(positions::tickAt).map(String::valueOf)

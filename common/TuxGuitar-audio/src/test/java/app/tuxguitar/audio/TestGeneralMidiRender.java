@@ -15,6 +15,7 @@ import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerCountDown;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
@@ -293,7 +294,7 @@ public class TestGeneralMidiRender {
 		song.getMeasureHeader(2).setRepeatAlternative(4);
 		song.getMeasureHeader(2).setRepeatClose(1);
 		device(44100);
-		TGTurn turn = new TGTurn(TGCountIn.NONE, TGSongTime.unit(song, 3, 3, 0, TGTempoScale.percent(100)));
+		TGTurn turn = new TGTurn(TGCountIn.NONE, TGSongTime.unit(song, TGPracticeSpan.measures(song.getMeasureHeader(2), song.getMeasureHeader(2)), 0, TGTempoScale.percent(100)));
 		float[] tap = render(TGTimeline.of(song, Collections.singletonList(turn), 44100)).getTap(song.getTrack(0));
 
 		assertEquals(88200, tap.length);

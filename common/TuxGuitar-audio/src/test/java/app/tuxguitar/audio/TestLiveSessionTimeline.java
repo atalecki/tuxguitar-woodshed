@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.player.base.MidiPracticeTurn;
+import app.tuxguitar.practice.TGPracticeRefusal;
 
 /**
  * What an interleaved practice session plays live, followed a stretch at a time from what the transport is told (in the
@@ -94,6 +95,17 @@ public class TestLiveSessionTimeline {
 		this.followed.stop();
 
 		assertEquals("true 264600 121275 | true 264600 209475", first + " | " + this.follow(9.5, 512));
+	}
+
+	// a turn of measure 3's beat 2, then its joint (beat 3), after a Count In of 4 clicks: 6 beats (132300 samples);
+	// started half way through its Count In, or half way through its joint, the timeline plays from there
+	@Test
+	public void aBeatsTurnPlaysTheBeatThenItsJointFromWhereTheTransportIs() throws TGPracticeRefusal {
+		this.laid = Arrays.asList(new MidiPracticeTurn(TestSongTime.beat(this.fixture.song, 3, 2), 960, 4));
+		String countIn = this.follow(2.0, 512);
+		this.followed.stop();
+
+		assertEquals("true 132300 44100 | true 132300 121275", countIn + " | " + this.follow(5.5, 512));
 	}
 
 	// the next turn's measure comes earlier in the song (measure 6, then 3): started 1.5 beats into the first turn's

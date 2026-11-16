@@ -19,7 +19,7 @@ unit too, its events parsed alone; with the interval clock, offline and live, li
 turn as it is chosen, the one place that decides its passes and the last turn, and each pass is a turn of the timeline,
 `TGTurn.planned`: the first opens the practice turn after the break the turn before planned, its silence placed before
 it, `TGTurn.afterBreak`, through which plugins are told and TuxGuitar reports the turn's first measure as in its Count
-In; the others continue it, `TGTurn.pass`, each pass's start a jump), and live: lib's `MidiPlayer.practise` plays the session through the player's
+In; the others continue it, `TGTurn.continuing`, each pass's start a jump), and live: lib's `MidiPlayer.practise` plays the session through the player's
 sequencer, with or without this module (`MidiPractice`: the turns one after the other in the sequence's ticks, each
 its passes as the session's one schedule plans it, a pass a `MidiPracticeTurn` that `MidiSequenceParser.parseTurn`
 makes, its Count In clicks in the sequence at its first measure's tempo; a turn's first pass holds the break before
@@ -32,7 +32,7 @@ the player reports the song's tick, a turn's first measure all through its break
 break before the turn (`isBreak`) and the seconds left to the turn's end or in the break, rounded up,
 `getSecondsLeft`). Live, an audio track's takes play the turns as offline: the takes' live timeline (`TGLiveTimeline`)
 plays the passes the sequence holds so far (`MidiPlayer.getPracticeTurns`, read without the player's lock), each made
-by `TGTurn.unit` as offline, a turn's first pass `TGTurn.afterBreak`, the others `TGTurn.pass` (`TGLiveTurns`), on one
+by `TGTurn.unit` as offline, a turn's first pass `TGTurn.afterBreak`, the others `TGTurn.continuing` (`TGLiveTurns`), on one
 timeline from the session's first turn, and maps the transport's quarter notes (the sequence's)
 to the song's; a turn laid while the one before plays joins that timeline, so a turn's end crossfades as offline.
 Stop ends a live session, Pause keeps it and Play then plays the paused pass again from a Count In, then the turn's

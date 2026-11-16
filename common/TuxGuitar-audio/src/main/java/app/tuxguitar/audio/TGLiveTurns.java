@@ -5,13 +5,12 @@ import java.util.List;
 
 import app.tuxguitar.player.base.MidiPracticeTurn;
 import app.tuxguitar.song.models.TGDuration;
-import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
  * An interleaved practice session as it plays live: the passes its sequence holds so far (MidiPracticeTurn: one after the
- * other in the sequence's ticks, from its first), played as offline (TGTurn.unit: each its Count In, then its unit's
- * measures; a turn's first pass after the break before it, the others continuing it), on one timeline from the
+ * other in the sequence's ticks, from its first), played as offline (TGTurn.unit: each its Count In, then what its
+ * span plays; a turn's first pass after the break before it, the others continuing it), on one timeline from the
  * session's first turn. The transport tells where the sequence plays, in its
  * quarter notes; a turn moves its measures there from where the song has them, so in its Count In the song's quarter
  * note runs back from its first measure, as the timeline tells it.
@@ -34,12 +33,11 @@ final class TGLiveTurns {
 	// a turn after its break, as long as the sequence's ticks of it last at its first measure's tempo
 	private static TGTurn pass(TGSong song, List<MidiPracticeTurn> laid, int index, int sampleRate) {
 		MidiPracticeTurn played = laid.get(index);
-		TGTurn unit = TGTurn.unit(song, played.getFirst().getNumber(), played.getLast().getNumber(), index, played.getScale(), header -> played.getClicks(), sampleRate);
+		TGTurn unit = TGTurn.unit(song, played.getSpan(), index, played.getScale(), header -> played.getClicks(), sampleRate);
 		if (index > 0 && laid.get(index - 1).getTurn() == played.getTurn()) {
-			return TGTurn.pass(unit.getCountIn(), unit.getMeasures());
+			return unit.continuing(unit.getCountIn());
 		}
-		long rest = TGSampleTime.samples(played.getRest(), TGSampleTime.tempo(played.getFirst(), played.getScale()), sampleRate);
-		return TGTurn.afterBreak(rest, unit.getCountIn(), unit.getMeasures());
+		return unit.afterBreak(TGSampleTime.samples(played.getRest(), TGSampleTime.tempo(played.getFirst(), played.getScale()), sampleRate));
 	}
 
 	// the song's quarter note the sequence's plays (without turns, the song plays: the same one)
@@ -48,18 +46,23 @@ final class TGLiveTurns {
 	}
 
 	// the timeline's sample (see timeline) the sequence's quarter note plays on: from where its turn's first measure
-	// starts, back by the song's ticks before it (its Count In), on by those of each of the turn's measures it has
-	// reached (whole measures, in score order), each at its measure's tempo
+	// starts playing, back by the song's ticks before that (its Count In), on by those of each of the turn's measures it
+	// has reached (in score order, what its span plays of each, from one tick of it to another), each at its tempo
 	static long sampleAt(TGTimeline timeline, List<MidiPracticeTurn> laid, double quarters) {
 		int turn = turnAt(laid, quarters);
 		double tick = (songQuarters(laid, quarters) + 1) * TGDuration.QUARTER_TIME;
 		int first = timeline.firstOf(turn);
-		long sample = timeline.start(first) + samples(timeline, first, Math.min(0, tick - timeline.get(first).getHeader().getStart()));
+		long sample = timeline.start(first) + samples(timeline, first, Math.min(0, ticksInto(timeline.get(first), tick) - timeline.get(first).getFrom()));
 		for (int index = first; index < timeline.firstOf(turn + 1); index++) {
-			TGMeasureHeader header = timeline.get(index).getHeader();
-			sample += samples(timeline, index, Math.max(0, Math.min(header.getLength(), tick - header.getStart())));
+			TGPlayedMeasure measure = timeline.get(index);
+			sample += samples(timeline, index, Math.max(measure.getFrom(), Math.min(measure.getTo(), ticksInto(measure, tick))) - measure.getFrom());
 		}
 		return sample;
+	}
+
+	// how far into the played measure's own ticks the song's tick is (before it: less than 0)
+	private static double ticksInto(TGPlayedMeasure measure, double tick) {
+		return tick - measure.getHeader().getStart();
 	}
 
 	// the samples the ticks last at the played measure's tempo

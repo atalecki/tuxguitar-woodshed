@@ -231,7 +231,7 @@ public class TestTimeline {
 	// again, a pass of that turn, without one
 	private TGTimeline withABreak() {
 		TGTurn four = turn(4);
-		return TGTimeline.of(song, List.of(turn(2), TGTurn.afterBreak(44100, four.getCountIn(), four.getMeasures()), TGTurn.pass(TGCountIn.NONE, four.getMeasures())),
+		return TGTimeline.of(song, List.of(turn(2), four.afterBreak(44100), four.continuing(TGCountIn.NONE)),
 			44100);
 	}
 
@@ -266,7 +266,7 @@ public class TestTimeline {
 	@Test
 	public void aBreakBeforeTheFirstTurnMovesTheClockBack() {
 		TGTurn two = turn(2);
-		TGTimeline timeline = TGTimeline.of(song, List.of(TGTurn.afterBreak(1000, two.getCountIn(), two.getMeasures())), 44100);
+		TGTimeline timeline = TGTimeline.of(song, List.of(two.afterBreak(1000)), 44100);
 
 		assertEquals("87200 | [] | m2:0-3840 | 89200 | 1000", read(timeline) + " | " + timeline.start(0));
 	}
@@ -276,7 +276,7 @@ public class TestTimeline {
 	private TGTimeline fourTurns() {
 		TGTurn twoAndThree = new TGTurn(TGCountIn.before(countDown, played(2, 3), 44100), played(2, 3));
 		TGTurn four = turn(4);
-		return TGTimeline.of(song, List.of(twoAndThree, TGTurn.afterBreak(44100, four.getCountIn(), four.getMeasures()), TGTurn.pass(TGCountIn.NONE, four.getMeasures()),
+		return TGTimeline.of(song, List.of(twoAndThree, four.afterBreak(44100), four.continuing(TGCountIn.NONE),
 			turn(2)), 44100);
 	}
 
