@@ -2,6 +2,9 @@ package app.tuxguitar.practice;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,16 +18,26 @@ public class TestPracticeClock {
 
 	private final TGPracticeSettings settings = new TGPracticeSettings();
 
-	private TGPracticeClock clock(int turnMinutes, int breakSeconds, int sessionMinutes, boolean countInEveryPass) throws TGPracticeRefusal {
+	// turns the interval clock on in the settings, as set (the session's and the schedule's tests too)
+	static void turnOn(TGPracticeSettings settings, int turnMinutes, int breakSeconds, int sessionMinutes) {
 		settings.setIntervalClock(true);
 		settings.setTurnMinutes(turnMinutes);
 		settings.setBreakSeconds(breakSeconds);
 		settings.setSessionMinutes(sessionMinutes);
+	}
+
+	private TGPracticeClock clock(int turnMinutes, int breakSeconds, int sessionMinutes, boolean countInEveryPass) throws TGPracticeRefusal {
+		turnOn(settings, turnMinutes, breakSeconds, sessionMinutes);
 		settings.setCountInEveryPass(countInEveryPass);
 		return TGPracticeClock.of(settings);
 	}
 
-	// "passes, seconds" of a turn whose Count In and pass last so many seconds
+	// "passes, seconds" of each turn whose Count In and pass last so many seconds, given in pairs, joined by " | "
+	private static String turns(TGPracticeClock clock, long... countInsAndPasses) {
+		return IntStream.range(0, countInsAndPasses.length / 2).mapToObj(turn -> turn(clock, countInsAndPasses[2 * turn], countInsAndPasses[2 * turn + 1]))
+			.collect(Collectors.joining(" | "));
+	}
+
 	private static String turn(TGPracticeClock clock, long countIn, long pass) {
 		return clock.passes(countIn * SECOND, pass * SECOND) + ", " + clock.length(countIn * SECOND, pass * SECOND) / SECOND;
 	}
@@ -37,13 +50,7 @@ public class TestPracticeClock {
 
 	@Test
 	public void aTurnLoopsItsUnitUntilItsTimeIsUpThePassUnderWayPlayingToItsEnd() throws TGPracticeRefusal {
-		TGPracticeClock clock = clock(1, 10, 1, false);
-		assertEquals("29, 60", turn(clock, 2, 2));
-		assertEquals("8, 66", turn(clock, 2, 8));
-		assertEquals("8, 64", turn(clock, 0, 8));
-		assertEquals("2, 66", turn(clock, 2, 32));
-		assertEquals("4, 68", turn(clock, 4, 16));
-		assertEquals("1, 102", turn(clock, 2, 100));
+		assertEquals("29, 60 | 8, 66 | 8, 64 | 2, 66 | 4, 68 | 1, 102", turns(clock(1, 10, 1, false), 2, 2, 2, 8, 0, 8, 2, 32, 4, 16, 2, 100));
 	}
 
 	// a Count In as long as the turn's time (many clicks at a slow tempo) still leaves the turn one pass
@@ -54,11 +61,15 @@ public class TestPracticeClock {
 
 	@Test
 	public void withCountInBeforeEveryPassEachPassCountsItsCountIn() throws TGPracticeRefusal {
-		TGPracticeClock clock = clock(1, 10, 1, true);
-		assertEquals("6, 60", turn(clock, 2, 8));
-		assertEquals("6, 60", turn(clock, 5, 5));
-		assertEquals("8, 64", turn(clock, 0, 8));
-		assertEquals("1, 102", turn(clock, 2, 100));
+		assertEquals("6, 60 | 6, 60 | 8, 64 | 1, 102", turns(clock(1, 10, 1, true), 2, 8, 5, 5, 0, 8, 2, 100));
+	}
+
+	// before every pass only with a Count In before each turn: without one there is none to put before every pass
+	@Test
+	public void aCountInComesBeforeEveryPassOnlyWithOneBeforeEachTurn() throws TGPracticeRefusal {
+		boolean eachTurn = clock(1, 10, 1, true).isCountInEveryPass();
+		settings.setCountInEachTurn(false);
+		assertEquals("true false", eachTurn + " " + clock(1, 10, 1, true).isCountInEveryPass());
 	}
 
 	@Test

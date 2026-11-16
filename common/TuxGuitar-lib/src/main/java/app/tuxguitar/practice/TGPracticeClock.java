@@ -4,8 +4,8 @@ package app.tuxguitar.practice;
  * The interval clock of a session, times in microseconds: a turn loops its unit, pass after pass, until the turn's time
  * is up, counted from the start of its Count In, and the pass under way plays to its end, so a turn lasts its time or a
  * little more; a break follows every turn but the last; another turn follows only when a turn's end plus a break comes
- * before the session's time is up, counted from the session's start. With a Count In before every pass, each pass
- * counts its Count In; else only the first does. Immutable.
+ * before the session's time is up, counted from the session's start. With a Count In before every pass (only with
+ * one before each turn), each pass counts its Count In; else only the first does. Immutable.
  */
 public final class TGPracticeClock {
 
@@ -21,7 +21,7 @@ public final class TGPracticeClock {
 		this.turn = settings.getTurnMinutes() * MINUTE;
 		this.breakSeconds = settings.getBreakSeconds();
 		this.session = settings.getSessionMinutes() * MINUTE;
-		this.countInEveryPass = settings.isCountInEveryPass();
+		this.countInEveryPass = settings.isCountInEachTurn() && settings.isCountInEveryPass();
 	}
 
 	// the clock as set, or the reason it cannot time a session

@@ -59,13 +59,19 @@ public class TestPracticeCourse {
 			assertThrows(TGPracticeRefusal.class, () -> course.checkFlag(2, 3)).getMessage());
 	}
 
-	// a turn's Count In has as many clicks as the function given says (the player's Count In: none with it off), before
-	// its first measure (here measure 3's)
+	// interleaved practice's own Count In before each turn (on until turned off), whatever the function's Count In: as
+	// many clicks as it says before a turn's first measure (here measure 3's), or none
 	@Test
-	public void aTurnCountsInAsTheFunctionGivenSays() throws TGPracticeRefusal {
+	public void aTurnCountsInAsTheFunctionSaysWithCountInBeforeEachTurnOn() throws TGPracticeRefusal {
+		int eachTurn = clicksBeforeMeasure3();
+		settings.setCountInEachTurn(false);
+		assertEquals("5 0", eachTurn + " " + clicksBeforeMeasure3());
+	}
+
+	// the clicks a new session's course counts in before measure 3, the function saying 2 more than its number
+	private int clicksBeforeMeasure3() throws TGPracticeRefusal {
 		TGSong song = PracticeSongs.song(8);
-		TGPracticeCourse course = TGPracticeSession.start(settings, song).course(SEED, header -> header.getNumber() + 2, TGTempoScale.percent(80));
-		assertEquals(5, course.clicks(song.getMeasureHeader(2)));
+		return TGPracticeSession.start(settings, song).course(SEED, header -> header.getNumber() + 2, TGTempoScale.percent(80)).clicks(song.getMeasureHeader(2));
 	}
 
 	// a turn chosen at random is no step to go back to: Repeat step and Previous step have nothing to go back over

@@ -185,10 +185,10 @@ public class MidiPlayer{
 		this.runLocked(() -> this.stop(true));
 	}
 
-	// plays the session from its first turn, its turns chosen from the seed (see MidiPractice), at the percent the mode
-	// starts at (see practise(TGPracticeCourse))
+	// plays the session from its first turn, its turns chosen from the seed (see MidiPractice), each its own Count In as
+	// long as the player's Count In, which need not be on, at the percent the mode starts at (see practise(TGPracticeCourse))
 	public void practise(TGPracticeSession session, long seed) throws MidiPlayerException, TGPracticeRefusal {
-		this.practise(session.course(seed, this.getCountDown()::clicksBefore, TGTempoScale.percent(this.getMode().getStartPercent())));
+		this.practise(session.course(seed, this.getCountDown()::clicks, TGTempoScale.percent(this.getMode().getStartPercent())));
 	}
 
 	// plays the course from its first turn, each turn at its own tempo scale (see MidiPractice); Play looped and the

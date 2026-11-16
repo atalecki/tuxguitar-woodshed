@@ -22,12 +22,9 @@ public class TestPracticeSchedule {
 	private final TGSong song = PracticeSongs.song(64);
 	private final TGPracticeSettings settings = new TGPracticeSettings();
 
-	private TestPracticeSchedule clock(int turnMinutes, int breakSeconds, int sessionMinutes) {
-		settings.setIntervalClock(true);
-		settings.setTurnMinutes(turnMinutes);
-		settings.setBreakSeconds(breakSeconds);
-		settings.setSessionMinutes(sessionMinutes);
-		return this;
+	// turns the interval clock on: turns of 1 minute, breaks of 10 seconds, a session of 1 minute
+	private void clockOn() {
+		TestPracticeClock.turnOn(settings, 1, 10, 1);
 	}
 
 	private TGPracticeSchedule schedule(TGPracticeUnitKind kind, int from, int to, int clicks, int percent) throws TGPracticeRefusal {
@@ -82,7 +79,10 @@ public class TestPracticeSchedule {
 	}
 
 	private DynamicTest timed(String name, String plans, int[] clock, TGPracticeUnitKind kind, int clicks, int percent, int turns) {
-		return DynamicTest.dynamicTest(name, () -> assertEquals(plans, clock(clock[0], clock[1], clock[2]).planned(kind, 4, clicks, percent, turns)));
+		return DynamicTest.dynamicTest(name, () -> {
+			TestPracticeClock.turnOn(settings, clock[0], clock[1], clock[2]);
+			assertEquals(plans, planned(kind, 4, clicks, percent, turns));
+		});
 	}
 
 	// line 1: measures 1 and 2 at 120 bpm, 3 and 4 at 60 bpm: 12 seconds a pass after a Count In of 2
@@ -90,7 +90,8 @@ public class TestPracticeSchedule {
 	public void aPassLastsAsLongAsItsMeasuresTakeAtTheirOwnTempos() throws TGPracticeRefusal {
 		song.getMeasureHeader(2).getTempo().setQuarterValue(60);
 		song.getMeasureHeader(3).getTempo().setQuarterValue(60);
-		assertEquals("5 passes, last; ", clock(1, 10, 1).planned(TGPracticeUnitKind.LINE, 4, 4, 100, 1));
+		clockOn();
+		assertEquals("5 passes, last; ", planned(TGPracticeUnitKind.LINE, 4, 4, 100, 1));
 	}
 
 	// the Count In is a beat of its first measure's time signature a click: 3 clicks of an eighth in 6/8 at 120 bpm
@@ -99,7 +100,8 @@ public class TestPracticeSchedule {
 	public void theCountInLastsItsClicksAtItsFirstMeasuresBeat() throws TGPracticeRefusal {
 		song.getMeasureHeader(0).getTimeSignature().setNumerator(6);
 		song.getMeasureHeader(0).getTimeSignature().getDenominator().setValue(8);
-		assertEquals("40 passes, last; ", clock(1, 10, 1).planned(TGPracticeUnitKind.MEASURE, 1, 3, 100, 1));
+		clockOn();
+		assertEquals("40 passes, last; ", planned(TGPracticeUnitKind.MEASURE, 1, 3, 100, 1));
 	}
 
 	// line 2 is measures 5 to 8
@@ -111,7 +113,8 @@ public class TestPracticeSchedule {
 
 	@Test
 	public void aTimedTurnIsPlannedToPlayItsUnit() throws TGPracticeRefusal {
-		TGPracticePlan plan = clock(1, 10, 1).schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 3));
+		clockOn();
+		TGPracticePlan plan = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 3));
 		assertEquals("Line 3 Line 3 9-12", plan.getFrom() + " " + plan.getTo() + " " + plan.getFirstMeasure() + "-" + plan.getLastMeasure());
 	}
 
@@ -137,14 +140,27 @@ public class TestPracticeSchedule {
 	}
 
 	private String timedBeat(int measure, int beat) throws TGPracticeRefusal {
-		TGPracticeSchedule timed = clock(1, 10, 1).schedule(TGPracticeUnitKind.BEAT, 1, 64, 4, 100);
+		clockOn();
+		TGPracticeSchedule timed = schedule(TGPracticeUnitKind.BEAT, 1, 64, 4, 100);
 		return plan(timed.plan(TGPracticeUnit.beat(song.getMeasureHeader(measure - 1), beat)));
+	}
+
+	// without a Count In before each turn a timed turn is its passes alone, the function's 4 clicks and "Count In before
+	// every pass" taking no part: 8 passes of a line, not 6
+	@Test
+	public void withoutACountInBeforeEachTurnATimedTurnIsItsPassesAlone() throws TGPracticeRefusal {
+		settings.setCountInEachTurn(false);
+		settings.setCountInEveryPass(true);
+		clockOn();
+		TGPracticePlan plan = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 1));
+		assertEquals("8 passes, last false", plan(plan) + " " + plan.isCountInEveryPass());
 	}
 
 	@Test
 	public void aPlanSaysWhetherACountInComesBeforeEveryPass() throws TGPracticeRefusal {
 		settings.setCountInEveryPass(true);
-		TGPracticeSchedule timed = clock(1, 10, 1).schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100);
+		clockOn();
+		TGPracticeSchedule timed = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100);
 		TGPracticePlan plan = timed.plan(unit(TGPracticeUnitKind.LINE, 1));
 		settings.setIntervalClock(false);
 		boolean untimed = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 1)).isCountInEveryPass();

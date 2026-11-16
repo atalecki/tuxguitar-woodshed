@@ -40,9 +40,9 @@ public class TestPracticeSession {
 
 	@Test
 	public void theSettingsStartAsTheSpecSays() {
-		assertEquals("MEASURE 1-1 1 turns 4/4 true true", settings.getUnit() + " " + settings.getPoolFrom() + "-" + settings.getPoolTo()
-			+ " " + settings.getTurns() + " turns " + settings.getMeasuresPerLine() + "/" + settings.getLinesPerPage()
-			+ " " + settings.isNoConsecutiveRepeats() + " " + settings.isCompleteCycle());
+		assertEquals("MEASURE 1-1 1 turns 4/4 true true, Count In each turn true", settings.getUnit() + " " + settings.getPoolFrom() + "-"
+			+ settings.getPoolTo() + " " + settings.getTurns() + " turns " + settings.getMeasuresPerLine() + "/" + settings.getLinesPerPage() + " "
+			+ settings.isNoConsecutiveRepeats() + " " + settings.isCompleteCycle() + ", Count In each turn " + settings.isCountInEachTurn());
 	}
 
 	@Test
@@ -96,10 +96,7 @@ public class TestPracticeSession {
 	}
 
 	private TestPracticeSession clock(int turnMinutes, int breakSeconds, int sessionMinutes) {
-		settings.setIntervalClock(true);
-		settings.setTurnMinutes(turnMinutes);
-		settings.setBreakSeconds(breakSeconds);
-		settings.setSessionMinutes(sessionMinutes);
+		TestPracticeClock.turnOn(settings, turnMinutes, breakSeconds, sessionMinutes);
 		return this;
 	}
 

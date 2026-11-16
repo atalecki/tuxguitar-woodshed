@@ -2,10 +2,11 @@ package app.tuxguitar.practice;
 
 /**
  * Interleaved practice as the musician sets it, checked only when a session starts (TGPracticeSession.start): what a
- * turn plays, the pool (from and to, unit numbers from 1), the number of turns, the groups, and the two rules, both on
- * until turned off; and the interval clock (off until turned on), which times the session instead of counting its turns
- * (TGPracticeClock): a turn's minutes, a break's seconds, a session's minutes, and whether a Count In comes before every
- * pass of a turn or only its first.
+ * turn plays, the pool (from and to, unit numbers from 1), the number of turns, the groups, the two rules and whether
+ * each turn has a Count In (its own, whether or not the player's Count In is on), all three on until turned off; and the
+ * interval clock (off until turned on), which times the session instead of counting its turns (TGPracticeClock): a
+ * turn's minutes, a break's seconds, a session's minutes, and whether a Count In comes before every pass of a turn or
+ * only its first.
  */
 public class TGPracticeSettings {
 
@@ -22,6 +23,7 @@ public class TGPracticeSettings {
 	private int linesPerPage = DEFAULT_GROUP;
 	private boolean noConsecutiveRepeats = true;
 	private boolean completeCycle = true;
+	private boolean countInEachTurn = true;
 	private boolean intervalClock;
 	private int turnMinutes = DEFAULT_TURN_MINUTES;
 	private int breakSeconds = DEFAULT_BREAK_SECONDS;
@@ -87,6 +89,14 @@ public class TGPracticeSettings {
 
 	public void setCompleteCycle(boolean completeCycle) {
 		this.completeCycle = completeCycle;
+	}
+
+	public boolean isCountInEachTurn() {
+		return this.countInEachTurn;
+	}
+
+	public void setCountInEachTurn(boolean countInEachTurn) {
+		this.countInEachTurn = countInEachTurn;
 	}
 
 	public boolean isIntervalClock() {

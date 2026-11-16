@@ -50,9 +50,10 @@ public final class TGPracticeSchedule {
 		return new TGPracticePlan(unit, unit, this.scale, clock.passes(countIn, pass), clock.isCountInEveryPass(), (last ? 0 : clock.getBreakSeconds()), last);
 	}
 
-	// the Count In clicks before a turn whose first measure is the header, as the function given says now
+	// the Count In clicks before a turn whose first measure is the header: with Count In before each turn on, as the
+	// function given says now; none with it off
 	int clicks(TGMeasureHeader header) {
-		return this.clicks.applyAsInt(header);
+		return (this.session.isCountInEachTurn() ? this.clicks.applyAsInt(header) : 0);
 	}
 
 	// how long so many ticks of the measure take at its tempo and the session's tempo scale (microseconds)

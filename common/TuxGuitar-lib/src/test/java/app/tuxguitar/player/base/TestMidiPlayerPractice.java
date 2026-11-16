@@ -18,9 +18,10 @@ import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 
 /**
- * An interleaved practice session played live (MidiPlayer.practise) as LivePracticeFixture plays it: its turns back to
- * back, each a Count In on the drums then its measure; the player stops by itself after the last turn. Stop, moving the
- * position and the session ending (as an edit ends it) end it. The pool is measures 1 to 4 of the fixture's song.
+ * An interleaved practice session played live (MidiPlayer.practise) as LivePracticeFixture plays it, the player's Count
+ * In off: its turns back to back, each its own Count In on the drums (Count In before each turn, on until turned off)
+ * then its measure; the player stops by itself after the last turn. Stop, moving the position and the session ending (as
+ * an edit ends it) end it. The pool is measures 1 to 4 of the fixture's song.
  */
 public class TestMidiPlayerPractice {
 
@@ -32,6 +33,7 @@ public class TestMidiPlayerPractice {
 	private final PlayerSongFixture fixture = live.song;
 	private final MidiPlayer player = live.player;
 	private final List<String> received = live.received;
+	private final TGPracticeSettings settings = new TGPracticeSettings();
 	private TGPracticeSession session;
 
 	// practises so many turns: the start runs, the sequencer starts on the clock
@@ -41,7 +43,6 @@ public class TestMidiPlayerPractice {
 
 	// as practise(turns), the units of the kind in measures 1 to the one given
 	private void practise(TGPracticeUnitKind kind, int to, int turns) throws MidiPlayerException, TGPracticeRefusal {
-		TGPracticeSettings settings = new TGPracticeSettings();
 		settings.setUnit(kind);
 		settings.setPool(1, to);
 		settings.setTurns(turns);
@@ -50,12 +51,10 @@ public class TestMidiPlayerPractice {
 		live.run();
 	}
 
-	// practises a timed session (the interval clock: turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes),
-	// Count In on: turn 1 is its Count In then 29 passes of its measure, 60 seconds (2646000 frames); turn 2 follows
-	// after the break, the last
+	// practises a timed session (the interval clock: turns of 1 minute, breaks of 10 seconds, sessions of 2 minutes):
+	// turn 1 is its Count In then 29 passes of its measure, 60 seconds (2646000 frames); turn 2 follows after the break,
+	// the last
 	private void practiseTimed() throws MidiPlayerException, TGPracticeRefusal {
-		player.getCountDown().setEnabled(true);
-		TGPracticeSettings settings = new TGPracticeSettings();
 		settings.setPool(1, 4);
 		settings.setIntervalClock(true);
 		settings.setTurnMinutes(1);
@@ -112,7 +111,6 @@ public class TestMidiPlayerPractice {
 
 	@Test
 	public void eachTurnPlaysItsCountInThenItsMeasureAndThePlayerStopsAfterTheLast() throws Exception {
-		player.getCountDown().setEnabled(true);
 		practise(3);
 		String underWay = state();
 		int blocks = live.blocksToTheEnd();
@@ -121,9 +119,11 @@ public class TestMidiPlayerPractice {
 		assertEquals("true false true | false true false | 1034", underWay + " | " + state() + " | " + blocks);
 	}
 
-	// Play looped and Training Mode take no part: the session plays at the percent Training Mode starts at
+	// Play looped and Training Mode take no part: the session plays at the percent Training Mode starts at (the turns'
+	// measures alone, without a Count In before each turn)
 	@Test
 	public void aSessionPlaysAtThePercentTrainingModeStartsAtWithoutLooping() throws Exception {
+		settings.setCountInEachTurn(false);
 		fixture.loopMode(1, 2);
 		player.getMode().setType(MidiPlayerMode.TYPE_CUSTOM);
 		player.getMode().setCustomPercentFrom(50);
@@ -134,10 +134,20 @@ public class TestMidiPlayerPractice {
 		assertEquals((2 * 0) + " 1 " + (64 + measures.get(0)) + ", " + (8 * BEAT) + " 1 " + (64 + measures.get(1)), live.started());
 	}
 
+	// with Count In before each turn off, no turn counts in, the player's Count In on: the turns' measures back to back
+	@Test
+	public void withCountInBeforeEachTurnOffNoTurnCountsIn() throws Exception {
+		settings.setCountInEachTurn(false);
+		player.getCountDown().setEnabled(true);
+		practise(3);
+		live.blocksToTheEnd();
+		List<Integer> measures = chosen(3);
+		assertEquals(IntStream.range(0, 3).mapToObj(turn -> (turn * 4L * BEAT) + " 1 " + (64 + measures.get(turn))).collect(Collectors.joining(", ")), live.started());
+	}
+
 	// during a turn's Count In the player is on its measure's first tick
 	@Test
 	public void throughATurnsCountInThePlayerIsOnItsFirstMeasure() throws Exception {
-		player.getCountDown().setEnabled(true);
 		practise(2);
 		live.blocks(100);
 		assertEquals(fixture.start(chosen(1).get(0)), player.getTickPosition());
@@ -191,7 +201,6 @@ public class TestMidiPlayerPractice {
 	// turns 2 and 3, the same turns as without the pause, from the frame Play starts on
 	@Test
 	public void pauseKeepsTheSessionAndPlayPlaysThePausedTurnAgainFromItsCountIn() throws Exception {
-		player.getCountDown().setEnabled(true);
 		practise(3);
 		live.blocks(200);
 		player.pause();
@@ -209,7 +218,6 @@ public class TestMidiPlayerPractice {
 	// played again, and the session still has 3 turns
 	@Test
 	public void playAfterPausePlaysFromThePausedTurnOn() throws Exception {
-		player.getCountDown().setEnabled(true);
 		practise(3);
 		live.blocks(400);
 		player.pause();
@@ -225,7 +233,6 @@ public class TestMidiPlayerPractice {
 	// player paused, turn 2's first measure, to the song's end
 	@Test
 	public void aSessionEndedWhilePausedPlaysTheSongFromWhereItPaused() throws Exception {
-		player.getCountDown().setEnabled(true);
 		practise(3);
 		live.blocks(400);
 		player.pause();
@@ -242,7 +249,6 @@ public class TestMidiPlayerPractice {
 	@Test
 	public void aSequencerThatCannotTakeTurnsAddedWhilePlayingRefusesASession() throws Exception {
 		player.loadSequencer(new FakeSequencer(new ArrayList<String>()));
-		TGPracticeSettings settings = new TGPracticeSettings();
 		session = TGPracticeSession.start(settings, fixture.song);
 		String refusal;
 		try {
@@ -266,7 +272,6 @@ public class TestMidiPlayerPractice {
 	// in turn 2's Count In (block 400) the turn shown is turn 2, also once paused; Stop ends it
 	@Test
 	public void theSessionAndItsTurnAreShownWhilePlayingAndPaused() throws Exception {
-		player.getCountDown().setEnabled(true);
 		String before = shown();
 		practise(3);
 		live.blocks(400);
@@ -283,7 +288,6 @@ public class TestMidiPlayerPractice {
 	// none once Stop ends the session
 	@Test
 	public void theTurnsTheSequenceHoldsAreReadable() throws Exception {
-		player.getCountDown().setEnabled(true);
 		practise(3);
 		String first = laid();
 		live.blocks(1);
@@ -315,12 +319,11 @@ public class TestMidiPlayerPractice {
 	// the keys of measure 1's beats (from 1) once beatsOfMeasure1 has added theirs, then measure 2's first
 	private static final int[] BEAT_KEYS = {0, 65, 70, 71, 72, 66};
 
-	// a session of measure 1's beats, Count In on, its beats 2 to 4 given quarters (keys 70 to 72): each turn its 4 clicks,
+	// a session of measure 1's beats, its beats 2 to 4 given quarters (keys 70 to 72): each turn its 4 clicks,
 	// then its beat's note and its joint's (the next beat's; beat 4's is measure 2's first), the next turn 6 beats on
 	@Test
 	public void aBeatsTurnPlaysItsCountInThenItsBeatAndItsJoint() throws Exception {
 		IntStream.rangeClosed(2, 4).forEach(beat -> live.quarter(1, beat, 4 + beat));
-		player.getCountDown().setEnabled(true);
 		practise(TGPracticeUnitKind.BEAT, 1, 3);
 		live.blocksToTheEnd();
 		List<Integer> beats = TestMidiPractice.chosen(session, SEED, 3, TGPracticeUnit::getNumber);

@@ -11,7 +11,8 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * Interleaved practice of a song as it was started: its settings checked once, its pool (the units it chooses from, in
- * order), its number of turns (or its interval clock, which times it) and its rules; under way until it ends. The units' weights are read from the song's
+ * order), its number of turns (or its interval clock, which times it), its rules and whether each turn has a Count In
+ * (its own, whether or not the player's Count In is on); under way until it ends. The units' weights are read from the song's
  * difficulty flags when asked, so a flag set during the session counts.
  */
 public final class TGPracticeSession {
@@ -22,6 +23,7 @@ public final class TGPracticeSession {
 	private final TGPracticeClock clock;
 	private final boolean noConsecutiveRepeats;
 	private final boolean completeCycle;
+	private final boolean countInEachTurn;
 	// whether it has ended: set once, on the thread that ends it (the player's or the app's), read on any
 	private volatile boolean ended;
 
@@ -33,6 +35,7 @@ public final class TGPracticeSession {
 		// with the clock, a pool of one unit plays it every turn
 		this.noConsecutiveRepeats = settings.isNoConsecutiveRepeats() && !(clock != null && pool.size() == 1);
 		this.completeCycle = settings.isCompleteCycle();
+		this.countInEachTurn = settings.isCountInEachTurn();
 	}
 
 	// the session as set, or the reason it cannot be played
@@ -90,6 +93,11 @@ public final class TGPracticeSession {
 		return this.completeCycle;
 	}
 
+	// whether each turn has a Count In, whether or not the player's Count In is on
+	public boolean isCountInEachTurn() {
+		return this.countInEachTurn;
+	}
+
 	// each unit's weight, by unit of the pool, as the song's flags are now
 	public int[] weights() {
 		return this.weights(TGPracticeUnit.difficulties(this.song));
@@ -120,14 +128,15 @@ public final class TGPracticeSession {
 		return new TGPracticeChooser(this, seed);
 	}
 
-	// the session's course: its turns chosen from the seed (chooser), each planned as it is chosen (schedule) with as
-	// many Count In clicks as the function says, at the tempo scale
+	// the session's course: its turns chosen from the seed (chooser), each planned as it is chosen (schedule), each
+	// turn's Count In as many clicks as the function says (the player's Count In's, whether it is on or not) with Count In
+	// before each turn on, at the tempo scale
 	public TGPracticeCourse course(long seed, ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {
 		return new TGPracticeRandomCourse(this.chooser(seed), this.schedule(clicks, scale));
 	}
 
 	// plans the session's turns as they are chosen, its Count In clicks before a turn whose first measure is the header
-	// as the function says (0: none), each turn at the tempo scale
+	// as the function says with Count In before each turn on (0: none), each turn at the tempo scale
 	public TGPracticeSchedule schedule(ToIntFunction<TGMeasureHeader> clicks, TGTempoScale scale) {
 		return new TGPracticeSchedule(this, this.song, clicks, scale);
 	}
