@@ -53,6 +53,7 @@ public class LivePractisingSteps {
 	private final AudioWorld world;
 	private final Practice practice;
 	private final SongSteps songSteps;
+	private final RecordingSteps recordingSteps;
 	// the sample of the change (the first after the blocks played before it), the turn it was made in (from 1), and
 	// for each block whether the player ran after its turn of the play loop, and the turn it showed (none: empty)
 	private long change;
@@ -62,10 +63,11 @@ public class LivePractisingSteps {
 	private final List<Boolean> running = new ArrayList<Boolean>();
 	private final List<Optional<TGPracticeTurn>> shown = new ArrayList<Optional<TGPracticeTurn>>();
 
-	public LivePractisingSteps(AudioWorld world, Practice practice, SongSteps songSteps) {
+	public LivePractisingSteps(AudioWorld world, Practice practice, SongSteps songSteps, RecordingSteps recordingSteps) {
 		this.world = world;
 		this.practice = practice;
 		this.songSteps = songSteps;
+		this.recordingSteps = recordingSteps;
 	}
 
 	MidiPlayer player() {
@@ -195,6 +197,11 @@ public class LivePractisingSteps {
 	@When("I practise {int} turns live, {keptEdit} during turn {int}")
 	public void practiseLiveKeeping(int turns, Runnable edit, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practiseLive(turns, during, edit, LONGEST);
+	}
+
+	@When("I practise {int} turns live, choosing Record during turn {int}")
+	public void practiseLiveRecording(int turns, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		practiseLive(turns, during, recordingSteps::chooseRecord, LONGEST);
 	}
 
 	// as the app pauses and plays again (TGTransport: no move during a session)

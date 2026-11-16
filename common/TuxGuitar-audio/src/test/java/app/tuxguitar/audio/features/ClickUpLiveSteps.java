@@ -49,17 +49,19 @@ public class ClickUpLiveSteps {
 	private final LivePractisingSteps live;
 	private final Practice practice;
 	private final SongSteps songSteps;
+	private final RecordingSteps recordingSteps;
 	// once a step was played again at the change: which (from 1; 0 until a step says), else -1
 	private int again = -1;
 	// the steps the output holds started, in order, once a step says
 	private List<Integer> played;
 
-	public ClickUpLiveSteps(AudioWorld world, ClickUp clickUp, LivePractisingSteps live, Practice practice, SongSteps songSteps) {
+	public ClickUpLiveSteps(AudioWorld world, ClickUp clickUp, LivePractisingSteps live, Practice practice, SongSteps songSteps, RecordingSteps recordingSteps) {
 		this.world = world;
 		this.clickUp = clickUp;
 		this.live = live;
 		this.practice = practice;
 		this.songSteps = songSteps;
+		this.recordingSteps = recordingSteps;
 	}
 
 	/** A step as the output holds it: which (from 1), where it starts as the player plays it, and up to where it is heard. */
@@ -135,6 +137,11 @@ public class ClickUpLiveSteps {
 	@When("I practise interleaved click-up live, {keptEdit} during step {int}")
 	public void practiseKeeping(Runnable edit, int step) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
 		practiseLive(step, edit, LivePractisingSteps.LONGEST);
+	}
+
+	@When("I practise interleaved click-up live, choosing Record during step {int}")
+	public void practiseRecording(int step) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		practiseLive(step, recordingSteps::chooseRecord, LivePractisingSteps.LONGEST);
 	}
 
 	// as the app flags it: the flag action, which the course under way takes (TGPracticeEdits)

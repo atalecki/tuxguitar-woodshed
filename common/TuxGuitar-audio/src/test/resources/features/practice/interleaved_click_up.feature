@@ -321,7 +321,6 @@ Feature: Interleaved click-up
       | removing the marker of measure 2             | -     |                    |
       | undoing                                      | -     |                    |
 
-  @planned
   Scenario: Record during a session is refused, saying why, and the session goes on
     Given I have added an audio track recording input channel 1
     And I have armed track 2

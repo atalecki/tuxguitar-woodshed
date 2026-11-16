@@ -150,6 +150,23 @@ public class RecordingSteps {
 		assertTrue(world.session().isRecording());
 	}
 
+	// Tools > Record as the app chooses it: the record action on a thread of its own, from measure 1 beat 1; a refusal
+	// (a TGActionException, which the app shows) is the world's refusal. It waits a second for the action: one that
+	// records instead runs on, past the scenario
+	void chooseRecord() {
+		Thread choosing = new Thread(() -> {
+			world.fixture().actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 0L);
+			world.attempt(new TGRecordAction(world.fixture().context));
+		});
+		choosing.setDaemon(true);
+		choosing.start();
+		try {
+			choosing.join(TimeUnit.SECONDS.toMillis(1));
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
 	@After
 	public void stopTheRecording() throws InterruptedException {
 		world.device().release();

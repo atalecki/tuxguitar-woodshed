@@ -458,7 +458,6 @@ Feature: Interleaved practice
       | a marker | added the marker "Intro" at measure 2 | -     | m2 Intro |
 
   # Tools > Record is greyed out during a session, playing or paused; the action refuses too, and the session goes on
-  @planned
   Scenario: Record during a session is refused, saying why, and the session goes on
     Given I have added an audio track recording input channel 1
     And I have armed track 2

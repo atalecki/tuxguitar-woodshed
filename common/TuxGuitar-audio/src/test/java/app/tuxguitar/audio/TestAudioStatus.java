@@ -8,6 +8,11 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.SongActionFixture;
+import app.tuxguitar.practice.TGPracticeRefusal;
+import app.tuxguitar.practice.TGPracticeSession;
+import app.tuxguitar.practice.TGPracticeSettings;
+import app.tuxguitar.practice.TGPracticeUnderWay;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGAudioInput;
 import app.tuxguitar.song.models.TGTrack;
 
@@ -104,5 +109,24 @@ class TestAudioStatus {
 		this.session.arm(this.voice);
 		this.session.setRecording(true);
 		assertEquals("audio.status.recording | Voice 0 -inf dBFS", status());
+	}
+
+	// an interleaved practice session of one turn of measure 1 under way, playing or paused
+	private void practising() throws TGPracticeRefusal {
+		TGPracticeSettings settings = new TGPracticeSettings();
+		settings.setPool(1, 1);
+		settings.setTurns(1);
+		TGPracticeUnderWay.getInstance(this.fixture.context).begin(TGPracticeSession.start(settings, this.fixture.song).course(1, header -> 0, TGTempoScale.percent(100)));
+	}
+
+	// Record is greyed out during a practice session, and refused saying why (null without one)
+	@Test
+	void duringAPracticeSessionItCannotRecord() throws TGPracticeRefusal {
+		device();
+		this.session.arm(this.voice);
+		String before = String.valueOf(TGAudioStatus.practiceRefusal(this.fixture.context));
+		practising();
+		assertEquals("null | audio.status.not-recording | Voice 0 -inf dBFS | Interleaved practice is under way: stop it to record.",
+			before + " | " + status() + " | " + TGAudioStatus.practiceRefusal(this.fixture.context));
 	}
 }
