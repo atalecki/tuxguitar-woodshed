@@ -63,6 +63,12 @@ public final class TGTempoScale {
 		return ticks * MINUTE * this.den / (TGDuration.QUARTER_TIME * written.getQuarterValue() * this.num);
 	}
 
+	// the milliseconds a span lasting so many at the written tempo lasts at this scale, rounded down: for p% the very
+	// value the desktop's smooth scroll reckoned with the Percentage of Tempo p
+	public int millis(int writtenMillis) {
+		return (int) (writtenMillis * this.den / this.num);
+	}
+
 	public boolean equals(Object other) {
 		return (other instanceof TGTempoScale && ((TGTempoScale) other).num == this.num && ((TGTempoScale) other).den == this.den);
 	}
