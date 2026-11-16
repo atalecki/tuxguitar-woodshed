@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.audio.action.TGAddAudioTrackAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
+import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.editor.action.track.TGCloneTrackAction;
 import app.tuxguitar.editor.action.track.TGMoveTrackDownAction;
 import app.tuxguitar.editor.action.track.TGMoveTrackUpAction;
@@ -17,6 +18,7 @@ import app.tuxguitar.editor.undo.impl.track.TGUndoableCloneTrackController;
 import app.tuxguitar.editor.undo.impl.track.TGUndoableMoveTrackDownController;
 import app.tuxguitar.editor.undo.impl.track.TGUndoableMoveTrackUpController;
 import app.tuxguitar.editor.undo.impl.track.TGUndoableRemoveTrackController;
+import app.tuxguitar.editor.undo.impl.track.TGUndoableTrackSoloMuteController;
 import app.tuxguitar.song.models.TGTrack;
 import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
@@ -121,19 +123,24 @@ public class TrackSteps {
 		assertEquals(track.getChannelId(), world.channel(track).getChannelId());
 	}
 
+	// as the app mutes it: one undo step
 	@Given("I have muted track {int}")
 	public void mute(int number) {
-		world.fixture().actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, world.track(number));
-		world.fixture().actionContext.setAttribute(TGSetTrackMuteAction.ATTRIBUTE_MUTE, Boolean.TRUE);
-		world.execute(new TGSetTrackMuteAction(world.fixture().context));
+		turnOn(number, new TGSetTrackMuteAction(world.fixture().context), TGSetTrackMuteAction.ATTRIBUTE_MUTE);
 		assertTrue(world.track(number).isMute());
 	}
 
+	// as the app solos it: one undo step
 	@Given("I have soloed track {int}")
 	public void solo(int number) {
-		world.fixture().actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, world.track(number));
-		world.fixture().actionContext.setAttribute(TGSetTrackSoloAction.ATTRIBUTE_SOLO, Boolean.TRUE);
-		world.execute(new TGSetTrackSoloAction(world.fixture().context));
+		turnOn(number, new TGSetTrackSoloAction(world.fixture().context), TGSetTrackSoloAction.ATTRIBUTE_SOLO);
 		assertTrue(world.track(number).isSolo());
+	}
+
+	// the action turns the track's mute or solo (its attribute) on, under the controller the app maps to it
+	private void turnOn(int number, TGActionBase action, String attribute) {
+		world.fixture().actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, world.track(number));
+		world.fixture().actionContext.setAttribute(attribute, Boolean.TRUE);
+		world.executeUndoable(action, new TGUndoableTrackSoloMuteController());
 	}
 }

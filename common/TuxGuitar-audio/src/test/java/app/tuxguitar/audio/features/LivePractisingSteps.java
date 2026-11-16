@@ -191,6 +191,12 @@ public class LivePractisingSteps {
 		practiseLive(turns, during, () -> songSteps.removeMeasure(measure));
 	}
 
+	// an edit the session goes on through (see KeptEditSteps), as the app makes it
+	@When("I practise {int} turns live, {keptEdit} during turn {int}")
+	public void practiseLiveKeeping(int turns, Runnable edit, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		practiseLive(turns, during, edit, LONGEST);
+	}
+
 	// as the app pauses and plays again (TGTransport: no move during a session)
 	@When("I practise {int} turns live, pausing during turn {int} and playing again")
 	public void practiseLivePausing(int turns, int during) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {

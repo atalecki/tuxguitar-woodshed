@@ -131,6 +131,12 @@ public class ClickUpLiveSteps {
 		practiseLive(step, () -> songSteps.removeMeasure(measure), LivePractisingSteps.AFTER);
 	}
 
+	// an edit the session goes on through (see KeptEditSteps), as the app makes it
+	@When("I practise interleaved click-up live, {keptEdit} during step {int}")
+	public void practiseKeeping(Runnable edit, int step) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {
+		practiseLive(step, edit, LivePractisingSteps.LONGEST);
+	}
+
 	// as the app flags it: the flag action, which the course under way takes (TGPracticeEdits)
 	@When("I practise interleaved click-up live, flagging measure {int} as {int}x difficult during step {int}")
 	public void practiseFlagging(int measure, int difficulty, int step) throws MidiPlayerException, TGAudioDeviceException, TGPracticeRefusal {

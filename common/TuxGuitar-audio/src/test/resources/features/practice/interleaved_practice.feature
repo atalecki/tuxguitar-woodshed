@@ -415,7 +415,6 @@ Feature: Interleaved practice
 
   # mute, solo and markers change no note a turn plays: the session goes on through them, each still an undo step, and
   # through their undo and redo. Had the edit ended it, the player would have stopped at the edit (see above)
-  @planned
   Scenario Outline: <edit> during a session keeps it, and the turns play on
     Given I have added the marker "Intro" at measure 2
     And I have set interleaved practice to measures over measures 1 to 4
@@ -431,7 +430,6 @@ Feature: Interleaved practice
       | renaming the marker of measure 2 to "Chorus" | -     | m2 Chorus          |
       | removing the marker of measure 2             | -     |                    |
 
-  @planned
   Scenario Outline: undoing <an edit> during a session keeps it too
     Given I have <made it>
     And I have set interleaved practice to measures over measures 1 to 4
@@ -445,7 +443,6 @@ Feature: Interleaved practice
       | a solo   | soloed track 1                        |
       | a marker | added the marker "Intro" at measure 2 |
 
-  @planned
   Scenario Outline: redoing <an edit> during a session keeps it too
     Given I have <made it>
     And I have undone it

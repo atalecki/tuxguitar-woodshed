@@ -305,7 +305,6 @@ Feature: Interleaved click-up
     And interleaved click-up has ended
 
   # as in interleaved practice (see there): mute, solo and markers, and their undo and redo, keep the session
-  @planned
   Scenario Outline: <edit> during a session keeps it, and the steps play on
     Given I have added the marker "Intro" at measure 2
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
