@@ -18,6 +18,9 @@ public abstract class TGMeasureHeader {
 	public static final int TRIPLET_FEEL_NONE = 1;
 	public static final int TRIPLET_FEEL_EIGHTH = 2;
 	public static final int TRIPLET_FEEL_SIXTEENTH = 3;
+	// interleaved practice's difficulty flag: the measure's weight, 1 (not flagged) to 5
+	public static final int DIFFICULTY_NONE = 1;
+	public static final int DIFFICULTY_MAX = 5;
 
 	private int number;
 	/*
@@ -39,6 +42,7 @@ public abstract class TGMeasureHeader {
 	private int tripletFeel;
 	private TGSong song;
 	private boolean lineBreak;
+	private int difficulty = DIFFICULTY_NONE;
 
 	public TGMeasureHeader(TGFactory factory){
 		this.number = 0;
@@ -190,6 +194,22 @@ public abstract class TGMeasureHeader {
 		this.lineBreak = lineBreak;
 	}
 
+	public int getDifficulty() {
+		return this.difficulty;
+	}
+
+	public static boolean isDifficulty(int difficulty) {
+		return (difficulty >= DIFFICULTY_NONE && difficulty <= DIFFICULTY_MAX);
+	}
+
+	// a difficulty outside 1 to 5 is refused, and changes nothing
+	public void setDifficulty(int difficulty) {
+		if (!isDifficulty(difficulty)) {
+			throw new IllegalArgumentException("A measure is flagged from 1x to 5x difficult, not " + difficulty + "x");
+		}
+		this.difficulty = difficulty;
+	}
+
 
 	public void copyFrom(TGFactory factory, TGMeasureHeader header){
 		this.setNumber(header.getNumber());
@@ -203,6 +223,7 @@ public abstract class TGMeasureHeader {
 		this.setMarker(header.hasMarker() ? header.getMarker().clone(factory) : null);
 		this.checkMarker();
 		this.setLineBreak(header.isLineBreak());
+		this.setDifficulty(header.getDifficulty());
 
 	}
 

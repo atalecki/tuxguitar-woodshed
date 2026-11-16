@@ -3,14 +3,25 @@ package app.tuxguitar.audio;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.player.base.MidiPlayerCountDown;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.practice.TGPracticeRefusal;
+import app.tuxguitar.practice.TGPracticeSpan;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasure;
 import app.tuxguitar.song.models.TGNote;
 import app.tuxguitar.song.models.TGSong;
@@ -39,8 +50,14 @@ public class TestGeneralMidiRender {
 
 	// fret 5 on string 1, a quarter note at the tick from the measure's start
 	private void note(TGMeasure measure, long tick) {
+		note(measure, tick, TGDuration.QUARTER);
+	}
+
+	// the same, of that duration (a denominator: 1 a whole note)
+	private void note(TGMeasure measure, long tick, int value) {
 		TGBeat beat = songManager.getFactory().newBeat();
 		beat.setStart(measure.getStart() + tick);
+		beat.getVoice(0).getDuration().setValue(value);
 		TGNote note = songManager.getFactory().newNote();
 		note.setValue(5);
 		note.setString(1);
@@ -71,8 +88,14 @@ public class TestGeneralMidiRender {
 
 	// from the start of a measure until a tick is reached
 	private TGRender render(int sampleRate, int fromMeasure, long stop) throws MidiPlayerException {
-		TGAudioSession session = TGAudioSession.getInstance(this.context);
-		session.setDevice(new TGAudioDevice() {
+		device(sampleRate);
+		long start = song.getMeasureHeader(fromMeasure - 1).getStart();
+		return render(new TGTimeline(song, TGSongTime.play(song, new MidiPlayerMode(), start, stop, 1), sampleRate));
+	}
+
+	// a device that delivers silence
+	private void device(int sampleRate) {
+		TGAudioSession.getInstance(this.context).setDevice(new TGAudioDevice() {
 			public int getSampleRate() {
 				return sampleRate;
 			}
@@ -81,10 +104,11 @@ public class TestGeneralMidiRender {
 				return new float[count];
 			}
 		});
-		MidiPlayerMode mode = new MidiPlayerMode();
-		long start = song.getMeasureHeader(fromMeasure - 1).getStart();
-		TGTimeline timeline = new TGTimeline(song, TGSongTime.play(song, mode, start, stop, 1), sampleRate);
-		return new TGRenderer(this.context, this.songManager, this.song, session).render(timeline, mode, false, true);
+	}
+
+	// the song as written, over the timeline
+	private TGRender render(TGTimeline timeline) throws MidiPlayerException {
+		return new TGRenderer(this.context, this.songManager, this.song, TGAudioSession.getInstance(this.context)).render(timeline, new MidiPlayerMode(), false, true);
 	}
 
 	// the frequency from 200 to 1000 Hz with the highest level: the fundamental of a square lead
@@ -240,6 +264,105 @@ public class TestGeneralMidiRender {
 		float[] tap = render(44100).getTap(song.getTrack(0));
 		assertEquals(3 * 88200, tap.length);
 		assertEquals(2 * 88200, firstSound(tap), 512);
+	}
+
+	// measure 1, then measure 2 as another turn, each after a Count In of 4 beats (88200 samples): measure 1's note on
+	// beat 4 ends with the turn, so it is over in measure 2's Count In; measure 2's note sounds from its beat
+	@Test
+	public void aNoteEndingWithATurnStopsThere() throws MidiPlayerException {
+		twoMeasures();
+		note(song.getTrack(0).getMeasure(0), 2880);
+		MidiPlayerCountDown countDown = MidiPlayer.getInstance(context).getCountDown();
+		countDown.setEnabled(true);
+		List<TGTurn> turns = new ArrayList<TGTurn>();
+		for (int measure = 1; measure <= 2; measure++) {
+			long start = song.getMeasureHeader(measure - 1).getStart();
+			List<TGPlayedMeasure> played = TGSongTime.play(song, new MidiPlayerMode(), start, start + song.getMeasureHeader(measure - 1).getLength(), 1);
+			turns.add(new TGTurn(TGCountIn.before(countDown, played, 44100), played));
+		}
+		device(44100);
+		float[] tap = render(TGTimeline.of(song, turns, 44100)).getTap(song.getTrack(0));
+
+		assertTrue(Meters.peak(tap, 176400 - 2000, 176400) > 0.01, "the note sounds to the turn's end");
+		assertTrue(Meters.peak(tap, 176400 + 20000, 264600) < 0.01, "the note is over in the next turn's Count In");
+		assertEquals(264600, firstSound(Arrays.copyOfRange(tap, 176400 + 20000, tap.length)) + 176400 + 20000, 512);
+	}
+
+	// measure 1 repeated once, measure 2 its first ending and measure 3 a third that no pass reaches: a turn of measure 3
+	// sounds its note from its beat (its attack within 64 samples), and lasts the measure
+	@Test
+	public void aMeasureNoPassReachesSoundsInItsTurn() throws MidiPlayerException {
+		twoMeasures();
+		songManager.addNewMeasureBeforeEnd(song);
+		song.getTrack(0).getMeasure(1).clear();
+		note(song.getTrack(0).getMeasure(2), 0);
+		song.getMeasureHeader(0).setRepeatOpen(true);
+		song.getMeasureHeader(1).setRepeatAlternative(1);
+		song.getMeasureHeader(1).setRepeatClose(1);
+		song.getMeasureHeader(2).setRepeatAlternative(4);
+		song.getMeasureHeader(2).setRepeatClose(1);
+		device(44100);
+		TGTurn turn = new TGTurn(TGCountIn.NONE, TGSongTime.unit(song, TGPracticeSpan.measures(song.getMeasureHeader(2), song.getMeasureHeader(2)), 0, TGTempoScale.percent(100)));
+		float[] tap = render(TGTimeline.of(song, Collections.singletonList(turn), 44100)).getTap(song.getTrack(0));
+
+		assertEquals(88200, tap.length);
+		assertEquals(0, firstSound(tap), 64);
+	}
+
+	// at 60 bpm (a beat 44100 samples), twice a turn of beat 1 and its joint, beat 2: a whole note on beat 1 is cut where
+	// the joint starts, and an eighth note half way through the joint is not played (only notes on the joint's first
+	// tick are): the joint is silent, past the note's release, in both turns
+	@Test
+	public void aBeatsTurnCutsItsNotesAtTheJointAndPlaysOnlyTheJointsFirstTick() throws MidiPlayerException, TGPracticeRefusal {
+		song.getMeasureHeader(0).getTempo().setQuarterValue(60);
+		song.getTrack(0).getMeasure(0).clear();
+		note(song.getTrack(0).getMeasure(0), 0, TGDuration.WHOLE);
+		note(song.getTrack(0).getMeasure(0), 1440, TGDuration.EIGHTH);
+		TGTurn turn = TGTurn.unit(song, TestSongTime.beat(song, 1, 1), 0, TGTempoScale.percent(100), header -> 0, 44100);
+		device(44100);
+		float[] tap = render(TGTimeline.of(song, List.of(turn, turn), 44100)).getTap(song.getTrack(0));
+
+		assertEquals(176400, tap.length);
+		assertTrue(Meters.peak(tap, 44100 - 2000, 44100) > 0.01, "the note sounds to the joint");
+		assertTrue(Meters.peak(tap, 44100 + 20000, 88200) < 0.01 && Meters.peak(tap, 88200 + 44100 + 20000, 176400) < 0.01, "the joint is silent");
+		assertEquals(88200, firstSound(Arrays.copyOfRange(tap, 44100 + 20000, tap.length)) + 44100 + 20000, 512);
+	}
+
+	// PINNED KNOWN DEFECT (owner decision, slice 3a; to be fixed on a branch of its own, not here): offline, the note off
+	// of a note that ends where the song ends, or where a loop jumps back, is never sent. TGMidiTaps.schedule takes a
+	// measure's events before its end tick; the note off on that tick belongs to the measure after it in song order, which
+	// does not play next (only a turn's end sends it, see aNoteEndingWithATurnStopsThere), so the note rings on. The two
+	// tests below document today's behaviour; once the defect is fixed they fail and are turned round (the note is over
+	// 20000 samples after its end, as in aNoteEndingWithATurnStopsThere).
+
+	// the song's only measure, a note on beat 4 ending where the song ends, rendered running on for a measure
+	@Test
+	public void pinnedDefectANoteEndingWhereTheSongEndsRingsOnPastIt() throws MidiPlayerException {
+		song.getTrack(0).getMeasure(0).clear();
+		note(song.getTrack(0).getMeasure(0), 2880);
+		device(44100);
+		float[] tap = render(new TGTimeline(song, TGSongTime.play(song, new MidiPlayerMode(), 960, Long.MAX_VALUE, 1), 44100).runningOn(88200))
+			.getTap(song.getTrack(0));
+
+		assertTrue(Meters.peak(tap, 88200 + 20000, 88200 + 60000) > 0.01, "pinned defect: the note rings on past the song's end");
+	}
+
+	// measure 1 looped for 2 passes, a note on its beat 4 ending where the loop jumps back: it rings on into the second
+	// pass, until that pass's own note on beat 4
+	@Test
+	public void pinnedDefectANoteEndingWhereALoopJumpsBackRingsOnIntoTheNextPass() throws MidiPlayerException {
+		song.getTrack(0).getMeasure(0).clear();
+		note(song.getTrack(0).getMeasure(0), 2880);
+		MidiPlayerMode looped = new MidiPlayerMode();
+		looped.setLoop(true);
+		looped.setLoopSHeader(1);
+		looped.setLoopEHeader(1);
+		device(44100);
+		TGTimeline timeline = new TGTimeline(song, TGSongTime.play(song, looped, 960, Long.MAX_VALUE, 2), 44100);
+		float[] tap = new TGRenderer(this.context, this.songManager, this.song, TGAudioSession.getInstance(this.context)).render(timeline, looped, false, true)
+			.getTap(song.getTrack(0));
+
+		assertTrue(Meters.peak(tap, 88200 + 20000, 88200 + 60000) > 0.01, "pinned defect: the note rings on into the next pass");
 	}
 
 	// as the player does today, the MIDI sequence leaves out a muted track's notes

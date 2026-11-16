@@ -6,10 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiReceiver;
@@ -141,14 +145,29 @@ public class TestMidiSequencerClock {
 				+ ", @528 on 1 63 100 1 0", blocks(2));
 	}
 
-	// the parser adds a track's events, then the next track's
-	@Test
-	public void eventsAddedOutOfTickOrderGoOutInTickOrder() throws MidiPlayerException {
+	// the notes the parser would add, a track's events, then the next track's (ticks 600 on track 0, 60 and 30 on track
+	// 1), added before playing from tick 0, or after its first block (interleaved practice adds the next turn while the
+	// one before plays): what the blocks up to frame 13824 send
+	private String addedOutOfTickOrder(boolean whilePlaying) throws MidiPlayerException {
+		int before = (whilePlaying ? 1 : 0);
+		if (whilePlaying) {
+			playOnTheClockFrom(0);
+			blocks(before);
+		}
 		note(600, 0, 60);
-		note(10, 1, 61);
-		playOnTheClockFrom(0);
+		note(60, 1, 61);
+		note(30, 1, 62);
+		if (!whilePlaying) {
+			playOnTheClockFrom(0);
+		}
+		return blocks(27 - before).replace("all notes off, pitch bend reset, ", "");
+	}
 
-		assertEquals("all notes off, pitch bend reset, @230 on 1 61 100 1 0, @13781 on 1 60 100 1 0", blocks(27));
+	@TestFactory
+	public List<DynamicTest> eventsAddedOutOfTickOrderGoOutInTickOrder() {
+		return Arrays.asList(false, true).stream().map(whilePlaying -> DynamicTest.dynamicTest(whilePlaying ? "added while playing" : "added before",
+			() -> assertEquals("@689 on 1 62 100 1 0, @1378 on 1 61 100 1 0, @13781 on 1 60 100 1 0", new TestMidiSequencerClock().addedOutOfTickOrder(whilePlaying))))
+			.collect(Collectors.toList());
 	}
 
 	// at 696599 microseconds per quarter tick 16 sounds on frame 512.0003: the first of the second block

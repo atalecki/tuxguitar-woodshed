@@ -1,13 +1,16 @@
 package app.tuxguitar.audio;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGMidiProcessorFactory;
@@ -20,9 +23,11 @@ import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.player.base.MidiParameters;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.player.base.MidiPracticeTurn;
 import app.tuxguitar.player.base.MidiReceiver;
 import app.tuxguitar.player.base.MidiSequenceHandler;
 import app.tuxguitar.player.base.MidiSequenceParser;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGChannelParameter;
 import app.tuxguitar.song.models.TGSong;
@@ -152,26 +157,56 @@ public final class TGMidiTaps {
 
 	// the parser's events, each at the sample of the timeline where its tick plays (none outside it); the events before
 	// where playing starts (the channel settings at the start of the sequence among them) fall before sample 0, so they
-	// go out with the first block, in tick order
+	// go out with the first block, in tick order. A turn that another follows ends its notes where it ends: the notes
+	// ending on its last measure's end go off there, before what follows (the next measure in song order, where they
+	// would go off, does not play next). A measure whose events are a span's parsed alone (see alone) takes them from
+	// that parse, once per span, where the song has it
 	private static TreeMap<Long, List<Event>> schedule(TGSongManager songManager, TGSong song, MidiPlayerMode mode, TGTimeline timeline) {
 		MidiSequenceParser parser = new MidiSequenceParser(song, songManager, FLAGS);
 		if (mode.isLoop()) {
 			parser.setSHeader(mode.getLoopSHeader());
 			parser.setEHeader(mode.getLoopEHeader());
 		}
-		Events events = new Events(song.countTracks());
-		parser.parse(events);
+		Events parsed = new Events(song.countTracks());
+		parser.parse(parsed);
 		List<Long> moves = TGSongTime.moves(song, mode);
+		Map<List<Long>, Events> spans = new HashMap<List<Long>, Events>();
 		TreeMap<Long, List<Event>> scheduled = new TreeMap<Long, List<Event>>();
 		for (int i = 0; i < timeline.count(); i++) {
 			TGPlayedMeasure measure = timeline.get(i);
-			long start = measure.getHeader().getStart() + moves.get(measure.getStep());
+			Optional<TGPracticeSpan> alone = alone(timeline, i);
+			Events events = alone.map(span -> spans.computeIfAbsent(Arrays.asList(span.getStart(), span.getJoint(), span.getEnd()), key -> parsed(parser, span, parsed.getTracks())))
+				.orElse(parsed);
+			long start = measure.getHeader().getStart() + (alone.isPresent() ? 0 : moves.get(measure.getStep()));
 			long from = (i == 0 ? Long.MIN_VALUE : start + measure.getFrom());
-			for (Event event : events.between(from, start + measure.getTo())) {
+			List<Event> due = events.between(from, start + measure.getTo());
+			if (timeline.endsTurn(i)) {
+				due.addAll(events.offsAt(start + measure.getTo()));
+			}
+			for (Event event : due) {
 				scheduled.computeIfAbsent(timeline.sampleAt(i, event.tick - start), key -> new ArrayList<Event>()).add(event);
 			}
 		}
 		return scheduled;
+	}
+
+	// the span whose events, parsed alone, the played measure takes: its turn's, when that plays parts of measures (a
+	// beat and its joint: the song's would leave notes sounding past the joint and attack in it what does not start on its
+	// first tick); the measure's own, when no pass reaches it; none (the song's) else, as for whole measures
+	private static Optional<TGPracticeSpan> alone(TGTimeline timeline, int index) {
+		TGPlayedMeasure measure = timeline.get(index);
+		Optional<TGPracticeSpan> cut = timeline.spanOf(index).filter(span -> !span.isWhole());
+		if (cut.isPresent() || measure.getStep() != TGPlayedMeasure.NO_STEP) {
+			return cut;
+		}
+		return Optional.of(TGPracticeSpan.measures(measure.getHeader(), measure.getHeader()));
+	}
+
+	// the span's events parsed alone, where the song has it, after the channels' setup
+	private static Events parsed(MidiSequenceParser parser, TGPracticeSpan span, int tracks) {
+		Events events = new Events(tracks);
+		parser.parseTurn(events, new MidiPracticeTurn(span, span.getStart(), 0), true);
+		return events;
 	}
 
 	private interface Send {
@@ -182,11 +217,18 @@ public final class TGMidiTaps {
 		private final long tick;
 		private final int channel;
 		private final Send send;
+		// a note off
+		private final boolean off;
 
 		Event(long tick, int channel, Send send) {
+			this(tick, channel, send, false);
+		}
+
+		Event(long tick, int channel, Send send, boolean off) {
 			this.tick = tick;
 			this.channel = channel;
 			this.send = send;
+			this.off = off;
 		}
 
 		void send(MidiReceiver receiver) throws MidiPlayerException {
@@ -217,8 +259,13 @@ public final class TGMidiTaps {
 			this.events.add(new Event(tick, channel, synth -> synth.sendNoteOn(channel, note, velocity, voice, bendMode)));
 		}
 
+		// the note offs on the tick, in the order they came
+		List<Event> offsAt(long tick) {
+			return this.events.stream().filter(event -> event.off && event.tick == tick).collect(Collectors.toList());
+		}
+
 		public void addNoteOff(long tick, int track, int channel, int note, int velocity, int voice, boolean bendMode) {
-			this.events.add(new Event(tick, channel, synth -> synth.sendNoteOff(channel, note, velocity, voice, bendMode)));
+			this.events.add(new Event(tick, channel, synth -> synth.sendNoteOff(channel, note, velocity, voice, bendMode), true));
 		}
 
 		public void addPitchBend(long tick, int track, int channel, int value, int voice, boolean bendMode) {

@@ -179,6 +179,21 @@ public class TestMidiPlayerCountDown {
 		assertEquals(" -> end @0", start());
 	}
 
+	// the clicks a Count In has, on or off (a click-up counts in with Count In off): one per beat of the measure's time
+	// signature, or the tick count set; before the measure, only with Count In on
+	@Test
+	public void aCountInHasAClickPerBeatOrTheTickCountWhetherItIsOnOrOff() {
+		TGMeasureHeader header = song.getMeasureHeader(0);
+		header.getTimeSignature().setNumerator(3);
+		countDown.setEnabled(false);
+		String beats = countDown.clicks(header) + " " + countDown.clicksBefore(header);
+		countDown.setTickCount(2);
+		String ticks = countDown.clicks(header) + " " + countDown.clicksBefore(header);
+		countDown.setEnabled(true);
+
+		assertEquals("3 0 | 2 0 | 2", beats + " | " + ticks + " | " + countDown.clicksBefore(header));
+	}
+
 	@Test
 	public void playsNothingWithoutAPercussionChannel() {
 		assertEquals(" -> end @0", start());

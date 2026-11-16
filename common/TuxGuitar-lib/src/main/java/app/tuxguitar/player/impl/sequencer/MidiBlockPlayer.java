@@ -12,7 +12,7 @@ import app.tuxguitar.song.models.TGDuration;
 
 /**
  * Plays the sequence on a sample clock, a block of frames at a time: each event whose tick sounds in the block goes to
- * the clock's receiver of its frame. A tick sounds on the frame its time from the anchor reaches at the tempo, rounded
+ * the clock's receiver of its frame; events added while it plays go out in tick order with those not sent yet. A tick sounds on the frame its time from the anchor reaches at the tempo, rounded
  * to the nearest frame. Playing from a position anchors it on the first frame of the next block, and sends again the
  * channel setup before it there; a tempo event moves the anchor to its own tick and frame. A time signature is sent to
  * no receiver. The clock's transport is told each tempo and time signature from its frame on.
@@ -30,6 +30,8 @@ class MidiBlockPlayer {
 	// put in tick order when playing starts or moves, events on the same tick in the order they were added
 	private final List<MidiEvent> events = new ArrayList<MidiEvent>();
 	private boolean moved;
+	// events were added since the last block (interleaved practice adds the next turn while one plays)
+	private boolean added;
 	// the first event not sent yet
 	private int next;
 	private long anchorTick;
@@ -58,6 +60,7 @@ class MidiBlockPlayer {
 
 	void addEvent(MidiEvent event) {
 		this.events.add(event);
+		this.added = true;
 	}
 
 	void clearEvents() {
@@ -102,7 +105,10 @@ class MidiBlockPlayer {
 		float rate = clock.getSampleRate();
 		if (this.moved) {
 			this.move(clock, this.sequencer.getTickPosition());
+		} else if (this.added) {
+			this.events.subList(this.next, this.events.size()).sort(Comparator.comparingLong(MidiEvent::getTick));
 		}
+		this.added = false;
 		MidiTransport transport = (clock.getTransport() != null ? clock.getTransport() : this.untold);
 		this.tell(transport, rate);
 		this.playBefore(frames, clock, transport);

@@ -286,6 +286,11 @@ public class MidiSequencerImpl implements MidiSequencer {
 		return "TuxGuitar Sequencer";
 	}
 
+	// its tracks put events added while it plays in tick order with those not sent yet (see MidiBlockPlayer)
+	public boolean takesEventsWhilePlaying() {
+		return true;
+	}
+
 	public TGContext getContext() {
 		return this.context;
 	}

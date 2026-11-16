@@ -33,7 +33,7 @@ public class TestMetronome {
 		second.getTempo().setQuarterValue(90);
 		long start = song.getMeasureHeader(0).getStart() + 3 * TGDuration.QUARTER_TIME / 2;
 		List<TGPlayedMeasure> played = TGSongTime.play(song, new MidiPlayerMode(), start, Long.MAX_VALUE, 1);
-		TGMetronome metronome = TGMetronome.of(new TGTimeline(song, played, 48000));
+		TGClicks metronome = TGMetronome.of(new TGTimeline(song, played, 48000));
 
 		String holds = IntStream.range(0, metronome.positions().length).mapToObj(click -> Long.toString(metronome.hold(click))).collect(Collectors.joining(", "));
 		assertEquals("[12000, 36000, 60000, 76000, 92000] | 24000, 24000, 16000, 16000, 16000", Arrays.toString(metronome.positions()) + " | " + holds);
@@ -41,6 +41,6 @@ public class TestMetronome {
 
 	@Test
 	public void noMetronomeClicksNothing() {
-		assertEquals("[]", Arrays.toString(TGMetronome.NONE.positions()));
+		assertEquals("[]", Arrays.toString(TGClicks.NONE.positions()));
 	}
 }

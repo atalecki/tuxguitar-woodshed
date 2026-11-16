@@ -34,7 +34,7 @@ public class TestLiveTimeline {
 	}
 
 	// the transport's span from the quarter note on
-	private static MidiTransport.Span at(double quarters) {
+	static MidiTransport.Span at(double quarters) {
 		MidiTransport transport = new MidiTransport();
 		transport.clear();
 		transport.add(0, true, 60, 4, 4, quarters, 0);
@@ -49,7 +49,7 @@ public class TestLiveTimeline {
 	}
 
 	// whether the last stretch followed started a timeline, how long that is, and the sample the stretch starts on
-	private static String read(TGLiveTimeline followed, boolean started) {
+	static String read(TGLiveTimeline followed, boolean started) {
 		return started + " " + followed.getTimeline().length() + " " + followed.getPosition();
 	}
 
@@ -87,6 +87,16 @@ public class TestLiveTimeline {
 		String past = read(this.followed, this.followed.follow(at(100.0), 512));
 
 		assertEquals("false 529200 0 | true 0 0", noFrames + " | " + past);
+	}
+
+	// on the timeline is less than 1/64 quarter note from it: a transport 1/128 off goes on with it, one 1/64 off starts
+	// a new timeline
+	@Test
+	public void aTransportASixtyFourthOfAQuarterNoteOffIsOffTheTimeline() {
+		this.followed.follow(at(4.0), 0);
+		boolean inside = this.followed.follow(at(4.0 + 1.0 / 128), 0);
+
+		assertEquals("false true", inside + " " + this.followed.follow(at(4.0 + 1.0 / 64), 512));
 	}
 
 	// a jump back the timeline did not foresee (moved by hand, here 1024 samples into the pass) keeps nothing: the new

@@ -1,6 +1,8 @@
 package app.tuxguitar.app.view.menu.impl;
 
 import app.tuxguitar.app.TuxGuitar;
+import app.tuxguitar.app.action.impl.transport.TGOpenClickUpDialogAction;
+import app.tuxguitar.app.action.impl.transport.TGOpenPracticeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenTransportModeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayPauseAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportSetLoopEHeaderAction;
@@ -11,6 +13,7 @@ import app.tuxguitar.app.view.component.tab.Tablature;
 import app.tuxguitar.app.view.component.tab.TablatureEditor;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
+import app.tuxguitar.editor.action.transport.TGTransportStepAction;
 import app.tuxguitar.graphics.control.TGLayout;
 import app.tuxguitar.app.action.impl.layout.TGToggleContinuousScrollingAction;
 import app.tuxguitar.app.action.impl.layout.TGToggleHighlightPlayedBeatAction;
@@ -31,6 +34,9 @@ public class TransportMenuItem extends TGMenuItem {
 	private UIMenuCheckableItem metronome;
 	private UIMenuCheckableItem countDown;
 	private UIMenuActionItem mode;
+	private UIMenuActionItem practice;
+	private UIMenuActionItem repeatStep;
+	private UIMenuActionItem previousStep;
 	private UIMenuCheckableItem loopSHeader;
 	private UIMenuCheckableItem loopEHeader;
 	private UIMenuCheckableItem highlightPlayedBeat;
@@ -43,47 +49,57 @@ public class TransportMenuItem extends TGMenuItem {
 	}
 
 	public void showItems(){
+		this.named(this.transportMenuItem, "transport", null, null);
 		//--PLAY--
-		this.play = this.transportMenuItem.getMenu().createActionItem();
+		this.play = this.named(this.transportMenuItem.getMenu().createActionItem(), "transport.start", TGTransportPlayPauseAction.NAME, null);
 		this.play.addSelectionListener(this.createActionProcessor(TGTransportPlayPauseAction.NAME));
 
 		//--STOP--
-		this.stop = this.transportMenuItem.getMenu().createActionItem();
+		this.stop = this.named(this.transportMenuItem.getMenu().createActionItem(), "transport.stop", TGTransportStopAction.NAME, null);
 		this.stop.addSelectionListener(this.createActionProcessor(TGTransportStopAction.NAME));
 
 		//--SEPARATOR--
 		this.transportMenuItem.getMenu().createSeparator();
 
 		//--METRONOME--
-		this.metronome = this.transportMenuItem.getMenu().createCheckItem();
+		this.metronome = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.metronome", TGTransportMetronomeAction.NAME, null);
 		this.metronome.addSelectionListener(this.createActionProcessor(TGTransportMetronomeAction.NAME));
 
 		//--COUNTDOWN--
-		this.countDown = this.transportMenuItem.getMenu().createCheckItem();
+		this.countDown = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.count-down", TGTransportCountDownAction.NAME, null);
 		this.countDown.addSelectionListener(this.createActionProcessor(TGTransportCountDownAction.NAME));
 
 		//--MODE--
-		this.mode = this.transportMenuItem.getMenu().createActionItem();
+		this.mode = this.named(this.transportMenuItem.getMenu().createActionItem(), "transport.mode", TGOpenTransportModeDialogAction.NAME, null);
 		this.mode.addSelectionListener(this.createActionProcessor(TGOpenTransportModeDialogAction.NAME));
+
+		//--INTERLEAVED PRACTICE--
+		this.practice = this.named(this.transportMenuItem.getMenu().createActionItem(), "transport.practice", TGOpenPracticeDialogAction.NAME, null);
+		this.practice.addSelectionListener(this.createActionProcessor(TGOpenPracticeDialogAction.NAME));
+
+		//--INTERLEAVED CLICK-UP, ITS STEPS--
+		this.actionItem(this.transportMenuItem.getMenu().createActionItem(), "transport.click-up", TGOpenClickUpDialogAction.NAME, null);
+		this.repeatStep = this.actionItem(this.transportMenuItem.getMenu().createActionItem(), "transport.repeat-step", TGTransportStepAction.NAME_REPEAT, null);
+		this.previousStep = this.actionItem(this.transportMenuItem.getMenu().createActionItem(), "transport.previous-step", TGTransportStepAction.NAME_PREVIOUS, null);
 
 		//--SEPARATOR--
 		this.transportMenuItem.getMenu().createSeparator();
 
 		//--LOOP START--
-		this.loopSHeader = this.transportMenuItem.getMenu().createCheckItem();
+		this.loopSHeader = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.set-loop-start", TGTransportSetLoopSHeaderAction.NAME, null);
 		this.loopSHeader.addSelectionListener(this.createActionProcessor(TGTransportSetLoopSHeaderAction.NAME));
 
 		//--LOOP END--
-		this.loopEHeader = this.transportMenuItem.getMenu().createCheckItem();
+		this.loopEHeader = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.set-loop-end", TGTransportSetLoopEHeaderAction.NAME, null);
 		this.loopEHeader.addSelectionListener(this.createActionProcessor(TGTransportSetLoopEHeaderAction.NAME));
 
 		//--SEPARATOR--
 		this.transportMenuItem.getMenu().createSeparator();
 
 		//--HIGHLIGHT PLAYED BEAT, CONTINOUS SCROLLING--
-		this.highlightPlayedBeat = this.transportMenuItem.getMenu().createCheckItem();
+		this.highlightPlayedBeat = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.highlight-played-beat", TGToggleHighlightPlayedBeatAction.NAME, null);
 		this.highlightPlayedBeat.addSelectionListener(this.createActionProcessor(TGToggleHighlightPlayedBeatAction.NAME));
-		this.continuousScrolling = this.transportMenuItem.getMenu().createCheckItem();
+		this.continuousScrolling = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.continuous-scrolling", TGToggleContinuousScrollingAction.NAME, null);
 		this.continuousScrolling.addSelectionListener(this.createActionProcessor(TGToggleContinuousScrollingAction.NAME));
 
 		this.isRunning = false;
@@ -95,33 +111,34 @@ public class TransportMenuItem extends TGMenuItem {
 		TGMeasure measure = TuxGuitar.getInstance().getTablatureEditor().getTablature().getCaret().getMeasure();
 		MidiPlayerMode pm = TuxGuitar.getInstance().getPlayer().getMode();
 		boolean running = TuxGuitar.getInstance().getPlayer().isRunning();
-		this.stop.setEnabled(running);
+		this.stop.setEnabled(TuxGuitar.getInstance().getPlayer().isRunningOrPractising());
+		this.repeatStep.setEnabled(TGTransportStepAction.isEnabled(this.findContext()));
+		this.previousStep.setEnabled(TGTransportStepAction.isEnabled(this.findContext()));
 		this.metronome.setChecked(TuxGuitar.getInstance().getPlayer().isMetronomeEnabled());
 		this.countDown.setChecked(TuxGuitar.getInstance().getPlayer().getCountDown().isEnabled());
 		this.loopSHeader.setEnabled( pm.isLoop() );
-		this.loopSHeader.setChecked( measure != null && measure.getNumber() == pm.getLoopSHeader() );
+		this.loopSHeader.setChecked( isMeasure(measure, pm.getLoopSHeader()) );
 		this.loopEHeader.setEnabled( pm.isLoop() );
-		this.loopEHeader.setChecked( measure != null && measure.getNumber() == pm.getLoopEHeader() );
+		this.loopEHeader.setChecked( isMeasure(measure, pm.getLoopEHeader()) );
 		Tablature tablature = TablatureEditor.getInstance(this.findContext()).getTablature();
 		int style = tablature.getViewLayout().getStyle();
 		this.highlightPlayedBeat.setChecked( (style & TGLayout.HIGHLIGHT_PLAYED_BEAT) != 0 );
 		this.continuousScrolling.setEnabled(!running);
 		this.continuousScrolling.setChecked( (style & TGLayout.CONTINUOUS_SCROLL) != 0 );
 		this.loadIcons(false);
-		this.play.setText(TuxGuitar.getProperty(isRunning ? "transport.pause" : "transport.start"));
+		this.play.setText(TuxGuitar.getProperty(this.playKey()));
 	}
 
-	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.transportMenuItem, "transport", null);
-		setMenuItemTextAndAccelerator(this.play, "transport.start", TGTransportPlayPauseAction.NAME);
-		setMenuItemTextAndAccelerator(this.stop, "transport.stop", TGTransportStopAction.NAME);
-		setMenuItemTextAndAccelerator(this.mode, "transport.mode", TGOpenTransportModeDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.metronome, "transport.metronome", TGTransportMetronomeAction.NAME);
-		setMenuItemTextAndAccelerator(this.countDown, "transport.count-down", TGTransportCountDownAction.NAME);
-		setMenuItemTextAndAccelerator(this.loopSHeader, "transport.set-loop-start", TGTransportSetLoopSHeaderAction.NAME);
-		setMenuItemTextAndAccelerator(this.loopEHeader, "transport.set-loop-end", TGTransportSetLoopEHeaderAction.NAME);
-		setMenuItemTextAndAccelerator(this.highlightPlayedBeat, "transport.highlight-played-beat", TGToggleHighlightPlayedBeatAction.NAME);
-		setMenuItemTextAndAccelerator(this.continuousScrolling, "transport.continuous-scrolling", TGToggleContinuousScrollingAction.NAME);
+	private static boolean isMeasure(TGMeasure measure, int number) {
+		return (measure != null && measure.getNumber() == number);
+	}
+
+	private String playKey() {
+		return (this.isRunning ? "transport.pause" : "transport.start");
+	}
+
+	public void loadProperties() {
+		this.loadNames();
 	}
 
 	public void loadIcons(){

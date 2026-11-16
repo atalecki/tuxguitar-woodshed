@@ -126,6 +126,8 @@ import app.tuxguitar.app.action.impl.track.TGGoToTrackAction;
 import app.tuxguitar.app.action.impl.track.TGOpenTrackPropertiesDialogAction;
 import app.tuxguitar.app.action.impl.track.TGOpenTrackTuningDialogAction;
 import app.tuxguitar.app.action.impl.track.TGToggleLyricEditorAction;
+import app.tuxguitar.app.action.impl.transport.TGOpenClickUpDialogAction;
+import app.tuxguitar.app.action.impl.transport.TGOpenPracticeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenTransportModeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayPauseAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayStopAction;
@@ -152,6 +154,7 @@ import app.tuxguitar.editor.action.channel.TGRemoveChannelAction;
 import app.tuxguitar.editor.action.channel.TGSetChannelsAction;
 import app.tuxguitar.editor.action.channel.TGUpdateChannelAction;
 import app.tuxguitar.editor.action.composition.TGChangeClefAction;
+import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.action.composition.TGChangeInfoAction;
 import app.tuxguitar.editor.action.composition.TGChangeKeySignatureAction;
 import app.tuxguitar.editor.action.composition.TGChangeTempoAction;
@@ -265,6 +268,9 @@ import app.tuxguitar.editor.action.track.TGSetTrackStringCountAction;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
 import app.tuxguitar.editor.action.transport.TGTransportModeAction;
+import app.tuxguitar.editor.action.transport.TGTransportClickUpAction;
+import app.tuxguitar.editor.action.transport.TGTransportPractiseAction;
+import app.tuxguitar.editor.action.transport.TGTransportStepAction;
 import app.tuxguitar.util.TGContext;
 
 public class TGActionInstaller {
@@ -473,6 +479,7 @@ public class TGActionInstaller {
 		installAction(new TGChangeTimeSignatureAction(context));
 		installAction(new TGChangeKeySignatureAction(context));
 		installAction(new TGChangeTripletFeelAction(context));
+		installAction(new TGChangeDifficultyAction(context));
 		installAction(new TGChangeInfoAction(context));
 		installAction(new TGRepeatOpenAction(context));
 		installAction(new TGRepeatCloseAction(context));
@@ -492,6 +499,10 @@ public class TGActionInstaller {
 		installAction(new TGTransportMetronomeAction(context));
 		installAction(new TGTransportCountDownAction(context));
 		installAction(new TGTransportModeAction(context));
+		installAction(new TGTransportPractiseAction(context));
+		installAction(new TGTransportClickUpAction(context));
+		installAction(TGTransportStepAction.repeat(context));
+		installAction(TGTransportStepAction.previous(context));
 		installAction(new TGTransportSetLoopSHeaderAction(context));
 		installAction(new TGTransportSetLoopEHeaderAction(context));
 
@@ -574,6 +585,8 @@ public class TGActionInstaller {
 		installAction(new TGCustomTemplateSelectAction(context));
 		installAction(new TGCustomTemplateDeleteAction(context));
 		installAction(new TGOpenTransportModeDialogAction(context));
+		installAction(new TGOpenPracticeDialogAction(context));
+		installAction(new TGOpenClickUpDialogAction(context));
 		installAction(new TGOpenMarkerEditorAction(context));
 		installAction(new TGOpenTransposeDialogAction(context) );
 

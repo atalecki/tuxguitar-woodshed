@@ -38,7 +38,7 @@ public class DurationMenuItem  extends TGMenuItem {
 	private DivisionMenuItem divisionMenuItem;
 
 	public DurationMenuItem(UIMenuSubMenuItem durationMenuItem) {
-		this.durationMenuItem = durationMenuItem;
+		this.durationMenuItem = this.named(durationMenuItem, "duration", null, TGIconManager.DURATION);
 	}
 
 	public DurationMenuItem(UIMenu parent) {
@@ -47,50 +47,40 @@ public class DurationMenuItem  extends TGMenuItem {
 
 	public void showItems(){
 		//--WHOLE--
-		this.whole = this.durationMenuItem.getMenu().createCheckItem();
-		this.whole.addSelectionListener(this.createActionProcessor(TGSetWholeDurationAction.NAME));
+		this.whole = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.whole", TGSetWholeDurationAction.NAME, null);
 
 		//--HALF--
-		this.half = this.durationMenuItem.getMenu().createCheckItem();
-		this.half.addSelectionListener(this.createActionProcessor(TGSetHalfDurationAction.NAME));
+		this.half = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.half", TGSetHalfDurationAction.NAME, null);
 
 		//--QUARTER--
-		this.quarter = this.durationMenuItem.getMenu().createCheckItem();
-		this.quarter.addSelectionListener(this.createActionProcessor(TGSetQuarterDurationAction.NAME));
+		this.quarter = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.quarter", TGSetQuarterDurationAction.NAME, null);
 
 		//--EIGHTH--
-		this.eighth = this.durationMenuItem.getMenu().createCheckItem();
-		this.eighth.addSelectionListener(this.createActionProcessor(TGSetEighthDurationAction.NAME));
+		this.eighth = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.eighth", TGSetEighthDurationAction.NAME, null);
 
 		//--SIXTEENTH--
-		this.sixteenth = this.durationMenuItem.getMenu().createCheckItem();
-		this.sixteenth.addSelectionListener(this.createActionProcessor(TGSetSixteenthDurationAction.NAME));
+		this.sixteenth = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.sixteenth", TGSetSixteenthDurationAction.NAME, null);
 
 		//--THIRTY SECOND--
-		this.thirtySecond = this.durationMenuItem.getMenu().createCheckItem();
-		this.thirtySecond.addSelectionListener(this.createActionProcessor(TGSetThirtySecondDurationAction.NAME));
+		this.thirtySecond = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.thirtysecond", TGSetThirtySecondDurationAction.NAME, null);
 
 		//--SIXTY FOURTH--
-		this.sixtyFourth = this.durationMenuItem.getMenu().createCheckItem();
-		this.sixtyFourth.addSelectionListener(this.createActionProcessor(TGSetSixtyFourthDurationAction.NAME));
+		this.sixtyFourth = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.sixtyfourth", TGSetSixtyFourthDurationAction.NAME, null);
 
 		//--SEPARATOR--
 		this.durationMenuItem.getMenu().createSeparator();
 
 		//--DOTTED--
-		this.dotted = this.durationMenuItem.getMenu().createCheckItem();
-		this.dotted.addSelectionListener(this.createActionProcessor(TGChangeDottedDurationAction.NAME));
+		this.dotted = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.dotted", TGChangeDottedDurationAction.NAME, TGIconManager.DOTTED);
 
 		//--DOUBLE-DOTTED--
-		this.doubleDotted = this.durationMenuItem.getMenu().createCheckItem();
-		this.doubleDotted.addSelectionListener(this.createActionProcessor(TGChangeDoubleDottedDurationAction.NAME));
+		this.doubleDotted = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.doubledotted", TGChangeDoubleDottedDurationAction.NAME, TGIconManager.DOUBLE_DOTTED);
 
 		//--SEPARATOR--
 		this.durationMenuItem.getMenu().createSeparator();
 
 		//--TIED NOTE--
-		this.tiedNote = this.durationMenuItem.getMenu().createCheckItem();
-		this.tiedNote.addSelectionListener(this.createActionProcessor(TGChangeTiedNoteAction.NAME));
+		this.tiedNote = this.actionItem(this.durationMenuItem.getMenu().createCheckItem(), "duration.tiednote", TGChangeTiedNoteAction.NAME, TGIconManager.TIED_NOTE);
 
 		//--SEPARATOR--
 		this.durationMenuItem.getMenu().createSeparator();
@@ -134,23 +124,11 @@ public class DurationMenuItem  extends TGMenuItem {
 	}
 
 	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.durationMenuItem, "duration", null);
-		setMenuItemTextAndAccelerator(this.whole, "duration.whole", TGSetWholeDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.half, "duration.half", TGSetHalfDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.quarter, "duration.quarter", TGSetQuarterDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.eighth, "duration.eighth", TGSetEighthDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.sixteenth, "duration.sixteenth", TGSetSixteenthDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.thirtySecond, "duration.thirtysecond", TGSetThirtySecondDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.sixtyFourth, "duration.sixtyfourth", TGSetSixtyFourthDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.dotted, "duration.dotted", TGChangeDottedDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.doubleDotted, "duration.doubledotted", TGChangeDoubleDottedDurationAction.NAME);
-		setMenuItemTextAndAccelerator(this.tiedNote, "duration.tiednote", TGChangeTiedNoteAction.NAME);
-
-		this.divisionMenuItem.loadProperties();
+		this.loadNames(this.divisionMenuItem);
 	}
 
 	public void loadIcons() {
-		this.durationMenuItem.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DURATION));
+		this.loadImages();
 		this.whole.setImage(TuxGuitar.getInstance().getIconManager().getDuration(TGDuration.WHOLE));
 		this.half.setImage(TuxGuitar.getInstance().getIconManager().getDuration(TGDuration.HALF));
 		this.quarter.setImage(TuxGuitar.getInstance().getIconManager().getDuration(TGDuration.QUARTER));
@@ -158,10 +136,6 @@ public class DurationMenuItem  extends TGMenuItem {
 		this.sixteenth.setImage(TuxGuitar.getInstance().getIconManager().getDuration(TGDuration.SIXTEENTH));
 		this.thirtySecond.setImage(TuxGuitar.getInstance().getIconManager().getDuration(TGDuration.THIRTY_SECOND));
 		this.sixtyFourth.setImage(TuxGuitar.getInstance().getIconManager().getDuration(TGDuration.SIXTY_FOURTH));
-		this.dotted.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DOTTED));
-		this.doubleDotted.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DOUBLE_DOTTED));
-		this.tiedNote.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TIED_NOTE));
-
 		this.divisionMenuItem.loadIcons();
 	}
 }

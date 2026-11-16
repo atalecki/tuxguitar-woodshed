@@ -65,96 +65,77 @@ public class ViewMenuItem extends TGMenuItem {
 	private UIMenuCheckableItem chordDiagram;
 
 	public ViewMenuItem(UIMenu parent) {
-		this.layoutMenuItem = parent.createSubMenuItem();
+		this.layoutMenuItem = this.named(parent.createSubMenuItem(), "view", null, null);
 	}
 
 	public void showItems(){
 		//--MAIN TOOLBAR--
-		this.showMainToolbar = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showMainToolbar.addSelectionListener(this.createActionProcessor(TGToggleMainToolbarAction.NAME));
-		this.editMainToolbar = this.layoutMenuItem.getMenu().createActionItem();
-		this.editMainToolbar.addSelectionListener(this.createActionProcessor(TGOpenMainToolBarSettingsDialogAction.NAME));
+		this.showMainToolbar = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-main-toolbar", TGToggleMainToolbarAction.NAME, null);
+		this.editMainToolbar = this.actionItem(this.layoutMenuItem.getMenu().createActionItem(), "toolbar.settings", TGOpenMainToolBarSettingsDialogAction.NAME, TGIconManager.SETTINGS);
 
 		//--EDIT TOOLBAR--
-		this.showEditToolbar = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showEditToolbar.addSelectionListener(this.createActionProcessor(TGToggleEditToolbarAction.NAME));
+		this.showEditToolbar = this.named(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-edit-toolbar", TGToggleMainToolbarAction.NAME, TGIconManager.TOOLBAR_EDIT);
+		this.act(this.showEditToolbar, this.createActionProcessor(TGToggleEditToolbarAction.NAME));
 
 		//--TRACKS TABLE--
-		this.showTableViewer = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showTableViewer.addSelectionListener(this.createActionProcessor(TGToggleTableViewerAction.NAME));
+		this.showTableViewer = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-table-viewer", TGToggleTableViewerAction.NAME, TGIconManager.TABLE_VIEWER);
 
 		//--FRETBOARD--
-		this.showFretBoard = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showFretBoard.addSelectionListener(this.createActionProcessor(TGToggleFretBoardEditorAction.NAME));
+		this.showFretBoard = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-fretboard", TGToggleFretBoardEditorAction.NAME, TGIconManager.FRETBOARD);
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--INSTRUMENTS--
-		this.showInstruments = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showInstruments.addSelectionListener(this.createActionProcessor(TGToggleChannelsDialogAction.NAME));
+		this.showInstruments = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-instruments", TGToggleChannelsDialogAction.NAME, TGIconManager.INSTRUMENTS);
 
 		//--TRANSPORT--
-		this.showTransport = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showTransport.addSelectionListener(this.createActionProcessor(TGToggleTransportDialogAction.NAME));
+		this.showTransport = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-transport", TGToggleTransportDialogAction.NAME, TGIconManager.TRANSPORT);
 
 		//--PIANO--
-		this.showPiano = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showPiano.addSelectionListener(this.createActionProcessor(TGTogglePianoEditorAction.NAME));
+		this.showPiano = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-piano", TGTogglePianoEditorAction.NAME, TGIconManager.PIANO);
 
 		//--MATRIX--
-		this.showMatrix = this.layoutMenuItem.getMenu().createCheckItem();
-		this.showMatrix.addSelectionListener(this.createActionProcessor(TGToggleMatrixEditorAction.NAME));
+		this.showMatrix = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-matrix", TGToggleMatrixEditorAction.NAME, TGIconManager.MATRIX);
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--PAGE LAYOUT--
-		this.pageLayout = this.layoutMenuItem.getMenu().createRadioItem();
-		this.pageLayout.addSelectionListener(this.createActionProcessor(TGSetPageLayoutAction.NAME));
+		this.pageLayout = this.actionItem(this.layoutMenuItem.getMenu().createRadioItem(), "view.layout.page", TGSetPageLayoutAction.NAME, TGIconManager.LAYOUT_PAGE);
 
 		//--LINEAR LAYOUT--
-		this.linearLayout = this.layoutMenuItem.getMenu().createRadioItem();
-		this.linearLayout.addSelectionListener(this.createActionProcessor(TGSetLinearLayoutAction.NAME));
+		this.linearLayout = this.actionItem(this.layoutMenuItem.getMenu().createRadioItem(), "view.layout.linear", TGSetLinearLayoutAction.NAME, TGIconManager.LAYOUT_LINEAR);
 
 		//--MULTITRACK--
-		this.multitrack = this.layoutMenuItem.getMenu().createCheckItem();
-		this.multitrack.addSelectionListener(this.createActionProcessor(TGSetMultitrackViewAction.NAME));
+		this.multitrack = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.layout.multitrack", TGSetMultitrackViewAction.NAME, TGIconManager.LAYOUT_MULTITRACK);
 
 		//--SCORE--
-		this.scoreEnabled = this.layoutMenuItem.getMenu().createCheckItem();
-		this.scoreEnabled.addSelectionListener(this.createActionProcessor(TGSetScoreEnabledAction.NAME));
+		this.scoreEnabled = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.layout.score-enabled", TGSetScoreEnabledAction.NAME, TGIconManager.LAYOUT_SCORE);
 
 		//--TABLATURE--
-		this.tablatureEnabled = this.layoutMenuItem.getMenu().createCheckItem();
-		this.tablatureEnabled.addSelectionListener(this.createActionProcessor(TGSetTablatureEnabledAction.NAME));
+		this.tablatureEnabled = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.layout.tablature-enabled", TGSetTablatureEnabledAction.NAME, TGIconManager.LAYOUT_TABLATURE);
 
 		//--COMPACT--
-		this.compact = this.layoutMenuItem.getMenu().createCheckItem();
-		this.compact.addSelectionListener(this.createActionProcessor(TGSetCompactViewAction.NAME));
+		this.compact = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.layout.compact", TGSetCompactViewAction.NAME, TGIconManager.LAYOUT_COMPACT);
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--CHORD STYLE--
-		this.chordMenuItem = this.layoutMenuItem.getMenu().createSubMenuItem();
+		this.chordMenuItem = this.named(this.layoutMenuItem.getMenu().createSubMenuItem(), "view.layout.chord-style", null, null);
 
-		this.chordName = this.chordMenuItem.getMenu().createCheckItem();
-		this.chordName.addSelectionListener(this.createActionProcessor(TGSetChordNameEnabledAction.NAME));
+		this.chordName = this.actionItem(this.chordMenuItem.getMenu().createCheckItem(), "view.layout.chord-name", TGSetChordNameEnabledAction.NAME, null);
 
-		this.chordDiagram = this.chordMenuItem.getMenu().createCheckItem();
-		this.chordDiagram.addSelectionListener(this.createActionProcessor(TGSetChordDiagramEnabledAction.NAME));
+		this.chordDiagram = this.actionItem(this.chordMenuItem.getMenu().createCheckItem(), "view.layout.chord-diagram", TGSetChordDiagramEnabledAction.NAME, null);
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
 		//--ZOOM IN--
-		this.zoomIn = this.layoutMenuItem.getMenu().createActionItem();
-		this.zoomIn.addSelectionListener(this.createActionProcessor(TGSetLayoutScaleIncrementAction.NAME));
+		this.zoomIn = this.actionItem(this.layoutMenuItem.getMenu().createActionItem(), "view.zoom.in", TGSetLayoutScaleIncrementAction.NAME, TGIconManager.ZOOM_IN);
 
 		//--ZOOM OUT--
-		this.zoomOut = this.layoutMenuItem.getMenu().createActionItem();
-		this.zoomOut.addSelectionListener(this.createActionProcessor(TGSetLayoutScaleDecrementAction.NAME));
+		this.zoomOut = this.actionItem(this.layoutMenuItem.getMenu().createActionItem(), "view.zoom.out", TGSetLayoutScaleDecrementAction.NAME, TGIconManager.ZOOM_OUT);
 
 		//--ZOOM RESET--
-		this.zoomReset = this.layoutMenuItem.getMenu().createActionItem();
-		this.zoomReset.addSelectionListener(this.createActionProcessor(TGSetLayoutScaleResetAction.NAME));
+		this.zoomReset = this.actionItem(this.layoutMenuItem.getMenu().createActionItem(), "view.zoom.reset", TGSetLayoutScaleResetAction.NAME, TGIconManager.ZOOM_RESET);
 
 		this.loadIcons();
 		this.loadProperties();
@@ -184,48 +165,11 @@ public class ViewMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.layoutMenuItem, "view", null);
-		setMenuItemTextAndAccelerator(this.showMainToolbar, "view.show-main-toolbar", TGToggleMainToolbarAction.NAME);
-		setMenuItemTextAndAccelerator(this.editMainToolbar, "toolbar.settings", TGOpenMainToolBarSettingsDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.showEditToolbar, "view.show-edit-toolbar", TGToggleMainToolbarAction.NAME);
-		setMenuItemTextAndAccelerator(this.showTableViewer, "view.show-table-viewer", TGToggleTableViewerAction.NAME);
-		setMenuItemTextAndAccelerator(this.showFretBoard, "view.show-fretboard", TGToggleFretBoardEditorAction.NAME);
-		setMenuItemTextAndAccelerator(this.showInstruments, "view.show-instruments", TGToggleChannelsDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.showTransport, "view.show-transport", TGToggleTransportDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.showPiano, "view.show-piano", TGTogglePianoEditorAction.NAME);
-		setMenuItemTextAndAccelerator(this.showMatrix, "view.show-matrix", TGToggleMatrixEditorAction.NAME);
-		setMenuItemTextAndAccelerator(this.pageLayout, "view.layout.page", TGSetPageLayoutAction.NAME);
-		setMenuItemTextAndAccelerator(this.linearLayout, "view.layout.linear", TGSetLinearLayoutAction.NAME);
-		setMenuItemTextAndAccelerator(this.multitrack, "view.layout.multitrack", TGSetMultitrackViewAction.NAME);
-		setMenuItemTextAndAccelerator(this.scoreEnabled, "view.layout.score-enabled", TGSetScoreEnabledAction.NAME);
-		setMenuItemTextAndAccelerator(this.tablatureEnabled, "view.layout.tablature-enabled", TGSetTablatureEnabledAction.NAME);
-		setMenuItemTextAndAccelerator(this.compact, "view.layout.compact", TGSetCompactViewAction.NAME);
-		setMenuItemTextAndAccelerator(this.chordMenuItem, "view.layout.chord-style", null);
-		setMenuItemTextAndAccelerator(this.chordName, "view.layout.chord-name", TGSetChordNameEnabledAction.NAME);
-		setMenuItemTextAndAccelerator(this.chordDiagram, "view.layout.chord-diagram", TGSetChordDiagramEnabledAction.NAME);
-		setMenuItemTextAndAccelerator(this.zoomIn, "view.zoom.in", TGSetLayoutScaleIncrementAction.NAME);
-		setMenuItemTextAndAccelerator(this.zoomOut, "view.zoom.out", TGSetLayoutScaleDecrementAction.NAME);
-		setMenuItemTextAndAccelerator(this.zoomReset, "view.zoom.reset", TGSetLayoutScaleResetAction.NAME);
+		this.loadNames();
 	}
 
 	public void loadIcons(){
+		this.loadImages();
 		this.showMainToolbar.setImage(TuxGuitar.getInstance().getIconManager().getToolbarMain());
-		this.editMainToolbar.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.SETTINGS));
-		this.showEditToolbar.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TOOLBAR_EDIT));
-		this.showTableViewer.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TABLE_VIEWER));
-		this.showFretBoard.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.FRETBOARD));
-		this.showInstruments.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.INSTRUMENTS));
-		this.showTransport.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRANSPORT));
-		this.showPiano.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.PIANO));
-		this.showMatrix.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.MATRIX));
-		this.pageLayout.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.LAYOUT_PAGE));
-		this.linearLayout.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.LAYOUT_LINEAR));
-		this.multitrack.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.LAYOUT_MULTITRACK));
-		this.scoreEnabled.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.LAYOUT_SCORE));
-		this.tablatureEnabled.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.LAYOUT_TABLATURE));
-		this.compact.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.LAYOUT_COMPACT));
-		this.zoomIn.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.ZOOM_IN));
-		this.zoomOut.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.ZOOM_OUT));
-		this.zoomReset.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.ZOOM_RESET));
 	}
 }

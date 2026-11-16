@@ -196,6 +196,18 @@
         </xs:documentation></xs:annotation>
       </xs:element>
       <xs:element name="lineBreak" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="difficulty" minOccurs="0" maxOccurs="1">
+        <xs:annotation><xs:documentation>
+        Interleaved practice's difficulty flag (the measure's weight), written only for a flagged measure: 1 (not
+        flagged) if undefined. Readers that do not know it ignore it, so the format stays 2.0
+        </xs:documentation></xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:integer">
+            <xs:minInclusive value="2"/>
+            <xs:maxInclusive value="5"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
     </xs:sequence>
   </xs:complexType>
 

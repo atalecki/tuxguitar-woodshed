@@ -9,7 +9,7 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * A position as the features write it: "measure 2 beat 3" (beat 2.5 is half way through beat 2, a beat being the unit of
- * the measure's time signature), or "the end of measure 4", where measure 5 would start.
+ * the measure's time signature), or "the end of measure 4", where measure 5 would start; a beat also short, "m2b3".
  */
 final class SongPosition {
 
@@ -31,7 +31,7 @@ final class SongPosition {
 		if (end.matches()) {
 			return new SongPosition(Integer.parseInt(end.group(1)) + 1, BigDecimal.ONE);
 		}
-		Matcher beat = BEAT.matcher(text);
+		Matcher beat = BEAT.matcher(text.replaceFirst("^m(\\d+)b", "measure $1 beat "));
 		beat.matches();
 		return new SongPosition(Integer.parseInt(beat.group(1)), new BigDecimal(beat.group(2)));
 	}

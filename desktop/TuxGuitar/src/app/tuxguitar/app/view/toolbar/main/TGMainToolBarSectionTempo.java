@@ -15,6 +15,7 @@ import app.tuxguitar.editor.util.TGSyncProcessLocked;
 import app.tuxguitar.event.TGEvent;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGTempo;
 import app.tuxguitar.ui.UIFactory;
 import app.tuxguitar.ui.event.UIDisposeEvent;
@@ -112,26 +113,43 @@ public class TGMainToolBarSectionTempo extends TGMainToolBarSection implements T
 		}
 	}
 
+	// playing, the tempo heard (the written tempo playing at the scale the player plays it, MidiPlayer.getHeardScale);
+	// else the written tempo at the caret
 	@Override
 	public void updateItems() {
-		TGTempo tempo;
-		int tempoPercent = 100;
-
 		MidiPlayer midiPlayer = MidiPlayer.getInstance(getContext());
-		if ((midiPlayer.isRunning() && (midiPlayer.getCurrentTempo() != null))) {
-			tempo = midiPlayer.getCurrentTempo();
-			tempoPercent = midiPlayer.getMode().getCurrentPercent();
-			this.tempoLabel.setIgnoreEvents(true);
+		boolean playing = isPlaying(midiPlayer);
+		this.tempoLabel.setIgnoreEvents(playing);
+		if (playing) {
+			this.show(midiPlayer.getCurrentTempo(), midiPlayer.getHeardScale());
 		} else {
-			tempo = TablatureEditor.getInstance(getContext()).getTablature().getCaret().getMeasure().getTempo();
-			this.tempoLabel.setIgnoreEvents(false);
+			this.show(TablatureEditor.getInstance(getContext()).getTablature().getCaret().getMeasure().getTempo(), TGTempoScale.percent(100));
 		}
-		if ((tempo.getBase() != this.currentTempoBase) || (tempo.isDotted() != this.currentTempoDotted)) {
+	}
+
+	private static boolean isPlaying(MidiPlayer midiPlayer) {
+		return (midiPlayer.isRunning() && (midiPlayer.getCurrentTempo() != null));
+	}
+
+	// the written tempo's note, and its value at the scale
+	private void show(TGTempo tempo, TGTempoScale scale) {
+		this.showNote(tempo);
+		this.showValue(scale.bpm(tempo.getRawValue()));
+	}
+
+	private void showNote(TGTempo tempo) {
+		if (this.isOtherNote(tempo)) {
 			this.currentTempoBase = tempo.getBase();
 			this.currentTempoDotted = tempo.isDotted();
 			this.updateTempoIcon();
 		}
-		int tempoValue = tempo.getRawValue() * tempoPercent / 100;
+	}
+
+	private boolean isOtherNote(TGTempo tempo) {
+		return (tempo.getBase() != this.currentTempoBase) || (tempo.isDotted() != this.currentTempoDotted);
+	}
+
+	private void showValue(int tempoValue) {
 		if (tempoValue != this.currentTempoValue) {
 			this.currentTempoValue = tempoValue;
 			this.updateTempoLabel("= " + String.valueOf(this.currentTempoValue));

@@ -14,7 +14,6 @@ import app.tuxguitar.util.TGAbstractContext;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGLock;
 import app.tuxguitar.util.error.TGErrorManager;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGEditorManager {
@@ -39,11 +38,7 @@ public class TGEditorManager {
 	}
 
 	public void redraw(final TGAbstractContext sourceContext){
-		this.asyncRunLocked(new Runnable() {
-			public void run() {
-				doRedraw(TGRedrawEvent.NORMAL, sourceContext);
-			}
-		});
+		this.asyncRunLocked(() -> doRedraw(TGRedrawEvent.NORMAL, sourceContext));
 	}
 
 	public void redrawPlayingThread(){
@@ -51,11 +46,7 @@ public class TGEditorManager {
 	}
 
 	public void redrawPlayingThread(final TGAbstractContext sourceContext){
-		this.asyncRunLocked(new Runnable() {
-			public void run() {
-				doRedraw(TGRedrawEvent.PLAYING_THREAD, sourceContext);
-			}
-		});
+		this.asyncRunLocked(() -> doRedraw(TGRedrawEvent.PLAYING_THREAD, sourceContext));
 	}
 
 	public void redrawPlayingNewBeat(){
@@ -63,11 +54,7 @@ public class TGEditorManager {
 	}
 
 	public void redrawPlayingNewBeat(final TGAbstractContext sourceContext){
-		this.asyncRunLocked(new Runnable() {
-			public void run() {
-				doRedraw(TGRedrawEvent.PLAYING_NEW_BEAT, sourceContext);
-			}
-		});
+		this.asyncRunLocked(() -> doRedraw(TGRedrawEvent.PLAYING_NEW_BEAT, sourceContext));
 	}
 
 	public void updateSelection() {
@@ -75,11 +62,7 @@ public class TGEditorManager {
 	}
 
 	public void updateSelection(final TGAbstractContext sourceContext) {
-		this.asyncRunLocked(new Runnable() {
-			public void run() {
-				doUpdate(TGUpdateEvent.SELECTION, sourceContext);
-			}
-		});
+		this.asyncRunLocked(() -> doUpdate(TGUpdateEvent.SELECTION, sourceContext));
 	}
 
 	public void updateMeasures(final List<Integer> numbers){
@@ -87,11 +70,7 @@ public class TGEditorManager {
 	}
 
 	public void updateMeasures(final List<Integer> numbers, final TGAbstractContext sourceContext){
-		this.runLocked(new Runnable() {
-			public void run() {
-				doUpdateMeasures(numbers, sourceContext);
-			}
-		});
+		this.runLocked(() -> doUpdateMeasures(numbers, sourceContext));
 	}
 
 	public void updateSong(){
@@ -99,11 +78,7 @@ public class TGEditorManager {
 	}
 
 	public void updateSong(final TGAbstractContext sourceContext){
-		this.runLocked(new Runnable() {
-			public void run() {
-				doUpdate(TGUpdateEvent.SONG_UPDATED, sourceContext);
-			}
-		});
+		this.runLocked(() -> doUpdate(TGUpdateEvent.SONG_UPDATED, sourceContext));
 	}
 
 	public void updateSavedSong(){
@@ -111,11 +86,7 @@ public class TGEditorManager {
 	}
 
 	public void updateSavedSong(final TGAbstractContext sourceContext){
-		this.runLocked(new Runnable() {
-			public void run() {
-				doUpdate(TGUpdateEvent.SONG_SAVED, sourceContext);
-			}
-		});
+		this.runLocked(() -> doUpdate(TGUpdateEvent.SONG_SAVED, sourceContext));
 	}
 
 	public void updateLoadedSong(){
@@ -123,19 +94,11 @@ public class TGEditorManager {
 	}
 
 	public void updateLoadedSong(final TGAbstractContext context){
-		this.runLocked(new Runnable() {
-			public void run() {
-				doUpdate(TGUpdateEvent.SONG_LOADED, context);
-			}
-		});
+		this.runLocked(() -> doUpdate(TGUpdateEvent.SONG_LOADED, context));
 	}
 
 	public void destroy(final TGAbstractContext context) {
-		this.runLocked(new Runnable() {
-			public void run() {
-				doDestroy(context);
-			}
-		});
+		this.runLocked(() -> doDestroy(context));
 	}
 
 	public void addRedrawListener(TGEventListener listener){
@@ -188,6 +151,25 @@ public class TGEditorManager {
 		}
 	}
 
+	// locks for the action about to run, noting it in the action's context (see unlockFor)
+	public void lockFor(String actionId, TGAbstractContext actionContext) {
+		this.lock();
+		actionContext.setAttribute(lockedFor(actionId), Boolean.TRUE);
+	}
+
+	// gives back the lock taken for the action once it has run or failed; an action that failed before it ran (refused
+	// by an interceptor) took none, and gives none back
+	public void unlockFor(String actionId, TGAbstractContext actionContext) {
+		if( Boolean.TRUE.equals(actionContext.getAttribute(lockedFor(actionId))) ) {
+			actionContext.setAttribute(lockedFor(actionId), null);
+			this.unlock();
+		}
+	}
+
+	private static String lockedFor(String actionId) {
+		return TGEditorManager.class.getName() + "-locked-for-" + actionId;
+	}
+
 	public boolean tryLock(){
 		if( this.lockControl != null ) {
 			return this.lockControl.tryLock();
@@ -237,10 +219,6 @@ public class TGEditorManager {
 	}
 
 	public static TGEditorManager getInstance(TGContext context) {
-		return TGSingletonUtil.getInstance(context, TGEditorManager.class.getName(), new TGSingletonFactory<TGEditorManager>() {
-			public TGEditorManager createInstance(TGContext context) {
-				return new TGEditorManager(context);
-			}
-		});
+		return TGSingletonUtil.getInstance(context, TGEditorManager.class.getName(), TGEditorManager::new);
 	}
 }

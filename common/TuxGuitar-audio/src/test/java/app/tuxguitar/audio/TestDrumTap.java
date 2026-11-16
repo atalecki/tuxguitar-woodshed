@@ -45,8 +45,9 @@ public class TestDrumTap {
 	// the drums themselves, filled a block at a time, from their latency on
 	private float[][] drums(TGTimeline timeline, MidiClick click) {
 		GervillDrums drums = new GervillDrums(context, 44100);
-		for (long position : timeline.getCountIn().positions()) {
-			drums.click(click, position, timeline.getCountIn().hold());
+		long[] positions = timeline.getCountIn().positions();
+		for (int each = 0; each < positions.length; each++) {
+			drums.click(click, positions[each], timeline.getCountIn().hold(each));
 		}
 		int latency = GervillProcessor.latency(44100);
 		int blocks = (int) ((timeline.length() + latency) / GervillDrums.FRAMES) + 1;
@@ -108,6 +109,19 @@ public class TestDrumTap {
 
 		assertEquals(4, beats.length);
 		assertTrue(Meters.peak(left, (int) beats[3], (int) beats[3] + 1000) > 0.001);
+	}
+
+	// one Count In tick (22050 samples) and measure 2 stopped 100 samples in: one click each, both sound
+	@Test
+	public void oneCountInClickAndOneMetronomeClickBothSound() {
+		countDown.setEnabled(true);
+		countDown.setTickCount(1);
+		TGTimeline timeline = fromMeasure2().until(22150);
+		float[] left = TGDrumTap.render(context, timeline, MidiClick.DEFAULT, TGMetronome.of(timeline))[0];
+
+		assertEquals("1 1", timeline.getCountIn().positions().length + " " + TGMetronome.of(timeline).positions().length);
+		assertTrue(Meters.peak(left, 0, 1000) > 0.001, "the Count In click");
+		assertTrue(Meters.peak(left, 22050, 22150) > 0.001, "the Metronome click");
 	}
 
 	@Test

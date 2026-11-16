@@ -116,11 +116,16 @@ public class TGMenuManager implements TGEventListener {
 		}
 	}
 
+	// the menu bar's and the popup menu's items, those a practice session refuses greyed out (see TGMenuGreying)
 	public void updateItems(){
 		if(!this.isDisposed()){
-			this.updateItems(this.loadedMenuItems);
-			this.updateItems(this.loadedPopupMenuItems);
+			TGMenuGreying.getInstance(this.context).refresh(this::updateLoadedItems);
 		}
+	}
+
+	private void updateLoadedItems(){
+		this.updateItems(this.loadedMenuItems);
+		this.updateItems(this.loadedPopupMenuItems);
 	}
 
 	public void updateItems(List<TGMenuItem> menuItems){
@@ -198,10 +203,14 @@ public class TGMenuManager implements TGEventListener {
 	}
 
 	public void processUpdateEvent(TGEvent event) {
-		int type = ((Integer)event.getAttribute(TGUpdateEvent.PROPERTY_UPDATE_MODE)).intValue();
-		if( type == TGUpdateEvent.SELECTION || type == TGUpdateEvent.CUSTOM_TEMPLATE_CHANGED){
+		if( updatesItems((Integer) event.getAttribute(TGUpdateEvent.PROPERTY_UPDATE_MODE)) ){
 			this.updateItemsProcess.process();
 		}
+	}
+
+	// a new selection or custom template updates the items
+	private static boolean updatesItems(int mode) {
+		return (mode == TGUpdateEvent.SELECTION || mode == TGUpdateEvent.CUSTOM_TEMPLATE_CHANGED);
 	}
 
 	public void processEvent(final TGEvent event) {

@@ -44,16 +44,27 @@ public class CountInSteps {
 		assertTrue(player().getCountDown().isEnabled());
 	}
 
+	// it is off until turned on
+	@Given("I have turned Count In off")
+	public void turnCountInOff() {
+		player().getCountDown().setEnabled(false);
+	}
+
 	@Given("I have turned the Metronome on")
 	public void turnTheMetronomeOn() {
 		world.execute(new TGTransportMetronomeAction(world.fixture().context));
 		assertTrue(player().isMetronomeEnabled());
 	}
 
-	// as the transport dialog sets them
 	@Given("I have turned Count In on with {int} Count In ticks")
 	public void turnCountInOnWithTicks(int ticks) {
 		turnCountInOn();
+		setTheTicks(ticks);
+	}
+
+	// as the transport dialog sets them, Count In on or off
+	@Given("I have set the Count In ticks to {int}")
+	public void setTheTicks(int ticks) {
 		player().getCountDown().setTickCount(ticks);
 	}
 
@@ -74,11 +85,15 @@ public class CountInSteps {
 	// each click sounds above -60 dBFS on the drum tap and in the output, from its position for a beat (or until the
 	// output ends)
 	private void assertEachSounds(long[] clicks, long beat) {
+		assertEachSounds(heard(), clicks, beat);
+	}
+
+	static void assertEachSounds(Heard heard, long[] clicks, long beat) {
 		for (long click : clicks) {
 			int from = (int) click;
-			int to = (int) Math.min(click + beat, heard().left().length);
-			assertTrue(Math.max(Meters.peak(heard().drums(0), from, to), Meters.peak(heard().drums(1), from, to)) >= SILENT, "click at " + click + " on the drums");
-			assertTrue(Math.max(Meters.peak(heard().left(), from, to), Meters.peak(heard().right(), from, to)) >= SILENT, "click at " + click + " in the output");
+			int to = (int) Math.min(click + beat, heard.left().length);
+			assertTrue(Math.max(Meters.peak(heard.drums(0), from, to), Meters.peak(heard.drums(1), from, to)) >= SILENT, "click at " + click + " on the drums");
+			assertTrue(Math.max(Meters.peak(heard.left(), from, to), Meters.peak(heard.right(), from, to)) >= SILENT, "click at " + click + " in the output");
 		}
 	}
 

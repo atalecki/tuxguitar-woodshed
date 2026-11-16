@@ -1,5 +1,7 @@
 package app.tuxguitar.audio;
 
+import java.util.List;
+
 import app.tuxguitar.midi.synth.impl.GervillDrums;
 import app.tuxguitar.midi.synth.impl.GervillProcessor;
 import app.tuxguitar.player.base.MidiClick;
@@ -17,24 +19,23 @@ public final class TGDrumTap {
 	}
 
 	public static float[][] render(TGContext context, TGTimeline timeline, MidiClick click) {
-		return render(context, timeline, click, TGMetronome.NONE);
+		return render(context, timeline, click, TGClicks.NONE);
 	}
 
 	// the Count In's clicks, then the Metronome's
-	public static float[][] render(TGContext context, TGTimeline timeline, MidiClick click, TGMetronome metronome) {
+	public static float[][] render(TGContext context, TGTimeline timeline, MidiClick click, TGClicks metronome) {
 		float[][] tap = new float[2][(int) timeline.length()];
-		long[] clicks = timeline.getCountIn().positions();
-		long[] beats = metronome.positions();
+		List<TGClicks> all = List.of(timeline.getCountIn(), metronome);
 		// no drums to open when nothing clicks
-		if (clicks.length + beats.length == 0) {
+		if (all.stream().allMatch(clicks -> clicks.positions().length == 0)) {
 			return tap;
 		}
 		GervillDrums drums = new GervillDrums(context, timeline.getSampleRate());
-		for (long position : clicks) {
-			drums.click(click, position, timeline.getCountIn().hold());
-		}
-		for (int beat = 0; beat < beats.length; beat++) {
-			drums.click(click, beats[beat], metronome.hold(beat));
+		for (TGClicks clicks : all) {
+			long[] positions = clicks.positions();
+			for (int each = 0; each < positions.length; each++) {
+				drums.click(click, positions[each], clicks.hold(each));
+			}
 		}
 		float[][] block = new float[2][TGBlocks.FRAMES];
 		int latency = latency(timeline);

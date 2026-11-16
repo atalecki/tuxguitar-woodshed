@@ -1,7 +1,8 @@
 package app.tuxguitar.app.view.toolbar.main;
 
+import java.util.Optional;
+
 import app.tuxguitar.app.TuxGuitar;
-import app.tuxguitar.app.system.icons.TGIconManager;
 import app.tuxguitar.ui.toolbar.UIToolActionItem;
 import app.tuxguitar.ui.toolbar.UIToolCheckableItem;
 import app.tuxguitar.ui.toolbar.UIToolItem;
@@ -17,6 +18,7 @@ public class TGMainToolBarItemButton extends TGMainToolBarItem {
 	public TGMainToolBarItemButton(TGMainToolBarItemConfig config, UIToolItem toolItem) {
 		super(config);
 		this.toolItem = toolItem;
+		this.showIconOn(toolItem, UIToolItem::setImage);
 	}
 
 	@Override
@@ -27,25 +29,45 @@ public class TGMainToolBarItemButton extends TGMainToolBarItem {
 
 	@Override
 	public void update(TGContext context, boolean running) {
+		this.updateEnabled(context, running);
 		if (this.updater != null) {
-			this.checked = updater.checked(context, running);
-			if (this.toolItem != null) {
-				((UIToolActionItem) toolItem).setEnabled(updater.enabled(context, running));
-				if (toolItem instanceof UIToolCheckableItem) {
-					((UIToolCheckableItem) toolItem).setChecked(this.checked);
-				}
-			}
-			String newIconName = updater.getIconName(context, running);
-			if ((newIconName != null) && !newIconName.equals(this.iconFileName)) {
-				this.iconFileName = newIconName;
-				this.loadIcons(TuxGuitar.getInstance().getIconManager());
-			}
-			String newText = updater.getText(context, running);
-			if ((newText != null) && !newText.equals(this.text)) {
-				this.text = newText;
-				this.loadProperties();
-			}
+			this.updateChecked(updater.checked(context, running));
+			Optional.ofNullable(updater.getIconName(context, running)).filter(name -> !name.equals(this.iconFileName)).ifPresent(this::updateIcon);
+			Optional.ofNullable(updater.getText(context, running)).filter(text -> !text.equals(this.text)).ifPresent(this::updateText);
 		}
+	}
+
+	private void updateEnabled(TGContext context, boolean running) {
+		if (this.toolItem != null) {
+			((UIToolActionItem) toolItem).setEnabled(this.enabled(context, running));
+		}
+	}
+
+	private void updateChecked(boolean checked) {
+		this.checked = checked;
+		if (toolItem instanceof UIToolCheckableItem) {
+			((UIToolCheckableItem) toolItem).setChecked(this.checked);
+		}
+	}
+
+	private void updateIcon(String newIconName) {
+		this.iconFileName = newIconName;
+		this.loadIcons(TuxGuitar.getInstance().getIconManager());
+	}
+
+	private void updateText(String newText) {
+		this.text = newText;
+		this.loadProperties();
+	}
+
+	// as its updater says, unless a practice session refuses its action
+	private boolean enabled(TGContext context, boolean running) {
+		return (this.updaterEnables(context, running) && !this.greys(context));
+	}
+
+	// enabled without an updater
+	private boolean updaterEnables(TGContext context, boolean running) {
+		return (this.updater == null || this.updater.enabled(context, running));
 	}
 
 	@Override
@@ -55,11 +77,5 @@ public class TGMainToolBarItemButton extends TGMainToolBarItem {
 		}
 	}
 
-	@Override
-	public void loadIcons(TGIconManager iconManager) {
-		if (toolItem != null) {
-			toolItem.setImage(iconManager.getImageByName(this.iconFileName));
-		}
-	}
 
 }

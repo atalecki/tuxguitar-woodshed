@@ -21,6 +21,7 @@ import app.tuxguitar.editor.action.composition.TGChangeTempoRangeAction;
 import app.tuxguitar.editor.action.composition.TGChangeTimeSignatureAction;
 import app.tuxguitar.editor.action.edit.TGRedoAction;
 import app.tuxguitar.editor.action.edit.TGUndoAction;
+import app.tuxguitar.editor.practice.TGPracticeEdits;
 import app.tuxguitar.editor.action.measure.TGPasteMeasureAction;
 import app.tuxguitar.editor.action.measure.TGRemoveMeasureRangeAction;
 import app.tuxguitar.editor.action.note.TGChangeNoteAction;
@@ -47,6 +48,7 @@ import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.audio.TGTakeSpan;
 import app.tuxguitar.audio.TGTakes;
 import app.tuxguitar.editor.action.SongActionFixture;
@@ -128,6 +130,8 @@ public class AudioWorld {
 		TGNoteEntry.install(this.fixture.context);
 		// as the app plays audio tracks' takes live on the TuxGuitar Synthesizer
 		TGLiveTakes.install(this.fixture.context);
+		// as the app has edits during an interleaved practice session checked or end it
+		TGPracticeEdits.install(this.fixture.context);
 		TGThreadManager.getInstance(this.fixture.context).setThreadHandler(this.threads);
 		// a gesture in a plugin's editor changes the song by an action the module runs: the app maps it, undoable
 		this.fixture.map(new TGSetPluginStateAction(this.fixture.context));
@@ -268,6 +272,35 @@ public class AudioWorld {
 		return this.refusal;
 	}
 
+	// what a step's own check refused, saying why (null: it did not refuse)
+	void setRefusal(String refusal) {
+		this.refusal = refusal;
+	}
+
+	/** Starting practice as set, which may be refused saying why. */
+	interface Starting<T> {
+		T start() throws TGPracticeRefusal;
+	}
+
+	// what starting practice gives, or null when it is refused: then the reason is the refusal
+	<T> T start(Starting<T> starting) {
+		this.refusal = null;
+		try {
+			return starting.start();
+		} catch (TGPracticeRefusal refused) {
+			this.refusal = refused.getMessage();
+			return null;
+		}
+	}
+
+	// what starting the practice named gave, which must have been accepted
+	<T> T accepted(T started, String practice) {
+		if (started == null) {
+			throw new IllegalStateException(practice + " was refused: " + this.refusal);
+		}
+		return started;
+	}
+
 	public void executeUndoable(TGActionBase action, TGUndoableActionController controller) {
 		this.fixture.actionContext.setAttribute(TGActionBase.ATTRIBUTE_SUCCESS, null);
 		TGUndoableEdit started = controller.startUndoable(this.fixture.context, this.fixture.actionContext);
@@ -288,7 +321,7 @@ public class AudioWorld {
 	// plugin delay compensation as the README defines it: the slowest sound chain, the General MIDI drums' (Gervill's
 	// latency) at least, a muted track's too. Of the test plugins, Test Latency and Test Click delay by their one
 	// parameter, Latency; a disabled effect does not count
-	private int chainDelay() {
+	int chainDelay() {
 		int gervill = GervillProcessor.latency(this.device.getSampleRate());
 		int delay = gervill;
 		Iterator<TGTrack> tracks = song().getTracks();

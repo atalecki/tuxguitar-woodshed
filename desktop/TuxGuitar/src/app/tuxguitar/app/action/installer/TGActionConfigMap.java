@@ -125,6 +125,8 @@ import app.tuxguitar.app.action.impl.track.TGGoToTrackAction;
 import app.tuxguitar.app.action.impl.track.TGOpenTrackPropertiesDialogAction;
 import app.tuxguitar.app.action.impl.track.TGOpenTrackTuningDialogAction;
 import app.tuxguitar.app.action.impl.track.TGToggleLyricEditorAction;
+import app.tuxguitar.app.action.impl.transport.TGOpenClickUpDialogAction;
+import app.tuxguitar.app.action.impl.transport.TGOpenPracticeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenTransportModeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayPauseAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayStopAction;
@@ -176,6 +178,7 @@ import app.tuxguitar.editor.action.channel.TGRemoveChannelAction;
 import app.tuxguitar.editor.action.channel.TGSetChannelsAction;
 import app.tuxguitar.editor.action.channel.TGUpdateChannelAction;
 import app.tuxguitar.editor.action.composition.TGChangeClefAction;
+import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.action.composition.TGChangeInfoAction;
 import app.tuxguitar.editor.action.composition.TGChangeKeySignatureAction;
 import app.tuxguitar.editor.action.composition.TGChangeTempoAction;
@@ -289,6 +292,9 @@ import app.tuxguitar.editor.action.track.TGSetTrackStringCountAction;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
 import app.tuxguitar.editor.action.transport.TGTransportModeAction;
+import app.tuxguitar.editor.action.transport.TGTransportClickUpAction;
+import app.tuxguitar.editor.action.transport.TGTransportPractiseAction;
+import app.tuxguitar.editor.action.transport.TGTransportStepAction;
 import app.tuxguitar.editor.undo.TGUndoableActionController;
 import app.tuxguitar.editor.undo.impl.channel.TGUndoableChannelGenericController;
 import app.tuxguitar.editor.undo.impl.channel.TGUndoableModifyChannelController;
@@ -296,6 +302,7 @@ import app.tuxguitar.editor.undo.impl.custom.TGUndoableAltRepeatController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableBeatRangeController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableClefController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableCloseRepeatController;
+import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableKeySignatureController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableNoteRangeController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableOpenRepeatController;
@@ -543,6 +550,7 @@ public class TGActionConfigMap extends TGActionMap<TGActionConfig> {
 		this.map(TGChangeTimeSignatureAction.NAME, LOCKABLE | DISABLE_ON_PLAY, UPDATE_SONG_CTL, new TGUndoableTimeSignatureController());
 		this.map(TGChangeKeySignatureAction.NAME, LOCKABLE | DISABLE_ON_PLAY, UPDATE_SONG_CTL, new TGUndoableKeySignatureController());
 		this.map(TGChangeTripletFeelAction.NAME, LOCKABLE | DISABLE_ON_PLAY, UPDATE_SONG_CTL, new TGUndoableTripletFeelController());
+		this.map(TGChangeDifficultyAction.NAME, LOCKABLE | DISABLE_ON_PLAY, UPDATE_MEASURE_CTL, new TGUndoableDifficultyController());
 
 		//composition actions
 		this.map(TGChangeInfoAction.NAME, LOCKABLE | DISABLE_ON_PLAY, new TGUpdateSongInfoController(), new TGUndoableSongInfoController());
@@ -564,6 +572,10 @@ public class TGActionConfigMap extends TGActionMap<TGActionConfig> {
 		this.map(TGTransportMetronomeAction.NAME, LOCKABLE | SHORTCUT);
 		this.map(TGTransportCountDownAction.NAME, LOCKABLE | SHORTCUT);
 		this.map(TGTransportModeAction.NAME, LOCKABLE, UPDATE_SONG_CTL);
+		this.map(TGTransportPractiseAction.NAME, LOCKABLE);
+		this.map(TGTransportClickUpAction.NAME, LOCKABLE);
+		this.map(TGTransportStepAction.NAME_REPEAT, LOCKABLE | SHORTCUT);
+		this.map(TGTransportStepAction.NAME_PREVIOUS, LOCKABLE | SHORTCUT);
 		this.map(TGTransportSetLoopSHeaderAction.NAME, LOCKABLE | SHORTCUT, UPDATE_SONG_CTL);
 		this.map(TGTransportSetLoopEHeaderAction.NAME, LOCKABLE | SHORTCUT, UPDATE_SONG_CTL);
 
@@ -646,6 +658,8 @@ public class TGActionConfigMap extends TGActionMap<TGActionConfig> {
 		this.map(TGCustomTemplateSelectAction.NAME, LOCKABLE | SYNC_THREAD);
 		this.map(TGCustomTemplateDeleteAction.NAME, LOCKABLE | SYNC_THREAD);
 		this.map(TGOpenTransportModeDialogAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);
+		this.map(TGOpenPracticeDialogAction.NAME, LOCKABLE | SYNC_THREAD | SHORTCUT);
+		this.map(TGOpenClickUpDialogAction.NAME, LOCKABLE | SYNC_THREAD | SHORTCUT);
 		this.map(TGOpenMarkerEditorAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);
 		this.map(TGOpenTransposeDialogAction.NAME, LOCKABLE | SYNC_THREAD |DISABLE_ON_PLAY | SHORTCUT);
 		this.map(TGToggleFretBoardEditorAction.NAME, LOCKABLE | SYNC_THREAD |SHORTCUT);

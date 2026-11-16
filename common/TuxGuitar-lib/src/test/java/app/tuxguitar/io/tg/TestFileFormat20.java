@@ -480,6 +480,40 @@ public class TestFileFormat20 {
 		assertTrue(header.getNumber() > 5);
 	}
 
+	// interleaved practice's difficulty flag: written only for a flagged measure, still format 2.0 (whose readers
+	// ignore the element), read back as written
+	@Test
+	public void aDifficultyFlagIsWrittenOnlyWhenFlaggedAndReadBack() throws IOException {
+		TGFactory factory = new TGFactory();
+		TGSong song = readSong("reference_20.tg", true).getSong();
+		song.getMeasureHeader(1).setDifficulty(3);
+		song.getMeasureHeader(2).setDifficulty(5);
+
+		byte[] bufferXml = saveToXml(song, factory);
+		String written = new String(bufferXml, StandardCharsets.UTF_8);
+
+		assertTrue(validatesSchema(new ByteArrayInputStream(bufferXml), false));
+		assertEquals(2, written.split("<difficulty>", -1).length - 1);
+		TGSong read = readFromXml(bufferXml, factory);
+		assertEquals("1 3 5 1", read.getMeasureHeader(0).getDifficulty() + " " + read.getMeasureHeader(1).getDifficulty()
+				+ " " + read.getMeasureHeader(2).getDifficulty() + " " + read.getMeasureHeader(3).getDifficulty());
+	}
+
+	// a difficulty no version writes is read as not flagged
+	@Test
+	public void aDifficultyOutsideOneToFiveReadsAsNotFlagged() {
+		String xml = SONG_START
+				+ "<TGMeasureHeader><difficulty>0</difficulty></TGMeasureHeader>"
+				+ "<TGMeasureHeader><difficulty>6</difficulty></TGMeasureHeader>"
+				+ "<TGMeasureHeader><difficulty>2</difficulty></TGMeasureHeader>"
+				+ "</TGSong></TuxGuitarFile>";
+
+		TGSong song = readFromXml(xml.getBytes(StandardCharsets.UTF_8), new TGFactory());
+
+		assertEquals("1 1 2", song.getMeasureHeader(0).getDifficulty() + " " + song.getMeasureHeader(1).getDifficulty()
+				+ " " + song.getMeasureHeader(2).getDifficulty());
+	}
+
 	@Test
 	public void testMaxFret() throws IOException {
 		TGFactory factory = new TGFactory();

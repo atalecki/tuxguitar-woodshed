@@ -28,53 +28,50 @@ public class CompositionMenuItem extends TGMenuItem {
 	private UIMenuActionItem repeatAlternative;
 	private UIMenuActionItem tripletFeel;
 	private UIMenuActionItem properties;
+	private DifficultyMenuItem difficulty;
 
 	public CompositionMenuItem(UIMenu parent) {
 		this.compositionMenuItem = parent.createSubMenuItem();
 	}
 
 	public void showItems(){
+		this.named(this.compositionMenuItem, "composition", null, null);
 		//--TIME SIGNATURE--
-		this.timeSignature = this.compositionMenuItem.getMenu().createActionItem();
-		this.timeSignature.addSelectionListener(this.createActionProcessor(TGOpenTimeSignatureDialogAction.NAME));
+		this.timeSignature = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.timesignature", TGOpenTimeSignatureDialogAction.NAME, TGIconManager.TIME_SIGNATURE);
 
 		//--TEMPO--
-		this.tempo = this.compositionMenuItem.getMenu().createActionItem();
-		this.tempo.addSelectionListener(this.createActionProcessor(TGOpenTempoDialogAction.NAME));
+		this.tempo = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.tempo", TGOpenTempoDialogAction.NAME, TGIconManager.TEMPO);
 
 		//--CLEF--
-		this.clef = this.compositionMenuItem.getMenu().createActionItem();
-		this.clef.addSelectionListener(this.createActionProcessor(TGOpenClefDialogAction.NAME));
+		this.clef = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.clef", TGOpenClefDialogAction.NAME, TGIconManager.CLEF);
 
 		//--KEY SIGNATURE--
-		this.keySignature = this.compositionMenuItem.getMenu().createActionItem();
-		this.keySignature.addSelectionListener(this.createActionProcessor(TGOpenKeySignatureDialogAction.NAME));
+		this.keySignature = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.keysignature", TGOpenKeySignatureDialogAction.NAME, TGIconManager.KEY_SIGNATURE);
 
 		//--TRIPLET FEEL--
-		this.tripletFeel = this.compositionMenuItem.getMenu().createActionItem();
-		this.tripletFeel.addSelectionListener(this.createActionProcessor(TGOpenTripletFeelDialogAction.NAME));
+		this.tripletFeel = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.tripletfeel", TGOpenTripletFeelDialogAction.NAME, TGIconManager.TRIPLET_FEEL);
+
+		//--DIFFICULTY (interleaved practice)--
+		this.difficulty = new DifficultyMenuItem(this.compositionMenuItem.getMenu().createSubMenuItem());
+		this.difficulty.showItems();
 
 		//--SEPARATOR--
 		this.compositionMenuItem.getMenu().createSeparator();
 
 		//--REPEAT OPEN--
-		this.repeatOpen = this.compositionMenuItem.getMenu().createActionItem();
-		this.repeatOpen.addSelectionListener(this.createActionProcessor(TGRepeatOpenAction.NAME));
+		this.repeatOpen = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "repeat.open", TGRepeatOpenAction.NAME, TGIconManager.REPEAT_OPEN);
 
 		//--REPEAT CLOSE--
-		this.repeatClose = this.compositionMenuItem.getMenu().createActionItem();
-		this.repeatClose.addSelectionListener(this.createActionProcessor(TGOpenRepeatCloseDialogAction.NAME));
+		this.repeatClose = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "repeat.close", TGOpenRepeatCloseDialogAction.NAME, TGIconManager.REPEAT_CLOSE);
 
 		//--REPEAT ALTERNATIVE--
-		this.repeatAlternative = this.compositionMenuItem.getMenu().createActionItem();
-		this.repeatAlternative.addSelectionListener(this.createActionProcessor(TGOpenRepeatAlternativeDialogAction.NAME));
+		this.repeatAlternative = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "repeat.alternative", TGOpenRepeatAlternativeDialogAction.NAME, TGIconManager.REPEAT_ALTERNATIVE);
 
 		//--SEPARATOR--
 		this.compositionMenuItem.getMenu().createSeparator();
 
 		//--INFO--
-		this.properties = this.compositionMenuItem.getMenu().createActionItem();
-		this.properties.addSelectionListener(this.createActionProcessor(TGOpenSongInfoDialogAction.NAME));
+		this.properties = this.actionItem(this.compositionMenuItem.getMenu().createActionItem(), "composition.properties", TGOpenSongInfoDialogAction.NAME, TGIconManager.SONG_PROPERTIES);
 
 		this.loadIcons();
 		this.loadProperties();
@@ -83,38 +80,23 @@ public class CompositionMenuItem extends TGMenuItem {
 	public void update(){
 		boolean isPercussion = TuxGuitar.getInstance().getTablatureEditor().getTablature().getCaret().getTrack().isPercussion();
 		boolean running = TuxGuitar.getInstance().getPlayer().isRunning();
+		boolean pitched = (!running && !isPercussion);
 		this.timeSignature.setEnabled(!running);
 		this.tempo.setEnabled(!running);
-		this.clef.setEnabled(!running && !isPercussion);
-		this.keySignature.setEnabled(!running && !isPercussion);
+		this.clef.setEnabled(pitched);
+		this.keySignature.setEnabled(pitched);
 		this.tripletFeel.setEnabled(!running);
+		this.difficulty.update();
 		this.repeatOpen.setEnabled(!running);
 		this.repeatClose.setEnabled(!running);
 		this.repeatAlternative.setEnabled(!running);
 	}
 
-	public void loadProperties(){
-		setMenuItemTextAndAccelerator(this.compositionMenuItem, "composition", null);
-		setMenuItemTextAndAccelerator(this.timeSignature, "composition.timesignature", TGOpenTimeSignatureDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.tempo, "composition.tempo", TGOpenTempoDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.clef, "composition.clef", TGOpenClefDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.keySignature, "composition.keysignature", TGOpenKeySignatureDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.tripletFeel, "composition.tripletfeel", TGOpenTripletFeelDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.repeatOpen, "repeat.open", TGRepeatOpenAction.NAME);
-		setMenuItemTextAndAccelerator(this.repeatClose, "repeat.close", TGOpenRepeatCloseDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.repeatAlternative, "repeat.alternative", TGOpenRepeatAlternativeDialogAction.NAME);
-		setMenuItemTextAndAccelerator(this.properties, "composition.properties", TGOpenSongInfoDialogAction.NAME);
+	public void loadProperties() {
+		this.loadNames(this.difficulty);
 	}
 
 	public void loadIcons() {
-		this.timeSignature.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TIME_SIGNATURE));
-		this.tempo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TEMPO));
-		this.clef.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.CLEF));
-		this.keySignature.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.KEY_SIGNATURE));
-		this.tripletFeel.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.TRIPLET_FEEL));
-		this.repeatOpen.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.REPEAT_OPEN));
-		this.repeatClose.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.REPEAT_CLOSE));
-		this.repeatAlternative.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.REPEAT_ALTERNATIVE));
-		this.properties.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.SONG_PROPERTIES));
+		this.loadImages();
 	}
 }

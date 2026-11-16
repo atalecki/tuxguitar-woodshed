@@ -25,7 +25,7 @@ public class DynamicMenuItem extends TGMenuItem {
 	private UIMenuCheckableItem forteFortissimo;
 
 	public DynamicMenuItem(UIMenuSubMenuItem dynamicMenuItem) {
-		this.dynamicMenuItem = dynamicMenuItem;
+		this.dynamicMenuItem = this.named(dynamicMenuItem, "dynamic", null, TGIconManager.DYNAMIC);
 	}
 
 	public DynamicMenuItem(UIMenu parent) {
@@ -34,36 +34,36 @@ public class DynamicMenuItem extends TGMenuItem {
 
 	public void showItems(){
 		//--PPP--
-		this.pianoPianissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.pianoPianissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.PIANO_PIANISSIMO));
+		this.pianoPianissimo = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.piano-pianissimo", null, TGIconManager.DYNAMIC_PPP);
+		this.act(this.pianoPianissimo, this.createChangeVelocityAction(TGVelocities.PIANO_PIANISSIMO));
 
 		//--PP--
-		this.pianissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.pianissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.PIANISSIMO));
+		this.pianissimo = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.pianissimo", null, TGIconManager.DYNAMIC_PP);
+		this.act(this.pianissimo, this.createChangeVelocityAction(TGVelocities.PIANISSIMO));
 
 		//--P--
-		this.piano = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.piano.addSelectionListener(this.createChangeVelocityAction(TGVelocities.PIANO));
+		this.piano = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.piano", null, TGIconManager.DYNAMIC_P);
+		this.act(this.piano, this.createChangeVelocityAction(TGVelocities.PIANO));
 
 		//--MP--
-		this.mezzoPiano = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.mezzoPiano.addSelectionListener(this.createChangeVelocityAction(TGVelocities.MEZZO_PIANO));
+		this.mezzoPiano = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.mezzo-piano", null, TGIconManager.DYNAMIC_MP);
+		this.act(this.mezzoPiano, this.createChangeVelocityAction(TGVelocities.MEZZO_PIANO));
 
 		//--MF--
-		this.mezzoForte = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.mezzoForte.addSelectionListener(this.createChangeVelocityAction(TGVelocities.MEZZO_FORTE));
+		this.mezzoForte = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.mezzo-forte", null, TGIconManager.DYNAMIC_MF);
+		this.act(this.mezzoForte, this.createChangeVelocityAction(TGVelocities.MEZZO_FORTE));
 
 		//--F--
-		this.forte = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.forte.addSelectionListener(this.createChangeVelocityAction(TGVelocities.FORTE));
+		this.forte = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.forte", null, TGIconManager.DYNAMIC_F);
+		this.act(this.forte, this.createChangeVelocityAction(TGVelocities.FORTE));
 
 		//--FF--
-		this.fortissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.fortissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.FORTISSIMO));
+		this.fortissimo = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.fortissimo", null, TGIconManager.DYNAMIC_FF);
+		this.act(this.fortissimo, this.createChangeVelocityAction(TGVelocities.FORTISSIMO));
 
 		//--FFF--
-		this.forteFortissimo = this.dynamicMenuItem.getMenu().createCheckItem();
-		this.forteFortissimo.addSelectionListener(this.createChangeVelocityAction(TGVelocities.FORTE_FORTISSIMO));
+		this.forteFortissimo = this.named(this.dynamicMenuItem.getMenu().createCheckItem(), "dynamic.forte-fortissimo", null, TGIconManager.DYNAMIC_FFF);
+		this.act(this.forteFortissimo, this.createChangeVelocityAction(TGVelocities.FORTE_FORTISSIMO));
 
 		this.loadIcons();
 		this.loadProperties();
@@ -92,32 +92,14 @@ public class DynamicMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties(){
-		this.dynamicMenuItem.setText(TuxGuitar.getProperty("dynamic"));
-		this.pianoPianissimo.setText(TuxGuitar.getProperty("dynamic.piano-pianissimo"));
-		this.pianissimo.setText(TuxGuitar.getProperty("dynamic.pianissimo"));
-		this.piano.setText(TuxGuitar.getProperty("dynamic.piano"));
-		this.mezzoPiano.setText(TuxGuitar.getProperty("dynamic.mezzo-piano"));
-		this.mezzoForte.setText(TuxGuitar.getProperty("dynamic.mezzo-forte"));
-		this.forte.setText(TuxGuitar.getProperty("dynamic.forte"));
-		this.fortissimo.setText(TuxGuitar.getProperty("dynamic.fortissimo"));
-		this.forteFortissimo.setText(TuxGuitar.getProperty("dynamic.forte-fortissimo"));
+		this.loadNames();
 	}
 
 	public void loadIcons(){
-		this.dynamicMenuItem.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC));
-		this.pianoPianissimo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_PPP));
-		this.pianissimo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_PP));
-		this.piano.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_P));
-		this.mezzoPiano.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_MP));
-		this.mezzoForte.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_MF));
-		this.forte.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_F));
-		this.fortissimo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_FF));
-		this.forteFortissimo.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.DYNAMIC_FFF));
+		this.loadImages();
 	}
 
 	public TGActionProcessorListener createChangeVelocityAction(Integer velocity) {
-		TGActionProcessorListener tgActionProcessor = this.createActionProcessor(TGChangeVelocityAction.NAME);
-		tgActionProcessor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_VELOCITY, velocity);
-		return tgActionProcessor;
+		return this.createActionProcessor(TGChangeVelocityAction.NAME, TGDocumentContextAttributes.ATTRIBUTE_VELOCITY, velocity);
 	}
 }

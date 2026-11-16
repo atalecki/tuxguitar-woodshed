@@ -44,6 +44,39 @@ public final class Meters {
 		return (crossings < 2 ? 0 : (crossings - 1) * (double) sampleRate / (last - first));
 	}
 
+	// where a sine at the frequency starts from phase 0 (as Test Sine starts each note): of the samples within so many of
+	// near, the one from which such a sine, scaled to the samples from..to (least squares, every one of them after it),
+	// fits them best; Integer.MIN_VALUE when even that one misses them by more than 1% of its peak (root mean square) or
+	// its peak is below -60 dBFS
+	public static int sineStart(float[] samples, int from, int to, double frequency, int sampleRate, int near, int within) {
+		int best = Integer.MIN_VALUE;
+		double least = 0.01;
+		for (int start = near - within; start <= near + within; start++) {
+			double misfit = misfit(samples, from, to, frequency, sampleRate, start);
+			if (misfit <= least) {
+				least = misfit;
+				best = start;
+			}
+		}
+		return best;
+	}
+
+	// how far the samples are from the sine started there, scaled to them: the root mean square of what is left, against
+	// the sine's peak (infinite for a peak below -60 dBFS)
+	private static double misfit(float[] samples, int from, int to, double frequency, int sampleRate, int start) {
+		double both = 0;
+		double sine = 0;
+		double signal = 0;
+		for (int i = from; i < to; i++) {
+			double y = Math.sin(2 * Math.PI * frequency * (i - start) / sampleRate);
+			both += samples[i] * y;
+			sine += y * y;
+			signal += samples[i] * samples[i];
+		}
+		double peak = both / sine;
+		return (Math.abs(peak) < 0.001 ? Double.POSITIVE_INFINITY : Math.sqrt(Math.max(0, signal - peak * both) / (to - from)) / Math.abs(peak));
+	}
+
 	// the peak level of the sine at that frequency, by a Hann-windowed Fourier sum
 	public static double level(float[] samples, int from, int to, double frequency, int sampleRate) {
 		double re = 0;

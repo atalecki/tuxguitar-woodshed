@@ -50,9 +50,22 @@ public class SongSteps {
 	// an alternate ending is a bit per pass: the first ending plays on the first pass, the second on the second
 	@Given("I have repeated measure {int} once, with measure {int} as the first ending and measure {int} as the second")
 	public void repeatWithAlternateEndings(int repeated, int first, int second) {
+		repeatWithAFirstEnding(repeated, first);
+		world.song().getMeasureHeader(second - 1).setRepeatAlternative(2);
+	}
+
+	private void repeatWithAFirstEnding(int repeated, int first) {
 		repeatMeasures(repeated, first);
 		world.song().getMeasureHeader(first - 1).setRepeatAlternative(1);
-		world.song().getMeasureHeader(second - 1).setRepeatAlternative(2);
+	}
+
+	// repeated once (two passes), a third ending is never reached; it closes the repeat too, so the song plays on after it
+	@Given("I have repeated measure {int} once, with measure {int} as the first ending and measure {int} as a third, which no pass reaches")
+	public void repeatWithAThirdEnding(int repeated, int first, int third) {
+		repeatWithAFirstEnding(repeated, first);
+		TGMeasureHeader ending = world.song().getMeasureHeader(third - 1);
+		ending.setRepeatAlternative(4);
+		ending.setRepeatClose(1);
 	}
 
 	@Then("the action succeeds")
@@ -66,6 +79,10 @@ public class SongSteps {
 	}
 
 	@Then("the refusal reads {string}")
+	@Then("starting is refused, saying {string}")
+	@Then("the flag is refused, saying {string}")
+	@Then("the undo is refused, saying {string}")
+	@Then("the redo is refused, saying {string}")
 	public void theRefusalReads(String refusal) {
 		assertEquals(refusal, world.refusal());
 	}
@@ -92,6 +109,7 @@ public class SongSteps {
 	}
 
 	@Given("I have undone")
+	@Given("I have undone it")
 	public void haveUndone() {
 		undo();
 		assertTrue(TGUndoableManager.getInstance(world.fixture().context).canRedo());

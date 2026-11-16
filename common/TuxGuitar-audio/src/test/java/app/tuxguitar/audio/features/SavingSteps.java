@@ -154,6 +154,7 @@ public class SavingSteps {
 	}
 
 	@Then("the file's format version is {double}")
+	@Then("it is saved as file format {double}")
 	public void theFormatVersionIs(double version) throws IOException {
 		assertEquals(VERSION_PREFIX + version, entries(world.saved()).get("version.txt"));
 	}
@@ -178,6 +179,12 @@ public class SavingSteps {
 			refusal = refusal.getCause();
 		}
 		assertEquals(message, refusal.getMessage());
+	}
+
+	@Then("a reader of file format {double} opens it with {int} measures")
+	public void aReaderOpensIt(double version, int measures) throws TGFileFormatException {
+		assertEquals(2.0, version, 0.0, "the only older reader kept");
+		assertEquals(measures, readAsFormat20(world.saved()).countMeasureHeaders());
 	}
 
 	// the channel's General MIDI program by name, then the keys of its parameters with the prefix

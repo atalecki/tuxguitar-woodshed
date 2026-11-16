@@ -23,7 +23,7 @@ public class ChordMenuItem extends TGMenuItem {
 	private long lastEdit;
 
 	public ChordMenuItem(UIMenuSubMenuItem chordMenuItem) {
-		this.chordMenuItem = chordMenuItem;
+		this.chordMenuItem = this.named(chordMenuItem, "chord", null, null);
 		this.insertChordDiagramOnly = TuxGuitar.getInstance().getConfig().getBooleanValue(TGConfigKeys.CHORD_INSERT_DIAGRAM_ONLY);
 	}
 
@@ -33,8 +33,7 @@ public class ChordMenuItem extends TGMenuItem {
 
 	public void showItems() {
 		//--INSERT CHORD--
-		this.insertChord = this.chordMenuItem.getMenu().createActionItem();
-		this.insertChord.addSelectionListener(this.createActionProcessor(TGOpenChordDialogAction.NAME));
+		this.insertChord = this.actionItem(this.chordMenuItem.getMenu().createActionItem(), "insert.chord", TGOpenChordDialogAction.NAME, TGIconManager.CHORD);
 
 		//--SEPARATOR--
 		this.chordMenuItem.getMenu().createSeparator();
@@ -54,7 +53,7 @@ public class ChordMenuItem extends TGMenuItem {
 
 			this.subMenuItems[i] = this.chordMenuItem.getMenu().createActionItem();
 			this.subMenuItems[i].setText(chord.getName());
-			this.subMenuItems[i].addSelectionListener(this.createInsertChordAction(chord));
+			this.act(this.subMenuItems[i], this.createInsertChordAction(chord));
 		}
 	}
 
@@ -92,17 +91,15 @@ public class ChordMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties() {
-		setMenuItemTextAndAccelerator(this.chordMenuItem, "chord", null);
-		setMenuItemTextAndAccelerator(this.insertChord, "insert.chord", TGOpenChordDialogAction.NAME);
+		this.loadNames();
 	}
 
 	public void loadIcons() {
-		this.insertChord.setImage(TuxGuitar.getInstance().getIconManager().getImageByName(TGIconManager.CHORD));
+		this.loadImages();
 	}
 
 	public TGActionProcessorListener createInsertChordAction(TGChord chord) {
-		TGActionProcessorListener tgActionProcessor = this.createActionProcessor(TGInsertChordAction.NAME);
-		tgActionProcessor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHORD, chord);
+		TGActionProcessorListener tgActionProcessor = this.createActionProcessor(TGInsertChordAction.NAME, TGDocumentContextAttributes.ATTRIBUTE_CHORD, chord);
 		tgActionProcessor.setAttribute(TGInsertChordAction.ATTRIBUTE_CHORD_INSERT_DIAGRAM_ONLY, this.insertChordDiagramOnly);
 		return tgActionProcessor;
 	}

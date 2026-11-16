@@ -21,15 +21,15 @@ public final class TGRender {
 	private final float[][] output;
 	private final int latency;
 	private final int tail;
-	private final TGMetronome metronome;
+	private final TGClicks metronome;
 
 	// tail: the longest tail of the chains heard
 	public TGRender(TGTimeline timeline, Map<Integer, float[][]> taps, float[][] drums, float[][] output, int latency, int tail) {
-		this(timeline, taps, drums, output, latency, tail, TGMetronome.NONE);
+		this(timeline, taps, drums, output, latency, tail, TGClicks.NONE);
 	}
 
 	// metronome: the Metronome's clicks on the drum tap
-	public TGRender(TGTimeline timeline, Map<Integer, float[][]> taps, float[][] drums, float[][] output, int latency, int tail, TGMetronome metronome) {
+	public TGRender(TGTimeline timeline, Map<Integer, float[][]> taps, float[][] drums, float[][] output, int latency, int tail, TGClicks metronome) {
 		this.metronome = metronome;
 		this.timeline = timeline;
 		this.taps = taps;
@@ -60,7 +60,7 @@ public final class TGRender {
 	}
 
 	// the Metronome's clicks it sounded (none with the Metronome off)
-	public TGMetronome getMetronome() {
+	public TGClicks getMetronome() {
 		return this.metronome;
 	}
 
@@ -72,6 +72,11 @@ public final class TGRender {
 	// TGReportedPositions)
 	public long[] getReported(int outputLatency) {
 		return TGReportedPositions.of(this.timeline, this.latency + outputLatency);
+	}
+
+	// the same at every sample of the clock
+	public TGReportedPositions getReportedAt(int outputLatency) {
+		return TGReportedPositions.at(this.timeline, this.latency + outputLatency);
 	}
 
 	// how many samples the chains heard sound on after the last measure: the longest of their tails

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -64,13 +65,56 @@ public class TestReportedPositions {
 		assertEquals("5782", reported(from(start(2) + 960, 1, 44100), 0, 0, 1));
 	}
 
-	// in the Count In (4 beats, 88200 samples) the position is before the first measure played: after the first block,
-	// tick 982 before measure 2, tick 8662 before measure 4 (played alone)
+	// in the Count In (4 beats, 88200 samples) the position stays where playing starts, as live, where the Count In is a
+	// timer before the sequencer runs: measure 2 (tick 4800), measure 4 (tick 12480, played alone), also when the
+	// output sounds the Count In 1024 samples late; from the first measure on it moves
 	@Test
-	public void inTheCountInThePositionIsBeforeTheFirstMeasure() {
+	public void inTheCountInThePositionStaysWherePlayingStarts() {
 		countDown.setEnabled(true);
 
-		assertEquals("982 | 8662", reported(fromMeasure2(1), 0, 0, 1) + " | " + reported(from(start(4), 1, 44100), 0, 0, 1));
+		assertEquals("4800 4800 | 12480 | 4800 4816", reported(fromMeasure2(1), 1024, 0, 2) + " | " + reported(from(start(4), 1, 44100), 0, 171, 1) + " | "
+			+ reported(fromMeasure2(1), 0, 171, 2));
+	}
+
+	// measure 2 (ticks 4800 to 8639), then measure 4, each after its Count In: in the second Count In (from sample
+	// 176400 to 264600) the position is measure 4's first tick, then it moves on at its tempo (a tick every 22.96875
+	// samples). Without a delay, what starts on a sample is reported once the clock has played it, from the sample after
+	@Test
+	public void inEachTurnsCountInThePositionStaysOnTheTurnsFirstTick() {
+		countDown.setEnabled(true);
+		TGTimeline timeline = TGTimeline.of(song, List.of(turn(2), turn(4)), 44100);
+		TGReportedPositions positions = TGReportedPositions.at(timeline, 0);
+
+		assertEquals("8639 8640 12480 12480 12480 12481", LongStream.of(176399, 176400, 176401, 264599, 264601, 264624).mapToObj(positions::tickAt)
+			.map(String::valueOf).collect(Collectors.joining(" ")));
+	}
+
+	// measure 2, then a break of 2 beats (176400 to 220500) before measure 4's Count In (to 308700): from where the break
+	// starts the position is measure 4's first tick, as in its Count In (the break is the start of its turn)
+	@Test
+	public void inABreakThePositionIsTheNextTurnsFirstTick() {
+		countDown.setEnabled(true);
+		TGTurn four = turn(4);
+		TGTimeline timeline = TGTimeline.of(song, List.of(turn(2), four.afterBreak(44100)), 44100);
+		TGReportedPositions positions = TGReportedPositions.at(timeline, 0);
+
+		assertEquals("8640 12480 12480 12480 12481", LongStream.of(176400, 176401, 220501, 308700, 308724).mapToObj(positions::tickAt).map(String::valueOf)
+			.collect(Collectors.joining(" ")));
+	}
+
+	// a delay: the output sounds the clock that many samples later
+	@Test
+	public void aPositionIsReadTheDelayBehindTheClock() {
+		countDown.setEnabled(true);
+		TGTimeline timeline = TGTimeline.of(song, List.of(turn(2), turn(4)), 44100);
+
+		assertEquals(TGReportedPositions.at(timeline, 0).tickAt(264600), TGReportedPositions.at(timeline, 1024).tickAt(264600 + 1024));
+	}
+
+	// the measure alone, after the Count In
+	private TGTurn turn(int measure) {
+		List<TGPlayedMeasure> played = TGSongTime.play(song, mode, start(measure), start(measure) + song.getMeasureHeader(measure - 1).getLength(), 1);
+		return new TGTurn(TGCountIn.before(countDown, played, 44100), played);
 	}
 
 	// measure 3 at 60 bpm: measure 2 is reported at its own tempo; measure 3 from its start (sample 88200, in block 172) at

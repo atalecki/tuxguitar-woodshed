@@ -29,6 +29,7 @@ import app.tuxguitar.app.view.util.TGDialogUtil;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
+import app.tuxguitar.editor.action.transport.TGTransportStepAction;
 import app.tuxguitar.editor.event.TGRedrawEvent;
 import app.tuxguitar.editor.event.TGUpdateEvent;
 import app.tuxguitar.editor.util.TGProcess;
@@ -66,7 +67,6 @@ import app.tuxguitar.ui.widget.UISpinner;
 import app.tuxguitar.ui.widget.UIToggleButton;
 import app.tuxguitar.ui.widget.UIWindow;
 import app.tuxguitar.util.TGContext;
-import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGTransportDialog implements TGEventListener {
@@ -88,6 +88,8 @@ public class TGTransportDialog implements TGEventListener {
 	private UIToggleButton countInToggle;
 	private UISpinner countInTicks;
 	private UIButton mode;
+	private UIButton previousStep;
+	private UIButton repeatStep;
 	private UIToolBar toolBar;
 	private UIToolActionItem first;
 	private UIToolActionItem last;
@@ -207,6 +209,29 @@ public class TGTransportDialog implements TGEventListener {
 
 		initLabel(composite);
 		initScale(composite);
+		initPracticeTurn(composite);
+	}
+
+	// under the position: the turn of a practice session, then Previous step and Repeat step (see TGPracticeTurnLabel)
+	private void initPracticeTurn(UILayoutContainer parent) {
+		UITableLayout rowLayout = new UITableLayout(0f);
+		UIPanel row = getUIFactory().createPanel(parent, false);
+		row.setLayout(rowLayout);
+		((UITableLayout) parent.getLayout()).set(row, 3, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false);
+		UILabel practiceTurn = getUIFactory().createLabel(row);
+		rowLayout.set(practiceTurn, 1, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
+		rowLayout.set(practiceTurn, UITableLayout.MINIMUM_PACKED_WIDTH, 260f);
+		this.previousStep = this.stepButton(row, 2, TGTransportStepAction.NAME_PREVIOUS);
+		this.repeatStep = this.stepButton(row, 3, TGTransportStepAction.NAME_REPEAT);
+		TGPracticeTurnLabel.attach(this.context, practiceTurn, this.previousStep, this.repeatStep);
+	}
+
+	// a button in the row's column running the step command (its text set by loadProperties)
+	private UIButton stepButton(UIPanel row, int column, String action) {
+		UIButton button = getUIFactory().createButton(row);
+		button.addSelectionListener(new TGActionProcessorListener(this.context, action));
+		((UITableLayout) row.getLayout()).set(button, 1, column, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_CENTER, false, false);
+		return button;
 	}
 
 	private void initLabel(UILayoutContainer parent) {
@@ -380,6 +405,8 @@ public class TGTransportDialog implements TGEventListener {
 			this.mode.setToolTipText(TuxGuitar.getProperty("transport.mode"));
 			this.countInToggle.setToolTipText(TuxGuitar.getProperty("transport.count-down"));
 			this.countInTicks.setToolTipText(TuxGuitar.getProperty("transport.count-down-ticks"));
+			this.previousStep.setText(TuxGuitar.getProperty("transport.previous-step"));
+			this.repeatStep.setText(TuxGuitar.getProperty("transport.repeat-step"));
 			this.loadPlayText();
 		}
 	}
@@ -466,71 +493,76 @@ public class TGTransportDialog implements TGEventListener {
 
 	public void redrawPlayingMode() {
 		if (!isDisposed()) {
-			MidiPlayer player = MidiPlayer.getInstance(this.context);
-			if (!isEditingTickScale() && player.isRunning()) {
-				TGTransportCache transportCache = TGTransport.getInstance(this.context).getCache();
-
-				long time = System.currentTimeMillis();
-				if (time > this.redrawTime + PLAY_MODE_DELAY) {
-					long position = (transportCache.getPlayStart()
-							+ (player.getTickPosition() - transportCache.getPlayTick()));
-					this.updateTickLabel(Long.toString(position));
-					this.tickProgress.setValue((int) position);
-					this.redrawTime = time;
-
-					TGSong song = TGDocumentManager.getInstance(context).getSong();
-					TGMeasureHeader first = song != null
-							? TablatureEditor.getInstance(context).getTablature().getSongManager()
-									.getFirstMeasureHeader(song)
-							: null;
-					Map.Entry<Long, TGMeasureHeader> entry = headerMap.floorEntry(position);
-					TGMeasureHeader current = entry != null ? entry.getValue() : first;
-					Integer currentTempo = Math.round((float) current.getTempo().getRawValue()
-							* (float) player.getMode().getCurrentPercent() / 100.0f);
-					this.metronome.setText(currentTempo.toString());
-				}
-			}
+			this.redrawPlaying(MidiPlayer.getInstance(this.context));
 		}
 	}
 
+	// the position playing and the tempo heard there, unless the tick scale is being edited
+	private void redrawPlaying(MidiPlayer player) {
+		if (!isEditingTickScale()) {
+			this.redrawRunning(player);
+		}
+	}
+
+	private void redrawRunning(MidiPlayer player) {
+		if (player.isRunning()) {
+			this.redrawPosition(player, System.currentTimeMillis());
+		}
+	}
+
+	// at most once every PLAY_MODE_DELAY ms: the position, and the tempo heard there (the written tempo of its measure at
+	// the scale the player plays it, MidiPlayer.getHeardScale)
+	private void redrawPosition(MidiPlayer player, long time) {
+		if (time > this.redrawTime + PLAY_MODE_DELAY) {
+			TGTransportCache transportCache = TGTransport.getInstance(this.context).getCache();
+			long position = (transportCache.getPlayStart() + (player.getTickPosition() - transportCache.getPlayTick()));
+			this.updateTickLabel(Long.toString(position));
+			this.tickProgress.setValue((int) position);
+			this.redrawTime = time;
+			this.metronome.setText(String.valueOf(player.getHeardScale().bpm(this.headerAt(position).getTempo().getRawValue())));
+		}
+	}
+
+	// the measure the position is in, or the song's first
+	private TGMeasureHeader headerAt(long position) {
+		Map.Entry<Long, TGMeasureHeader> entry = headerMap.floorEntry(position);
+		return (entry != null ? entry.getValue() : this.firstHeader());
+	}
+
+	private TGMeasureHeader firstHeader() {
+		TGSong song = TGDocumentManager.getInstance(context).getSong();
+		return (song != null ? TablatureEditor.getInstance(context).getTablature().getSongManager().getFirstMeasureHeader(song) : null);
+	}
+
 	public void createSyncProcesses() {
-		this.loadPropertiesProcess = new TGSyncProcess(this.context, new Runnable() {
-			public void run() {
-				loadProperties();
-			}
-		});
+		this.loadPropertiesProcess = new TGSyncProcess(this.context, this::loadProperties);
 
-		this.loadIconsProcess = new TGSyncProcessLocked(this.context, new Runnable() {
-			public void run() {
-				loadIcons();
-			}
-		});
+		this.loadIconsProcess = new TGSyncProcessLocked(this.context, this::loadIcons);
 
-		this.updateItemsProcess = new TGSyncProcessLocked(this.context, new Runnable() {
-			public void run() {
-				updateItems();
-			}
-		});
+		this.updateItemsProcess = new TGSyncProcessLocked(this.context, this::updateItems);
 
-		this.redrawPlayModeProcess = new TGSyncProcessLocked(this.context, new Runnable() {
-			public void run() {
-				redrawPlayingMode();
-			}
-		});
+		this.redrawPlayModeProcess = new TGSyncProcessLocked(this.context, this::redrawPlayingMode);
 	}
 
 	public void processRedrawEvent(TGEvent event) {
-		int type = ((Integer) event.getAttribute(TGRedrawEvent.PROPERTY_REDRAW_MODE)).intValue();
-		if (type == TGRedrawEvent.PLAYING_THREAD || type == TGRedrawEvent.PLAYING_NEW_BEAT) {
+		if (isPlaying(mode(event, TGRedrawEvent.PROPERTY_REDRAW_MODE))) {
 			this.redrawPlayModeProcess.process();
 		}
 	}
 
+	private static boolean isPlaying(int redrawMode) {
+		return (redrawMode == TGRedrawEvent.PLAYING_THREAD || redrawMode == TGRedrawEvent.PLAYING_NEW_BEAT);
+	}
+
 	public void processUpdateEvent(TGEvent event) {
-		int type = ((Integer) event.getAttribute(TGUpdateEvent.PROPERTY_UPDATE_MODE)).intValue();
-		if (type == TGUpdateEvent.SELECTION) {
+		if (mode(event, TGUpdateEvent.PROPERTY_UPDATE_MODE) == TGUpdateEvent.SELECTION) {
 			this.updateItemsProcess.process();
 		}
+	}
+
+	// the event's redraw or update mode
+	private static int mode(TGEvent event, String property) {
+		return ((Integer) event.getAttribute(property)).intValue();
 	}
 
 	public void processEvent(final TGEvent event) {
@@ -547,11 +579,7 @@ public class TGTransportDialog implements TGEventListener {
 
 	public static TGTransportDialog getInstance(TGContext context) {
 		return TGSingletonUtil.getInstance(context, TGTransportDialog.class.getName(),
-				new TGSingletonFactory<TGTransportDialog>() {
-					public TGTransportDialog createInstance(TGContext context) {
-						return new TGTransportDialog(context);
-					}
-				});
+				TGTransportDialog::new);
 	}
 
 	private void updateHeaderMap() {

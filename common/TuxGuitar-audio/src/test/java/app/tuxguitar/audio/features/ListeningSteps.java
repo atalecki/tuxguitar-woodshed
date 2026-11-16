@@ -24,7 +24,7 @@ import io.cucumber.java.en.Then;
  */
 public class ListeningSteps {
 
-	private static final int FADE = 256;
+	static final int FADE = 256;
 	// -60 dBFS
 	private static final double SILENT = 0.001;
 
@@ -59,7 +59,7 @@ public class ListeningSteps {
 	}
 
 	// the transition starts on its first sample and reaches the new level on its last, each within 1 sample
-	private static void assertTransition(float[] samples, int first, int last, float from, float to) {
+	static void assertTransition(float[] samples, int first, int last, float from, float to) {
 		float near = Math.abs(to - from) / 512;
 		int begins = first - 3;
 		while (begins < samples.length - 1 && Math.abs(samples[begins] - from) <= near) {

@@ -1,11 +1,14 @@
 package app.tuxguitar.audio;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.player.base.MidiPracticeTurn;
 import app.tuxguitar.player.base.MidiTransport;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGSong;
@@ -19,7 +22,11 @@ import app.tuxguitar.util.TGContext;
  * as the mode's next loop: so the timeline, over as many passes of the Loop Range as asked for when Play looped is on,
  * always foresees the next jump back): to the end of the song, or over those passes. Asked to keep the pass that ended,
  * a next pass the timeline foresaw starts a timeline that holds that pass first, and goes on from its end (what plays
- * late, as the takes do by plugin delay compensation, still finds the end of the pass that ended there).
+ * late, as the takes do by plugin delay compensation, still finds the end of the pass that ended there). During an
+ * interleaved practice session the timeline plays the turns its sequence holds so far (TGLiveTurns), from the session's
+ * first; a turn laid while the one before plays joins the timeline, which goes on from the same sample (so it foresees
+ * every turn's end but the last, a jump in song time, as offline), and once the session is over (no turns laid) the
+ * song plays on as written.
  */
 final class TGLiveTimeline {
 
@@ -29,6 +36,10 @@ final class TGLiveTimeline {
 	private final TGContext context;
 	private final int passes;
 	private final boolean keepsEnded;
+	// the turns of the session playing its sequence holds (none: the song plays)
+	private final Supplier<List<MidiPracticeTurn>> laid;
+	// the turns the timeline plays (none: it plays the song)
+	private List<MidiPracticeTurn> turns = Collections.emptyList();
 	private final MidiTransport expected = new MidiTransport();
 	private int sampleRate = Math.round(TGAudioBuffer.SAMPLE_RATE);
 	private TGTimeline timeline;
@@ -42,9 +53,15 @@ final class TGLiveTimeline {
 	private double quarters;
 
 	TGLiveTimeline(TGContext context, int passes, boolean keepsEnded) {
+		this(context, passes, keepsEnded, () -> MidiPlayer.getInstance(context).getPracticeTurns());
+	}
+
+	// the turns of the session playing its sequence holds, as the player gives them
+	TGLiveTimeline(TGContext context, int passes, boolean keepsEnded, Supplier<List<MidiPracticeTurn>> laid) {
 		this.context = context;
 		this.passes = passes;
 		this.keepsEnded = keepsEnded;
+		this.laid = laid;
 	}
 
 	void setSampleRate(int sampleRate) {
@@ -61,14 +78,30 @@ final class TGLiveTimeline {
 	boolean follow(MidiTransport.Span span, int frames) {
 		this.position += this.frames;
 		this.frames = frames;
+		List<MidiPracticeTurn> now = this.laid.get();
 		boolean back = (this.timeline != null && span.getQuarters() < this.quarters);
 		boolean on = (this.timeline != null && this.isOnTheTimeline(span));
 		this.quarters = span.getQuarters();
-		if (on && !back) {
-			return false;
+		if (on && !back && this.goesOnWith(now)) {
+			return this.layAfter(now);
 		}
-		this.start(span, back, back && on && this.keepsEnded);
+		this.start(span, now, back, back && on && this.keepsEnded);
 		return true;
+	}
+
+	// whether the timeline goes on with the turns laid: its own, or its own and more after them (other ones, the session
+	// over or another one, start a new timeline)
+	private boolean goesOnWith(List<MidiPracticeTurn> now) {
+		return (now.equals(this.turns) || (!this.turns.isEmpty() && Collections.indexOfSubList(now, this.turns) == 0));
+	}
+
+	// the turns laid after the timeline's join it, from the same sample: whether there were any
+	private boolean layAfter(List<MidiPracticeTurn> now) {
+		boolean more = !now.equals(this.turns);
+		if (more) {
+			this.lay(now);
+		}
+		return more;
 	}
 
 	// the song stopped: playing again starts a new timeline
@@ -87,12 +120,31 @@ final class TGLiveTimeline {
 
 	private boolean isOnTheTimeline(MidiTransport.Span span) {
 		this.timeline.tell(this.expected, this.position, this.frames);
-		return Math.abs(this.expected.get(0).getQuarters() - span.getQuarters()) < ON_THE_TIMELINE;
+		return Math.abs(this.expected.get(0).getQuarters() - TGLiveTurns.songQuarters(this.turns, span.getQuarters())) < ON_THE_TIMELINE;
 	}
 
-	// a timeline from the span on, the next pass's or a new one's; keeping the pass that ended, it holds that pass first
-	// (a foreseen next pass: the mode loops) and goes on from where the next one starts in it
-	private void start(MidiTransport.Span span, boolean nextPass, boolean keep) {
+	// a timeline from the span on: the session's turns laid, or the song's
+	private void start(MidiTransport.Span span, List<MidiPracticeTurn> now, boolean nextPass, boolean keep) {
+		if (now.isEmpty()) {
+			this.turns = now;
+			this.startSong(span, nextPass, keep);
+		} else {
+			this.mode.copyFrom(MidiPlayer.getInstance(this.context).getMode());
+			this.lay(now);
+			this.position = TGLiveTurns.sampleAt(this.timeline, now, span.getQuarters());
+		}
+	}
+
+	// the session's turns, each at its tempo scale (as the player lays them)
+	private void lay(List<MidiPracticeTurn> now) {
+		this.turns = now;
+		TGSong song = TGDocumentManager.getInstance(this.context).getSong();
+		this.timeline = TGLiveTurns.timeline(song, now, this.sampleRate);
+	}
+
+	// the song's, the next pass's or a new one's; keeping the pass that ended, it holds that pass first (a foreseen next
+	// pass: the mode loops) and goes on from where the next one starts in it
+	private void startSong(MidiTransport.Span span, boolean nextPass, boolean keep) {
 		this.ended.copyFrom(this.mode);
 		if (nextPass) {
 			this.mode.notifyLoop();

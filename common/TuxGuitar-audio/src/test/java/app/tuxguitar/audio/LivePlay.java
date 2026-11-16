@@ -17,7 +17,7 @@ import app.tuxguitar.util.TGContext;
  */
 public final class LivePlay {
 
-	private static final int MOST_BLOCKS = 10000;
+	private static final int MOST_BLOCKS = 40000;
 
 	private LivePlay() {
 	}
