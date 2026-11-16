@@ -1,13 +1,13 @@
 ---
 title: What a practice session lets through
-description: During interleaved practice or click-up, the measure moves, mute, solo and markers keep the session going, and Record is greyed out.
+description: During interleaved practice or click-up, the measure moves, mute, solo and markers keep the session going, Record is greyed out, and smooth scrolling keeps pace with the tempo heard.
 sidebar:
   order: 9
 ---
 
 ## What it tests
 
-Commits `964703206` to `d5ac22ef7` on `feature/practice-session-rules` (`9f0316b2b` markers, `bb627fde6` and `f56657d6e` mute, solo and markers keep the session, `f204bd2f7` measure moves, `5db26a143` Record). During an Interleaved Practice or Interleaved Click-Up session,
+Commits `964703206` to `d5ac22ef7` on `feature/practice-session-rules` (`9f0316b2b` markers, `bb627fde6` and `f56657d6e` mute, solo and markers keep the session, `f204bd2f7` measure moves, `5db26a143` Record), and `9c3a8cf18` to `04d878570` (smooth scrolling). During an Interleaved Practice or Interleaved Click-Up session,
 playing or paused:
 
 - Measure First, Previous, Next and Last move only the caret, and the session goes on. Before, while playing they moved
@@ -16,6 +16,9 @@ playing or paused:
   step, and undoing or redoing it keeps the session going too. Before, any of these ended the session.
 - Tools > Record is greyed out, and Record refuses, saying why.
 - Selecting stays refused, as before.
+- With Transport > Continuous scrolling on, the score scrolls at the tempo heard, the one the main toolbar shows: the
+  step's during a click-up, the session's during interleaved practice. Before, it scrolled at the Percentage of Tempo,
+  so in a click-up at 72 bpm on a 120 song the view ran ahead of the sound. Outside a session nothing changes.
 
 ## Setup
 
@@ -53,6 +56,11 @@ the turn or step; it empties when the session ends.
 | 17 | During the session, try to select: Edit > Select All, Shift with the arrow keys, or drag over the score. | Nothing is selected; the Select All item is greyed out. | not run |
 | 18 | Start a click-up. Repeat steps 1, 5, 7, 10 and 14 during it (the label shows the step). | The same as for interleaved practice: the click-up goes on through each, and Record is greyed out. | not run |
 | 19 | Start a practice session. During a turn, flag the caret's measure (Composition > Difficulty > 3x). Then Edit > Undo, then Edit > Redo. | The flag is taken and the session goes on; Undo and Redo are enabled and take the flag back and put it again, and the session still goes on. Before this change the app ended the session on a flag (see Notes). | not run |
+| 20 | Stop any session. Check the Percentage of Tempo is 100 in the Transport window. Choose View > Layout > Linear Layout and zoom in until about three measures fill the window's width. Turn on Transport > Continuous scrolling (it is greyed out while playing). Play the song from measure 1 and watch the score for a few measures, then stop. | The score glides steadily to the left, the measure being played staying at about the same place near the left edge, in time with the sound. This is the pace to compare the next steps with. | not run |
+| 21 | Start a click-up (60 to 100, Increment 10, as in Setup). Watch the score through each step, the toolbar's tempo ("= 72", "= 84" ... "= 120") telling which step plays. | At every step the score glides in time with the sound, the played measure staying near the left edge: slowest at 72, a little faster at each step, at 120 as fast as in step 20. It never races ahead and then waits for the sound, nor falls behind. | not run |
+| 22 | Stop. Set the Percentage of Tempo to 50 and start a practice session. Watch the score during the turns, then stop. | Within each turn the score glides in time with the sound, at about half the pace of step 20 (the toolbar reads "= 60"). | not run |
+| 23 | With the Percentage of Tempo still 50, start a click-up (as in step 21). | The same as step 21: each step scrolls at its own tempo (72 to 120), not at 50%; the toolbar reads the step's tempo. | not run |
+| 24 | Stop. With the Percentage of Tempo still 50, play the song from measure 1 without a session. Then set the Percentage of Tempo back to 100 and turn Continuous scrolling off. | The score glides at half the pace of step 20, in time with the sound, as before this change. | not run |
 
 ## Notes
 
@@ -68,3 +76,6 @@ the turn or step; it empties when the session ends.
   and redo, live, in both modes), that the undo and redo of those edits are neither refused nor greyed out, that
   selecting stays refused, and that Record is refused saying why and greyed out. They cannot see the desktop's measure
   actions, menus or buttons: steps 1 to 6, 14, 15, 17 and 19 check those by hand.
+- Smooth scrolling is desktop drawing, which no test can watch. The tests cover the tempo it now follows (the one the
+  toolbar shows, the step's or the session's) and that, outside a session, it times a measure exactly as before for
+  every Percentage of Tempo; steps 20 to 24 check the scrolling itself.
