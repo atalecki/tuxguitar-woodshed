@@ -14,15 +14,18 @@ import app.tuxguitar.ui.widget.UISpinner;
 
 /**
  * Transport > Interleaved Practice: what a turn plays (measures, lines, pages or beats), the pool (from, to), the units
- * per block (a turn plays a block of so many units in a row: from 1 to as many as the pool holds, labelled by the unit,
- * "Measures per block"; only this dialog has it, not Interleaved Click-Up), the number of turns, the fixed groups
+ * per block (a turn plays a block of so many units in a row, labelled by the unit, "Measures per block"; only this
+ * dialog has it, not Interleaved Click-Up), the number of turns, the fixed groups
  * (measures per line, lines per page), the two rules and whether each turn has a Count In (interleaved practice's own,
  * whether or not Transport > Count In is on); Start runs TGTransportPractiseAction with them (a refusal shows as the
  * app's error message). It opens with the settings of the last start. The pool's fields cannot go past the song's last
  * unit of the kind chosen (for beats, its last measure: a pool of beats is given in measures, and the pool's labels say
  * so). With the interval clock on, the session is timed (a turn's minutes, a break's seconds, the session's minutes, at
  * least a turn's, and a Count In before every pass or not) instead of counting its turns: the fields of the one not in
- * use are greyed out, and "Count In before every pass" too without a Count In before each turn.
+ * use are greyed out, and "Count In before every pass" too without a Count In before each turn. The units per block go
+ * from 1 to as many as the pool holds, one fewer while "No consecutive repeats" would refuse a pool of one block (on,
+ * the clock off, more than 1 turn: TGPracticeSession.blockLimit, which Start agrees with); the field shows the value
+ * last chosen, or the limit while that is lower, and the value chosen comes back when the limit rises again.
  */
 public class TGPracticeDialog {
 
@@ -48,6 +51,11 @@ public class TGPracticeDialog {
 	private UISpinner breakSeconds;
 	private UISpinner sessionMinutes;
 	private UICheckBox countInEveryPass;
+	// the units per block last chosen (at first, those of the last start), which the field shows up to its limit
+	private int chosenPerBlock;
+	// whether limitBlock is changing the field, so that its change is not taken for a choice (a Qt spinner reports a
+	// change made in code as a selection; an SWT one does not)
+	private boolean limiting;
 
 	public TGPracticeDialog(TGViewContext context) {
 		this.context = context;
@@ -72,12 +80,17 @@ public class TGPracticeDialog {
 		this.sessionMinutes = this.form.spinner(14, "transport.practice.session-minutes", last.getSessionMinutes(), 1, MOST_SESSION_MINUTES);
 		this.countInEveryPass = this.form.checkBox(15, "transport.practice.count-in-every-pass", last.isCountInEveryPass());
 		this.form.buttons(16, TGTransportPractiseAction.NAME, TGTransportPractiseAction.ATTRIBUTE_SETTINGS, this::settings);
+		this.chosenPerBlock = last.getUnitsPerBlock();
+		this.unitsPerBlock.addSelectionListener(event -> this.choosePerBlock());
 		this.limitPool();
 		this.unit.addSelectionListener(event -> this.limitPool());
 		this.measuresPerLine.addSelectionListener(event -> this.limitPool());
 		this.linesPerPage.addSelectionListener(event -> this.limitPool());
 		this.from.addSelectionListener(event -> this.limitBlock());
 		this.to.addSelectionListener(event -> this.limitBlock());
+		this.turns.addSelectionListener(event -> this.limitBlock());
+		this.noConsecutiveRepeats.addSelectionListener(event -> this.limitBlock());
+		this.intervalClock.addSelectionListener(event -> this.limitBlock());
 		this.limitSession();
 		this.turnMinutes.addSelectionListener(event -> this.limitSession());
 		this.timeTheSession();
@@ -92,7 +105,7 @@ public class TGPracticeDialog {
 	}
 
 	// the pool cannot reach past the song's last unit of the kind chosen, as the group sizes set make it; nor a block
-	// hold more than the pool
+	// hold more than Start accepts
 	private void limitPool() {
 		int most = TGPracticeGrouping.poolLimit(this.unit.getSelectedValue(), this.measuresPerLine.getValue(), this.linesPerPage.getValue(), this.song().countMeasureHeaders());
 		TGPracticeForm.limit(this.from, 0, most);
@@ -100,10 +113,21 @@ public class TGPracticeDialog {
 		this.limitBlock();
 	}
 
-	// a block holds from 1 unit to as many as the pool, as the fields set so far make it
+	// a block holds from 1 unit to as many as Start accepts, as the fields set so far make it; the field shows the value
+	// last chosen, or that limit while it is lower
 	private void limitBlock() {
 		int most = TGPracticeSession.blockLimit(this.settings(), this.song());
+		this.limiting = true;
 		TGPracticeForm.limit(this.unitsPerBlock, 1, most);
+		this.unitsPerBlock.setValue(Math.min(this.chosenPerBlock, most));
+		this.limiting = false;
+	}
+
+	// keeps the units per block the user chose, to come back once the limit rises again
+	private void choosePerBlock() {
+		if (!this.limiting) {
+			this.chosenPerBlock = this.unitsPerBlock.getValue();
+		}
 	}
 
 	private TGSong song() {
