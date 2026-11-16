@@ -13,9 +13,11 @@ import app.tuxguitar.audio.action.TGPractiseAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
+import app.tuxguitar.practice.TGPracticeBlock;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnit;
+import app.tuxguitar.practice.TGPracticeUnitKind;
 import app.tuxguitar.song.models.TGMeasureHeader;
 
 /**
@@ -67,7 +69,21 @@ public class Practice {
 
 	// "m3b1, m3b2": beats, as positions read them (README, Position)
 	static String beats(List<TGPracticeUnit> beats) {
-		return beats.stream().map(beat -> "m" + beat.getFirst() + "b" + beat.getNumber()).collect(Collectors.joining(", "));
+		return beats.stream().map(Practice::reading).collect(Collectors.joining(", "));
+	}
+
+	// a beat as a position reads it, "m3b2"; any other unit by its number, "3"
+	static String reading(TGPracticeUnit unit) {
+		return (unit.getKind() == TGPracticeUnitKind.BEAT ? "m" + unit.getFirst() + "b" + unit.getNumber() : String.valueOf(unit.getNumber()));
+	}
+
+	// "1-2, m3b4-m4b1, 3": blocks, each as its first and last unit, a block of one unit as the unit (README, Block reading)
+	static String blocks(List<TGPracticeBlock> blocks) {
+		return blocks.stream().map(Practice::reading).collect(Collectors.joining(", "));
+	}
+
+	static String reading(TGPracticeBlock block) {
+		return (block.getFrom() == block.getTo() ? reading(block.getFrom()) : reading(block.getFrom()) + "-" + reading(block.getTo()));
 	}
 
 	// the session started last, which must have been accepted

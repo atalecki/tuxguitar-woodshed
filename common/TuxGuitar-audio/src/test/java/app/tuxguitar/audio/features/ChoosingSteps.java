@@ -18,6 +18,7 @@ import java.util.stream.IntStream;
 import app.tuxguitar.practice.TGPracticeBlock;
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
@@ -28,7 +29,8 @@ import io.cucumber.java.en.When;
 
 /**
  * Steps on how interleaved practice chooses its turns, without playing them: the session started as set, then its
- * turns chosen for each random seed of a range. A turn reads back as the number of its unit; turns count from 1.
+ * turns chosen for each random seed of a range. A turn reads back as the number of its unit; a beat, or a block of more
+ * than one unit, as its place in the pool; turns count from 1.
  */
 public class ChoosingSteps {
 
@@ -77,11 +79,12 @@ public class ChoosingSteps {
 		return IntStream.range(0, turns).mapToObj(turn -> reading(course.next())).collect(Collectors.toCollection(ArrayList::new));
 	}
 
-	// the block a turn plays as a run reads it: its unit's number; a beat, numbered in its measure, by its place in the
-	// pool (from 1)
+	// the block a turn plays as a run reads it: its unit's number; a beat, numbered in its measure, or a block of more
+	// than one unit by its place in the pool (from 1)
 	private int reading(TGPracticePlan plan) {
 		TGPracticeUnit unit = plan.getFrom();
-		return (unit.getKind() == TGPracticeUnitKind.BEAT ? place(block -> block.getFrom() == unit) : unit.getNumber());
+		boolean numbered = (unit == plan.getTo() && unit.getKind() != TGPracticeUnitKind.BEAT);
+		return (numbered ? unit.getNumber() : place(block -> block.getFrom() == unit && block.getTo() == plan.getTo()));
 	}
 
 	// the place in the pool (from 1) of its first block that is so
@@ -187,6 +190,13 @@ public class ChoosingSteps {
 		eachRangeChooses(ranges, numbers(from, to));
 	}
 
+	// "1-2, 2-3": the blocks as they read (README, Block reading), each once
+	@Then("{turns} each choose the blocks {string} once each")
+	public void eachChooseTheBlocksOnceEach(List<int[]> ranges, String blocks) {
+		eachRangeChooses(ranges, Arrays.stream(blocks.split(", ")).map(reading -> place(block -> Practice.reading(block).equals(reading)))
+			.collect(Collectors.toCollection(ArrayList::new)));
+	}
+
 	@Then("{turns} each choose measures {int} and {int} three times each and every other measure of the pool once")
 	public void eachChooseTwoThreeTimes(List<int[]> ranges, int first, int second) {
 		List<Integer> expected = pool();
@@ -206,9 +216,27 @@ public class ChoosingSteps {
 
 	@Then("no two turns in a row choose the same {unit}")
 	public void noTwoTurnsInARow(TGPracticeUnitKind unit) {
+		noTwoTurnsInARowChooseTheSameBlock();
+	}
+
+	// the same block: one whose place in the pool is the same, not one that overlaps it
+	@Then("no two turns in a row choose the same block")
+	public void noTwoTurnsInARowChooseTheSameBlock() {
 		for (List<Integer> run : practice.runs()) {
 			assertTrue(IntStream.range(1, run.size()).noneMatch(turn -> run.get(turn).equals(run.get(turn - 1))), run.toString());
 		}
+	}
+
+	// two blocks overlap when they play some of the same ticks of the song
+	@Then("with at least one of the seeds, two turns in a row choose blocks that overlap")
+	public void atLeastOneSeedOverlaps() {
+		List<TGPracticeSpan> spans = practice.session().getPool().stream().map(block -> TGPracticeSpan.of(world.song(), block.getFrom(), block.getTo()))
+			.collect(Collectors.toList());
+		assertTrue(practice.runs().stream().anyMatch(run -> IntStream.range(1, run.size()).anyMatch(turn -> {
+			TGPracticeSpan before = spans.get(run.get(turn - 1) - 1);
+			TGPracticeSpan after = spans.get(run.get(turn) - 1);
+			return before.getStart() < after.getJoint() && after.getStart() < before.getJoint();
+		})), practice.runs().toString());
 	}
 
 	@Then("over the seeds, turns {int} to {int} take each of the {int} orders of {unit}s {int} to {int}")

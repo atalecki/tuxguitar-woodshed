@@ -165,7 +165,14 @@ follow the steps as they follow interleaved practice's turns. A beat as the unit
 turn's span (lib's `TGPracticeSpan`: its beats, then the joint): offline and live a turn of the timeline plays what the
 span plays of each of its measures, from one tick to another (`TGSongTime.unit`), and offline the notes of a span that is
 not whole measures are its own, parsed alone (`TGMidiTaps`), so a note is cut at the joint and the joint plays only what
-starts on its first tick. Live scenarios read a step played again by its notes'
+starts on its first tick. Units per block (`TGPracticeSettings.setUnitsPerBlock`, 1 until changed) makes a session's
+pool blocks (`TGPracticeBlock`: `TGPracticeBlock.blocks` is the one place that cuts the pool's units into every run of
+so many in a row, refusing fewer than 1 or more than the pool holds; a block weighs as its most difficult unit); the
+chooser, the weight rule and the schedule take blocks, and a turn plays its block from its first unit to its last (the
+plan's and the span's from and to, as a click-up step's run of sections), a block of beats through the barline to its
+joint; `TGPracticeWording` words a block of more than one unit by its run, as a step's sections
+(`transport.practice.block-turn`, `block-timed-turn`, `block-break`). The desktop's field for it is still to come.
+Live scenarios read a step played again by its notes'
 level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
@@ -206,7 +213,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats with their joint offline and live) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags, blocks of so many units in a row (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats with their joint offline and live; blocks, but for the desktop's field) |
 | `practice/interleaved_click_up` | interleaved click-up: sections (measures, lines, pages or beats) added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step, live and offline, takes |
 
 ## How the scenarios run

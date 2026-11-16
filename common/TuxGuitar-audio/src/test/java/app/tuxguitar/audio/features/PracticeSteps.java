@@ -111,14 +111,15 @@ public class PracticeSteps {
 		practice.start();
 	}
 
-	@When("I start interleaved practice of {unit}s over {pool} for {int} turns, with lines of {int} measures and pages of {int} lines")
+	@When("I start interleaved practice of {unit}s over {pool} for {int} turn(s), with lines of {int} measures and pages of {int} lines")
 	public void start(TGPracticeUnitKind unit, int[] pool, int turns, int measures, int lines) {
 		practice.settings().setMeasuresPerLine(measures);
 		practice.settings().setLinesPerPage(lines);
 		start(unit, pool, turns);
 	}
 
-	// interleaved practice's pool, or interleaved click-up's last step, holds every unit from and to
+	// interleaved practice's pool holds every block of the units from and to (as many as those units less the units per
+	// block but one), or interleaved click-up's last step every unit from and to
 	@Then("starting is accepted")
 	public void startingIsAccepted() {
 		assertNull(world.refusal());
@@ -127,7 +128,8 @@ public class PracticeSteps {
 			List<TGClickUpStep> steps = clickUp.ladder().getSteps();
 			assertEquals(unitsIn(settings.getUnit(), settings.getPassageFrom(), settings.getPassageTo()), steps.get(steps.size() - 1).getLastSection());
 		} else {
-			assertEquals(unitsIn(practice.settings().getUnit(), practice.settings().getPoolFrom(), practice.settings().getPoolTo()), practice.session().getPool().size());
+			TGPracticeSettings settings = practice.settings();
+			assertEquals(unitsIn(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo()) - settings.getUnitsPerBlock() + 1, practice.session().getPool().size());
 		}
 	}
 
@@ -139,14 +141,27 @@ public class PracticeSteps {
 		return IntStream.rangeClosed(from, to).map(measure -> practice.header(measure).getTimeSignature().getNumerator()).sum();
 	}
 
+	// its blocks as they read (README, Block reading): a block of one beat as the beat
 	@Then("interleaved practice's pool is the {int} beats {string}")
-	public void thePoolIsTheBeats(int count, String beats) {
-		List<TGPracticeUnit> pool = practice.session().getPool().stream().map(TGPracticeBlock::getFrom).collect(Collectors.toList());
-		assertEquals(count + " " + beats, pool.size() + " " + Practice.beats(pool));
+	@Then("interleaved practice's pool is the {int} blocks {string}")
+	public void thePoolIsTheBlocks(int count, String blocks) {
+		List<TGPracticeBlock> pool = practice.session().getPool();
+		assertEquals(count + " " + blocks, pool.size() + " " + Practice.blocks(pool));
 	}
 
-	// "1x, 1x, 3x": each unit of the pool's weight, in order
+	@Given("I have set interleaved practice's units per block to {int}")
+	public void setUnitsPerBlock(int units) {
+		practice.settings().setUnitsPerBlock(units);
+	}
+
+	@Then("interleaved practice's units per block is {int}")
+	public void unitsPerBlockIs(int units) {
+		assertEquals(units, practice.settings().getUnitsPerBlock());
+	}
+
+	// "1x, 1x, 3x": each block of the pool's weight, in order
 	@Then("interleaved practice's beats weigh {string}")
+	@Then("interleaved practice's blocks weigh {string}")
 	public void theBeatsWeigh(String weights) {
 		assertEquals(weights, IntStream.of(practice.session().weights()).mapToObj(weight -> weight + "x").collect(Collectors.joining(", ")));
 	}

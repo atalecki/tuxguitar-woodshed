@@ -80,14 +80,20 @@ public class TimedPractisingSteps {
 		}
 	}
 
+	// the notes of each unit of the pool
 	private List<List<Integer>> units(TGPracticeUnitKind kind, int[] pool) throws TGPracticeRefusal {
-		return practising.units(kind, pool).stream().map(practising::notesOf).collect(Collectors.toList());
+		return practising.notesOfBlocks(kind, pool, 1);
 	}
 
 	@Then("the turn sounds the notes of one {unit} of {pool} {int} times back to back, each measure once and in order every time, each within 1 sample of its beat at {int}%")
 	public void theTurnLoopsAUnitAt(TGPracticeUnitKind kind, int[] pool, int times, int percent) throws TGPracticeRefusal {
+		theTurnLoopsABlockAt(1, kind, pool, times, percent);
+	}
+
+	@Then("the turn sounds the notes of one block of {int} {unit}s of {pool} {int} times back to back, each measure once and in order every time, each within 1 sample of its beat at {int}%")
+	public void theTurnLoopsABlockAt(int units, TGPracticeUnitKind kind, int[] pool, int times, int percent) throws TGPracticeRefusal {
 		List<Integer> turn = theTurn();
-		assertPasses(turn, units(kind, pool), times, "the turn");
+		assertPasses(turn, practising.notesOfBlocks(kind, pool, units), times, "the turn");
 		List<List<Note>> passes = practising.turns();
 		turn.forEach(pass -> PractisingSteps.assertOnTheBeat(passes.get(pass), percent, "pass " + pass));
 	}
