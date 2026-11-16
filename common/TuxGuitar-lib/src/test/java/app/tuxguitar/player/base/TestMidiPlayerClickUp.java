@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,8 +18,9 @@ import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 
 /**
- * Interleaved click-up played live (MidiPlayer.practise of its course) as LivePracticeFixture plays it, Count In on:
- * each step its Count In at the step's tempo, then its measures; the player stops by itself after the last. Repeat step
+ * Interleaved click-up played live (MidiPlayer.practise of its course) as LivePracticeFixture plays it, the player's
+ * Count In off: each step its own Count In at the step's tempo (Count In before each step, on until turned off), then
+ * its measures; the player stops by itself after the last. Repeat step
  * plays the step under way again at once from its Count In, Previous step the one before it (during the first, the
  * first again), then the steps after it; paused, they choose the step Play plays from its Count In.
  *
@@ -36,44 +39,52 @@ public class TestMidiPlayerClickUp {
 
 	private final LivePracticeFixture live = new LivePracticeFixture();
 	private final MidiPlayer player = live.player;
+	private final TGClickUpSettings settings = new TGClickUpSettings();
 	private TGPracticeCourse course;
 
-	// practises the click-up, Count In on
-	private void practise() throws MidiPlayerException, TGPracticeRefusal {
-		player.getCountDown().setEnabled(true);
-		player.practise(course());
-		live.run();
-	}
-
-	// a play of the click-up
-	private TGPracticeCourse course() throws TGPracticeRefusal {
-		TGClickUpSettings settings = new TGClickUpSettings();
+	public TestMidiPlayerClickUp() {
 		settings.setPassageFrom(1);
 		settings.setPassageTo(2);
 		settings.setStart(50);
 		settings.setGoal(100);
 		settings.setIncrement(50);
-		course = TGClickUpLadder.of(settings, live.song.song).course();
+	}
+
+	// practises the click-up, the player's Count In as it is (off until turned on)
+	private void practise() throws MidiPlayerException, TGPracticeRefusal {
+		player.practise(course());
+		live.run();
+	}
+
+	// a play of the click-up, its Count In as many clicks as the player's Count In has, on or off
+	private TGPracticeCourse course() throws TGPracticeRefusal {
+		course = TGClickUpLadder.of(settings, live.song.song).course(player.getCountDown()::clicks);
 		return course;
 	}
 
 	// the steps (from 1) one after the other from the frame, each its 4 clicks a beat apart then its measures' notes,
 	// written as started() writes them
 	private static String steps(long frame, int... steps) {
+		return countedIn(4, frame, steps);
+	}
+
+	// as steps(), each step counted in by so many clicks
+	private static String countedIn(int clicks, long frame, int... steps) {
 		List<String> started = new ArrayList<String>();
 		long at = frame;
 		for (int step : steps) {
-			int[] played = STEPS[step - 1];
-			long beat = played[0];
-			for (int click = 0; click < 4; click++) {
-				started.add((at + click * beat) + " -2 37");
-			}
-			for (int measure = played[1]; measure <= played[2]; measure++) {
-				started.add((at + (4 + 4 * (measure - played[1])) * beat) + " 1 " + (64 + measure));
-			}
-			at += (4 + 4 * (played[2] - played[1] + 1)) * beat;
+			at = step(started, clicks, at, STEPS[step - 1]);
 		}
 		return String.join(", ", started);
+	}
+
+	// the step played (its beat, first and last measure) from the frame, counted in by so many clicks, added to those
+	// started: where the step after it starts
+	private static long step(List<String> started, int clicks, long at, int[] played) {
+		long beat = played[0];
+		LongStream.range(0, clicks).forEach(click -> started.add((at + click * beat) + " -2 37"));
+		IntStream.rangeClosed(played[1], played[2]).forEach(measure -> started.add((at + (clicks + 4 * (measure - played[1])) * beat) + " 1 " + (64 + measure)));
+		return at + (clicks + 4 * (played[2] - played[1] + 1)) * beat;
 	}
 
 	// whether the player runs, whether the course has ended, whether there are steps to go back over
@@ -87,6 +98,25 @@ public class TestMidiPlayerClickUp {
 		String underWay = state();
 		live.blocksToTheEnd();
 		assertEquals(steps(0, 1, 2, 3, 4, 5) + " | true false true | false true false", live.started() + " | " + underWay + " | " + state());
+	}
+
+	// with Count In before each step off, no step counts in, the player's Count In on
+	@Test
+	public void withCountInBeforeEachStepOffNoStepCountsIn() throws Exception {
+		settings.setCountInEachStep(false);
+		player.getCountDown().setEnabled(true);
+		practise();
+		live.blocksToTheEnd();
+		assertEquals(countedIn(0, 0, 1, 2, 3, 4, 5), live.started());
+	}
+
+	// the player's Count In ticks set the length of every step's Count In, the player's Count In off
+	@Test
+	public void theCountInTicksSetTheLengthOfEachStepsCountIn() throws Exception {
+		player.getCountDown().setTickCount(2);
+		practise();
+		live.blocksToTheEnd();
+		assertEquals(countedIn(2, 0, 1, 2, 3, 4, 5), live.started());
 	}
 
 	/** Repeat step or Previous step, as the app chooses it. */

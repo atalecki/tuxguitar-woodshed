@@ -3,7 +3,9 @@ package app.tuxguitar.practice;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
@@ -17,6 +19,7 @@ public final class TGClickUpLadder {
 
 	private final List<TGClickUpStep> steps;
 	private final int passes;
+	private final boolean countInEachStep;
 	private final boolean countInEveryPass;
 	private final int writtenBpm;
 
@@ -24,7 +27,8 @@ public final class TGClickUpLadder {
 		this.steps = Collections.unmodifiableList(steps);
 		this.writtenBpm = writtenBpm;
 		this.passes = settings.getPasses();
-		this.countInEveryPass = settings.isCountInEveryPass();
+		this.countInEachStep = settings.isCountInEachStep();
+		this.countInEveryPass = settings.isCountInEachStep() && settings.isCountInEveryPass();
 	}
 
 	// the click-up as set, or the reason it cannot be played
@@ -82,9 +86,10 @@ public final class TGClickUpLadder {
 		return rungs;
 	}
 
-	// a play of it: its steps, one turn each, in order, from the first (each play its own course)
-	public TGPracticeCourse course() {
-		return new TGClickUpCourse(this);
+	// a play of it: its steps, one turn each, in order, from the first (each play its own course), each step's Count In
+	// as many clicks as the function says before its first measure (the player's Count In's, whether it is on or not)
+	public TGPracticeCourse course(ToIntFunction<TGMeasureHeader> clicks) {
+		return new TGClickUpCourse(this, clicks);
 	}
 
 	// the written bpm of the passage's first measure, which a ladder in bpm is read against
@@ -101,7 +106,12 @@ public final class TGClickUpLadder {
 		return this.passes;
 	}
 
-	// whether a Count In comes before every pass of a step, or only its first
+	// whether each step has a Count In, whether or not the player's Count In is on
+	public boolean isCountInEachStep() {
+		return this.countInEachStep;
+	}
+
+	// whether a Count In comes before every pass of a step, or only its first (or none: without one each step)
 	public boolean isCountInEveryPass() {
 		return this.countInEveryPass;
 	}

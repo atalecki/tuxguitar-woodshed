@@ -139,7 +139,9 @@ Interleaved click-up (`practice/interleaved_click_up`) is implemented but for th
 the ladder and its tail; `TGTempoScale`, a step's tempo as an exact fraction of the written one) and plays them as a
 course (`TGClickUpLadder.course`, a `TGPracticeCourse`: a turn per step, in order, each its sections' measures at its
 tempo scale for the passes set, no break, the last step the last turn; not timed; it takes any flag; its steps, which
-`TGPracticeSteps` goes back over: Repeat step and Previous step move its cursor), which `TGPractiseAction` plays
+`TGPracticeSteps` goes back over: Repeat step and Previous step move its cursor; its Count In clicks,
+`TGPracticeCourse.clicks`, as long as the player's Count In whether on or not, `MidiPlayerCountDown.clicks`, where
+interleaved practice's follow Count In, `clicksBefore`), which `TGPractiseAction` plays
 offline given the ladder (`ATTRIBUTE_CLICK_UP`) on the same timeline of turns as interleaved practice, and the player
 live (`MidiPlayer.practise` of the course, started by editor-utils' `TGTransportClickUpAction`; Repeat step and
 Previous step are `TGTransportStepAction`'s, `MidiPlayer.repeatStep` and `previousStep`, which lay the step chosen again
@@ -550,10 +552,11 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   all of them, one more at a time), step i (from 0) plays at **rung** i of the **tempo ladder** the sections
   `P_N[i mod length]`, where P_1 is `1`; P_2 is `1-2, 2`; and P_N, for N of 3 or more, is `1-N, N, (N-1)-N, N, ...,
   2-N, N`: the section just added alone every other step, between runs that reach back one section further each time,
-  from all of them. After the last rung come the **ladder's tail** steps. Each step plays a Count In at its tempo (when
-  Count In is on: the existing Count In in its first measure's time signature, Count In ticks setting its length), then
-  its sections' measures, each once and in score order, its number of **passes** back to back (1 until I change it;
-  "Count In before every pass", off until I turn it on, puts a Count In before each pass); the next step follows with
+  from all of them. After the last rung come the **ladder's tail** steps. Each step plays a Count In at its tempo (the
+  click-up's own **"Count In before each step"**, on until I turn it off, whether or not Count In is on: in its first
+  measure's time signature, Count In ticks setting its length), then its sections' measures, each once and in score
+  order, its number of **passes** back to back (1 until I change it; "Count In before every pass", off until I turn it
+  on, puts a Count In before each pass, and with "Count In before each step" off there is none to put); the next step follows with
   no gap, and after the last one the player stops by itself. Sections play as interleaved practice's units do (repeat
   signs inside them are not followed); a step's end is a jump in song time (takes fade, tails ring on), live as
   offline. The Percentage of Tempo, Play looped, the Loop Range and Training Mode take no part, and are as they were

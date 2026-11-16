@@ -8,6 +8,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.song.models.TGSong;
+
 /**
  * Interleaved practice's course (TGPracticeSession.course): each turn plays the unit the session's chooser chooses from
  * the seed, planned by its schedule at the tempo scale, the last one the schedule's last; it refuses a flag as the
@@ -55,6 +57,15 @@ public class TestPracticeCourse {
 		course.next();
 		assertEquals("Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row.",
 			assertThrows(TGPracticeRefusal.class, () -> course.checkFlag(2, 3)).getMessage());
+	}
+
+	// a turn's Count In has as many clicks as the function given says (the player's Count In: none with it off), before
+	// its first measure (here measure 3's)
+	@Test
+	public void aTurnCountsInAsTheFunctionGivenSays() throws TGPracticeRefusal {
+		TGSong song = PracticeSongs.song(8);
+		TGPracticeCourse course = TGPracticeSession.start(settings, song).course(SEED, header -> header.getNumber() + 2, TGTempoScale.percent(80));
+		assertEquals(5, course.clicks(song.getMeasureHeader(2)));
 	}
 
 	// a turn chosen at random is no step to go back to: Repeat step and Previous step have nothing to go back over

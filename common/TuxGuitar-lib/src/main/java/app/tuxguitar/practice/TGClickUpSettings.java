@@ -3,7 +3,8 @@ package app.tuxguitar.practice;
 /**
  * Interleaved click-up as the musician sets it, checked only when it starts (TGClickUpLadder.of): what a section is,
  * the passage (from and to, unit numbers from 1), the groups, the tempo ladder (how it is given, its start, its goal and
- * its increment), the passes of each step and whether a Count In comes before every pass or only the first.
+ * its increment), the passes of each step, whether each step has a Count In (its own, whether or not the player's Count
+ * In is on) and, if so, whether one comes before every pass or only the first.
  */
 public class TGClickUpSettings {
 
@@ -21,6 +22,7 @@ public class TGClickUpSettings {
 	private int goal = DEFAULT_GOAL;
 	private int increment = DEFAULT_INCREMENT;
 	private int passes = 1;
+	private boolean countInEachStep = true;
 	private boolean countInEveryPass;
 
 	public TGPracticeUnitKind getUnit() {
@@ -111,6 +113,14 @@ public class TGClickUpSettings {
 		this.start = (written * DEFAULT_START + DEFAULT_GOAL / 2) / DEFAULT_GOAL;
 		this.goal = written;
 		this.increment = DEFAULT_INCREMENT;
+	}
+
+	public boolean isCountInEachStep() {
+		return this.countInEachStep;
+	}
+
+	public void setCountInEachStep(boolean countInEachStep) {
+		this.countInEachStep = countInEachStep;
 	}
 
 	public boolean isCountInEveryPass() {

@@ -69,12 +69,14 @@ public class MidiPlayerCountDown {
 		}
 	}
 
-	// how many clicks a Count In before the header's measure has: one per beat of its time signature, or as many as the
-	// tick count set; none with Count In off
+	// how many clicks a Count In before the header's measure has with Count In on; none with it off
 	public int clicksBefore(TGMeasureHeader header) {
-		if( !this.enabled ){
-			return 0;
-		}
+		return (this.enabled ? this.clicks(header) : 0);
+	}
+
+	// how many clicks a Count In before the header's measure has, Count In on or off: one per beat of its time signature,
+	// or as many as the tick count set
+	public int clicks(TGMeasureHeader header) {
 		return (this.tickCount != 0 ? this.tickCount : header.getTimeSignature().getNumerator());
 	}
 

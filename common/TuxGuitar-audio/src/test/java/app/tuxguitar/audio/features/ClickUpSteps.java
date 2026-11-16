@@ -2,6 +2,9 @@ package app.tuxguitar.audio.features;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import app.tuxguitar.practice.TGClickUpSettings;
@@ -19,7 +22,13 @@ import io.cucumber.java.en.When;
  */
 public class ClickUpSteps {
 
+	private static final String EACH_STEP = "Count In before each step";
 	private static final String EVERY_PASS = "Count In before every pass";
+	// the click-up's options, by name, as the settings set and read them
+	private static final Map<String, BiConsumer<TGClickUpSettings, Boolean>> SET = Map.of(EACH_STEP, TGClickUpSettings::setCountInEachStep, EVERY_PASS,
+		TGClickUpSettings::setCountInEveryPass);
+	private static final Map<String, Predicate<TGClickUpSettings>> IS = Map.of(EACH_STEP, TGClickUpSettings::isCountInEachStep, EVERY_PASS,
+		TGClickUpSettings::isCountInEveryPass);
 
 	private final ClickUp clickUp;
 
@@ -79,9 +88,8 @@ public class ClickUpSteps {
 	}
 
 	@Given("I have turned interleaved click-up's {string} {word}")
-	public void turnEveryPass(String option, String onOrOff) {
-		assertEquals(EVERY_PASS, option);
-		clickUp.settings().setCountInEveryPass("on".equals(onOrOff));
+	public void turnOption(String option, String onOrOff) {
+		SET.get(option).accept(clickUp.settings(), "on".equals(onOrOff));
 	}
 
 	@When("I start interleaved click-up of {unit}s over {pool}, from {rung} to {rung} by {rung}")
@@ -104,9 +112,9 @@ public class ClickUpSteps {
 			settings.getTempoMode() + " " + settings.getStart() + " " + settings.getGoal() + " " + settings.getIncrement() + " " + settings.getPasses());
 	}
 
-	@Then("interleaved click-up's {string} is off")
-	public void everyPassIsOff(String option) {
-		assertEquals(EVERY_PASS + " off", option + (clickUp.settings().isCountInEveryPass() ? " on" : " off"));
+	@Then("interleaved click-up's {string} is {word}")
+	public void optionIs(String option, String onOrOff) {
+		assertEquals(option + " " + onOrOff, option + (IS.get(option).test(clickUp.settings()) ? " on" : " off"));
 	}
 
 	// "1@60%, 1@65%, 1-2@60%, ..."

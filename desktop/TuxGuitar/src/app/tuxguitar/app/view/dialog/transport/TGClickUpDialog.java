@@ -23,7 +23,9 @@ import app.tuxguitar.ui.widget.UISpinner;
 /**
  * Transport > Interleaved Click-Up: what a section is (a measure, a line, a page), the passage (from, to), the fixed
  * groups, how the tempo ladder is given (percent of the written tempo, or bpm), its start, goal and increment, the passes
- * of each step and whether a Count In comes before every pass; under them, how many steps that makes. Start runs
+ * of each step, whether each step has a Count In (the click-up's own, whether or not Transport > Count In is on) and,
+ * if so, whether one comes before every pass (greyed out without one before each step); under them, how many steps that
+ * makes. Start runs
  * TGTransportClickUpAction with them (a refusal shows as the app's error message). It opens with the settings of the
  * last start. The fields stop a value the click-up could not play: the passage lies in the song's units of the kind
  * chosen, from not past to; the ladder starts at 1 or more, its goal not below its start, its increment and the passes
@@ -46,6 +48,7 @@ public class TGClickUpDialog {
 	private UISpinner goal;
 	private UISpinner increment;
 	private UISpinner passes;
+	private UICheckBox countInEachStep;
 	private UICheckBox countInEveryPass;
 	private UILabel steps;
 
@@ -66,11 +69,13 @@ public class TGClickUpDialog {
 		this.goal = this.spinner(8, "transport.click-up.goal", last.getGoal());
 		this.increment = this.spinner(9, "transport.click-up.increment", last.getIncrement());
 		this.passes = this.spinner(10, "transport.click-up.passes", last.getPasses());
-		this.countInEveryPass = this.form.checkBox(11, "transport.practice.count-in-every-pass", last.isCountInEveryPass());
-		this.steps = this.form.text(12);
-		this.form.buttons(13, TGTransportClickUpAction.NAME, TGTransportClickUpAction.ATTRIBUTE_SETTINGS, this::settings);
+		this.countInEachStep = this.form.checkBox(11, "transport.click-up.count-in-each-step", last.isCountInEachStep());
+		this.countInEveryPass = this.form.checkBox(12, "transport.practice.count-in-every-pass", last.isCountInEveryPass());
+		this.steps = this.form.text(13);
+		this.form.buttons(14, TGTransportClickUpAction.NAME, TGTransportClickUpAction.ATTRIBUTE_SETTINGS, this::settings);
 		this.limit();
 		this.unit.addSelectionListener(event -> this.limit());
+		this.countInEachStep.addSelectionListener(event -> this.limit());
 		this.tempoMode.addSelectionListener(event -> this.giveTempoAnew());
 		for (UISpinner field : new UISpinner[] {this.from, this.to, this.measuresPerLine, this.linesPerPage, this.start, this.goal, this.increment, this.passes}) {
 			field.addSelectionListener(event -> this.limit());
@@ -110,6 +115,7 @@ public class TGClickUpDialog {
 		TGPracticeForm.limit(this.goal, this.start.getValue(), MOST);
 		this.measuresPerLine.setEnabled(kind != TGPracticeUnitKind.MEASURE);
 		this.linesPerPage.setEnabled(kind == TGPracticeUnitKind.PAGE);
+		this.countInEveryPass.setEnabled(this.countInEachStep.isSelected());
 		this.steps.setText(steps(this.settings(), song()));
 		this.form.layout();
 	}
@@ -164,6 +170,7 @@ public class TGClickUpDialog {
 		settings.setGoal(this.goal.getValue());
 		settings.setIncrement(this.increment.getValue());
 		settings.setPasses(this.passes.getValue());
+		settings.setCountInEachStep(this.countInEachStep.isSelected());
 		settings.setCountInEveryPass(this.countInEveryPass.isSelected());
 		return settings;
 	}

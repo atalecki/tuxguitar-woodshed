@@ -6,8 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.function.ToIntBiFunction;
+import java.util.function.ToIntFunction;
 
 import org.junit.jupiter.api.Test;
+
+import app.tuxguitar.song.models.TGMeasureHeader;
+import app.tuxguitar.song.models.TGSong;
 
 /**
  * Interleaved click-up's course (TGClickUpLadder.course): a turn per step of the ladder, in its order, each the measures
@@ -19,7 +23,11 @@ import org.junit.jupiter.api.Test;
  */
 public class TestClickUpCourse {
 
+	// a Count In of a click more than the measure's beats, as the player's Count In could have
+	private static final ToIntFunction<TGMeasureHeader> CLICKS = header -> header.getTimeSignature().getNumerator() + 1;
+
 	private final TGClickUpSettings settings = new TGClickUpSettings();
+	private final TGSong song = PracticeSongs.song(64);
 
 	public TestClickUpCourse() {
 		settings.setUnit(TGPracticeUnitKind.LINE);
@@ -31,7 +39,7 @@ public class TestClickUpCourse {
 	}
 
 	private TGPracticeCourse course() throws TGPracticeRefusal {
-		return TGClickUpLadder.of(settings, PracticeSongs.song(64)).course();
+		return TGClickUpLadder.of(settings, song).course(CLICKS);
 	}
 
 	// "Line 2-Line 3 5-12@1/2 x2 every pass true, break 0, last false"
@@ -78,6 +86,16 @@ public class TestClickUpCourse {
 		assertEquals("false 5 3", course.isTimed() + " " + course.getTurns() + " " + steps.repeat(3));
 	}
 
+	// the click-up's own Count In before each step (on until turned off), whatever the function's Count In: as many clicks
+	// as it says before a step's first measure (here measure 5's), or none
+	@Test
+	public void aStepCountsInAsTheFunctionSaysWithCountInBeforeEachStepOn() throws TGPracticeRefusal {
+		TGMeasureHeader first = song.getMeasureHeader(4);
+		int eachStep = course().clicks(first);
+		settings.setCountInEachStep(false);
+		assertEquals("5 0", eachStep + " " + course().clicks(first));
+	}
+
 	// a click-up chooses nothing a flag could weigh
 	@Test
 	public void aFlagIsTakenAndTheStepsStayAsTheyWere() throws TGPracticeRefusal {
@@ -91,13 +109,13 @@ public class TestClickUpCourse {
 	// a course of its own per play: ending one ends neither another's steps nor it
 	@Test
 	public void aCourseEndsAndStaysEndedAndEachPlayHasItsOwn() throws TGPracticeRefusal {
-		TGClickUpLadder ladder = TGClickUpLadder.of(settings, PracticeSongs.song(64));
-		TGPracticeCourse course = ladder.course();
+		TGClickUpLadder ladder = TGClickUpLadder.of(settings, song);
+		TGPracticeCourse course = ladder.course(CLICKS);
 		course.next();
 		boolean before = course.isEnded();
 		course.end();
 		course.end();
-		TGPracticeCourse other = ladder.course();
+		TGPracticeCourse other = ladder.course(CLICKS);
 		assertEquals("false true false Line 2-Line 2 5-8@1/2 x1 every pass false, break 0, last false",
 			before + " " + course.isEnded() + " " + other.isEnded() + " " + reading(other.next()));
 	}

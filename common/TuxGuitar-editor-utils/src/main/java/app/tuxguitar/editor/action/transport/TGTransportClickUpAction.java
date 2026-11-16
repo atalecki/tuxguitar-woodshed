@@ -10,7 +10,8 @@ import app.tuxguitar.util.TGContext;
 
 /**
  * Starts interleaved click-up of the song, as set, live (MidiPlayer.practise of the ladder's course): its steps in
- * order, each at its tempo after a Count In, Repeat step and Previous step going back over them (TGTransportStepAction).
+ * order, each at its tempo after its own Count In (as long as the player's Count In, which need not be on; none with
+ * Count In before each step off), Repeat step and Previous step going back over them (TGTransportStepAction).
  * A click-up that cannot be played as set, or a sequencer that cannot play one, is refused with the reason (a
  * TGActionException). The settings of the last start, refused or not, are kept for the app's run, for the dialog to
  * show again; at first measures 1 to 4, from 60% to 100% by 5%, 1 pass a step.
@@ -39,6 +40,6 @@ public class TGTransportClickUpAction extends TGTransportStartAction<TGClickUpSe
 	}
 
 	protected void start(TGClickUpSettings settings, TGSong song, MidiPlayer player) throws TGPracticeRefusal, MidiPlayerException {
-		player.practise(TGClickUpLadder.of(settings, song).course());
+		player.practise(TGClickUpLadder.of(settings, song).course(player.getCountDown()::clicks));
 	}
 }

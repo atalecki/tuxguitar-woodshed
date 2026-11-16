@@ -65,7 +65,7 @@ public class TestMidiPractice {
 	private MidiPractice practice(TGPracticeSettings settings, int percent) throws TGPracticeRefusal {
 		session = TGPracticeSession.start(settings, song);
 		ToIntFunction<TGMeasureHeader> clicks = header -> header.getTimeSignature().getNumerator();
-		MidiPractice practice = new MidiPractice(session.course(SEED, clicks, TGTempoScale.percent(percent)), song, clicks);
+		MidiPractice practice = new MidiPractice(session.course(SEED, clicks, TGTempoScale.percent(percent)), song);
 		practice.start(960, (turn, setup) -> {
 			passes.add(turn);
 			added.add(turn.getFirst().getNumber() + "-" + turn.getLast().getNumber() + "@" + turn.getStart() + (setup ? " setup" : ""));

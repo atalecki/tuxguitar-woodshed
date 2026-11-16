@@ -42,12 +42,17 @@ public final class TGPracticeSchedule {
 
 	private TGPracticePlan timed(TGPracticeClock clock, TGPracticeUnit unit) {
 		TGMeasureHeader first = this.header(unit.getFirst());
-		long countIn = this.clicks.applyAsInt(first) * this.micros(first, first.getTimeSignature().getDenominator().getTime());
+		long countIn = this.clicks(first) * this.micros(first, first.getTimeSignature().getDenominator().getTime());
 		long pass = IntStream.rangeClosed(unit.getFirst(), unit.getLast()).mapToLong(number -> this.micros(this.header(number), this.header(number).getLength())).sum();
 		long end = this.next + clock.length(countIn, pass);
 		boolean last = !clock.follows(end);
 		this.next = clock.after(end);
 		return new TGPracticePlan(unit, unit, this.scale, clock.passes(countIn, pass), clock.isCountInEveryPass(), (last ? 0 : clock.getBreakSeconds()), last);
+	}
+
+	// the Count In clicks before a turn whose first measure is the header, as the function given says now
+	int clicks(TGMeasureHeader header) {
+		return this.clicks.applyAsInt(header);
 	}
 
 	private TGMeasureHeader header(int number) {

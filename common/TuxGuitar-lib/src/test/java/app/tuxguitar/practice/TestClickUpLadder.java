@@ -54,9 +54,10 @@ public class TestClickUpLadder {
 
 	@Test
 	public void theSettingsStartAsTheSpecSays() {
-		assertEquals("MEASURE 1-1 4/4 PERCENT 60-100 by 5, 1 passes false", settings.getUnit() + " " + settings.getPassageFrom() + "-" + settings.getPassageTo()
-			+ " " + settings.getMeasuresPerLine() + "/" + settings.getLinesPerPage() + " " + settings.getTempoMode() + " " + settings.getStart() + "-"
-			+ settings.getGoal() + " by " + settings.getIncrement() + ", " + settings.getPasses() + " passes " + settings.isCountInEveryPass());
+		assertEquals("MEASURE 1-1 4/4 PERCENT 60-100 by 5, 1 passes, Count In each step true every pass false", settings.getUnit() + " " + settings.getPassageFrom()
+			+ "-" + settings.getPassageTo() + " " + settings.getMeasuresPerLine() + "/" + settings.getLinesPerPage() + " " + settings.getTempoMode() + " "
+			+ settings.getStart() + "-" + settings.getGoal() + " by " + settings.getIncrement() + ", " + settings.getPasses() + " passes, Count In each step "
+			+ settings.isCountInEachStep() + " every pass " + settings.isCountInEveryPass());
 	}
 
 	// one section climbs the ladder alone; a second plays with the first, then alone, in turn; a third alone every other
@@ -148,12 +149,20 @@ public class TestClickUpLadder {
 			measures + " | " + measures(TGPracticeUnitKind.LINE, 12, 13));
 	}
 
+	// "passes, Count In before each step, before every pass"
+	private String countIns() throws TGPracticeRefusal {
+		TGClickUpLadder ladder = TGClickUpLadder.of(settings, song);
+		return ladder.getPasses() + " " + ladder.isCountInEachStep() + " " + ladder.isCountInEveryPass();
+	}
+
+	// before every pass only with a Count In before each step: without one there is none to put before every pass
 	@Test
-	public void theLadderCarriesThePassesAndTheCountInBeforeEveryPass() throws TGPracticeRefusal {
+	public void theLadderCarriesThePassesAndTheCountIns() throws TGPracticeRefusal {
 		settings.setPasses(3);
 		settings.setCountInEveryPass(true);
-		TGClickUpLadder ladder = TGClickUpLadder.of(settings, song);
-		assertEquals("3 true", ladder.getPasses() + " " + ladder.isCountInEveryPass());
+		String eachStep = countIns();
+		settings.setCountInEachStep(false);
+		assertEquals("3 true true | 3 false false", eachStep + " | " + countIns());
 	}
 
 	@Test

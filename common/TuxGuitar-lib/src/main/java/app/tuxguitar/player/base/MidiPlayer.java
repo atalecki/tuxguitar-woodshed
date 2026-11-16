@@ -203,7 +203,7 @@ public class MidiPlayer{
 		}
 		this.runLocked(() -> {
 			this.stop();
-			this.practice = new MidiPractice(course, this.getSong(), this.getCountDown()::clicksBefore);
+			this.practice = new MidiPractice(course, this.getSong());
 			TGPracticeUnderWay.getInstance(this.context).begin(course);
 		});
 		this.play();

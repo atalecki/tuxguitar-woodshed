@@ -56,10 +56,15 @@ public class CountInSteps {
 		assertTrue(player().isMetronomeEnabled());
 	}
 
-	// as the transport dialog sets them
 	@Given("I have turned Count In on with {int} Count In ticks")
 	public void turnCountInOnWithTicks(int ticks) {
 		turnCountInOn();
+		setTheTicks(ticks);
+	}
+
+	// as the transport dialog sets them, Count In on or off
+	@Given("I have set the Count In ticks to {int}")
+	public void setTheTicks(int ticks) {
 		player().getCountDown().setTickCount(ticks);
 	}
 

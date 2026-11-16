@@ -2,6 +2,8 @@ package app.tuxguitar.practice;
 
 import java.util.Optional;
 
+import app.tuxguitar.song.models.TGMeasureHeader;
+
 /**
  * What a practice session plays, turn by turn, as the player plays it live and the audio renders it offline: each
  * turn's plan (TGPracticePlan: what it plays, at what tempo scale, its passes, the break after it, whether it is the
@@ -21,6 +23,9 @@ public interface TGPracticeCourse {
 
 	// the plan of the next turn, which starts playing now
 	TGPracticePlan next();
+
+	// the Count In clicks before a turn's pass whose first measure is the header, as it plays it now (0: none)
+	int clicks(TGMeasureHeader first);
 
 	// refuses a flag, set now (the measure from 1, the difficulty), that the turns to come could not play
 	void checkFlag(int measure, int difficulty) throws TGPracticeRefusal;

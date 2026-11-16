@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.ToIntBiFunction;
-import java.util.function.ToIntFunction;
 
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
@@ -30,8 +29,6 @@ final class MidiPractice {
 
 	private final TGPracticeCourse course;
 	private final TGSong song;
-	// the Count In clicks before a turn whose first measure is the header (0: none)
-	private final ToIntFunction<TGMeasureHeader> clicks;
 	// the passes in the sequence, from its first
 	private final List<MidiPracticeTurn> turns = new ArrayList<MidiPracticeTurn>();
 	// the same, as read by other threads: a copy made each time a turn is laid (the player's thread lays them)
@@ -41,11 +38,11 @@ final class MidiPractice {
 	// adds a pass to the sequence; true for its first
 	private BiConsumer<MidiPracticeTurn, Boolean> sequence;
 
-	// the course's turns, one plan each; one course for the session, so a pause does not count in its time
-	MidiPractice(TGPracticeCourse course, TGSong song, ToIntFunction<TGMeasureHeader> clicks) {
+	// the course's turns, one plan each, each Count In as many clicks as the course says; one course for the session, so
+	// a pause does not count in its time
+	MidiPractice(TGPracticeCourse course, TGSong song) {
 		this.course = course;
 		this.song = song;
-		this.clicks = clicks;
 	}
 
 	TGPracticeCourse getCourse() {
@@ -68,14 +65,14 @@ final class MidiPractice {
 		}
 	}
 
-	// the paused pass again after a Count In (when Count In is on), without the rest of a break it was paused in
+	// the paused pass again after a Count In (when the course counts in), without the rest of a break it was paused in
 	private void resume(long paused, long tick, BiConsumer<MidiPracticeTurn, Boolean> sequence) {
 		int from = this.indexAt(paused);
 		List<MidiPracticeTurn> again = new ArrayList<MidiPracticeTurn>(this.turns.subList(from, this.turns.size()));
 		this.turns.clear();
 		this.sequence = sequence;
 		MidiPracticeTurn first = again.get(0);
-		this.lay(first.again(tick, this.clicks.applyAsInt(first.getFirst())));
+		this.lay(first.again(tick, this.course.clicks(first.getFirst())));
 		for (MidiPracticeTurn turn : again.subList(1, again.size())) {
 			this.lay(turn.from(this.last().getEnd()));
 		}
@@ -174,7 +171,7 @@ final class MidiPractice {
 		int turn = this.plans.size();
 		TGMeasureHeader first = this.song.getMeasureHeader(plan.getFirstMeasure() - 1);
 		TGMeasureHeader last = this.song.getMeasureHeader(plan.getLastMeasure() - 1);
-		int clicks = this.clicks.applyAsInt(first);
+		int clicks = this.course.clicks(first);
 		List<MidiPracticeTurn> passes = new ArrayList<MidiPracticeTurn>();
 		passes.add(MidiPracticeTurn.afterBreak(first, last, start, rest, plan.getScale(), clicks, turn));
 		for (int pass = 1; pass < plan.getPasses(); pass++) {
