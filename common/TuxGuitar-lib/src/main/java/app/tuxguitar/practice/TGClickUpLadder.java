@@ -34,7 +34,7 @@ public final class TGClickUpLadder {
 	// the click-up as set, or the reason it cannot be played
 	public static TGClickUpLadder of(TGClickUpSettings settings, TGSong song) throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(settings.getMeasuresPerLine(), settings.getLinesPerPage());
-		List<TGPracticeUnit> sections = grouping.units(settings.getUnit(), settings.getPassageFrom(), settings.getPassageTo(), song.countMeasureHeaders(), "passage");
+		List<TGPracticeUnit> sections = grouping.units(settings.getUnit(), settings.getPassageFrom(), settings.getPassageTo(), song, "passage");
 		int[] rungs = rungs(settings.getTempoMode(), settings.getStart(), settings.getGoal(), settings.getIncrement());
 		if (settings.getPasses() < 1) {
 			throw new TGPracticeRefusal("A step needs at least 1 pass.");

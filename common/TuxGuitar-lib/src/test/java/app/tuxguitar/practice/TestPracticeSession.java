@@ -181,6 +181,26 @@ public class TestPracticeSession {
 			+ " " + TGPracticeGrouping.of(1, 1).unit(TGPracticeUnitKind.LINE, 13, 64).weight(song));
 	}
 
+	// a pool of beats holds every beat of its measures, each as difficult as its measure
+	@Test
+	public void aPoolOfBeatsHoldsTheBeatsOfItsMeasuresEachAsDifficultAsItsMeasure() throws TGPracticeRefusal {
+		flag(4, 3);
+		TGPracticeSession session = TGPracticeSession.start(set(TGPracticeUnitKind.BEAT, 3, 4, 1).settings, song);
+		assertEquals("[Measure 3 beat 1, Measure 3 beat 2, Measure 3 beat 3, Measure 3 beat 4, Measure 4 beat 1, Measure 4 beat 2, Measure 4 beat 3, "
+			+ "Measure 4 beat 4] [1, 1, 1, 1, 3, 3, 3, 3]", session.getPool() + " " + Arrays.toString(session.weights()));
+	}
+
+	// a measure of one beat (1/4) flagged 5x holds 5 of a cycle of 9 beats; the pool is refused in measures
+	@Test
+	public void aPoolOfBeatsIsRefusedNamingTheBeatOrTheMeasures() {
+		PracticeSongs.signature(song, 2, 1, 4);
+		String alone = set(TGPracticeUnitKind.BEAT, 2, 2, 2).start();
+		flag(2, 5);
+		assertEquals("Measure 2 beat 1 would come twice in a row. | accepted | Measure 2 beat 1 comes up 5 times in a cycle of 9 turns and would come twice in a row. | "
+			+ "The pool reaches past the song's 64 measures.", alone + " | " + set(TGPracticeUnitKind.BEAT, 1, 2, 9).start() + " | "
+				+ set(TGPracticeUnitKind.BEAT, 1, 2, 10).start() + " | " + set(TGPracticeUnitKind.BEAT, 60, 70, 1).start());
+	}
+
 	// a session reads the flags when asked: a flag set after it started counts
 	@Test
 	public void aSessionReadsTheFlagsAsTheyAre() throws TGPracticeRefusal {

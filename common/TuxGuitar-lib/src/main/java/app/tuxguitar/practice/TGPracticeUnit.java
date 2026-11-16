@@ -1,12 +1,16 @@
 package app.tuxguitar.practice;
 
+import java.util.List;
 import java.util.function.IntUnaryOperator;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
 /**
- * A unit of the song: its kind, its number (from 1) and the measures it holds, first to last (from 1).
+ * A unit of the song: its kind, its number (from 1) and the measures it holds, first to last (from 1). A beat's number
+ * is its beat in its measure, the one measure it holds.
  */
 public final class TGPracticeUnit {
 
@@ -20,6 +24,19 @@ public final class TGPracticeUnit {
 		this.number = number;
 		this.first = first;
 		this.last = last;
+	}
+
+	// the beat (from 1) of the measure the header heads; a measure has as many beats as its time signature's numerator
+	static TGPracticeUnit beat(TGMeasureHeader header, int beat) {
+		if (beat < 1 || beat > header.getTimeSignature().getNumerator()) {
+			throw new IllegalArgumentException("Measure " + header.getNumber() + " has no beat " + beat + ".");
+		}
+		return new TGPracticeUnit(TGPracticeUnitKind.BEAT, beat, header.getNumber(), header.getNumber());
+	}
+
+	// every beat of the measure the header heads, in order
+	static List<TGPracticeUnit> beats(TGMeasureHeader header) {
+		return IntStream.rangeClosed(1, header.getTimeSignature().getNumerator()).mapToObj(beat -> beat(header, beat)).collect(Collectors.toList());
 	}
 
 	public TGPracticeUnitKind getKind() {
@@ -53,8 +70,11 @@ public final class TGPracticeUnit {
 		return number -> song.getMeasureHeader(number - 1).getDifficulty();
 	}
 
-	// "Line 3"
+	// "Line 3", a beat "Measure 2 beat 3"
 	public String toString() {
+		if (this.kind == TGPracticeUnitKind.BEAT) {
+			return TGPracticeUnitKind.MEASURE.title() + " " + this.first + " " + this.kind.getName() + " " + this.number;
+		}
 		return this.kind.title() + " " + this.number;
 	}
 }

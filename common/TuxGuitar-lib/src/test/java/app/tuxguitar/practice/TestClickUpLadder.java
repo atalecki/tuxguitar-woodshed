@@ -149,6 +149,23 @@ public class TestClickUpLadder {
 			measures + " | " + measures(TGPracticeUnitKind.LINE, 12, 13));
 	}
 
+	// the beats of measures 9 and 10 (10 in 6/8) are 10 sections; a step plays the measures of its first and last beat
+	@Test
+	public void aPassageOfBeatsHasEachBeatOfItsMeasuresForASection() throws TGPracticeRefusal {
+		PracticeSongs.signature(song, 10, 6, 8);
+		passage(TGPracticeUnitKind.BEAT, 9, 10).ladder(TGClickUpTempoMode.PERCENT, 80, 80, 5);
+		assertEquals("1@80% 9-9, 1-2@80% 9-9, 1-3@80% 9-9, 1-4@80% 9-9, 1-5@80% 9-10, 1-6@80% 9-10, 1-7@80% 9-10, 1-8@80% 9-10, 1-9@80% 9-10, 1-10@80% 9-10",
+			steps(step -> step + " " + step.getFirstMeasure() + "-" + step.getLastMeasure()));
+	}
+
+	// a ladder in bpm is read against the written tempo of the passage's first measure, a passage of beats' too
+	@Test
+	public void aPassageOfBeatsIsReadAgainstItsFirstMeasuresWrittenTempo() throws TGPracticeRefusal {
+		writtenTempo(9, 84);
+		passage(TGPracticeUnitKind.BEAT, 9, 9).ladder(TGClickUpTempoMode.BPM, 42, 42, 5);
+		assertEquals("84 | 1@42 bpm 1/2, 1-2@42 bpm 1/2, 1-3@42 bpm 1/2, 1-4@42 bpm 1/2", TGClickUpLadder.of(settings, song).getWrittenBpm() + " | " + scales());
+	}
+
 	// "passes, Count In before each step, before every pass"
 	private String countIns() throws TGPracticeRefusal {
 		TGClickUpLadder ladder = TGClickUpLadder.of(settings, song);
@@ -178,6 +195,8 @@ public class TestClickUpLadder {
 		assertEquals("The passage is empty.", passage(TGPracticeUnitKind.LINE, 9, 8).start());
 		assertEquals("The passage starts before line 1.", passage(TGPracticeUnitKind.LINE, 0, 2).start());
 		assertEquals("accepted", passage(TGPracticeUnitKind.PAGE, 1, 4).start());
+		assertEquals("The passage reaches past the song's 64 measures. | The passage starts before measure 1. | accepted",
+			passage(TGPracticeUnitKind.BEAT, 64, 65).start() + " | " + passage(TGPracticeUnitKind.BEAT, 0, 1).start() + " | " + passage(TGPracticeUnitKind.BEAT, 64, 64).start());
 	}
 
 	// a goal that is the start is one rung, and accepted

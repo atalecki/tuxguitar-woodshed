@@ -38,7 +38,7 @@ public final class TGPracticeSession {
 	// the session as set, or the reason it cannot be played
 	public static TGPracticeSession start(TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(settings.getMeasuresPerLine(), settings.getLinesPerPage());
-		List<TGPracticeUnit> pool = pool(grouping, settings, song.countMeasureHeaders());
+		List<TGPracticeUnit> pool = pool(grouping, settings, song);
 		TGPracticeClock clock = clock(settings);
 		TGPracticeSession session = new TGPracticeSession(song, pool, settings, clock);
 		session.check(session.weights(), session.turns);
@@ -56,8 +56,8 @@ public final class TGPracticeSession {
 		return null;
 	}
 
-	private static List<TGPracticeUnit> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, int songMeasures) throws TGPracticeRefusal {
-		return grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), songMeasures, "pool");
+	private static List<TGPracticeUnit> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
+		return grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "pool");
 	}
 
 	// refuses weights that cannot keep "No consecutive repeats" (when it is on) for that many turns

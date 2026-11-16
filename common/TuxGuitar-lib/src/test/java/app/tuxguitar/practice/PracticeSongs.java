@@ -21,4 +21,10 @@ final class PracticeSongs {
 		}
 		return song;
 	}
+
+	// gives the measure (from 1) that time signature, its numerator over its denominator, the others as they were
+	static void signature(TGSong song, int measure, int numerator, int denominator) {
+		song.getMeasureHeader(measure - 1).getTimeSignature().setNumerator(numerator);
+		song.getMeasureHeader(measure - 1).getTimeSignature().getDenominator().setValue(denominator);
+	}
 }
