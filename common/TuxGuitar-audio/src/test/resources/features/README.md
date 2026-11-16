@@ -660,8 +660,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - What the channel's Reverb, Chorus, Tremolo and Phaser do on audio tracks and with VST3 instruments.
 - Which native audio library the backend uses.
 - Interleaved practice: how the desktop shows a session (the dialog, the turn shown in the Transport window, the
-  Difficulty menu: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections); with the interval clock, the
+  Difficulty menu, smooth scroll keeping pace with the turn's tempo: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections); with the interval clock, the
   time left in the whole session, a sound at a break's start or end, and times other than whole minutes (turns,
   sessions) and whole seconds (breaks).
 - Interleaved click-up: how the desktop shows it (the dialog, the step shown in the Transport window, the Repeat step
-  and Previous step buttons: checked by hand); a ladder that climbs down; tempos other than whole percents or bpm.
+  and Previous step buttons, smooth scroll keeping pace with the step's tempo: checked by hand; the pace is
+  `MidiPlayer.getHeardScale`, the scale lib tests, applied by `TGTempoScale.millis`); a ladder that climbs down; tempos other than whole percents or bpm.
