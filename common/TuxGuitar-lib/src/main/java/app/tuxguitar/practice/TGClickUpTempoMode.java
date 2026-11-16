@@ -6,12 +6,19 @@ package app.tuxguitar.practice;
  */
 public enum TGClickUpTempoMode {
 
-	PERCENT("%"), BPM(" bpm");
+	PERCENT("percent", "%"), BPM("bpm", " bpm");
 
+	private final String name;
 	private final String unit;
 
-	TGClickUpTempoMode(String unit) {
+	TGClickUpTempoMode(String name, String unit) {
+		this.name = name;
 		this.unit = unit;
+	}
+
+	// "percent", "bpm": the app's messages name the mode by it
+	public String getName() {
+		return this.name;
 	}
 
 	// the tempo a rung plays the song at, against the written bpm of the passage's first measure
