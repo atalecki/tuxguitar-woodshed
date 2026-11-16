@@ -192,7 +192,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats: choosing, playing them planned) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats with their joint offline and live) |
 | `practice/interleaved_click_up` | interleaved click-up: sections (measures, lines, pages or beats) added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step, live and offline, takes |
 
 ## How the scenarios run
