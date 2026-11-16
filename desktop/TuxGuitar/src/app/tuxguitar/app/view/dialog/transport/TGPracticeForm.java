@@ -1,5 +1,6 @@
 package app.tuxguitar.app.view.dialog.transport;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import app.tuxguitar.app.TuxGuitar;
@@ -57,24 +58,35 @@ final class TGPracticeForm {
 	// an empty drop-down list
 	<T> UIDropDownSelect<T> dropDown(int row, String key) {
 		UIDropDownSelect<T> dropDown = this.factory.createDropDownSelect(this.window);
-		this.label(row, key, dropDown);
+		this.label(row, TuxGuitar.getProperty(key), dropDown);
 		return dropDown;
 	}
 
 	// a value from the least to the most: one outside comes to the nearer end
 	UISpinner spinner(int row, String key, int value, int least, int most) {
 		UISpinner spinner = this.createSpinner(value, least, most);
-		this.label(row, key, spinner);
+		this.label(row, TuxGuitar.getProperty(key), spinner);
 		return spinner;
 	}
 
 	// as spinner, for an end of a range of the units chosen (after units): its label names the kind the range is given
 	// in when that is another ("Pool from (measures)" for beats), anew as another unit is chosen
 	UISpinner rangeSpinner(int row, String key, int value, int least, int most) {
+		return this.namedSpinner(row, value, least, most, kind -> TGPracticeWording.rangeField(key, kind, TuxGuitar::getProperty));
+	}
+
+	// as spinner, for the units per block (after units): its label names the units chosen ("Measures per block"), anew as
+	// another unit is chosen
+	UISpinner blockSpinner(int row, int value, int least, int most) {
+		return this.namedSpinner(row, value, least, most, kind -> TGPracticeWording.blockField(kind, TuxGuitar::getProperty));
+	}
+
+	// as spinner, its label as the name gives it for the units chosen, anew as another unit is chosen
+	private UISpinner namedSpinner(int row, int value, int least, int most, Function<TGPracticeUnitKind, String> name) {
 		UISpinner spinner = this.createSpinner(value, least, most);
-		UILabel label = this.label(row, key, spinner);
-		this.nameRange(label, key);
-		this.units.addSelectionListener(event -> this.nameRange(label, key));
+		UILabel label = this.label(row, "", spinner);
+		this.rename(label, name);
+		this.units.addSelectionListener(event -> this.rename(label, name));
 		return spinner;
 	}
 
@@ -86,8 +98,8 @@ final class TGPracticeForm {
 	}
 
 	// a label of another length lays the window out again
-	private void nameRange(UILabel label, String key) {
-		label.setText(TGPracticeWording.rangeField(key, this.units.getSelectedValue(), TuxGuitar::getProperty) + ":");
+	private void rename(UILabel label, Function<TGPracticeUnitKind, String> name) {
+		label.setText(name.apply(this.units.getSelectedValue()) + ":");
 		this.window.layout();
 	}
 
@@ -101,10 +113,10 @@ final class TGPracticeForm {
 		spinner.setValue(Math.max(least, Math.min(value, most)));
 	}
 
-	// the control on the row, after its label
-	private UILabel label(int row, String key, UIControl control) {
+	// the control on the row, after its label, the text given
+	private UILabel label(int row, String text, UIControl control) {
 		UILabel label = this.factory.createLabel(this.window);
-		label.setText(TuxGuitar.getProperty(key) + ":");
+		label.setText(text + ":");
 		this.layout.set(label, row, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, false, false);
 		this.layout.set(control, row, 2, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false);
 		return label;
