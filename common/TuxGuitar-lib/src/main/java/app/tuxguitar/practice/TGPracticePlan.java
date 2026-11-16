@@ -2,6 +2,8 @@ package app.tuxguitar.practice;
 
 import java.util.Optional;
 
+import app.tuxguitar.song.models.TGSong;
+
 /**
  * A turn as its session's schedule plans it: what it plays (its units, from one to another: the measures from the
  * first's first to the last's last), the tempo scale it plays at, how many passes of them it plays, whether a Count In comes before
@@ -59,6 +61,11 @@ public final class TGPracticePlan {
 	// the number of the last measure it plays (from 1)
 	public int getLastMeasure() {
 		return this.to.getLast();
+	}
+
+	// what it plays of the song, in its ticks (see TGPracticeSpan)
+	public TGPracticeSpan span(TGSong song) {
+		return TGPracticeSpan.of(song, this.from, this.to);
 	}
 
 	public TGTempoScale getScale() {

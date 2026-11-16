@@ -115,6 +115,32 @@ public class TestPracticeSchedule {
 		assertEquals("Line 3 Line 3 9-12", plan.getFrom() + " " + plan.getTo() + " " + plan.getFirstMeasure() + "-" + plan.getLastMeasure());
 	}
 
+	// line 2 is measures 5 to 8 (ticks 16320 to 31680); beat 2 of measure 1 is ticks 1920 to 2880, its joint beat 3
+	@Test
+	public void aPlanSpansItsUnitsAndABeatsJoint() throws TGPracticeRefusal {
+		TGPracticePlan line = schedule(TGPracticeUnitKind.LINE, 1, 4, 4, 100).plan(unit(TGPracticeUnitKind.LINE, 2));
+		TGPracticePlan beat = schedule(TGPracticeUnitKind.BEAT, 1, 4, 4, 100).plan(TGPracticeUnit.beat(song.getMeasureHeader(0), 2));
+		assertEquals("16320 31680 31680 | 1920 2880 3840", spans(line) + " | " + spans(beat));
+	}
+
+	private String spans(TGPracticePlan plan) {
+		TGPracticeSpan span = plan.span(song);
+		return span.getStart() + " " + span.getJoint() + " " + span.getEnd();
+	}
+
+	// a timed turn of a beat (Count In 2 seconds) loops the beat and its joint: beat 2 of measure 1 and beat 3, 1 second;
+	// beat 4 and measure 2's first, at 60 bpm, 1.5 seconds; the song's last beat alone, half a second
+	@Test
+	public void aTimedBeatsPassIsTheBeatAndItsJointEachAtItsMeasuresTempo() throws TGPracticeRefusal {
+		song.getMeasureHeader(1).getTempo().setQuarterValue(60);
+		assertEquals("58 passes, last | 39 passes, last | 116 passes, last", timedBeat(1, 2) + " | " + timedBeat(1, 4) + " | " + timedBeat(64, 4));
+	}
+
+	private String timedBeat(int measure, int beat) throws TGPracticeRefusal {
+		TGPracticeSchedule timed = clock(1, 10, 1).schedule(TGPracticeUnitKind.BEAT, 1, 64, 4, 100);
+		return plan(timed.plan(TGPracticeUnit.beat(song.getMeasureHeader(measure - 1), beat)));
+	}
+
 	@Test
 	public void aPlanSaysWhetherACountInComesBeforeEveryPass() throws TGPracticeRefusal {
 		settings.setCountInEveryPass(true);
