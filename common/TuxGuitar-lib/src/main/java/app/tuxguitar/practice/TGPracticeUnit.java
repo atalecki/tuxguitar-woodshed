@@ -1,6 +1,7 @@
 package app.tuxguitar.practice;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -10,7 +11,7 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * A unit of the song: its kind, its number (from 1) and the measures it holds, first to last (from 1). A beat's number
- * is its beat in its measure, the one measure it holds.
+ * is its beat in its measure, the one measure it holds. Two units are the same when all four are.
  */
 public final class TGPracticeUnit {
 
@@ -63,6 +64,19 @@ public final class TGPracticeUnit {
 	// each measure's difficulty flag in the song, by its number (from 1)
 	static IntUnaryOperator difficulties(TGSong song) {
 		return number -> song.getMeasureHeader(number - 1).getDifficulty();
+	}
+
+	// the same unit: of the same kind and number, holding the same measures
+	public boolean equals(Object other) {
+		if (!(other instanceof TGPracticeUnit)) {
+			return false;
+		}
+		TGPracticeUnit unit = (TGPracticeUnit) other;
+		return (this.kind == unit.kind && this.number == unit.number && this.first == unit.first && this.last == unit.last);
+	}
+
+	public int hashCode() {
+		return Objects.hash(this.kind, this.number, this.first, this.last);
 	}
 
 	// "line 3", a beat "measure 2 beat 3"

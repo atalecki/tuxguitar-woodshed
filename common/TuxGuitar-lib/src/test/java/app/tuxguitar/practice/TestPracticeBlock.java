@@ -155,8 +155,8 @@ public class TestPracticeBlock {
 		settings.setTurns(5);
 		String five = outcome();
 		settings.setTurns(6);
-		assertEquals("accepted | The block of measures 1-4 would come twice in a row. | accepted | "
-			+ "The block of measures 1-2 comes up 3 times in a cycle of 5 turns and would come twice in a row.", one + " | " + twice + " | " + five + " | " + outcome());
+		assertEquals("accepted | The block of measures 1\u20134 would come twice in a row. | accepted | "
+			+ "The block of measures 1\u20132 comes up 3 times in a cycle of 5 turns and would come twice in a row.", one + " | " + twice + " | " + five + " | " + outcome());
 	}
 
 	@Test

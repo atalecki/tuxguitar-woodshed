@@ -1,6 +1,5 @@
 package app.tuxguitar.practice;
 
-import java.util.Arrays;
 import java.util.stream.Stream;
 
 /**
@@ -8,9 +7,10 @@ import java.util.stream.Stream;
  * its own language. A turn under the Transport window's position: of interleaved practice, "Turn 3 of 12: Line 5"
  * (transport.practice.turn), with the interval clock "Turn 3: Line 5, 1:42 left" (transport.practice.timed-turn) or in
  * a break "Break, 0:12 left. Next: Line 7" (transport.practice.break), a beat named by its measure and beat
- * (transport.practice.beat-turn, beat-timed-turn, beat-break), a block of more than one unit by its run as a click-up
- * step's sections are named, "Turn 3 of 12: lines 4–5" (transport.practice.block-turn, block-timed-turn, block-break);
- * a click-up step, "Step 7 of 23: lines 2-3 at 84 bpm"
+ * (transport.practice.beat-turn, beat-timed-turn, beat-break), a block of more than one unit by its first and last unit,
+ * capitalised as a unit is, "Turn 3 of 12: Lines 4–5" (transport.practice.block-turn, block-timed-turn, block-break,
+ * the run by transport.practice.block.&lt;kind&gt;: "Lines 4–5", "Measure 3 beat 4 to measure 4 beat 1"); a click-up
+ * step, "Step 7 of 23: lines 2-3 at 84 bpm"
  * (transport.click-up.step), its sections one alone (transport.click-up.section.&lt;kind&gt;: "line 3", "measure 2 beat
  * 3") or a run (transport.click-up.sections.&lt;kind&gt;), its tempo by transport.click-up.tempo.&lt;mode&gt;. And the
  * label of a field of a range of units: as it is, or, when the range is given in another kind (beats in measures), in
@@ -50,13 +50,17 @@ public final class TGPracticeWording {
 		return messages.get("transport.click-up.step", new String[] {String.valueOf(turn.getTurn()), String.valueOf(turn.getTurns()), sections(turn, messages), tempo});
 	}
 
-	// one section by its place ("line 3", "measure 2 beat 3"), a run by the places of its first and last
+	// one section by its place ("line 3", "measure 2 beat 3"), a run by the places of its first and last ("lines 2–3")
 	private static String sections(TGPracticeTurn turn, Messages messages) {
-		String[] from = place(turn.getFrom());
-		String[] to = place(turn.getTo());
-		String kind = turn.getFrom().getKind().getName();
-		return (Arrays.equals(from, to) ? messages.get("transport.click-up.section." + kind, from)
-			: messages.get("transport.click-up.sections." + kind, Stream.concat(Stream.of(from), Stream.of(to)).toArray(String[]::new)));
+		if (isRun(turn)) {
+			return run("transport.click-up.sections.", turn, messages);
+		}
+		return messages.get("transport.click-up.section." + turn.getFrom().getKind().getName(), place(turn.getFrom()));
+	}
+
+	// a run by the places of its first and last unit, in the key of the prefix and their kind
+	private static String run(String prefix, TGPracticeTurn turn, Messages messages) {
+		return messages.get(prefix + turn.getFrom().getKind().getName(), arguments(place(turn.getFrom()), place(turn.getTo()), NONE));
 	}
 
 	// a beat's measure and its beat in it; any other unit's number
@@ -78,25 +82,25 @@ public final class TGPracticeWording {
 		return messages.get(key + (turn.isBreak() ? "break" : "timed-turn"), arguments(new String[] {String.valueOf(turn.getTurn())}, named, new String[] {left}));
 	}
 
-	// a block of more than one unit; else of one unit, a beat
-	private static boolean isBlock(TGPracticeTurn turn) {
-		return turn.getFrom() != turn.getTo();
+	// whether the turn plays a run of more than one unit (a block, a step's sections): its first and last are not one unit
+	private static boolean isRun(TGPracticeTurn turn) {
+		return !turn.getFrom().equals(turn.getTo());
 	}
 
 	// the keys' form: block- for a block of more than one unit, beat- for a beat, none for any other unit
 	private static String form(TGPracticeTurn turn) {
-		if (isBlock(turn)) {
+		if (isRun(turn)) {
 			return "block-";
 		}
 		return (turn.getFrom().getKind() == TGPracticeUnitKind.BEAT ? "beat-" : "");
 	}
 
-	// a block of more than one unit by its run, as a step's sections; a beat by its measure and beat; any other unit by
-	// its kind's word and its number
+	// a block of more than one unit by its run ("Lines 4–5"); a beat by its measure and beat; any other unit by its
+	// kind's word and its number
 	private static String[] named(TGPracticeTurn turn, Messages messages) {
 		TGPracticeUnit unit = turn.getFrom();
-		if (isBlock(turn)) {
-			return new String[] {sections(turn, messages)};
+		if (isRun(turn)) {
+			return new String[] {run("transport.practice.block.", turn, messages)};
 		}
 		if (unit.getKind() == TGPracticeUnitKind.BEAT) {
 			return place(unit);
@@ -104,7 +108,7 @@ public final class TGPracticeWording {
 		return new String[] {messages.get("transport.practice.turn." + unit.getKind().getName(), NONE), String.valueOf(unit.getNumber())};
 	}
 
-	// the turn's arguments before its block's names, those names, and the arguments after them
+	// the arguments before, in between and after, in that order
 	private static String[] arguments(String[] before, String[] named, String[] after) {
 		return Stream.of(before, named, after).flatMap(Stream::of).toArray(String[]::new);
 	}

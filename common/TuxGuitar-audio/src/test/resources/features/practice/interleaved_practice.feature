@@ -884,9 +884,9 @@ Feature: Interleaved practice
       | 1x   | 5 | measure | measures 1 to 4 | 6     | refused, saying "A block of 5 measures does not fit in the pool's 4 measures."                                    |
       | 1x   | 5 | beat    | measures 3 to 3 | 6     | refused, saying "A block of 5 beats does not fit in the pool's 4 beats."                                          |
       | 1x   | 4 | measure | measures 1 to 4 | 1     | accepted                                                                                                          |
-      | 1x   | 4 | measure | measures 1 to 4 | 2     | refused, saying "The block of measures 1-4 would come twice in a row."                                            |
+      | 1x   | 4 | measure | measures 1 to 4 | 2     | refused, saying "The block of measures 1–4 would come twice in a row."                                            |
       | 3x   | 2 | measure | measures 1 to 4 | 5     | accepted                                                                                                          |
-      | 3x   | 2 | measure | measures 1 to 4 | 6     | refused, saying "The block of measures 1-2 comes up 3 times in a cycle of 5 turns and would come twice in a row." |
+      | 3x   | 2 | measure | measures 1 to 4 | 6     | refused, saying "The block of measures 1–2 comes up 3 times in a cycle of 5 turns and would come twice in a row." |
       | 1x   | 2 | beat    | measures 3 to 3 | 6     | accepted                                                                                                          |
 
   Scenario: every cycle chooses each block once, and only the same block is a repeat, not one that overlaps

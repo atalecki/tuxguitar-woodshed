@@ -60,7 +60,7 @@ public final class TGPracticeBlock {
 		return this.pool.get(this.last);
 	}
 
-	// a block of one unit, as the unit: "Measure 5"; of more, by its first and last: "The block of measures 1-2", "The
+	// a block of one unit, as the unit: "Measure 5"; of more, by its first and last: "The block of measures 1–2", "The
 	// block of measure 3 beat 4 to measure 4 beat 1"
 	public String toString() {
 		TGPracticeUnit from = this.getFrom();
@@ -71,6 +71,6 @@ public final class TGPracticeBlock {
 		if (from.getKind() == TGPracticeUnitKind.BEAT) {
 			return "The block of " + from.name() + " to " + to.name();
 		}
-		return "The block of " + from.getKind().getName(2) + " " + from.getNumber() + "-" + to.getNumber();
+		return "The block of " + from.getKind().getName(2) + " " + from.getNumber() + "\u2013" + to.getNumber();
 	}
 }

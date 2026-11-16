@@ -170,8 +170,9 @@ pool blocks (`TGPracticeBlock`: `TGPracticeBlock.blocks` is the one place that c
 so many in a row, refusing fewer than 1 or more than the pool holds; a block weighs as its most difficult unit); the
 chooser, the weight rule and the schedule take blocks, and a turn plays its block from its first unit to its last (the
 plan's and the span's from and to, as a click-up step's run of sections), a block of beats through the barline to its
-joint; `TGPracticeWording` words a block of more than one unit by its run, as a step's sections
-(`transport.practice.block-turn`, `block-timed-turn`, `block-break`). The desktop's field for it is still to come.
+joint; `TGPracticeWording` words a block of more than one unit by its first and last unit, capitalised as a unit is
+("Lines 4–5": `transport.practice.block-turn`, `block-timed-turn`, `block-break`, the run by
+`transport.practice.block.<kind>`). The desktop sets it in Interleaved Practice's units per block field.
 Live scenarios read a step played again by its notes'
 level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
@@ -585,7 +586,7 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   one that overlaps the block before (`1-2` after `2-3`) is no repeat. A block weighs as its most difficult measure,
   so a flag weighs every block that holds its measure. **Block reading**: a block reads as its first and last unit,
   `2-3` (measures, lines or pages by their numbers), `m3b4-m4b1` (beats), and a block of one unit as that unit (`3`,
-  `m3b2`); a refusal names it "The block of measures 1-2" ("The block of measure 3 beat 4 to measure 4 beat 1"), a
+  `m3b2`); a refusal names it "The block of measures 1–2" ("The block of measure 3 beat 4 to measure 4 beat 1"), a
   block of one unit as the unit ("Measure 5").
 - **A beat (unit)**: one beat of a measure as a unit of interleaved practice, or a section of interleaved click-up. Its
   beat is the unit of its measure's time signature, as in a Position (an eighth in 6/8): the beats of measures 3 to 4

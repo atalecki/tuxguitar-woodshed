@@ -265,7 +265,7 @@ public class ChoosingSteps {
 
 	@Then("each of {unit}s {int} to {int} is chosen for {int} turns, within {int}%")
 	public void eachIsChosen(TGPracticeUnitKind unit, int from, int to, int turns, int percent) {
-		numbers(from, to).forEach(number -> assertNear(turns, chosen(number), percent, unit.title() + " " + number));
+		numbers(from, to).forEach(number -> assertNear(turns, chosen(number), percent, unit.getName() + " " + number));
 	}
 
 	@Then("measures {int} and {int} are each chosen for {int} turns, within {int}%")

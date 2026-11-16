@@ -9,7 +9,8 @@ import app.tuxguitar.song.models.TGSong;
 /**
  * The words the app shows for practice, as keys of its messages and their arguments. Here the messages read back as the
  * key and its arguments, "key(a, b)", so that each test reads what the app looks up. A turn of interleaved practice is
- * worded by its unit's kind and number ("Turn 3 of 12: Line 5"), a beat by its measure and its beat in it; a click-up
+ * worded by its unit's kind and number ("Turn 3 of 12: Line 5"), a beat by its measure and its beat in it, a block of
+ * more than one unit by its first and last unit ("Turn 3 of 12: Lines 4–5"), keys of its own; a click-up
  * step by its sections and its tempo, a beat again by measure and beat. A field of a range of units is labelled as it is,
  * or, when the range is given in another kind (beats in measures), in that kind. The song has 16 measures of 4/4.
  */
@@ -82,21 +83,27 @@ public class TestPracticeWording {
 		assertEquals("transport.practice.beat-break(4, 9, 1, 0:00)", turn(TGPracticeTurn.inBreak(4, plan(beat(9, 1)), 0)));
 	}
 
+	// a turn whose first and last unit are one unit, built twice, is that unit, not a block
+	@Test
+	public void aTurnFromAUnitToTheSameUnitIsWordedAsTheUnit() {
+		assertEquals("transport.practice.turn(3, 12, transport.practice.turn.line(), 4)", turn(new TGPracticeTurn(3, 12, plan(line(4), line(4)))));
+	}
+
 	@Test
 	public void aCountedTurnOfABlockNamesItsFirstAndLastUnitAsARun() {
-		assertEquals("transport.practice.block-turn(3, 12, transport.click-up.sections.line(4, 5)) | "
-			+ "transport.practice.block-turn(3, 12, transport.click-up.sections.beat(3, 2, 4, 1))", turn(new TGPracticeTurn(3, 12, plan(line(4), line(5)))) + " | "
+		assertEquals("transport.practice.block-turn(3, 12, transport.practice.block.line(4, 5)) | "
+			+ "transport.practice.block-turn(3, 12, transport.practice.block.beat(3, 2, 4, 1))", turn(new TGPracticeTurn(3, 12, plan(line(4), line(5)))) + " | "
 				+ turn(new TGPracticeTurn(3, 12, plan(beat(3, 2), beat(4, 1)))));
 	}
 
 	@Test
 	public void aTimedTurnOfABlockNamesItsRunAndTheTimeLeft() {
-		assertEquals("transport.practice.block-timed-turn(3, transport.click-up.sections.line(4, 5), 1:42)", turn(TGPracticeTurn.timed(3, plan(line(4), line(5)), 102)));
+		assertEquals("transport.practice.block-timed-turn(3, transport.practice.block.line(4, 5), 1:42)", turn(TGPracticeTurn.timed(3, plan(line(4), line(5)), 102)));
 	}
 
 	@Test
 	public void aBreakBeforeABlockNamesItsRun() {
-		assertEquals("transport.practice.block-break(4, transport.click-up.sections.beat(3, 2, 4, 1), 0:12)", turn(TGPracticeTurn.inBreak(4, plan(beat(3, 2), beat(4, 1)), 12)));
+		assertEquals("transport.practice.block-break(4, transport.practice.block.beat(3, 2, 4, 1), 0:12)", turn(TGPracticeTurn.inBreak(4, plan(beat(3, 2), beat(4, 1)), 12)));
 	}
 
 	@Test

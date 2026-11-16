@@ -178,7 +178,18 @@ public class TestPracticeGrouping {
 
 	@Test
 	public void aKindOfUnitIsGivenInRangesOfItsOwnButBeatsInMeasures() {
-		assertEquals("[MEASURE, LINE, PAGE, MEASURE] beat beats Beat", Arrays.stream(TGPracticeUnitKind.values()).map(TGPracticeUnitKind::rangeKind)
-			.collect(Collectors.toList()) + " " + TGPracticeUnitKind.BEAT.getName() + " " + TGPracticeUnitKind.BEAT.getName(2) + " " + TGPracticeUnitKind.BEAT.title());
+		assertEquals("[MEASURE, LINE, PAGE, MEASURE] beat beats", Arrays.stream(TGPracticeUnitKind.values()).map(TGPracticeUnitKind::rangeKind)
+			.collect(Collectors.toList()) + " " + TGPracticeUnitKind.BEAT.getName() + " " + TGPracticeUnitKind.BEAT.getName(2));
+	}
+
+	// line 3 of measures 9 to 12, built again; then with another kind, number, first or last measure, and a measure
+	@Test
+	public void aUnitIsTheSameAsAnotherOfTheSameKindNumberAndMeasures() {
+		TGPracticeUnit line = new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 9, 12);
+		Object[] others = {new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 9, 12), new TGPracticeUnit(TGPracticeUnitKind.PAGE, 3, 9, 12),
+			new TGPracticeUnit(TGPracticeUnitKind.LINE, 4, 9, 12), new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 8, 12),
+			new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 9, 11), "Line 3"};
+		assertEquals("[true, false, false, false, false, false] true", Arrays.stream(others).map(line::equals).collect(Collectors.toList()) + " "
+			+ (line.hashCode() == others[0].hashCode()));
 	}
 }
