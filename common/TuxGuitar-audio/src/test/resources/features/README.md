@@ -509,9 +509,10 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 
 ### Practice
 
-- **Interleaved practice**: a session of a number of **turns**. Each turn plays one **unit** chosen from the **pool**,
-  each of its measures once and in score order (repeat signs and alternate endings inside it are not followed; a measure
-  no pass of the song reaches, such as a third ending of a repeat played twice, plays too), with a
+- **Interleaved practice**: a session of a number of **turns**. Each turn plays one **block** (one **unit**, until I
+  change Units per block) chosen from the **pool**, each of its measures once and in score order (repeat signs and
+  alternate endings inside it are not followed; a measure no pass of the song reaches, such as a third ending of a
+  repeat played twice, plays too), with a
   Count In before it: interleaved practice's own **"Count In before each turn"**, on until I turn it off, whether or not
   Count In is on, in the time signature and tempo of the unit's first measure at the Percentage of Tempo (Count In
   ticks set its length as usual). The next turn's Count In (or, with "Count In before each turn" off, its first
@@ -562,6 +563,23 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   reflow with the window and the zoom, and the Page layout has no pages).
 - **Pool**: the units a session chooses from, a range such as `measures 1 to 16`, `lines 1 to 8`, `pages 1 to 4`;
   beats are chosen from a range of measures (`beats over measures 3 to 4`).
+- **Units per block** (1 until I change it, at least 1): how many units of the pool in a row a turn plays. A session
+  whose units per block is below 1 is refused ("A block needs at least 1 measure."), and so is one whose pool holds
+  fewer units ("A block of 5 measures does not fit in the pool's 4 measures."; beats count the pool's beats). With 1,
+  a block is a unit and interleaved practice is as it was.
+- **Block**: what a turn of interleaved practice plays and the random choice chooses: a run of Units per block units
+  of the pool in a row, in score order. The pool's blocks are every such run, sliding by one unit and only whole ones
+  (measures 1 to 6 in blocks of 2: `1-2, 2-3, 3-4, 4-5, 5-6`); a pool of exactly that many units is one block. Lines
+  and pages are the fixed groups, so a block of 2 lines is two lines in a row. Beats count through the barline in
+  score order, whatever the time signatures (measure 3 in 3/4, blocks of 2: `..., m3b2-m3b3, m3b3-m4b1, m4b1-m4b2,
+  ...`), and a block of beats plays its beats, then the joint after its last one; its Count In is its first beat's
+  measure's. The cycles, the weight rule, No consecutive repeats and the interval clock count blocks as they count
+  units (a timed turn loops its block). Two blocks are the same only when they have the same first and last unit:
+  one that overlaps the block before (`1-2` after `2-3`) is no repeat. A block weighs as its most difficult measure,
+  so a flag weighs every block that holds its measure. **Block reading**: a block reads as its first and last unit,
+  `2-3` (measures, lines or pages by their numbers), `m3b4-m4b1` (beats), and a block of one unit as that unit (`3`,
+  `m3b2`); a refusal names it "The block of measures 1-2" ("The block of measure 3 beat 4 to measure 4 beat 1"), a
+  block of one unit as the unit ("Measure 5").
 - **A beat (unit)**: one beat of a measure as a unit of interleaved practice, or a section of interleaved click-up. Its
   beat is the unit of its measure's time signature, as in a Position (an eighth in 6/8): the beats of measures 3 to 4
   in 4/4 are 8 units, and a measure of 6/8 gives 6. The pool and the passage are still ranges of measures, every beat
@@ -581,7 +599,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   its turn ends with it. A turn ends at the joint beat's end, where the next turn's Count In starts; TuxGuitar reports
   the joint's beat as it sounds; the Metronome clicks on it; an audio track's take plays through the joint beat and
   fades out over its last 256 samples; with the interval clock every pass plays its joint.
-- **No consecutive repeats** (on until I turn it off): no unit is chosen for two turns in a row, also across cycles.
+- **No consecutive repeats** (on until I turn it off): no unit (block) is chosen for two turns in a row, also across
+  cycles.
   With it on, a session is refused when its weights cannot keep that rule: with w the heaviest unit's weight and L a
   cycle's length (the weights added up), a session of up to L turns needs 2w <= L + 1, a longer one 2w <= L.
 - **Complete cycle before reshuffle** (on until I turn it off): turns go in **cycles**; each cycle chooses every unit
@@ -592,7 +611,7 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   Flagging during a session does not end it: the cycle under way keeps its turns and the next cycles use the new
   weights (every cycle none of whose turns has started playing, also when, live, its first turn is already chosen); a flag those weights could not play (see No consecutive repeats) is refused, saying why. Undoing or redoing
   a flag during a session is a flag: the same rule, the same refusal, and a refused undo or redo changes nothing.
-  A line or page weighs as much as its most difficult measure.
+  A line or page weighs as much as its most difficult measure, and so does a block (see Block).
 - **Interleaved click-up**: a session that brings a **passage** up to speed (Molly Gebrian's "interleaved clicking
   up"). It plays a list of **steps**, worked out once when it starts: with N **sections** in play (N = 1, 2, ... up to
   all of them, one more at a time), step i (from 0) plays at **rung** i of the **tempo ladder** the sections
