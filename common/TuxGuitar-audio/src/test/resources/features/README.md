@@ -41,12 +41,17 @@ Stop ends a live session, Pause keeps it and Play then plays the paused pass aga
 passes left, or, paused in a break, the next turn's Count In at once (`MidiPractice.play`), moving the position ends it and the song plays on from there, and the session ending stops the
 player; a sequencer that cannot take turns added while it plays (`MidiSequencer.takesEventsWhilePlaying`: only
 TuxGuitar's own can) refuses a session: editor-utils' `TGPracticeEdits` (installed by the app) ends the
-session under way (`TGPracticeUnderWay`) on any edit but a flag, and checks a flag, its undo and its redo against the
-session's chooser, refusing one the next cycles could not play; it also tells the app which edits to refuse while
-playing (`TGPracticeEdits.disables`: during a session, playing or paused, all but a flag, the undo or redo of a
-flag and a move of the caret) and which menu items and toolbar buttons to grey out (`TGPracticeEdits.greys`: those of
-the actions it refuses during a session, paused too); during a session moving the caret moves only the caret
-(`TGPracticeCaret.movesPlayer`: the caret moves the player only while the song plays outside a session). The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
+session under way (`TGPracticeUnderWay`) on any edit but those it keeps going through (`TGPracticeEdits.keeps`: a
+flag, mute and solo, a marker added, changed or removed, and the undo and redo of each), and checks a flag, its undo
+and its redo against the session's chooser, refusing one the next cycles could not play; it also tells the app which
+edits to refuse while playing (`TGPracticeEdits.disables`: during a session, playing or paused, all but a flag, the
+undo or redo of an edit it keeps going through and a move of the caret) and which menu items and toolbar buttons to
+grey out (`TGPracticeEdits.greys`: those of the actions it refuses during a session, paused too); during a session
+moving the caret moves only the caret (`TGPracticeCaret.movesPlayer`: the caret, also by a measure with Measure
+First, Previous, Next and Last, moves the player only while the song plays outside a session). The marker actions and
+their undoable edit are editor-utils' (`TGUpdateMarkerAction`, `TGRemoveMarkerAction`, `TGUndoableMarkerGeneric`).
+Record is refused during a session, saying why (`TGAudioStatus.practiceRefusal`, which `TGRecordAction` throws as a
+`TGActionException`), and `TGAudioStatus.canRecord` is false then, so Tools > Record is greyed out. The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
 Live practice scenarios play on the live device as the
 other live scenarios do (`LivePractisingSteps`). Known and pinned, not fixed (ordinary playback): offline, a note ending
 where the song ends or a loop jumps back is never sent its note off (`TestGeneralMidiRender.pinnedDefect...`); live, a
@@ -507,9 +512,13 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   itself. A turn's end is a jump in song time: takes fade out before it and start at full level after it (see
   Crossfade), live as offline, and effect tails ring on into the next turn as across a loop's jump back. The Metronome
   clicks on the turns' beats as usual. Stop, moving the position, or an edit to the song ends the session, except
-  flagging a measure (see Difficulty flag). The caret moves freely during a session, playing or paused: clicking the
-  score or moving the caret moves only the caret, not the position, so the session goes on (and the Difficulty flag
-  goes to the caret's measure); moving the position (the transport) still ends it. During a session, playing or paused,
+  flagging a measure (see Difficulty flag), muting or soloing a track, and adding, changing or removing a marker
+  (each still an undo step; their undo and redo keep the session too). The caret moves freely during a session,
+  playing or paused: clicking the score or moving the caret, a measure at a time too (Measure First, Previous, Next
+  and Last, from the menu, the toolbar or the Transport window), moves only the caret, not the position, so the
+  session goes on (and the Difficulty flag goes to the caret's measure); moving the position (the transport) still
+  ends it. Selecting stays refused. Record is greyed out and refused during a session, saying why
+  ("Interleaved practice is under way: stop it to record."). During a session, playing or paused,
   every menu item and toolbar button of an edit the session refuses is greyed out. Pause keeps the session: Play then plays the paused turn again from the start of its Count In,
   and the session goes on from there with the turns it had chosen; the turns before it count as played. A session
   needs a sequencer that takes the turns added while it plays (TuxGuitar's own); on another it is refused, saying why. Play looped, the Loop Range and Training Mode take no part in a session: it plays at the
@@ -591,7 +600,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   signs inside them are not followed); a step's end is a jump in song time (takes fade, tails ring on), live as
   offline. The Percentage of Tempo, Play looped, the Loop Range and Training Mode take no part, and are as they were
   afterwards; random choice, the weight rule and the interval clock do not apply, and a flag set during a session
-  keeps it and changes none of its steps. Stop, moving the position or an edit ends the session; Pause keeps it, and
+  keeps it and changes none of its steps. Stop, moving the position or an edit ends the session, but for the edits
+  interleaved practice's session goes on through (a flag, mute and solo, markers, and their undo and redo), and
+  moving the caret moves only the caret, as there; Record is refused as there; Pause keeps it, and
   Play then plays the paused step again from its Count In. **Repeat step** plays the step under way again at once, from
   its Count In, and **Previous step** the step before it (during step 1, step 1 again); the steps then go on from
   there. Paused, they choose the step Play plays from its Count In (Repeat step: the paused one, as Play would anyway).
@@ -625,6 +636,12 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - **A beat at a step's tempo**: where the beat falls when the song plays at that step's tempo (see Tempo ladder).
 - **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
   each time; the scenarios on choosing check the rules for every seed in a range and do not play.
+- **A session under way**: an interleaved practice or click-up session started and not yet ended, playing or paused.
+  What it lets through and what ends it: see Interleaved practice; the edits it goes on through are each an undo step.
+- **Track and markers reading**: `track 1 reads "mute"`: the track's solo and mute, `solo`, `mute`, `solo mute` or
+  `-` for neither; `the markers read "m2 Intro, m3 Verse"`: the song's markers in measure order, each `m<measure>
+  <title>`, `""` for none. A marker is added, renamed and removed as the Marker editor and list do (the update and
+  remove marker actions, one undo step each).
 
 ## Out of scope
 

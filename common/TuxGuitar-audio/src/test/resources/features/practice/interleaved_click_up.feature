@@ -304,6 +304,34 @@ Feature: Interleaved click-up
     And the song has 63 measures
     And interleaved click-up has ended
 
+  # as in interleaved practice (see there): mute, solo and markers, and their undo and redo, keep the session
+  @planned
+  Scenario Outline: <edit> during a session keeps it, and the steps play on
+    Given I have added the marker "Intro" at measure 2
+    And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
+    When I practise interleaved click-up live, <edit> during step 2
+    Then the player stopped by itself within 512 samples of step 5's end
+    And track 1 reads "<track>" and the markers read "<markers>"
+
+    Examples:
+      | edit                                         | track | markers            |
+      | muting track 1                               | mute  | m2 Intro           |
+      | soloing track 1                              | solo  | m2 Intro           |
+      | adding the marker "Verse" at measure 3       | -     | m2 Intro, m3 Verse |
+      | renaming the marker of measure 2 to "Chorus" | -     | m2 Chorus          |
+      | removing the marker of measure 2             | -     |                    |
+      | undoing                                      | -     |                    |
+
+  @planned
+  Scenario: Record during a session is refused, saying why, and the session goes on
+    Given I have added an audio track recording input channel 1
+    And I have armed track 2
+    And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
+    When I practise interleaved click-up live, choosing Record during step 2
+    Then Record is refused, saying "Interleaved click-up is under way: stop it to record."
+    And the player stopped by itself within 512 samples of step 5's end
+    And track 2's takes read ""
+
   # a flag weighs a unit in interleaved practice's random choice; a click-up has no choice, so its steps stay as they were
   Scenario: flagging a measure during a session keeps it and its steps
     Given I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%

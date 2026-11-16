@@ -413,6 +413,64 @@ Feature: Interleaved practice
     And the song has 63 measures
     And interleaved practice has ended
 
+  # mute, solo and markers change no note a turn plays: the session goes on through them, each still an undo step, and
+  # through their undo and redo. Had the edit ended it, the player would have stopped at the edit (see above)
+  @planned
+  Scenario Outline: <edit> during a session keeps it, and the turns play on
+    Given I have added the marker "Intro" at measure 2
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, <edit> during turn 2
+    Then the player stopped by itself within 512 samples of turn 3's end
+    And track 1 reads "<track>" and the markers read "<markers>"
+
+    Examples:
+      | edit                                         | track | markers            |
+      | muting track 1                               | mute  | m2 Intro           |
+      | soloing track 1                              | solo  | m2 Intro           |
+      | adding the marker "Verse" at measure 3       | -     | m2 Intro, m3 Verse |
+      | renaming the marker of measure 2 to "Chorus" | -     | m2 Chorus          |
+      | removing the marker of measure 2             | -     |                    |
+
+  @planned
+  Scenario Outline: undoing <an edit> during a session keeps it too
+    Given I have <made it>
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, undoing during turn 2
+    Then the player stopped by itself within 512 samples of turn 3's end
+    And track 1 reads "-" and the markers read ""
+
+    Examples:
+      | an edit  | made it                               |
+      | a mute   | muted track 1                         |
+      | a solo   | soloed track 1                        |
+      | a marker | added the marker "Intro" at measure 2 |
+
+  @planned
+  Scenario Outline: redoing <an edit> during a session keeps it too
+    Given I have <made it>
+    And I have undone it
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, redoing during turn 2
+    Then the player stopped by itself within 512 samples of turn 3's end
+    And track 1 reads "<track>" and the markers read "<markers>"
+
+    Examples:
+      | an edit  | made it                               | track | markers  |
+      | a mute   | muted track 1                         | mute  |          |
+      | a solo   | soloed track 1                        | solo  |          |
+      | a marker | added the marker "Intro" at measure 2 | -     | m2 Intro |
+
+  # Tools > Record is greyed out during a session, playing or paused; the action refuses too, and the session goes on
+  @planned
+  Scenario: Record during a session is refused, saying why, and the session goes on
+    Given I have added an audio track recording input channel 1
+    And I have armed track 2
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, choosing Record during turn 2
+    Then Record is refused, saying "Interleaved practice is under way: stop it to record."
+    And the player stopped by itself within 512 samples of turn 3's end
+    And track 2's takes read ""
+
   # The interval clock: timed turns that loop their unit, with a break between turns, for a session of so many minutes.
   # At 120 bpm in 4/4 a measure lasts 2 seconds (88200 samples), a line of 4 measures 8 seconds, a page 32 seconds, and
   # a Count In of 4 clicks 2 seconds. A turn starts with its first Count In click (or, with "Count In before each turn"
