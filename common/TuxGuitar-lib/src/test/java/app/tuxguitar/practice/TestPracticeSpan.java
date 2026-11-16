@@ -118,4 +118,17 @@ public class TestPracticeSpan {
 		assertEquals("3-4 8640 16320 16320 [3, 4] | 3-4 8640 16320 16320 [3, 4]",
 			span(TGPracticeSpan.of(song, line, line)) + " | " + span(TGPracticeSpan.measures(header(3), header(4))));
 	}
+
+	private static String whole(TGPracticeSpan span) {
+		return span.isWhole() ? "T" : "F";
+	}
+
+	// a span plays whole measures when it starts on its first's start and has no joint: measures do; a beat, beats with
+	// a joint after them, or the song's last beat alone do not; the beats of the song's last measure, all of them, do
+	@Test
+	public void aSpanIsWholeMeasuresFromAMeasuresStartWithoutAJoint() throws TGPracticeRefusal {
+		song = PracticeSongs.song(2);
+		assertEquals("T F F F T", whole(TGPracticeSpan.of(song, measure(1), measure(2))) + " " + whole(beats(1, 1)) + " " + whole(TGPracticeSpan.of(song, beat(1, 1), beat(1, 4)))
+			+ " " + whole(beats(2, 4)) + " " + whole(TGPracticeSpan.of(song, beat(2, 1), beat(2, 4))));
+	}
 }

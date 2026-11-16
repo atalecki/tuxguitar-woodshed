@@ -95,6 +95,11 @@ public final class TGPracticeSpan {
 		return this.end;
 	}
 
+	// whether it plays whole measures: from its first's start, with no joint (to its last's end)
+	public boolean isWhole() {
+		return this.start == this.first.getStart() && this.joint == this.end;
+	}
+
 	// whether it plays what starts on the tick: its units' ticks, and the joint's first
 	public boolean plays(long tick) {
 		return (tick >= this.start && tick < this.joint) || (tick == this.joint && this.joint < this.end);
