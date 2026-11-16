@@ -15,11 +15,13 @@ import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerCountDown;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
+import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGBeat;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasure;
 import app.tuxguitar.song.models.TGNote;
 import app.tuxguitar.song.models.TGSong;
@@ -48,8 +50,14 @@ public class TestGeneralMidiRender {
 
 	// fret 5 on string 1, a quarter note at the tick from the measure's start
 	private void note(TGMeasure measure, long tick) {
+		note(measure, tick, TGDuration.QUARTER);
+	}
+
+	// the same, of that duration (a denominator: 1 a whole note)
+	private void note(TGMeasure measure, long tick, int value) {
 		TGBeat beat = songManager.getFactory().newBeat();
 		beat.setStart(measure.getStart() + tick);
+		beat.getVoice(0).getDuration().setValue(value);
 		TGNote note = songManager.getFactory().newNote();
 		note.setValue(5);
 		note.setString(1);
@@ -299,6 +307,25 @@ public class TestGeneralMidiRender {
 
 		assertEquals(88200, tap.length);
 		assertEquals(0, firstSound(tap), 64);
+	}
+
+	// at 60 bpm (a beat 44100 samples), twice a turn of beat 1 and its joint, beat 2: a whole note on beat 1 is cut where
+	// the joint starts, and an eighth note half way through the joint is not played (only notes on the joint's first
+	// tick are): the joint is silent, past the note's release, in both turns
+	@Test
+	public void aBeatsTurnCutsItsNotesAtTheJointAndPlaysOnlyTheJointsFirstTick() throws MidiPlayerException, TGPracticeRefusal {
+		song.getMeasureHeader(0).getTempo().setQuarterValue(60);
+		song.getTrack(0).getMeasure(0).clear();
+		note(song.getTrack(0).getMeasure(0), 0, TGDuration.WHOLE);
+		note(song.getTrack(0).getMeasure(0), 1440, TGDuration.EIGHTH);
+		TGTurn turn = TGTurn.unit(song, TestSongTime.beat(song, 1, 1), 0, TGTempoScale.percent(100), header -> 0, 44100);
+		device(44100);
+		float[] tap = render(TGTimeline.of(song, List.of(turn, turn), 44100)).getTap(song.getTrack(0));
+
+		assertEquals(176400, tap.length);
+		assertTrue(Meters.peak(tap, 44100 - 2000, 44100) > 0.01, "the note sounds to the joint");
+		assertTrue(Meters.peak(tap, 44100 + 20000, 88200) < 0.01 && Meters.peak(tap, 88200 + 44100 + 20000, 176400) < 0.01, "the joint is silent");
+		assertEquals(88200, firstSound(Arrays.copyOfRange(tap, 44100 + 20000, tap.length)) + 44100 + 20000, 512);
 	}
 
 	// PINNED KNOWN DEFECT (owner decision, slice 3a; to be fixed on a branch of its own, not here): offline, the note off

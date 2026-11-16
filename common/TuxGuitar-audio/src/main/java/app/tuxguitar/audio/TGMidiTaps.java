@@ -1,10 +1,12 @@
 package app.tuxguitar.audio;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -25,9 +27,9 @@ import app.tuxguitar.player.base.MidiPracticeTurn;
 import app.tuxguitar.player.base.MidiReceiver;
 import app.tuxguitar.player.base.MidiSequenceHandler;
 import app.tuxguitar.player.base.MidiSequenceParser;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGChannelParameter;
-import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTimeSignature;
 import app.tuxguitar.util.TGContext;
@@ -157,7 +159,8 @@ public final class TGMidiTaps {
 	// where playing starts (the channel settings at the start of the sequence among them) fall before sample 0, so they
 	// go out with the first block, in tick order. A turn that another follows ends its notes where it ends: the notes
 	// ending on its last measure's end go off there, before what follows (the next measure in song order, where they
-	// would go off, does not play next). A measure no pass reaches (no step) has the events of the measure parsed alone
+	// would go off, does not play next). A measure whose events are a span's parsed alone (see alone) takes them from
+	// that parse, once per span, where the song has it
 	private static TreeMap<Long, List<Event>> schedule(TGSongManager songManager, TGSong song, MidiPlayerMode mode, TGTimeline timeline) {
 		MidiSequenceParser parser = new MidiSequenceParser(song, songManager, FLAGS);
 		if (mode.isLoop()) {
@@ -167,12 +170,14 @@ public final class TGMidiTaps {
 		Events parsed = new Events(song.countTracks());
 		parser.parse(parsed);
 		List<Long> moves = TGSongTime.moves(song, mode);
+		Map<List<Long>, Events> spans = new HashMap<List<Long>, Events>();
 		TreeMap<Long, List<Event>> scheduled = new TreeMap<Long, List<Event>>();
 		for (int i = 0; i < timeline.count(); i++) {
 			TGPlayedMeasure measure = timeline.get(i);
-			boolean unreached = (measure.getStep() == TGPlayedMeasure.NO_STEP);
-			Events events = (unreached ? alone(parser, measure.getHeader(), parsed.getTracks()) : parsed);
-			long start = (unreached ? measure.getHeader().getStart() : measure.getHeader().getStart() + moves.get(measure.getStep()));
+			Optional<TGPracticeSpan> alone = alone(timeline, i);
+			Events events = alone.map(span -> spans.computeIfAbsent(Arrays.asList(span.getStart(), span.getJoint(), span.getEnd()), key -> parsed(parser, span, parsed.getTracks())))
+				.orElse(parsed);
+			long start = measure.getHeader().getStart() + (alone.isPresent() ? 0 : moves.get(measure.getStep()));
 			long from = (i == 0 ? Long.MIN_VALUE : start + measure.getFrom());
 			List<Event> due = events.between(from, start + measure.getTo());
 			if (timeline.endsTurn(i)) {
@@ -185,10 +190,22 @@ public final class TGMidiTaps {
 		return scheduled;
 	}
 
-	// the measure's events parsed alone, where the song starts it, after the channels' setup
-	private static Events alone(MidiSequenceParser parser, TGMeasureHeader header, int tracks) {
+	// the span whose events, parsed alone, the played measure takes: its turn's, when that plays parts of measures (a
+	// beat and its joint: the song's would leave notes sounding past the joint and attack in it what does not start on its
+	// first tick); the measure's own, when no pass reaches it; none (the song's) else, as for whole measures
+	private static Optional<TGPracticeSpan> alone(TGTimeline timeline, int index) {
+		TGPlayedMeasure measure = timeline.get(index);
+		Optional<TGPracticeSpan> cut = timeline.spanOf(index).filter(span -> !span.isWhole());
+		if (cut.isPresent() || measure.getStep() != TGPlayedMeasure.NO_STEP) {
+			return cut;
+		}
+		return Optional.of(TGPracticeSpan.measures(measure.getHeader(), measure.getHeader()));
+	}
+
+	// the span's events parsed alone, where the song has it, after the channels' setup
+	private static Events parsed(MidiSequenceParser parser, TGPracticeSpan span, int tracks) {
 		Events events = new Events(tracks);
-		parser.parseTurn(events, new MidiPracticeTurn(header, header, header.getStart(), 0), true);
+		parser.parseTurn(events, new MidiPracticeTurn(span, span.getStart(), 0), true);
 		return events;
 	}
 

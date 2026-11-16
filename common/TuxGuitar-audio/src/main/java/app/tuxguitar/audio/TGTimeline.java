@@ -3,9 +3,11 @@ package app.tuxguitar.audio;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.IntPredicate;
 
 import app.tuxguitar.player.base.MidiTransport;
+import app.tuxguitar.practice.TGPracticeSpan;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
@@ -188,6 +190,11 @@ public final class TGTimeline {
 	// the index of the turn's first measure; of the turn after the last, the number of measures
 	public int firstOf(int turn) {
 		return this.firsts[turn];
+	}
+
+	// the span the played measure's turn plays, a unit's (none: it plays the song)
+	public Optional<TGPracticeSpan> spanOf(int index) {
+		return this.turns.get(this.turnOf(index)).getSpan();
 	}
 
 	// whether the played measure ends its turn and another turn's measures play after it
