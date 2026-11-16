@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -116,6 +117,44 @@ public class TestPracticeGrouping {
 	@Test
 	public void aPoolOfBeatsReachesNoFurtherThanTheSongsLastMeasure() throws TGPracticeRefusal {
 		assertEquals("64 64", TGPracticeGrouping.poolLimit(TGPracticeUnitKind.BEAT, 5, 3, SONG) + " " + TGPracticeGrouping.of(5, 3).count(TGPracticeUnitKind.BEAT, SONG));
+	}
+
+	// the most units per block a form lets each pool of the kind take (from, to, from, to...; 4 measures a line, 4 lines a
+	// page), "4 2"
+	private static String blockLimits(TGSong song, TGPracticeUnitKind kind, int... pools) {
+		return IntStream.range(0, pools.length / 2).mapToObj(pool -> String.valueOf(TGPracticeGrouping.blockLimit(kind, 4, 4, pools[2 * pool], pools[2 * pool + 1], song)))
+			.collect(Collectors.joining(" "));
+	}
+
+	// a block holds no more units than the pool: measures 2-5, lines 2-3, pages 1-4 of 64 measures
+	@Test
+	public void aBlockHoldsNoMoreUnitsThanThePool() {
+		TGSong song = PracticeSongs.song(SONG);
+		assertEquals("4 2 4", blockLimits(song, TGPracticeUnitKind.MEASURE, 2, 5) + " " + blockLimits(song, TGPracticeUnitKind.LINE, 2, 3) + " "
+			+ blockLimits(song, TGPracticeUnitKind.PAGE, 1, 4));
+	}
+
+	// a pool of beats holds the beats of its measures: 4 of 4/4 and 6 of 6/8
+	@Test
+	public void aBlockOfBeatsHoldsNoMoreThanThePoolsMeasuresBeats() {
+		TGSong song = PracticeSongs.song(SONG);
+		PracticeSongs.signature(song, 4, 6, 8);
+		assertEquals("10", blockLimits(song, TGPracticeUnitKind.BEAT, 3, 4));
+	}
+
+	// a pool refused when the session starts bounds a block by the part of it in the song (from before measure 1, to
+	// past the song's end), or as 1 when none is (an empty pool)
+	@Test
+	public void aPoolStillBeingFilledInBoundsABlockByItsPartInTheSongAtLeastOne() {
+		assertEquals("3 5 1", blockLimits(PracticeSongs.song(SONG), TGPracticeUnitKind.MEASURE, 0, 3, 60, 70, 5, 4));
+	}
+
+	// a group size of 0 bounds a block as 1 would: a line of one measure, a page of one line
+	@Test
+	public void aGroupSizeOfNoneBoundsABlockAsOneWould() {
+		TGSong song = PracticeSongs.song(SONG);
+		assertEquals("64 64", TGPracticeGrouping.blockLimit(TGPracticeUnitKind.LINE, 0, 4, 1, 99, song) + " "
+			+ TGPracticeGrouping.blockLimit(TGPracticeUnitKind.PAGE, 1, 0, 1, 99, song));
 	}
 
 	private static String beat(TGMeasureHeader header, int beat) {

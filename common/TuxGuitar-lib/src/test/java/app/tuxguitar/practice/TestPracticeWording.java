@@ -122,6 +122,12 @@ public class TestPracticeWording {
 	}
 
 	@Test
+	public void theUnitsPerBlockAreLabelledByTheUnitsKind() {
+		assertEquals("transport.practice.units-per-block.measure() transport.practice.units-per-block.beat()",
+			TGPracticeWording.blockField(TGPracticeUnitKind.MEASURE, MESSAGES) + " " + TGPracticeWording.blockField(TGPracticeUnitKind.BEAT, MESSAGES));
+	}
+
+	@Test
 	public void aRangeOfBeatsIsLabelledInMeasures() {
 		assertEquals("transport.practice.range.measure(transport.click-up.passage-to())",
 			TGPracticeWording.rangeField("transport.click-up.passage-to", TGPracticeUnitKind.BEAT, MESSAGES));

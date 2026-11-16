@@ -14,7 +14,8 @@ import java.util.stream.Stream;
  * (transport.click-up.step), its sections one alone (transport.click-up.section.&lt;kind&gt;: "line 3", "measure 2 beat
  * 3") or a run (transport.click-up.sections.&lt;kind&gt;), its tempo by transport.click-up.tempo.&lt;mode&gt;. And the
  * label of a field of a range of units: as it is, or, when the range is given in another kind (beats in measures), in
- * that kind (transport.practice.range.&lt;kind&gt;: "Pool from (measures)").
+ * that kind (transport.practice.range.&lt;kind&gt;: "Pool from (measures)"); the label of the units per block by the
+ * kind (transport.practice.units-per-block.&lt;kind&gt;: "Measures per block").
  */
 public final class TGPracticeWording {
 
@@ -37,6 +38,11 @@ public final class TGPracticeWording {
 		String label = messages.get(key, NONE);
 		TGPracticeUnitKind ranged = kind.rangeKind();
 		return (ranged == kind ? label : messages.get("transport.practice.range." + ranged.getName(), new String[] {label}));
+	}
+
+	// the label of the units per block, by the kind of unit: "Measures per block"
+	public static String blockField(TGPracticeUnitKind kind, Messages messages) {
+		return messages.get("transport.practice.units-per-block." + kind.getName(), NONE);
 	}
 
 	private static String step(TGPracticeTurn turn, TGClickUpStep step, Messages messages) {
