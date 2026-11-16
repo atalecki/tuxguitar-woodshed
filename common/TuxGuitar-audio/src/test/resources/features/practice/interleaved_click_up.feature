@@ -310,3 +310,56 @@ Feature: Interleaved click-up
     When I practise interleaved click-up live, flagging measure 10 as 3x difficult during step 2
     Then the output holds 5 steps, measures "9, 9, 9 to 10, 10, 9 to 10" at 50%, 100%, 50%, 100% and 100%
     And measure 10 is flagged 3x difficult
+
+  # Beats as sections (README, A beat; The joint): the passage is a range of measures, each of their beats a section,
+  # in score order. A step plays its run of beats, then the joint, the notes that start on the beat after its last one.
+
+  # one rung: the steps add the sections one at a time, 1, 1-2, ... 1-N. With two rungs, the 4 beats of measure 9 give
+  # the steps that "a run of beats plays them, then the joint" below counts on
+  Scenario Outline: with beats as sections, the passage's measures give their beats, in score order, each a section
+    Given I have set the time signature of measure 10 only to <signature>
+    When I start interleaved click-up of beats over <passage>, from <start> to <goal> by <increment>
+    Then interleaved click-up's sections are the <count> beats "<beats>"
+    And interleaved click-up's steps are "<steps>"
+
+    Examples:
+      | signature | passage          | start | goal | increment | count | beats                                                            | steps                                                                                                                                         |
+      | 4/4       | measures 9 to 10 | 80%   | 80%  | 5%        | 8     | m9b1, m9b2, m9b3, m9b4, m10b1, m10b2, m10b3, m10b4               | 1@80%, 1-2@80%, 1-3@80%, 1-4@80%, 1-5@80%, 1-6@80%, 1-7@80%, 1-8@80%                                                                          |
+      | 6/8       | measures 9 to 10 | 80%   | 80%  | 5%        | 10    | m9b1, m9b2, m9b3, m9b4, m10b1, m10b2, m10b3, m10b4, m10b5, m10b6 | 1@80%, 1-2@80%, 1-3@80%, 1-4@80%, 1-5@80%, 1-6@80%, 1-7@80%, 1-8@80%, 1-9@80%, 1-10@80%                                                       |
+      | 4/4       | measures 9 to 9  | 50%   | 100% | 50%       | 4     | m9b1, m9b2, m9b3, m9b4                                           | 1@50%, 1@100%, 1-2@50%, 2@100%, 1-2@100%, 1-3@50%, 3@100%, 2-3@100%, 3@100%, 1-3@100%, 1-4@50%, 4@100%, 3-4@100%, 4@100%, 2-4@100%, 4@100%, 1-4@100% |
+
+  Scenario Outline: a click-up of beats is refused, naming measures, when its passage does not lie in the song
+    When I start interleaved click-up of beats over <passage>, from 60% to 100% by 5%
+    Then starting is <outcome>
+
+    Examples:
+      | passage           | outcome                                                            |
+      | measures 60 to 70 | refused, saying "The passage reaches past the song's 64 measures." |
+      | measures 0 to 2   | refused, saying "The passage starts before measure 1."             |
+      | measures 10 to 9  | refused, saying "The passage is empty."                            |
+      | measures 9 to 10  | accepted                                                           |
+
+  # the steps of the beats of measure 9 from 50% to 100% by 50% (above): a step lasts its beats and its joint, at 50% a
+  # beat 44100 samples, at 100% 22050; the joint after measure 9's last beat is measure 10's first, past the passage
+  @planned
+  Scenario Outline: step <step>, <sections>, plays beats <from> to <to> of measure 9, then the joint, <joint>
+    Given I have turned interleaved click-up's "Count In before each step" off
+    And I have set interleaved click-up to beats over measures 9 to 9, from 50% to 100% by 50%
+    When I practise interleaved click-up
+    Then step <step> sounds the notes of m9b<from> to m9b<to>, then the joint's note on <joint>, each within 1 sample of its beat at the step's tempo
+    And step <step> lasts <samples> samples, within 1 sample
+
+    Examples:
+      | step | sections | from | to | joint | samples |
+      | 1    | 1@50%    | 1    | 1  | m9b2  | 88200   |
+      | 8    | 2-3@100% | 2    | 3  | m9b4  | 66150   |
+      | 11   | 1-4@50%  | 1    | 4  | m10b1 | 220500  |
+      | 13   | 3-4@100% | 3    | 4  | m10b1 | 66150   |
+
+  # an eighth at 120 bpm is 11025 samples: at 50% 22050 (the Count In is its first beat's measure's, as for measures)
+  Scenario: a step's Count In is in its first beat's measure's time signature and tempo, at the step's tempo
+    Given I have set the time signature of measure 10 only to 6/8
+    And I have set interleaved click-up to beats over measures 10 to 10, from 50% to 100% by 50%
+    When I practise interleaved click-up
+    Then before step 1 the output holds 6 Count In clicks, 22050 samples apart within 1 sample
+    And before step 2 the output holds 6 Count In clicks, 11025 samples apart within 1 sample

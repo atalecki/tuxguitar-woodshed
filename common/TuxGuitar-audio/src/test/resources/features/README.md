@@ -146,7 +146,9 @@ offline given the ladder (`ATTRIBUTE_CLICK_UP`) on the same timeline of turns as
 live (`MidiPlayer.practise` of the course, started by editor-utils' `TGTransportClickUpAction`; Repeat step and
 Previous step are `TGTransportStepAction`'s, `MidiPlayer.repeatStep` and `previousStep`, which lay the step chosen again
 from its Count In as Play does after a pause), the Percentage of Tempo and Training Mode taking no part. Live, the takes
-follow the steps as they follow interleaved practice's turns. Live scenarios read a step played again by its notes'
+follow the steps as they follow interleaved practice's turns. A beat as the unit of both (`TGPracticeUnitKind.BEAT`,
+`TGPracticeUnit.beat`: `TGPracticeGrouping.units` gives the beats of the measures of the pool or the passage) is
+implemented up to choosing the turns and working out the steps; playing a beat and its joint is `@planned`. Live scenarios read a step played again by its notes'
 level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
@@ -187,8 +189,8 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines or pages in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live) |
-| `practice/interleaved_click_up` | interleaved click-up: sections added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step, live and offline, takes |
+| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats: choosing, playing them planned) |
+| `practice/interleaved_click_up` | interleaved click-up: sections (measures, lines, pages or beats) added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step, live and offline, takes |
 
 ## How the scenarios run
 
@@ -530,11 +532,31 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   even when the pass had none of its own), then the turn's passes left; pause during a break: Play starts the next
   turn's Count In at once. Stop, moving the position or an edit ends a session in a break as in a turn. Without the
   interval clock a turn plays its unit once and the session plays the number of turns set.
-- **Unit**: a **measure**, a **line** or a **page**. A line is a fixed group of measures and a page a fixed group of
+- **Unit**: a **measure**, a **line**, a **page** or a **beat** (see A beat). A line is a fixed group of measures and a page a fixed group of
   lines, counted from measure 1, set for the session ("lines of 4 measures and pages of 4 lines", 4 and 4 until I
   change them); the last line or page holds what is left. They do not follow the score's layout (on screen, lines
   reflow with the window and the zoom, and the Page layout has no pages).
-- **Pool**: the units a session chooses from, a range such as `measures 1 to 16`, `lines 1 to 8`, `pages 1 to 4`.
+- **Pool**: the units a session chooses from, a range such as `measures 1 to 16`, `lines 1 to 8`, `pages 1 to 4`;
+  beats are chosen from a range of measures (`beats over measures 3 to 4`).
+- **A beat (unit)**: one beat of a measure as a unit of interleaved practice, or a section of interleaved click-up. Its
+  beat is the unit of its measure's time signature, as in a Position (an eighth in 6/8): the beats of measures 3 to 4
+  in 4/4 are 8 units, and a measure of 6/8 gives 6. The pool and the passage are still ranges of measures, every beat
+  of each measure in score order (measure 3 beat 1 first), and their refusals name measures ("The pool reaches past the
+  song's 64 measures.", "The pool starts before measure 1."). A turn of a beat (a step: its run of beats, first to
+  last) plays it and then **the joint**. Its Count In is in the time signature and tempo of its first beat's measure,
+  at the Percentage of Tempo (a step's at its tempo); during it TuxGuitar shows that beat, and grace notes before the
+  beat land in it, as for a measure. A beat weighs as its measure's Difficulty flag: in a cycle each beat of a measure
+  flagged 3x comes up 3 times; the beats of one measure weigh alike, so only a measure of one beat (1/4) can hold more
+  than half a cycle. In readings a beat is `m3b2`; a refusal names it "Measure 3 beat 2".
+- **The joint**: the beat after a turn's (or step's) last beat, in score order: the next beat of its measure, or the
+  first beat of the next measure as written (after a first ending's last beat, the second ending's first beat), as
+  long as a beat of that measure (an eighth after 4/4 when the next measure is in 6/8). It sounds only the notes that
+  start on its first tick, each for its written length but no longer than the joint beat. A note of the turn held or
+  tied into the joint is cut where the joint starts, and a note started before the turn's beat and held into it is not
+  played. The joint plays even when its beat lies outside the pool or the passage; the song's last beat has none, and
+  its turn ends with it. A turn ends at the joint beat's end, where the next turn's Count In starts; TuxGuitar reports
+  the joint's beat as it sounds; the Metronome clicks on it; an audio track's take plays through the joint beat and
+  fades out over its last 256 samples; with the interval clock every pass plays its joint.
 - **No consecutive repeats** (on until I turn it off): no unit is chosen for two turns in a row, also across cycles.
   With it on, a session is refused when its weights cannot keep that rule: with w the heaviest unit's weight and L a
   cycle's length (the weights added up), a session of up to L turns needs 2w <= L + 1, a longer one 2w <= L.
@@ -569,7 +591,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   for interleaved practice, only TuxGuitar's own sequencer can play a session. "Step 3" counts from 1, in the order of
   the steps. A VST3 instrument ignores All Notes Off, so the note sounding when a step is played again rings on through
   its Count In until it is played again, as after a pause (a defect of playback, left as it is).
-- **Passage**: the sections of a click-up, a range of units such as `measures 9 to 11`, `lines 1 to 4`, `pages 1 to 2`,
+- **Passage**: the sections of a click-up, a range of units such as `measures 9 to 11`, `lines 1 to 4`, `pages 1 to 2`
+  (beats: a range of measures, `beats over measures 9 to 10`, every beat a section),
   as interleaved practice's pool is (the same fixed groups). Its first unit is **section** 1, the next section 2, and so
   on; a section is a unit, not a marker's section of the song.
 - **Tempo ladder**: from its **start** to its **goal** by its **increment**, all three in percent of the written tempo

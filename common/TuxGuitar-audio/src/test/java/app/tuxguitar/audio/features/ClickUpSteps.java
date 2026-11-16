@@ -2,13 +2,17 @@ package app.tuxguitar.audio.features;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.practice.TGClickUpSettings;
 import app.tuxguitar.practice.TGClickUpTempoMode;
+import app.tuxguitar.practice.TGPracticeCourse;
+import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.practice.TGPracticeUnitKind;
 import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
@@ -115,6 +119,15 @@ public class ClickUpSteps {
 	@Then("interleaved click-up's {string} is {word}")
 	public void optionIs(String option, String onOrOff) {
 		assertEquals(option + " " + onOrOff, option + (IS.get(option).test(clickUp.settings()) ? " on" : " off"));
+	}
+
+	// the sections as they come into play: each the last one of the first step that plays it
+	@Then("interleaved click-up's sections are the {int} beats {string}")
+	public void theSectionsAreTheBeats(int count, String beats) {
+		TGPracticeCourse course = clickUp.ladder().course(header -> 0);
+		List<TGPracticeUnit> sections = IntStream.range(0, clickUp.ladder().getSteps().size()).mapToObj(step -> course.next().getTo()).distinct()
+			.collect(Collectors.toList());
+		assertEquals(count + " " + beats, sections.size() + " " + Practice.beats(sections));
 	}
 
 	// "1@60%, 1@65%, 1-2@60%, ..."

@@ -69,9 +69,34 @@ public class ChoosingSteps {
 		return practice.session().course(seed, header -> 0, TGTempoScale.percent(100));
 	}
 
-	// the numbers of the units of so many turns of the course
+	// the units of so many turns of the course, as runs read them
 	private List<Integer> choose(TGPracticeCourse course, int turns) {
-		return IntStream.range(0, turns).mapToObj(turn -> course.next().getFrom().getNumber()).collect(Collectors.toCollection(ArrayList::new));
+		return IntStream.range(0, turns).mapToObj(turn -> reading(course.next().getFrom())).collect(Collectors.toCollection(ArrayList::new));
+	}
+
+	// a unit as a run reads it: its number; a beat, numbered in its measure, by its place in the pool (from 1)
+	private int reading(TGPracticeUnit unit) {
+		return (unit.getKind() == TGPracticeUnitKind.BEAT ? practice.session().getPool().indexOf(unit) + 1 : unit.getNumber());
+	}
+
+	@ParameterType("once|twice")
+	public Integer times(String times) {
+		return ("once".equals(times) ? 1 : 2);
+	}
+
+	// each range chooses each beat of the one measure once, and of the other so many times
+	@Then("{turns} each choose the beats of measure {int} once each and those of measure {int} {times} each")
+	public void eachChooseTheBeats(List<int[]> ranges, int once, int other, Integer times) {
+		List<Integer> expected = beatsOf(once);
+		for (int time = 0; time < times; time++) {
+			expected.addAll(beatsOf(other));
+		}
+		eachRangeChooses(ranges, expected);
+	}
+
+	// the beats of the measure as runs read them: their places in the pool
+	private List<Integer> beatsOf(int measure) {
+		return practice.session().getPool().stream().filter(beat -> beat.getFirst() == measure).map(this::reading).collect(Collectors.toCollection(ArrayList::new));
 	}
 
 	@When("interleaved practice chooses {int} turn(s), with every random seed from {int} to {int}")

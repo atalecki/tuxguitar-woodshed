@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import app.tuxguitar.practice.TGClickUpSettings;
 import app.tuxguitar.practice.TGClickUpStep;
 import app.tuxguitar.practice.TGPracticeGrouping;
 import app.tuxguitar.practice.TGPracticeRefusal;
@@ -33,7 +36,7 @@ public class PracticeSteps {
 		this.clickUp = clickUp;
 	}
 
-	@ParameterType("measure|line|page")
+	@ParameterType("measure|line|page|beat")
 	public TGPracticeUnitKind unit(String name) {
 		return TGPracticeUnitKind.valueOf(name.toUpperCase(Locale.ROOT));
 	}
@@ -80,11 +83,18 @@ public class PracticeSteps {
 		assertTrue("No consecutive repeats".equals(rule) ? practice.settings().isNoConsecutiveRepeats() : practice.settings().isCompleteCycle(), rule);
 	}
 
-	@When("I start interleaved practice of {unit}s over {pool} for {int} turns, with lines of {int} measures and pages of {int} lines")
-	public void start(TGPracticeUnitKind unit, int[] pool, int turns, int measures, int lines) {
-		setToWithLinesAndPages(unit, pool, measures, lines);
+	@When("I start interleaved practice of {unit}s over {pool} for {int} turn(s)")
+	public void start(TGPracticeUnitKind unit, int[] pool, int turns) {
+		setTo(unit, pool);
 		practice.settings().setTurns(turns);
 		practice.start();
+	}
+
+	@When("I start interleaved practice of {unit}s over {pool} for {int} turns, with lines of {int} measures and pages of {int} lines")
+	public void start(TGPracticeUnitKind unit, int[] pool, int turns, int measures, int lines) {
+		practice.settings().setMeasuresPerLine(measures);
+		practice.settings().setLinesPerPage(lines);
+		start(unit, pool, turns);
 	}
 
 	// interleaved practice's pool, or interleaved click-up's last step, holds every unit from and to
@@ -92,11 +102,32 @@ public class PracticeSteps {
 	public void startingIsAccepted() {
 		assertNull(world.refusal());
 		if (clickUp.isStarted()) {
+			TGClickUpSettings settings = clickUp.settings();
 			List<TGClickUpStep> steps = clickUp.ladder().getSteps();
-			assertEquals(clickUp.settings().getPassageTo() - clickUp.settings().getPassageFrom() + 1, steps.get(steps.size() - 1).getLastSection());
+			assertEquals(unitsIn(settings.getUnit(), settings.getPassageFrom(), settings.getPassageTo()), steps.get(steps.size() - 1).getLastSection());
 		} else {
-			assertEquals(practice.settings().getPoolTo() - practice.settings().getPoolFrom() + 1, practice.session().getPool().size());
+			assertEquals(unitsIn(practice.settings().getUnit(), practice.settings().getPoolFrom(), practice.settings().getPoolTo()), practice.session().getPool().size());
 		}
+	}
+
+	// how many units of the kind a range from and to holds: a range of beats is one of measures, and holds their beats
+	private int unitsIn(TGPracticeUnitKind kind, int from, int to) {
+		if (kind != TGPracticeUnitKind.BEAT) {
+			return to - from + 1;
+		}
+		return IntStream.rangeClosed(from, to).map(measure -> practice.header(measure).getTimeSignature().getNumerator()).sum();
+	}
+
+	@Then("interleaved practice's pool is the {int} beats {string}")
+	public void thePoolIsTheBeats(int count, String beats) {
+		List<TGPracticeUnit> pool = practice.session().getPool();
+		assertEquals(count + " " + beats, pool.size() + " " + Practice.beats(pool));
+	}
+
+	// "1x, 1x, 3x": each unit of the pool's weight, in order
+	@Then("interleaved practice's beats weigh {string}")
+	public void theBeatsWeigh(String weights) {
+		assertEquals(weights, IntStream.of(practice.session().weights()).mapToObj(weight -> weight + "x").collect(Collectors.joining(", ")));
 	}
 
 	private TGPracticeUnit unitOfTheSong(TGPracticeUnitKind kind, int number) throws TGPracticeRefusal {

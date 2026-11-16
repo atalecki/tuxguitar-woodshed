@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToLongFunction;
+import java.util.stream.Collectors;
 
 import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGTimeline;
@@ -14,6 +15,7 @@ import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
+import app.tuxguitar.practice.TGPracticeUnit;
 import app.tuxguitar.song.models.TGMeasureHeader;
 
 /**
@@ -61,6 +63,11 @@ public class Practice {
 		this.world.fixture().actionContext.setAttribute(TGPractiseAction.ATTRIBUTE_STOP_SAMPLE, stop.applyAsLong(planned));
 		this.world.execute(new TGPractiseAction(this.world.fixture().context));
 		assertTrue(this.world.succeeded());
+	}
+
+	// "m3b1, m3b2": beats, as positions read them (README, Position)
+	static String beats(List<TGPracticeUnit> beats) {
+		return beats.stream().map(beat -> "m" + beat.getFirst() + "b" + beat.getNumber()).collect(Collectors.joining(", "));
 	}
 
 	// the session started last, which must have been accepted
