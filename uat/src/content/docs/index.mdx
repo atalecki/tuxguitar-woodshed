@@ -1,0 +1,26 @@
+---
+title: TuxGuitar user acceptance testing
+description: Steps a person follows in the running app to accept a change.
+---
+
+This site holds the user acceptance tests (UAT) for this fork of TuxGuitar. Each page under
+**Features** covers one feature or slice. It names the commit it tests and lists the steps to follow
+in the running app.
+
+A UAT page covers only what the automated tests cannot check: what you see, hear or feel when you use
+the app. The Gherkin scenarios under `common/*/src/test/resources/features` already check everything
+that can be measured.
+
+## Running a test
+
+1. Check out the commit named at the top of the page.
+2. Build and launch the app as the page says. The VS Code task **app: build + run** does both.
+3. Follow each step in order. In the step's **Result** cell, write `passed` or `failed`. When a step
+   fails, add a note on what happened instead.
+
+## Viewing this site
+
+From `uat/`, run `npm run dev` and open the address it prints. Run `npm run build` to check that every
+page builds.
+
+New pages follow [the page format](/writing/page-format/).
