@@ -1,6 +1,5 @@
 package app.tuxguitar.app.view.dialog.transport;
 
-import java.util.Locale;
 import java.util.OptionalInt;
 
 import app.tuxguitar.app.TuxGuitar;
@@ -91,15 +90,10 @@ public class TGClickUpDialog {
 	private UIDropDownSelect<TGClickUpTempoMode> tempoModes(int row, TGClickUpTempoMode chosen) {
 		UIDropDownSelect<TGClickUpTempoMode> modes = this.form.dropDown(row, "transport.click-up.tempo-mode");
 		for (TGClickUpTempoMode mode : TGClickUpTempoMode.values()) {
-			modes.addItem(new UISelectItem<TGClickUpTempoMode>(TuxGuitar.getProperty(tempoKey("transport.click-up.tempo-mode.", mode)), mode));
+			modes.addItem(new UISelectItem<TGClickUpTempoMode>(TuxGuitar.getProperty("transport.click-up.tempo-mode." + mode.getName()), mode));
 		}
 		modes.setSelectedValue(chosen);
 		return modes;
-	}
-
-	// the key's prefix, then the tempo mode's name: "percent", "bpm"
-	static String tempoKey(String prefix, TGClickUpTempoMode mode) {
-		return prefix + mode.name().toLowerCase(Locale.ROOT);
 	}
 
 	private TGSong song() {
