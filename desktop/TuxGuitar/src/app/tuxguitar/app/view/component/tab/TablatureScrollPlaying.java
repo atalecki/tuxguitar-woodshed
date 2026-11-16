@@ -4,6 +4,7 @@ import app.tuxguitar.app.system.config.TGConfigKeys;
 import app.tuxguitar.app.system.config.TGConfigManager;
 import app.tuxguitar.graphics.control.TGLayout;
 import app.tuxguitar.graphics.control.TGMeasureImpl;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerMode;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.ui.resource.UIRectangle;
@@ -21,8 +22,10 @@ public class TablatureScrollPlaying {
 	private float toScroll = 0f;
 	private float speed;
 	private long minDT;
+	private final TGContext context;
 
 	public TablatureScrollPlaying(TGContext context) {
+		this.context = context;
 		this.lastDirection = null;
 		this.minDT = 1000 / TGConfigManager.getInstance(context).getIntegerValue(TGConfigKeys.SCROLLING_MAX_FPS);
 	}
@@ -56,7 +59,7 @@ public class TablatureScrollPlaying {
 		if (this.isEndShown(measure.getTrack(), mode, area, layout)) {
 			return null;
 		}
-		return this.continousScrollTo(pos, target, mode, measure, layout);
+		return this.continousScrollTo(pos, target, measure, layout);
 	}
 
 	// the end: the end of the loop, else the last scrollable item (line or measure)
@@ -90,31 +93,31 @@ public class TablatureScrollPlaying {
 		return (measureIndex >= 0) && Integer.valueOf(0).equals(layout.getTimeToNextScrollMs(measureIndex));
 	}
 
-	private Integer continousScrollTo(int pos, int target, MidiPlayerMode mode, TGMeasureImpl measure, TGLayout layout) {
+	private Integer continousScrollTo(int pos, int target, TGMeasureImpl measure, TGLayout layout) {
 		if (pos - target + SCROLL_MARGIN <= 0) {
 			this.reset();
 			return null;
 		}
-		return this.scrollFrameAt(System.currentTimeMillis(), pos, target, mode, measure, layout);
+		return this.scrollFrameAt(System.currentTimeMillis(), pos, target, measure, layout);
 	}
 
 	// one frame at most every minDT (the clock, epoch milliseconds, is always more than minDT past the 0 of a reset)
-	private Integer scrollFrameAt(long t, int pos, int target, MidiPlayerMode mode, TGMeasureImpl measure, TGLayout layout) {
+	private Integer scrollFrameAt(long t, int pos, int target, TGMeasureImpl measure, TGLayout layout) {
 		if (t - this.tLastUpdateScrollMs < this.minDT) {
 			return null;
 		}
-		Integer scrollIncrement = this.scrollFrame(t, pos, target, mode, measure, layout);
+		Integer scrollIncrement = this.scrollFrame(t, pos, target, measure, layout);
 		this.tLastUpdateScrollMs = t;
 		return scrollIncrement;
 	}
 
 	// the first frame after a reset only starts the clock
-	private Integer scrollFrame(long t, int pos, int target, MidiPlayerMode mode, TGMeasureImpl measure, TGLayout layout) {
+	private Integer scrollFrame(long t, int pos, int target, TGMeasureImpl measure, TGLayout layout) {
 		if (this.tLastUpdateScrollMs == 0) {
 			return null;
 		}
 		Integer scrollIncrement = this.takeWholePixels(t - this.tLastUpdateScrollMs);
-		this.updateSpeed(t, pos, target, mode, measure, layout);
+		this.updateSpeed(t, pos, target, measure, layout);
 		return scrollIncrement;
 	}
 
@@ -129,20 +132,21 @@ public class TablatureScrollPlaying {
 		return scrollIncrement;
 	}
 
-	private void updateSpeed(long t, int pos, int target, MidiPlayerMode mode, TGMeasureImpl measure, TGLayout layout) {
+	private void updateSpeed(long t, int pos, int target, TGMeasureImpl measure, TGLayout layout) {
 		int distanceToScroll = pos - target;
 		if (distanceToScroll <= 0) {
 			this.reset();
 			return;
 		}
-		this.updateSpeedWithin(t, distanceToScroll, layout.getTimeToNextScrollMs(measure.getNumber() - 1), mode, measure, layout);
+		this.updateSpeedWithin(t, distanceToScroll, layout.getTimeToNextScrollMs(measure.getNumber() - 1), measure, layout);
 	}
 
-	private void updateSpeedWithin(long t, int distanceToScroll, Integer timeToScrollMs, MidiPlayerMode mode, TGMeasureImpl measure, TGLayout layout) {
+	private void updateSpeedWithin(long t, int distanceToScroll, Integer timeToScrollMs, TGMeasureImpl measure, TGLayout layout) {
 		// null: layout not yet initialized
 		if (timeToScrollMs != null) {
-			// consider effective tempo
-			int timeLeftMs = this.timeLeftMs(t, distanceToScroll, timeToScrollMs * 100 / mode.getCurrentPercent(), measure);
+			// the time the measure lasts at the tempo heard: the Percentage of Tempo, or the pass's during a practice session
+			int heardMs = MidiPlayer.getInstance(this.context).getHeardScale().millis(timeToScrollMs);
+			int timeLeftMs = this.timeLeftMs(t, distanceToScroll, heardMs, measure);
 			this.updateSpeedIn(t, distanceToScroll, timeLeftMs, measure, layout);
 		}
 	}
