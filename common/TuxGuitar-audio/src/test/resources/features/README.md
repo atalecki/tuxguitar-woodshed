@@ -111,7 +111,12 @@ values again after an undo or redo, and closes once the plugin no longer runs. T
 clicks on the General MIDI drums outside every sound chain: offline (`TGMetronome`), and live on the TuxGuitar
 Synthesizer's own drums (the channel `MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by
 plugin delay compensation like the tracks); with another MIDI Port it is still the sequencer's metronome track on the
-percussion channel, and Count In clicks on the percussion channel as before. A bend carries its exact semitones next to
+percussion channel, and Count In clicks on the percussion channel as before. A song without a percussion channel clicks
+on a channel of the player's own that is not in the song (`MidiClickChannels`, lib): the TuxGuitar
+Synthesizer's drums, Count In too, else a new percussion channel (bank 128, Volume 127, Balance 64), General MIDI
+channel 10 on any other MIDI Port. These scenarios play on the TuxGuitar Synthesizer, so lib's and gm-utils' unit tests
+cover it (`TestMidiPlayerMetronome`, `TestMidiPlayerCountDown`, `TestClicksOnAPort`), and the UAT page "Count In and
+Metronome without a percussion track" what is heard. A bend carries its exact semitones next to
 its 7-bit value, and a VST3 instrument tunes the note of the bent string alone. Entering a note sounds it
 (`TGNoteEntry.install`, a headless twin of the desktop's note controller: an app installs one of the two). "Live"
 scenarios play through the player on a live synthesizer of the scenario, which plays through the live audio device
