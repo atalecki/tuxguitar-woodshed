@@ -341,7 +341,6 @@ Feature: Interleaved click-up
 
   # the steps of the beats of measure 9 from 50% to 100% by 50% (above): a step lasts its beats and its joint, at 50% a
   # beat 44100 samples, at 100% 22050; the joint after measure 9's last beat is measure 10's first, past the passage
-  @planned
   Scenario Outline: step <step>, <sections>, plays beats <from> to <to> of measure 9, then the joint, <joint>
     Given I have turned interleaved click-up's "Count In before each step" off
     And I have set interleaved click-up to beats over measures 9 to 9, from 50% to 100% by 50%

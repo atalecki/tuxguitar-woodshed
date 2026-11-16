@@ -119,22 +119,33 @@ final class Heard {
 		}
 	}
 
-	// a beat that played: where it sounds, how many samples it lasts, at what tempo scale
+	// a beat that played: where it sounds, how many samples it lasts, at what tempo scale, and its song tick
 	static final class PlayedBeat {
 		final int sample;
 		final int length;
 		final TGTempoScale scale;
+		final long tick;
 
-		PlayedBeat(int sample, int length, TGTempoScale scale) {
+		PlayedBeat(int sample, int length, TGTempoScale scale, long tick) {
 			this.sample = sample;
 			this.length = length;
 			this.scale = scale;
+			this.tick = tick;
+		}
+
+		// the same beat, sounding so many samples later
+		PlayedBeat later(int samples) {
+			return new PlayedBeat(this.sample + samples, this.length, this.scale, this.tick);
 		}
 	}
 
 	// the beats each turn played, in order, a list per turn
 	List<List<PlayedBeat>> turnBeats() {
-		TGTimeline timeline = this.timeline();
+		return turnBeats(this.timeline());
+	}
+
+	// the beats each turn of the timeline plays, in order, a list per turn
+	static List<List<PlayedBeat>> turnBeats(TGTimeline timeline) {
 		List<List<PlayedBeat>> turns = new ArrayList<List<PlayedBeat>>();
 		for (int turn = 0; turn < timeline.turns(); turn++) {
 			List<PlayedBeat> beats = new ArrayList<PlayedBeat>();
@@ -143,7 +154,7 @@ final class Heard {
 				long length = measure.getHeader().getTimeSignature().getDenominator().getTime();
 				int at = index;
 				beats(timeline, index, (sample, tick) -> beats.add(new PlayedBeat(sample.intValue(), (int) (timeline.sampleAt(at, tick - measure.getHeader().getStart() + length) - sample),
-					measure.getScale())));
+					measure.getScale(), tick)));
 			}
 			turns.add(beats);
 		}

@@ -147,8 +147,11 @@ live (`MidiPlayer.practise` of the course, started by editor-utils' `TGTransport
 Previous step are `TGTransportStepAction`'s, `MidiPlayer.repeatStep` and `previousStep`, which lay the step chosen again
 from its Count In as Play does after a pause), the Percentage of Tempo and Training Mode taking no part. Live, the takes
 follow the steps as they follow interleaved practice's turns. A beat as the unit of both (`TGPracticeUnitKind.BEAT`,
-`TGPracticeUnit.beat`: `TGPracticeGrouping.units` gives the beats of the measures of the pool or the passage) is
-implemented up to choosing the turns and working out the steps; playing a beat and its joint is `@planned`. Live scenarios read a step played again by its notes'
+`TGPracticeUnit.beat`: `TGPracticeGrouping.units` gives the beats of the measures of the pool or the passage) plays a
+turn's span (lib's `TGPracticeSpan`: its beats, then the joint): offline and live a turn of the timeline plays what the
+span plays of each of its measures, from one tick to another (`TGSongTime.unit`), and offline the notes of a span that is
+not whole measures are its own, parsed alone (`TGMidiTaps`), so a note is cut at the joint and the joint plays only what
+starts on its first tick. Live scenarios read a step played again by its notes'
 level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet

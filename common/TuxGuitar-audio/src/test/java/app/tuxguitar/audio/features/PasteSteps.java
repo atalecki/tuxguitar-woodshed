@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.measure.TGCopyMeasureAction;
@@ -63,12 +65,34 @@ public class PasteSteps {
 		for (int index = 0; index < track.countMeasures(); index++) {
 			TGMeasure measure = track.getMeasure(index);
 			TGTimeSignature signature = measure.getTimeSignature();
-			int pitch = base + measure.getNumber();
-			TGString string = track.getStrings().stream().filter(each -> each.getValue() <= pitch).max(Comparator.comparingInt(TGString::getValue)).get();
+			int value = signature.getDenominator().getValue();
 			for (int beat = 0; beat < signature.getNumerator(); beat++) {
-				world.fixture().note(beat(measure, beat, signature.getDenominator().getValue()), string.getNumber(), pitch - string.getValue());
+				note(measure, beat * TGDuration.QUARTER_TIME * 4 / value, value, base + measure.getNumber());
 			}
-			assertEquals(Collections.nCopies(signature.getNumerator(), pitch), pitches(measure));
+			assertEquals(Collections.nCopies(signature.getNumerator(), base + measure.getNumber()), pitches(measure));
+		}
+	}
+
+	// a note of the MIDI note, of that duration (a denominator: 4 a quarter) in voice 0, so many ticks after the measure
+	// start, on the highest string tuned at or below it
+	private void note(TGMeasure measure, long tick, int value, int pitch) {
+		TGString string = measure.getTrack().getStrings().stream().filter(each -> each.getValue() <= pitch).max(Comparator.comparingInt(TGString::getValue)).get();
+		world.fixture().note(beat(measure, tick, value), string.getNumber(), pitch - string.getValue());
+	}
+
+	private static final Map<String, Integer> LENGTHS = Map.of("a whole note", TGDuration.WHOLE, "a half note", TGDuration.HALF, "a quarter note", TGDuration.QUARTER,
+		"an eighth note", TGDuration.EIGHTH);
+
+	// the measures' notes replaced by the rows': at its "position" (README, Position: "m3b3.5"), its "MIDI note", its
+	// "length" ("a half note")
+	@Given("track {int} has these notes in measures {int} and {int} instead of one on every beat:")
+	public void theseNotesInstead(int number, int first, int last, List<Map<String, String>> rows) {
+		TGTrack track = world.track(number);
+		IntStream.rangeClosed(first, last).forEach(measure -> track.getMeasure(measure - 1).clear());
+		for (Map<String, String> row : rows) {
+			SongPosition position = SongPosition.parse(row.get("position"));
+			TGMeasure measure = track.getMeasure(position.measure() - 1);
+			note(measure, position.tick(world.song()) - measure.getStart(), LENGTHS.get(row.get("length")), Integer.parseInt(row.get("MIDI note")));
 		}
 	}
 
@@ -76,10 +100,10 @@ public class PasteSteps {
 		return track.getStrings().stream().min(Comparator.comparingInt(TGString::getValue)).get();
 	}
 
-	// a new beat of that duration (a denominator: 4 a quarter) in voice 0, so many of them after the measure start
-	private TGBeat beat(TGMeasure measure, int index, int value) {
+	// a new beat of that duration (a denominator: 4 a quarter) in voice 0, so many ticks after the measure start
+	private TGBeat beat(TGMeasure measure, long tick, int value) {
 		TGBeat beat = world.fixture().songManager.getFactory().newBeat();
-		beat.setPreciseStart(TGDuration.toPreciseTime(measure.getStart() + index * TGDuration.QUARTER_TIME * 4 / value));
+		beat.setPreciseStart(TGDuration.toPreciseTime(measure.getStart() + tick));
 		TGVoice voice = beat.getVoice(0);
 		voice.setEmpty(false);
 		voice.getDuration().setValue(value);

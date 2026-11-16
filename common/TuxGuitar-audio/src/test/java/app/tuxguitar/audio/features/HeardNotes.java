@@ -37,9 +37,15 @@ final class HeardNotes {
 			this.start = start;
 		}
 
+		// where it starts as heard: where its sine starts; where its beat does, when no note sounds on it (a beat of 6/8
+		// over the quarter notes of a measure that was 4/4)
+		int at() {
+			return (this.note == NONE ? this.beat.sample : this.start);
+		}
+
 		// where the next beat would start: the end of this one, from where it starts
 		int end() {
-			return this.start + this.beat.length;
+			return this.at() + this.beat.length;
 		}
 
 		public String toString() {
@@ -49,8 +55,13 @@ final class HeardNotes {
 
 	// the notes of each turn, a list per turn
 	static List<List<Note>> of(Heard heard, float[] tap) {
+		return of(heard.turnBeats(), tap);
+	}
+
+	// the notes the track sounds on each turn's beats, a list per turn
+	static List<List<Note>> of(List<List<Heard.PlayedBeat>> turnBeats, float[] tap) {
 		List<List<Note>> turns = new ArrayList<List<Note>>();
-		for (List<Heard.PlayedBeat> beats : heard.turnBeats()) {
+		for (List<Heard.PlayedBeat> beats : turnBeats) {
 			List<Note> notes = new ArrayList<Note>();
 			beats.forEach(beat -> notes.add(note(tap, beat)));
 			turns.add(notes);

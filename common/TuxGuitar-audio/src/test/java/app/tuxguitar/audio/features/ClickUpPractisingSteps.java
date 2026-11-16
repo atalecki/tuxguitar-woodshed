@@ -5,10 +5,12 @@ import static app.tuxguitar.audio.features.PractisingSteps.lastPass;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.audio.features.HeardNotes.Note;
 import app.tuxguitar.practice.TGClickUpStep;
@@ -179,6 +181,29 @@ public class ClickUpPractisingSteps {
 		List<List<Note>> passes = practising.turns();
 		assertEquals(samples, length(passes, steps.get(one - 1)), 1, "step " + one);
 		assertEquals(otherSamples, length(passes, steps.get(other - 1)), 1, "step " + other);
+	}
+
+	// the step (one pass) sounds the notes of the beats of the measure from one to the other, then the joint's, each on its
+	// beat at the step's tempo
+	@Then("step {int} sounds the notes of m{int}b{int} to m{int}b{int}, then the joint's note on m{int}b{int}, each within 1 sample of its beat at the step's tempo")
+	public void stepSoundsItsBeatsThenTheJoint(int step, int measure, int from, int lastMeasure, int to, int jointMeasure, int joint) {
+		List<Note> pass = practising.turns().get(firstPass(practising.practiceTurns().get(step - 1)));
+		assertEquals(measure, lastMeasure, "a run of beats of one measure");
+		List<String> expected = new ArrayList<String>();
+		IntStream.rangeClosed(from, to).forEach(beat -> expected.add(heard(measure, beat)));
+		expected.add(heard(jointMeasure, joint));
+		assertEquals(expected, pass.stream().map(note -> note.note + "@" + note.beat.tick).collect(Collectors.toList()), "step " + step);
+		PractisingSteps.assertOnTheBeat(pass, ladder().get(step - 1).getScale(), "step " + step);
+	}
+
+	// the Background's note of the beat, at its tick: "note@tick"
+	private String heard(int measure, int beat) {
+		return (PractisingSteps.BASE + measure) + "@" + SongPosition.parse("m" + measure + "b" + beat).tick(world.song());
+	}
+
+	@Then("step {int} lasts {int} samples, within 1 sample")
+	public void stepLasts(int step, int samples) {
+		assertEquals(samples, length(practising.turns(), practising.practiceTurns().get(step - 1)), 1, "step " + step);
 	}
 
 	@Then("step {int} sounds measure {int}'s beats {int} samples apart, within 1 sample")

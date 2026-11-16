@@ -656,7 +656,6 @@ Feature: Interleaved practice
       | 5x   | measures 1 to 2   | 9     | accepted                                                                                                 |
       | 5x   | measures 1 to 2   | 10    | refused, saying "Measure 2 beat 1 comes up 5 times in a cycle of 9 turns and would come twice in a row." |
 
-  @planned
   Scenario: each turn plays its beat, then the joint's note, and lasts two beats
     Given I have set interleaved practice to beats over measures 3 to 4
     When I practise 8 turns
@@ -667,7 +666,6 @@ Feature: Interleaved practice
   # beat 1: measure 3's half note is cut at the joint, on which no note starts; beat 2: that half note, started before
   # the beat, is not played, and the joint plays only the note on its first tick, not the one half way through it;
   # beat 4: the joint's half note sounds for the joint's beat
-  @planned
   Scenario Outline: the joint sounds only the notes on its first tick, and a turn only the notes that start in it
     Given track 1 has these notes in measures 3 and 4 instead of one on every beat:
       | position | MIDI note | length         |
@@ -689,7 +687,6 @@ Feature: Interleaved practice
       | 3    | MIDI note 62 from m3b3 to m3b3.5, 64 to m3b4, then 65 to m4b1 |
       | 4    | MIDI note 65 from m3b4 to m4b1, then 66 to m4b2               |
 
-  @planned
   Scenario Outline: the joint plays even when its beat lies outside the pool, and the song's last beat has none
     Given I have set interleaved practice to beats over measures <measure> to <measure>
     When I practise 4 turns
@@ -702,7 +699,6 @@ Feature: Interleaved practice
       | 64      | MIDI note 99 alone              | 22050   |
 
   # in score order the first ending's measure 3 is followed by the second ending's measure 4, not by measure 2
-  @planned
   Scenario: the joint after a first ending's last beat is the second ending's first beat
     Given I have repeated measure 2 once, with measure 3 as the first ending and measure 4 as the second
     And I have set interleaved practice to beats over measures 3 to 3
@@ -710,7 +706,6 @@ Feature: Interleaved practice
     Then the turn of m3b4 sounds MIDI note 38, then MIDI note 39, each within 1 sample of its beat
 
   # the joint is a beat of measure 4, an eighth in 6/8 (11025 samples): its note is cut at the eighth's end
-  @planned
   Scenario: the joint lasts a beat of its own measure: an eighth when a 4/4 measure is followed by one in 6/8
     Given I have set the time signature of measure 4 only to 6/8
     And I have set interleaved practice to beats over measures 3 to 3
@@ -718,7 +713,6 @@ Feature: Interleaved practice
     Then the turn of m3b4 sounds MIDI note 38 from m3b4 to m4b1, then MIDI note 39 to m4b2, each within 1 sample
     And the turn of m3b4 lasts 33075 samples, within 1 sample
 
-  @planned
   Scenario Outline: a beat's Count In is in its measure's time signature and tempo, at the Percentage of Tempo
     Given I have turned Count In on
     And I have set the time signature of measure 10 only to <signature>
@@ -736,7 +730,6 @@ Feature: Interleaved practice
       | 4/4       | 120 | 50      | 4      | 44100 |
 
   # 3 turns of a beat and its joint: 6 beats
-  @planned
   Scenario: the Metronome clicks on each turn's beat and on its joint's
     Given I have turned Count In on
     And I have turned the Metronome on
@@ -744,7 +737,6 @@ Feature: Interleaved practice
     When I practise 3 turns
     Then the output holds 6 Metronome clicks, each within 1 sample of a beat of a turn
 
-  @planned
   Scenario: TuxGuitar shows each turn's beat during its Count In, then follows the beat and its joint as they sound
     Given I have turned Count In on
     And I have set interleaved practice to beats over measures 3 to 4
@@ -754,7 +746,6 @@ Feature: Interleaved practice
 
   # a Count In of 4 clicks (2 seconds), then passes of a beat and its joint (1 second each): pass 58 starts at 59
   # seconds, before the turn's time is up
-  @planned
   Scenario: with the interval clock, a turn loops its beat, every pass with its joint
     Given I have turned Count In on
     And I have set interleaved practice to beats over measures 3 to 3
@@ -764,7 +755,6 @@ Feature: Interleaved practice
     And the turn sounds the note of one beat of measure 3, then the note of the beat after it, 58 times back to back, each within 1 sample of its beat
     And the turn ends 2646000 samples after it started, within 1 sample
 
-  @planned
   Scenario: live, each turn plays its beat, then the joint's note, after a Count In of one measure
     Given I have turned Count In on
     And I have set interleaved practice to beats over measures 3 to 4
@@ -773,7 +763,6 @@ Feature: Interleaved practice
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
     And the player stopped by itself within 512 samples of turn 4's end
 
-  @planned
   Scenario: an audio track's take plays through the joint, and fades out over its last 256 samples
     Given I have added an audio track recording input channel 1
     And track 2 has a take of a constant level of 0.4 from measure 1 beat 1 to the end of measure 64

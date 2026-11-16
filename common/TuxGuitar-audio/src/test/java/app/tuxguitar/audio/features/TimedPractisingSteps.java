@@ -92,6 +92,11 @@ public class TimedPractisingSteps {
 		turn.forEach(pass -> PractisingSteps.assertOnTheBeat(passes.get(pass), percent, "pass " + pass));
 	}
 
+	@Then("the turn sounds the note of one beat of measure {int}, then the note of the beat after it, {int} times back to back, each within 1 sample of its beat")
+	public void theTurnLoopsABeatAndItsJoint(int measure, int times) throws TGPracticeRefusal {
+		theTurnLoopsAUnitAt(TGPracticeUnitKind.BEAT, new int[] {measure, measure}, times, practising.percent());
+	}
+
 	@Then("the turn sounds the notes of {unit} {int} {int} times back to back, each measure once and in order every time, each within 1 sample of its beat")
 	public void theTurnLoopsTheUnit(TGPracticeUnitKind kind, int number, int times) throws TGPracticeRefusal {
 		theTurnLoopsAUnitAt(kind, new int[] {number, number}, times, practising.percent());

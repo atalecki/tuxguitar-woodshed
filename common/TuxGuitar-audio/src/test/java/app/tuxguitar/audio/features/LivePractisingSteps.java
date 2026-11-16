@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.ToLongFunction;
@@ -41,6 +42,10 @@ public class LivePractisingSteps {
 	static final int LONGEST = 30000;
 	// clear of a beat's edges (and of where exactly a move lands in its block) when reading its note
 	private static final int EDGE = 2048;
+	// the fit of a beat's note from so many samples after it (see HeardNotes); a Count In click's jump from one sample to
+	// the next, as the output sounds it: a note's tone at -10 dBFS moves less than a tenth of it
+	static final int FIT_FROM = 64;
+	private static final double JUMP = 0.02;
 	// a note's tone sounds above SOUNDS; none above -60 dBFS is silent
 	private static final double SOUNDS = 0.01;
 	private static final double SILENT = 0.001;
@@ -220,6 +225,43 @@ public class LivePractisingSteps {
 	// the turns of what the session plays that open its turns (with the interval clock, each turn's first pass)
 	int[] openings() {
 		return IntStream.range(0, planned.turns()).filter(planned::opens).toArray();
+	}
+
+	// the notes track 1 sounds on the beats of each turn of what the session plays (planned), as the output sounds them,
+	// the chain delay later
+	List<List<HeardNotes.Note>> heardTurns() {
+		List<List<Heard.PlayedBeat>> beats = Heard.turnBeats(planned).stream().map(turn -> turn.stream().map(beat -> beat.later(world.chainDelay())).collect(Collectors.toList()))
+			.collect(Collectors.toList());
+		return HeardNotes.of(beats, world.live()[0]);
+	}
+
+	// the Count In clicks the output sounds from the player's sample to the other, as heard (the chain delay later): where
+	// the output jumps by more than JUMP from one sample to the next (a note's tone moves less), the first jump of each run
+	long[] countInHeard(long from, long to) {
+		float[] left = world.live()[0];
+		float[] jumps = new float[left.length];
+		IntStream.range(1, left.length).forEach(sample -> jumps[sample] = left[sample] - left[sample - 1]);
+		return Meters.onsets(jumps, (int) (from + world.chainDelay()), (int) (to + world.chainDelay()), JUMP).stream().mapToLong(Integer::longValue).toArray();
+	}
+
+	// before each turn of what the session plays (planned), from its start to its first measure, so many Count In clicks
+	// heard, so many samples apart; read from the sample after its start, where the turn before's last note is cut (a
+	// jump too), the first click's jump a few samples later (its drum's attack)
+	void assertCountInBeforeEachTurn(int count, double apart) {
+		for (int turn = 0; turn < planned.turns(); turn++) {
+			long[] clicks = countInHeard(planned.turnStart(turn) + 1, planned.start(planned.firstOf(turn)));
+			assertEquals(count, clicks.length, "turn " + (turn + 1) + "'s Count In, as heard: " + Arrays.toString(clicks));
+			for (int click = 1; click < clicks.length; click++) {
+				assertEquals(apart, clicks[click] - clicks[click - 1], 1, "turn " + (turn + 1) + "'s Count In, as heard: " + Arrays.toString(clicks));
+			}
+		}
+	}
+
+	// the player stops by itself at the first block after the turn of what the session plays ends, as heard
+	@Then("the player stopped by itself within {int} samples of turn {int}'s end")
+	public void stoppedByItself(int within, int turn) {
+		assertEquals(planned.turns(), turn, "turns");
+		assertEquals(planned.turnEnd(turn - 1) + world.chainDelay(), stopped(), within, "turn " + turn + " ends, as heard");
 	}
 
 	// the measure whose note the output sounds on the beat that starts at the player's sample (as heard, the chain

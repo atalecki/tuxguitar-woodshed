@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
-import app.tuxguitar.audio.Meters;
 import app.tuxguitar.audio.TGTimeline;
 import app.tuxguitar.audio.device.TGAudioDeviceException;
 import app.tuxguitar.editor.action.transport.TGTransportStepAction;
@@ -42,11 +41,8 @@ public class ClickUpLiveSteps {
 
 	private static final int BASE = 35;
 	// the fit of a beat's note: from so many samples after it, so many samples long (see HeardNotes)
-	private static final int FIT_FROM = 64;
+	private static final int FIT_FROM = LivePractisingSteps.FIT_FROM;
 	private static final int FIT = 2048;
-	// a Count In click's jump from one sample to the next, as the output sounds it: a note's tone at -10 dBFS moves
-	// less than a tenth of it
-	private static final double JUMP = 0.02;
 
 	private final AudioWorld world;
 	private final ClickUp clickUp;
@@ -283,17 +279,11 @@ public class ClickUpLiveSteps {
 		}
 	}
 
-	// the Count In clicks heard from the step's start to its first measure, as heard: where the output jumps by more than
-	// JUMP from one sample to the next (a note's tone moves less), the first jump of each run
+	// the Count In clicks heard from the step's start to its first measure (see LivePractisingSteps.countInHeard)
 	private long[] countIn(Heard step) {
 		TGTimeline planned = live.planned();
 		int turn = step.step - 1;
-		float[] left = world.live()[0];
-		float[] jumps = new float[left.length];
-		IntStream.range(1, left.length).forEach(sample -> jumps[sample] = left[sample] - left[sample - 1]);
-		long from = step.start + world.chainDelay();
-		long to = from + planned.start(planned.firstOf(turn)) - planned.turnStart(turn);
-		return Meters.onsets(jumps, (int) from - FIT_FROM, (int) to, JUMP).stream().mapToLong(Integer::longValue).toArray();
+		return live.countInHeard(step.start - FIT_FROM, step.start + planned.start(planned.firstOf(turn)) - planned.turnStart(turn));
 	}
 
 	// so many Count In clicks heard before the step's first measure, so many samples apart, within 1 sample
