@@ -42,8 +42,10 @@ passes left, or, paused in a break, the next turn's Count In at once (`MidiPract
 player; a sequencer that cannot take turns added while it plays (`MidiSequencer.takesEventsWhilePlaying`: only
 TuxGuitar's own can) refuses a session: editor-utils' `TGPracticeEdits` (installed by the app) ends the
 session under way (`TGPracticeUnderWay`) on any edit but those it keeps going through (`TGPracticeEdits.keeps`: a
-flag, mute and solo, a marker added, changed or removed, and the undo and redo of each), and checks a flag, its undo
-and its redo against the session's chooser, refusing one the next cycles could not play; it also tells the app which
+flag, mute and solo, a marker added, changed or removed, and the undo and redo of each; an undo step is judged by
+the edits in it, `TGUndoableGroup`, since the desktop joins an action's edits and those of the actions it runs in one
+step, and the session goes on only when it keeps them all), and checks a flag, its undo and its redo against the
+session's chooser, refusing one the next cycles could not play; it also tells the app which
 edits to refuse while playing (`TGPracticeEdits.disables`: during a session, playing or paused, all but a flag, the
 undo or redo of an edit it keeps going through and a move of the caret) and which menu items and toolbar buttons to
 grey out (`TGPracticeEdits.greys`: those of the actions it refuses during a session, paused too); during a session
