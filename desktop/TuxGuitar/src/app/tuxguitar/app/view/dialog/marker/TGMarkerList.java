@@ -6,7 +6,7 @@ import java.util.List;
 import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.action.impl.marker.TGGoToMarkerAction;
 import app.tuxguitar.app.action.impl.marker.TGOpenMarkerEditorAction;
-import app.tuxguitar.app.action.impl.marker.TGRemoveMarkerAction;
+import app.tuxguitar.editor.action.marker.TGRemoveMarkerAction;
 import app.tuxguitar.app.system.icons.TGSkinEvent;
 import app.tuxguitar.app.system.language.TGLanguageEvent;
 import app.tuxguitar.app.ui.TGApplication;

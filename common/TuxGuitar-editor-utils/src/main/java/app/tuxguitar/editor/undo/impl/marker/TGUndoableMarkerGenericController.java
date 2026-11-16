@@ -1,4 +1,4 @@
-package app.tuxguitar.app.undo.impl.marker;
+package app.tuxguitar.editor.undo.impl.marker;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.document.TGDocumentContextAttributes;
