@@ -3,6 +3,8 @@ package app.tuxguitar.editor.practice;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.ToIntFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
@@ -14,6 +16,7 @@ import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.action.edit.TGRedoAction;
 import app.tuxguitar.editor.action.edit.TGUndoAction;
 import app.tuxguitar.editor.undo.TGUndoableEdit;
+import app.tuxguitar.editor.undo.TGUndoableGroup;
 import app.tuxguitar.editor.undo.TGUndoableManager;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficulty;
 import app.tuxguitar.editor.undo.impl.marker.TGUndoableMarkerGeneric;
@@ -94,17 +97,24 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 		return (action.equals(id) && keeps(edit));
 	}
 
-	// whether the session under way goes on through the edit, made, undone or redone
-	private static boolean keeps(TGUndoableEdit edit) {
-		return KEPT.stream().anyMatch(kept -> kept.isInstance(edit));
+	// whether the session under way goes on through the undo step, made, undone or redone: through every edit in it
+	private static boolean keeps(TGUndoableEdit step) {
+		return (step != null && edits(step).allMatch(edit -> KEPT.stream().anyMatch(kept -> kept.isInstance(edit))));
+	}
+
+	// the edits an undo step is made of: a group's (the desktop joins an action's edits in one step), each in turn; else
+	// the step itself
+	private static Stream<TGUndoableEdit> edits(TGUndoableEdit step) {
+		return (step instanceof TGUndoableGroup ? ((TGUndoableGroup) step).getEdits().stream().flatMap(TGPracticeEdits::edits) : Stream.of(step));
 	}
 
 	// refuses a flag the session under way could not play; intercepts nothing
 	public boolean intercept(String id, TGActionContext actionContext) throws TGActionException {
 		TGPracticeCourse course = TGPracticeUnderWay.getInstance(this.context).getCourse();
-		Flag flag = (course != null ? this.flagOf(id, actionContext) : null);
-		if (flag != null) {
-			flag.check(course);
+		if (course != null) {
+			for (Flag flag : this.flagsOf(id, actionContext)) {
+				flag.check(course);
+			}
 		}
 		return false;
 	}
@@ -117,30 +127,28 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 		}
 	}
 
-	// the flag the action sets; null for one that sets none
-	private Flag flagOf(String id, TGActionContext actionContext) {
+	// the flags the action sets; none for one that sets none
+	private List<Flag> flagsOf(String id, TGActionContext actionContext) {
 		TGUndoableManager undo = TGUndoableManager.getInstance(this.context);
 		if (TGUndoAction.NAME.equals(id)) {
-			return this.flagOf(undo.getEditToBeUndone(), TGUndoableDifficulty::getUndoableDifficulty);
+			return this.flagsOf(undo.getEditToBeUndone(), TGUndoableDifficulty::getUndoableDifficulty);
 		}
 		if (TGRedoAction.NAME.equals(id)) {
-			return this.flagOf(undo.getEditToBeRedone(), TGUndoableDifficulty::getRedoableDifficulty);
+			return this.flagsOf(undo.getEditToBeRedone(), TGUndoableDifficulty::getRedoableDifficulty);
 		}
 		if (TGChangeDifficultyAction.NAME.equals(id)) {
 			TGMeasureHeader header = actionContext.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_HEADER);
-			return new Flag(header, ((Integer) actionContext.getAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY)).intValue());
+			return Arrays.asList(new Flag(header, ((Integer) actionContext.getAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY)).intValue()));
 		}
-		return null;
+		return Arrays.asList();
 	}
 
-	// the flag undoing or redoing the edit sets again; null when it is no flag's
-	private Flag flagOf(TGUndoableEdit edit, ToIntFunction<TGUndoableDifficulty> difficulty) {
-		if (!(edit instanceof TGUndoableDifficulty)) {
-			return null;
-		}
-		TGUndoableDifficulty flag = (TGUndoableDifficulty) edit;
+	// the flags undoing or redoing the undo step sets again: those of the flags' edits in it (none for no step)
+	private List<Flag> flagsOf(TGUndoableEdit step, ToIntFunction<TGUndoableDifficulty> difficulty) {
 		TGDocumentManager document = TGDocumentManager.getInstance(this.context);
-		return new Flag(document.getSongManager().getMeasureHeaderAt(document.getSong(), flag.getPosition()), difficulty.applyAsInt(flag));
+		return Stream.ofNullable(step).flatMap(TGPracticeEdits::edits).filter(TGUndoableDifficulty.class::isInstance).map(TGUndoableDifficulty.class::cast)
+			.map(flag -> new Flag(document.getSongManager().getMeasureHeaderAt(document.getSong(), flag.getPosition()), difficulty.applyAsInt(flag)))
+			.collect(Collectors.toList());
 	}
 
 	private static final class Flag {

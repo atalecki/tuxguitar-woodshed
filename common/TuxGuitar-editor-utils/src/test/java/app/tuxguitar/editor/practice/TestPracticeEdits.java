@@ -26,6 +26,10 @@ import app.tuxguitar.editor.action.marker.TGRemoveMarkerAction;
 import app.tuxguitar.editor.action.marker.TGUpdateMarkerAction;
 import app.tuxguitar.editor.action.track.TGSetTrackMuteAction;
 import app.tuxguitar.editor.action.track.TGSetTrackSoloAction;
+import app.tuxguitar.editor.undo.TGUndoableActionController;
+import app.tuxguitar.editor.undo.TGUndoableEdit;
+import app.tuxguitar.editor.undo.TGUndoableManager;
+import app.tuxguitar.editor.undo.impl.TGUndoableEditComposite;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableTripletFeelController;
 import app.tuxguitar.editor.undo.impl.marker.TGUndoableMarkerGenericController;
@@ -62,6 +66,8 @@ public class TestPracticeEdits {
 	private static final class Edits {
 		private final SongActionFixture fixture = SongActionFixture.onDocument();
 		private TGPracticeSession session;
+		// the undo step the actions run together make, while they run (see together)
+		private TGUndoableEditComposite step;
 
 		Edits() {
 			fixture.measureCount(4);
@@ -80,10 +86,31 @@ public class TestPracticeEdits {
 			TGPracticeUnderWay.getInstance(fixture.context).begin(course);
 		}
 
+		// as the app keeps an action's undo step: the edit its controller makes, alone, or in the step under way
+		private void executeUndoable(TGActionBase action, TGUndoableActionController controller) {
+			TGUndoableEdit started = controller.startUndoable(fixture.context, fixture.actionContext);
+			fixture.execute(action);
+			TGUndoableEdit edit = controller.endUndoable(fixture.context, fixture.actionContext, started);
+			if (step != null) {
+				step.addEdit(edit);
+			} else {
+				TGUndoableManager.getInstance(fixture.context).addEdit(edit);
+			}
+		}
+
+		// the edits made in one undo step, as the desktop keeps an action's edits, and those of the actions it runs,
+		// joined in one step (TGUndoableJoined); here in a composite
+		void together(Consumer<Edits> edits) {
+			step = new TGUndoableEditComposite();
+			edits.accept(this);
+			TGUndoableManager.getInstance(fixture.context).addEdit(step);
+			step = null;
+		}
+
 		void flag(int measure, int difficulty) {
 			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_HEADER, fixture.song.getMeasureHeader(measure - 1));
 			fixture.actionContext.setAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY, difficulty);
-			fixture.executeUndoable(new TGChangeDifficultyAction(fixture.context), new TGUndoableDifficultyController());
+			executeUndoable(new TGChangeDifficultyAction(fixture.context), new TGUndoableDifficultyController());
 		}
 
 		void undo() {
@@ -115,19 +142,19 @@ public class TestPracticeEdits {
 			fixture.actionContext.setAttribute(TGChangeTripletFeelAction.ATTRIBUTE_TRIPLET_FEEL, TGMeasureHeader.TRIPLET_FEEL_EIGHTH);
 			fixture.actionContext.setAttribute(TGChangeTripletFeelAction.ATTRIBUTE_APPLY_TO_END, false);
 			fixture.actionContext.setAttribute(TGActionBase.ATTRIBUTE_SUCCESS, null);
-			fixture.executeUndoable(new TGChangeTripletFeelAction(fixture.context), new TGUndoableTripletFeelController());
+			executeUndoable(new TGChangeTripletFeelAction(fixture.context), new TGUndoableTripletFeelController());
 		}
 
 		void mute() {
 			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, fixture.song.getTrack(0));
 			fixture.actionContext.setAttribute(TGSetTrackMuteAction.ATTRIBUTE_MUTE, Boolean.TRUE);
-			fixture.executeUndoable(new TGSetTrackMuteAction(fixture.context), new TGUndoableTrackSoloMuteController());
+			executeUndoable(new TGSetTrackMuteAction(fixture.context), new TGUndoableTrackSoloMuteController());
 		}
 
 		void solo() {
 			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, fixture.song.getTrack(0));
 			fixture.actionContext.setAttribute(TGSetTrackSoloAction.ATTRIBUTE_SOLO, Boolean.TRUE);
-			fixture.executeUndoable(new TGSetTrackSoloAction(fixture.context), new TGUndoableTrackSoloMuteController());
+			executeUndoable(new TGSetTrackSoloAction(fixture.context), new TGUndoableTrackSoloMuteController());
 		}
 
 		// the marker "Verse" on measure 3
@@ -136,7 +163,7 @@ public class TestPracticeEdits {
 			marker.setMeasure(3);
 			marker.setTitle("Verse");
 			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_MARKER, marker);
-			fixture.executeUndoable(new TGUpdateMarkerAction(fixture.context), new TGUndoableMarkerGenericController());
+			executeUndoable(new TGUpdateMarkerAction(fixture.context), new TGUndoableMarkerGenericController());
 		}
 
 		void markedAndUndone() {
@@ -222,6 +249,27 @@ public class TestPracticeEdits {
 			keeps("redoing a marker", "go on | - | m3 Verse | false", Edits::markedAndUndone, Edits::redo));
 	}
 
+	// a flag in a step of its own, as the desktop keeps it, then another
+	private static void flaggedTogetherTwice(Edits edits) {
+		edits.together(edit -> edit.flag(2, 3));
+		edits.together(edit -> edit.flag(2, 1));
+	}
+
+	// the desktop keeps each action's edits joined in one undo step: the session looks at the edits in it, goes on when
+	// it keeps them all, and checks the flags in it
+	@TestFactory
+	public List<DynamicTest> editsInOneStep() {
+		return Arrays.asList(
+			reads("a flag the next cycles can play goes on", "go on | 1 | 3 | 1 | 1 | false", NOTHING, 4, edits -> edits.together(edit -> edit.flag(2, 3))),
+			reads("undoing a flag the next cycles could not play is refused", TOO_HEAVY + " | 1 | 1 | 1 | 1 | false", TestPracticeEdits::flaggedTogetherTwice, 2, Edits::undo),
+			keeps("muting a track goes on", "go on | mute | - | false", NOTHING, edits -> edits.together(Edits::mute)),
+			keeps("undoing a marker goes on", "go on | - | - | false", edits -> edits.together(Edits::marker), Edits::undo),
+			keeps("a mute and a triplet feel in one step end the session", "go on | mute | - | true", NOTHING, edits -> edits.together(edit -> {
+				edit.mute();
+				edit.tripletFeel();
+			})));
+	}
+
 	// the app's action that moves the caret left
 	private static final String CARET_MOVE = "action.caret.go-left";
 
@@ -272,6 +320,13 @@ public class TestPracticeEdits {
 		edits.markedAndUndone();
 	}
 
+	// a mute and a marker each in a step of its own, as the desktop keeps them, the marker undone
+	private static void mutedThenMarkedTogetherAndUndone(Edits edits) {
+		edits.together(Edits::mute);
+		edits.together(Edits::marker);
+		edits.undo();
+	}
+
 	@TestFactory
 	public List<DynamicTest> whatTheAppDisables() {
 		return Arrays.asList(
@@ -280,6 +335,7 @@ public class TestPracticeEdits {
 			disables("in a session, a flag, the undo and redo of a flag and a caret move are not", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
 			disables("in a session, undo and redo of another edit are", "false true true true false", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
 			disables("in a session, the undo of a mute and the redo of a marker are not", "false true false false false", TestPracticeEdits::mutedThenMarkedAndUndone, true, true),
+			disables("in a session, nor are they in steps of their own", "false true false false false", TestPracticeEdits::mutedThenMarkedTogetherAndUndone, true, true),
 			disables("in a paused session, as in a playing one", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
 	}
 
