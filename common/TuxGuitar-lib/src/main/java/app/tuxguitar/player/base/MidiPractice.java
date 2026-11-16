@@ -11,6 +11,7 @@ import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticePlan;
 import app.tuxguitar.practice.TGPracticeSteps;
 import app.tuxguitar.practice.TGPracticeTurn;
+import app.tuxguitar.practice.TGTempoScale;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
 
@@ -142,6 +143,11 @@ final class MidiPractice {
 	// whole seconds, rounded up
 	private static int seconds(long micros) {
 		return (int) ((micros + SECOND - 1) / SECOND);
+	}
+
+	// the tempo scale the tick of the sequence plays at: its pass's
+	TGTempoScale scaleAt(long tick) {
+		return this.turns.get(this.indexAt(tick)).getScale();
 	}
 
 	// the song's tick the tick of the sequence plays (see MidiPracticeTurn.songTick)

@@ -36,6 +36,8 @@ public class TestMidiPlayerClickUp {
 	// the blocks to the middle of step 3's first measure, and of step 1's
 	private static final int IN_STEP_3 = (705600 + 2 * BEAT) / BLOCK;
 	private static final int IN_STEP_1 = (176400 + 2 * BEAT) / BLOCK;
+	// the blocks to the middle of step 2's first measure (it starts 4 beats after step 1's ends, at frame 352800)
+	private static final int IN_STEP_2 = (441000 + 2 * BEAT) / BLOCK;
 
 	private final LivePracticeFixture live = new LivePracticeFixture();
 	private final MidiPlayer player = live.player;
@@ -117,6 +119,22 @@ public class TestMidiPlayerClickUp {
 		practise();
 		live.blocksToTheEnd();
 		assertEquals(countedIn(2, 0, 1, 2, 3, 4, 5), live.started());
+	}
+
+	// the tempo scale heard, as the app shows the tempo: before the session the Percentage of Tempo (80%), during step 1
+	// its 50%, during step 2 its 100%, after the session the Percentage of Tempo again
+	@Test
+	public void theScaleHeardIsTheStepsDuringASessionElseThePercentageOfTempo() throws Exception {
+		player.getMode().setSimplePercent(80);
+		player.getMode().reset();
+		String before = String.valueOf(player.getHeardScale());
+		practise();
+		live.blocks(IN_STEP_1);
+		String step1 = String.valueOf(player.getHeardScale());
+		live.blocks(IN_STEP_2 - IN_STEP_1);
+		String step2 = String.valueOf(player.getHeardScale());
+		live.blocksToTheEnd();
+		assertEquals("4/5 1/2 1/1 4/5", before + " " + step1 + " " + step2 + " " + player.getHeardScale());
 	}
 
 	/** Repeat step or Previous step, as the app chooses it. */

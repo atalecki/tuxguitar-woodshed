@@ -493,31 +493,45 @@ public class TGTransportDialog implements TGEventListener {
 
 	public void redrawPlayingMode() {
 		if (!isDisposed()) {
-			MidiPlayer player = MidiPlayer.getInstance(this.context);
-			if (!isEditingTickScale() && player.isRunning()) {
-				TGTransportCache transportCache = TGTransport.getInstance(this.context).getCache();
-
-				long time = System.currentTimeMillis();
-				if (time > this.redrawTime + PLAY_MODE_DELAY) {
-					long position = (transportCache.getPlayStart()
-							+ (player.getTickPosition() - transportCache.getPlayTick()));
-					this.updateTickLabel(Long.toString(position));
-					this.tickProgress.setValue((int) position);
-					this.redrawTime = time;
-
-					TGSong song = TGDocumentManager.getInstance(context).getSong();
-					TGMeasureHeader first = song != null
-							? TablatureEditor.getInstance(context).getTablature().getSongManager()
-									.getFirstMeasureHeader(song)
-							: null;
-					Map.Entry<Long, TGMeasureHeader> entry = headerMap.floorEntry(position);
-					TGMeasureHeader current = entry != null ? entry.getValue() : first;
-					Integer currentTempo = Math.round((float) current.getTempo().getRawValue()
-							* (float) player.getMode().getCurrentPercent() / 100.0f);
-					this.metronome.setText(currentTempo.toString());
-				}
-			}
+			this.redrawPlaying(MidiPlayer.getInstance(this.context));
 		}
+	}
+
+	// the position playing and the tempo heard there, unless the tick scale is being edited
+	private void redrawPlaying(MidiPlayer player) {
+		if (!isEditingTickScale()) {
+			this.redrawRunning(player);
+		}
+	}
+
+	private void redrawRunning(MidiPlayer player) {
+		if (player.isRunning()) {
+			this.redrawPosition(player, System.currentTimeMillis());
+		}
+	}
+
+	// at most once every PLAY_MODE_DELAY ms: the position, and the tempo heard there (the written tempo of its measure at
+	// the scale the player plays it, MidiPlayer.getHeardScale)
+	private void redrawPosition(MidiPlayer player, long time) {
+		if (time > this.redrawTime + PLAY_MODE_DELAY) {
+			TGTransportCache transportCache = TGTransport.getInstance(this.context).getCache();
+			long position = (transportCache.getPlayStart() + (player.getTickPosition() - transportCache.getPlayTick()));
+			this.updateTickLabel(Long.toString(position));
+			this.tickProgress.setValue((int) position);
+			this.redrawTime = time;
+			this.metronome.setText(String.valueOf(player.getHeardScale().bpm(this.headerAt(position).getTempo().getRawValue())));
+		}
+	}
+
+	// the measure the position is in, or the song's first
+	private TGMeasureHeader headerAt(long position) {
+		Map.Entry<Long, TGMeasureHeader> entry = headerMap.floorEntry(position);
+		return (entry != null ? entry.getValue() : this.firstHeader());
+	}
+
+	private TGMeasureHeader firstHeader() {
+		TGSong song = TGDocumentManager.getInstance(context).getSong();
+		return (song != null ? TablatureEditor.getInstance(context).getTablature().getSongManager().getFirstMeasureHeader(song) : null);
 	}
 
 	public void createSyncProcesses() {

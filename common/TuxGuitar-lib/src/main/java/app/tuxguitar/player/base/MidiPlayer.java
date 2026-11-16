@@ -257,6 +257,12 @@ public class MidiPlayer{
 		return this.readLocked(() -> (this.isPractising() ? Optional.of(this.practice.turn(this.tickPosition)) : Optional.empty()));
 	}
 
+	// the tempo scale the song is heard at now, as the app shows the tempo: in a session, the scale of the turn the
+	// player is in (a click-up step's); else the Percentage of Tempo in effect
+	public TGTempoScale getHeardScale() {
+		return this.readLocked(() -> (this.isPractising() ? this.practice.scaleAt(this.tickPosition) : TGTempoScale.percent(this.getMode().getCurrentPercent())));
+	}
+
 	// the turns of the session playing that its sequence holds, from its first (see MidiPractice); none without one.
 	// Read without the player's lock (the audio thread reads it each block)
 	public List<MidiPracticeTurn> getPracticeTurns() {
