@@ -378,6 +378,9 @@ These features change how TuxGuitar works today. They are requirements, not side
   NeuralAmpModelerCore reads; "a NAM capture that multiplies the signal by 3.0" is one of the architecture `Linear` whose
   single weight is 3.0, made at 44100 Hz unless the scenario gives a rate. A capture **made at** a sample rate is played
   at that rate: Woodshed Guitar resamples into it and back, and reports the delay that adds as its latency.
+- **A2** (NAM captures): the newer NAM model family (TONE3000's). NeuralAmpModelerCore, as pinned, reads A2 captures of
+  file version up to 0.7.x (as the A2 capture it comes with); a capture of a newer file version, or of an architecture it
+  does not know, is "of a newer kind": Woodshed Guitar refuses it, naming the TONE3000 plugin, which plays it.
 - **Volume and Balance**: the channel's, applied after the sound chain, with today's laws. Balance 0 is full left, 127
   full right, 64 the centre (today's constant-power law leaves the two sides up to 1.3% apart there). Volume 127 with
   Balance 0 or 127 passes the signal unchanged to its side. On a stereo signal the same law applies to each side: the
@@ -520,7 +523,7 @@ TuxGuitar's own plugins (built by the same native build, into `native-build/plug
 
 | Plugin | Kind | Does | Latency | Tail |
 |---|---|---|---|---|
-| `Woodshed Guitar` | VST3 instrument | plucks a string per note, peaking at 0.5 × velocity / 127, following per-note tuning and damped at its note off; the strings summed, scaled by its parameter `Input gain` (dB, 0 by default), played through its profile, then scaled by `Output level` (dB, 0 by default); the same on both sides. Loads a profile from a path given in a message (as its editor's Load profile... does) and says it is dirty, or refuses the file saying why; its state holds the profile's path and contents | 0, or the resampling's delay for a profile made at another rate | 0 |
+| `Woodshed Guitar` | VST3 instrument | plucks a string per note, peaking at 0.5 × velocity / 127, following per-note tuning and damped at its note off; the strings summed, scaled by its parameter `Input gain` (dB, 0 by default), played through its profile, then scaled by `Output level` (dB, 0 by default); the same on both sides. Loads a profile from a path given in a message (as its editor's Load profile... does) and says it is dirty, or refuses the file saying why and of which kind (`newer`: a NAM capture of a newer kind, A2 or later, than NeuralAmpModelerCore reads, which the TONE3000 plugin plays; `other`); its state holds the profile's path and contents | 0, or the resampling's delay for a profile made at another rate | 0 |
 
 `Old Amp` is a VST 2 plugin placed in the VST3 folders by a scenario. `Missing Amp` is no plugin at all: a scenario's
 song names it by a module that is not on this computer (as a song made where it is installed would). The NAM captures
