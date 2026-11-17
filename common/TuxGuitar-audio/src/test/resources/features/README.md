@@ -215,6 +215,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
 | `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain; what a scan reports, and why an editor does not open |
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
+| `plugins/nam_guitar_instrument` | Woodshed Guitar, the VST3 instrument TuxGuitar ships: plucked strings through a NAM capture, its profile; found in TuxGuitar's own plugins folder |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
@@ -368,6 +369,15 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **VST3 instrument**: a VST3 plugin that turns notes into sound; it replaces the General MIDI program as the source.
   Notes reach it with their velocity, and bends reach it per note, in exact semitones, so other notes ringing on the
   track are not bent.
+- **Woodshed Guitar**: the VST3 instrument TuxGuitar ships (in **TuxGuitar's own plugins folder**, `vst3` next to the
+  folder of its native libraries, `lib`, in the install directory, scanned after the system's VST3 folders). Each note
+  plucks a string of its own (one voice per note id); the strings are summed and played through its **profile**, the
+  NAM capture loaded into it, the same signal left and right. Its **dry voice** is what it sounds with no profile.
+  "Woodshed Guitar of track 1" is the plugin of track 1's source.
+- **NAM capture**: a `.nam` file, a Neural Amp Modeler model of an amp or pedal, in the A1 format (JSON) that
+  NeuralAmpModelerCore reads; "a NAM capture that multiplies the signal by 3.0" is one of the architecture `Linear` whose
+  single weight is 3.0, made at 44100 Hz unless the scenario gives a rate. A capture **made at** a sample rate is played
+  at that rate: Woodshed Guitar resamples into it and back, and reports the delay that adds as its latency.
 - **Volume and Balance**: the channel's, applied after the sound chain, with today's laws. Balance 0 is full left, 127
   full right, 64 the centre (today's constant-power law leaves the two sides up to 1.3% apart there). Volume 127 with
   Balance 0 or 127 passes the signal unchanged to its side. On a stereo signal the same law applies to each side: the
@@ -459,6 +469,10 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **Click** (in a take or a signal): a one-sample impulse. Its position is its first sample above half its peak; next to a tone, a click is a
   jump of more than 0.1 between two samples. A time-stretched click is no longer one sample.
 - **Peak**: the largest absolute sample value, 1.0 being full scale (0 dBFS).
+- **A note within 1%** (of a plucked string, rich in overtones): the frequency of the highest level, from 20 Hz to
+  2 kHz, over the measure's sounding samples, is within 1% of the note's pitch.
+- **Track 1 sounds N times what track 2 sounds, sample for sample within e**: on both sides of the taps, every sample of
+  track 1 is within e of N times track 2's at the same sample.
 - **A tone within 1% (or 1 Hz)**: by its fundamental frequency. **No ... above -60 dBFS**: by the level at that
   frequency. **Nothing**, in a list of tones per measure: no tone above -60 dBFS there.
 - **Nothing else above -60 dBFS**: no sample other than the named signals above 0.001.
@@ -500,6 +514,13 @@ Each test plugin keeps a state of 1 KB that changes with its parameters and its 
 for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
 it from its own editor, as one gesture (begin edit, changes, end edit). The helper process reports its process id and
 open sockets, so "runs apart" and "listens on no network port" can be checked.
+
+TuxGuitar's own plugins (built by the same native build, into `native-build/plugins`, apart from the test plugins;
+"the VST3 folders hold the test plugins and TuxGuitar's own plugins" adds that folder):
+
+| Plugin | Kind | Does | Latency | Tail |
+|---|---|---|---|---|
+| `Woodshed Guitar` | VST3 instrument | plucks a string per note, peaking at 0.5 × velocity / 127, following per-note tuning and damped at its note off; the strings summed, scaled by its parameter `Input gain` (dB, 0 by default), played through its profile, then scaled by `Output level` (dB, 0 by default); the same on both sides. Loads a profile from a path given in a message (as its editor's Load profile... does) and says it is dirty, or refuses the file saying why; its state holds the profile's path and contents | 0, or the resampling's delay for a profile made at another rate | 0 |
 
 `Old Amp` is a VST 2 plugin placed in the VST3 folders by a scenario. `Missing Amp` is no plugin at all: a scenario's
 song names it by a module that is not on this computer (as a song made where it is installed would). The NAM captures
@@ -683,6 +704,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 
 ## Out of scope
 
+- Woodshed Guitar, checked by hand (the UAT page `nam-guitar-instrument`), not by these scenarios: how its editor looks
+  and its file dialog, the tone of a real NAM capture, how much like a guitar it sounds, and its cost in CPU with full-size
+  captures on several tracks. A NAM capture dropped on a track is `nam_captures`' (planned), not Woodshed Guitar's.
 - Failure handling: a plugin that crashes or hangs, a plugin missing on another machine, an audio device unplugged
   while recording, a song opened on a device whose sample rate differs from its takes'. One narrow exception: a VST3
   plugin that hangs goes silent for each block it does not answer in time while the other tracks keep playing on their
