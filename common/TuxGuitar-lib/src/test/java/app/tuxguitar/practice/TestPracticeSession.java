@@ -31,12 +31,7 @@ public class TestPracticeSession {
 	}
 
 	private String start() {
-		try {
-			TGPracticeSession.start(settings, song);
-			return "accepted";
-		} catch (TGPracticeRefusal refusal) {
-			return refusal.getMessage();
-		}
+		return PracticeRefusals.outcome(() -> TGPracticeSession.start(settings, song));
 	}
 
 	@Test
@@ -61,13 +56,7 @@ public class TestPracticeSession {
 		TGSong short1 = PracticeSongs.song(16);
 		settings.setUnit(TGPracticeUnitKind.PAGE);
 		settings.setPool(1, 2);
-		try {
-			TGPracticeSession.start(settings, short1);
-		} catch (TGPracticeRefusal refusal) {
-			assertEquals("The pool reaches past the song's 1 page.", refusal.getMessage());
-			return;
-		}
-		throw new AssertionError("accepted");
+		assertEquals("The pool reaches past the song's 1 page.", PracticeRefusals.outcome(() -> TGPracticeSession.start(settings, short1)));
 	}
 
 	@Test

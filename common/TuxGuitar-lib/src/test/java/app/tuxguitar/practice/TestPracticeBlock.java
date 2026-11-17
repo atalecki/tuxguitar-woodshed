@@ -159,11 +159,16 @@ public class TestPracticeBlock {
 			+ "The block of measures 1\u20132 comes up 3 times in a cycle of 5 turns and would come twice in a row.", one + " | " + twice + " | " + five + " | " + outcome());
 	}
 
+	// as the app names it, in English
+	private static String named(TGPracticeBlock block) {
+		return PracticeRefusals.english(() -> TGPracticeWording.block(block, TGPracticeWording.APP));
+	}
+
 	@Test
 	public void aBlockOfBeatsIsNamedByItsFirstAndLastBeat() throws TGPracticeRefusal {
 		set(TGPracticeUnitKind.BEAT, 3, 4, 2);
-		assertEquals("The block of measure 3 beat 4 to measure 4 beat 1 | Measure 3 beat 2", start().getPool().get(3) + " | "
-			+ set(TGPracticeUnitKind.BEAT, 3, 4, 1).start().getPool().get(1));
+		assertEquals("The block of measure 3 beat 4 to measure 4 beat 1 | Measure 3 beat 2", named(start().getPool().get(3)) + " | "
+			+ named(set(TGPracticeUnitKind.BEAT, 3, 4, 1).start().getPool().get(1)));
 	}
 
 	// blocks 1-2, 2-3 and 3-4: every cycle chooses each once, never the same twice in a row, but 2-3 may follow 1-2

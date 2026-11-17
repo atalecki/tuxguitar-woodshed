@@ -81,7 +81,7 @@ public class TestPracticeGrouping {
 
 	// "Measure 3 beat 1 (3-3), ...": each unit and the measures it holds
 	private static String units(TGSong song, TGPracticeUnitKind kind, int from, int to) throws TGPracticeRefusal {
-		return TGPracticeGrouping.of(4, 4).units(kind, from, to, song, "pool").stream().map(unit -> unit + " (" + unit.getFirst() + "-" + unit.getLast() + ")")
+		return TGPracticeGrouping.of(4, 4).units(kind, from, to, song, "transport.practice.refusal.pool").stream().map(unit -> unit + " (" + unit.getFirst() + "-" + unit.getLast() + ")")
 			.collect(Collectors.joining(", "));
 	}
 
@@ -103,7 +103,7 @@ public class TestPracticeGrouping {
 	}
 
 	private static String beatsRefusal(int from, int to) {
-		return PracticeRefusals.outcome(() -> TGPracticeGrouping.of(4, 4).units(TGPracticeUnitKind.BEAT, from, to, PracticeSongs.song(SONG), "pool"));
+		return PracticeRefusals.outcome(() -> TGPracticeGrouping.of(4, 4).units(TGPracticeUnitKind.BEAT, from, to, PracticeSongs.song(SONG), "transport.practice.refusal.pool"));
 	}
 
 	// the range of beats is given in measures, and so are its refusals
@@ -177,8 +177,8 @@ public class TestPracticeGrouping {
 
 	@Test
 	public void aKindOfUnitIsGivenInRangesOfItsOwnButBeatsInMeasures() {
-		assertEquals("[MEASURE, LINE, PAGE, MEASURE] beat beats", Arrays.stream(TGPracticeUnitKind.values()).map(TGPracticeUnitKind::rangeKind)
-			.collect(Collectors.toList()) + " " + TGPracticeUnitKind.BEAT.getName() + " " + TGPracticeUnitKind.BEAT.getName(2));
+		assertEquals("[MEASURE, LINE, PAGE, MEASURE] beat", Arrays.stream(TGPracticeUnitKind.values()).map(TGPracticeUnitKind::rangeKind)
+			.collect(Collectors.toList()) + " " + TGPracticeUnitKind.BEAT.getName());
 	}
 
 	// line 3 of measures 9 to 12, built again; then with another kind, number, first or last measure, and a measure

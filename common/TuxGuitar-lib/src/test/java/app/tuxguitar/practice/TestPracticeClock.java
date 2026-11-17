@@ -102,11 +102,6 @@ public class TestPracticeClock {
 	}
 
 	private String refusal(int turnMinutes, int breakSeconds, int sessionMinutes) {
-		try {
-			clock(turnMinutes, breakSeconds, sessionMinutes, false);
-			return "accepted";
-		} catch (TGPracticeRefusal refusal) {
-			return refusal.getMessage();
-		}
+		return PracticeRefusals.outcome(() -> clock(turnMinutes, breakSeconds, sessionMinutes, false));
 	}
 }

@@ -23,10 +23,10 @@ public final class TGPracticeGrouping {
 
 	public static TGPracticeGrouping of(int measuresPerLine, int linesPerPage) throws TGPracticeRefusal {
 		if (measuresPerLine < 1) {
-			throw new TGPracticeRefusal("A line needs at least 1 measure.");
+			throw new TGPracticeRefusal("transport.practice.refusal.measures-per-line");
 		}
 		if (linesPerPage < 1) {
-			throw new TGPracticeRefusal("A page needs at least 1 line.");
+			throw new TGPracticeRefusal("transport.practice.refusal.lines-per-page");
 		}
 		return new TGPracticeGrouping(measuresPerLine, linesPerPage);
 	}
@@ -70,18 +70,19 @@ public final class TGPracticeGrouping {
 	}
 
 	// the units of the kind in a range from one number to another (from 1) of the kind's range kind, in score order (the
-	// beats of measures from and to); or the reason the range, named as the session calls it ("pool"), cannot be played
+	// beats of measures from and to); or the reason the range cannot be played, in the messages of the range's key
+	// ("transport.practice.refusal.pool": its -starts-before, -empty and -past-end)
 	public List<TGPracticeUnit> units(TGPracticeUnitKind kind, int from, int to, TGSong song, String range) throws TGPracticeRefusal {
 		TGPracticeUnitKind ranged = kind.rangeKind();
 		int count = this.count(ranged, song.countMeasureHeaders());
 		if (from < 1) {
-			throw new TGPracticeRefusal("The " + range + " starts before " + ranged.getName() + " 1.");
+			throw new TGPracticeRefusal(range + "-starts-before", TGPracticeWording.noun(ranged, 1, TGPracticeWording.APP));
 		}
 		if (from > to) {
-			throw new TGPracticeRefusal("The " + range + " is empty.");
+			throw new TGPracticeRefusal(range + "-empty");
 		}
 		if (to > count) {
-			throw new TGPracticeRefusal("The " + range + " reaches past the song's " + count + " " + ranged.getName(count) + ".");
+			throw new TGPracticeRefusal(range + "-past-end", String.valueOf(count), TGPracticeWording.noun(ranged, count, TGPracticeWording.APP));
 		}
 		return this.unitsIn(kind, from, to, song);
 	}

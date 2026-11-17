@@ -30,7 +30,8 @@ public interface TGPracticeCourse {
 	// refuses a flag, set now (the measure from 1, the difficulty), that the turns to come could not play
 	void checkFlag(int measure, int difficulty) throws TGPracticeRefusal;
 
-	// the practice mode's name, as a message about it starts: "Interleaved practice", "Interleaved click-up"
+	// the practice mode's name, as a message about it starts, in TuxGuitar's language: "Interleaved practice",
+	// "Interleaved click-up" (transport.practice.mode, transport.click-up.mode)
 	String getModeName();
 
 	// whether a clock times it: the app shows the time left, not the number of turns

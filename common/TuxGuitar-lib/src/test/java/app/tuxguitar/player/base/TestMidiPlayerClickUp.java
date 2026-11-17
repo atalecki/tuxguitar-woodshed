@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import app.tuxguitar.practice.TGClickUpLadder;
 import app.tuxguitar.practice.TGClickUpSettings;
 import app.tuxguitar.practice.TGPracticeCourse;
+import app.tuxguitar.practice.PracticeRefusals;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
@@ -225,13 +226,7 @@ public class TestMidiPlayerClickUp {
 	@Test
 	public void aSequencerThatCannotTakeTurnsAddedWhilePlayingRefusesAClickUpNamingIt() throws Exception {
 		player.loadSequencer(new FakeSequencer(new ArrayList<String>()));
-		String refusal;
-		try {
-			player.practise(course());
-			refusal = "started";
-		} catch (TGPracticeRefusal refused) {
-			refusal = refused.getMessage();
-		}
+		String refusal = PracticeRefusals.played(() -> player.practise(course()));
 		assertEquals("Interleaved click-up needs a sequencer that takes turns added while it plays, and \"fake\" does not:"
 			+ " choose the TuxGuitar Sequencer in Settings > Sound. | false false false", refusal + " | " + state());
 	}

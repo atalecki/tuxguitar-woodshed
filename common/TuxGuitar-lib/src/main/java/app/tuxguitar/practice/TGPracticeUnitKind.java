@@ -14,11 +14,6 @@ public enum TGPracticeUnitKind {
 		this.name = name;
 	}
 
-	// "line" for one, "lines" for any other count
-	public String getName(int count) {
-		return (count == 1 ? this.name : this.name + "s");
-	}
-
 	public String getName() {
 		return this.name;
 	}

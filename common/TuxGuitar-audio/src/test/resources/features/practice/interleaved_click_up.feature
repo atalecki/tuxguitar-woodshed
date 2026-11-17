@@ -70,6 +70,14 @@ Feature: Interleaved click-up
       | line    | lines 1 to 2      | 60%    | 100%    | 5%        | 1      | 0        | 4        | refused, saying "A line needs at least 1 measure."                 |
       | page    | pages 1 to 2      | 60%    | 100%    | 5%        | 1      | 4        | 0        | refused, saying "A page needs at least 1 line."                    |
 
+  # every text TuxGuitar shows goes through its translations: a refusal is said as the language TuxGuitar shows says it,
+  # the tempo it names too, in English where a language does not say it
+  Scenario: a click-up's refusal is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "Die Leiter beginnt unter {0}." for the message "transport.click-up.refusal.start"
+    And TuxGuitar's language says "{0} Schläge/min" for the message "transport.click-up.tempo.bpm"
+    When I start interleaved click-up of measures over measures 1 to 4, from 0 bpm to 120 bpm by 5 bpm, with 1 passes a step, with lines of 4 measures and pages of 4 lines
+    Then starting is refused, saying "Die Leiter beginnt unter 1 Schläge/min."
+
   # Playing the steps. At 120 bpm a quarter note is 22050 samples: at 50% 44100, at 75% 29400, at 100% 22050.
 
   # measures 9 to 11 from 50% to 100% by 25%: 3 rungs; with 3 sections in play the ladder ends on 2-3, so the tail
@@ -328,6 +336,16 @@ Feature: Interleaved click-up
     When I practise interleaved click-up live, choosing Record during step 2
     Then Record is refused, saying "Interleaved click-up is under way: stop it to record."
     And the player stopped by itself within 512 samples of step 5's end
+    And track 2's takes read ""
+
+  Scenario: Record's refusal during a click-up is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} läuft: zum Aufnehmen anhalten." for the message "transport.practice.refusal.record"
+    And TuxGuitar's language says "Verschachteltes Click-up" for the message "transport.click-up.mode"
+    And I have added an audio track recording input channel 1
+    And I have armed track 2
+    And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
+    When I practise interleaved click-up live, choosing Record during step 2
+    Then Record is refused, saying "Verschachteltes Click-up läuft: zum Aufnehmen anhalten."
     And track 2's takes read ""
 
   # a flag weighs a unit in interleaved practice's random choice; a click-up has no choice, so its steps stay as they were

@@ -3,6 +3,7 @@ package app.tuxguitar.audio.features;
 import java.util.HashMap;
 import java.util.Map;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
 import io.cucumber.java.After;
 import io.cucumber.java.en.Given;
 
@@ -18,13 +19,13 @@ public class LanguageSteps {
 	@Given("TuxGuitar's language says {string} for the message {string}")
 	public void says(String text, String message) {
 		this.said.put(message, text);
-		AudioWorld.speak(this.said);
+		TuxGuitarMessages.speak(this.said);
 	}
 
 	@After
 	public void speakEnglish() {
 		if (!this.said.isEmpty()) {
-			AudioWorld.speak(Map.of());
+			TuxGuitarMessages.speak(Map.of());
 		}
 	}
 }

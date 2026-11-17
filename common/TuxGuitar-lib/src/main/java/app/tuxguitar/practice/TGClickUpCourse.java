@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import app.tuxguitar.song.models.TGMeasureHeader;
+import app.tuxguitar.util.TGMessagesManager;
 
 /**
  * Interleaved click-up's course (TGClickUpLadder.course): a turn per step of the ladder, in its order, walked with a
@@ -51,7 +52,7 @@ final class TGClickUpCourse implements TGPracticeCourse, TGPracticeSteps {
 	}
 
 	public String getModeName() {
-		return "Interleaved click-up";
+		return TGMessagesManager.getProperty("transport.click-up.mode");
 	}
 
 	public boolean isTimed() {

@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.document.TGDocumentManager;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
@@ -127,6 +128,6 @@ class TestAudioStatus {
 		String before = String.valueOf(TGAudioStatus.practiceRefusal(this.fixture.context));
 		practising();
 		assertEquals("null | audio.status.not-recording | Voice 0 -inf dBFS | Interleaved practice is under way: stop it to record.",
-			before + " | " + status() + " | " + TGAudioStatus.practiceRefusal(this.fixture.context));
+			before + " | " + status() + " | " + TuxGuitarMessages.english(() -> TGAudioStatus.practiceRefusal(this.fixture.context)));
 	}
 }
