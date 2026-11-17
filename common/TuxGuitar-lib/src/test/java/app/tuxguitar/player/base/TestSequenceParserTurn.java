@@ -90,6 +90,14 @@ public class TestSequenceParserTurn {
 			parsed(turn, false, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
 
+	// on a synthesizer's own drums (the built-in click) the first click of each measure it counts is accented
+	@Test
+	public void onTheDrumsATurnsCountInAccentsTheFirstClickOfEachMeasureItCounts() {
+		song.metronomeChannelId = MidiSampleClock.DRUMS;
+		assertEquals("k76 k77 k77 k77 k76 k77", java.util.Arrays.stream(parsed(turn(2, 2, 0, 6), false, "on").split(", "))
+			.filter(event -> event.contains(" t0 ")).map(event -> event.replaceAll(".* (k\\d+) .*", "$1")).collect(java.util.stream.Collectors.joining(" ")));
+	}
+
 	@Test
 	public void aTurnWithoutCountInStartsWithItsFirstMeasure() {
 		assertEquals("on 3840 t1 c1 k67 v95 s1 b0, off 4800 t1 c1 k67 v95 s1 b0",

@@ -210,11 +210,13 @@ public class SyncSteps {
 		assertEquals(late, clicks.get(0) + heard().latency() - played, 1);
 	}
 
-	// live, the output sounds the render its latency later than the clock
+	// live, the output sounds the render its latency later than the clock. The clicks of the song's beats, from where the
+	// first beat sounds on: a Count In before it is no beat of the song (its accented click is louder than half of theirs)
 	@Then("every {side} click reaches the output {int} samples after its beat, within 1 sample")
 	public void everyClickReachesTheOutputLate(int side, int late) {
-		List<Integer> clicks = clicks(heard(), side);
 		List<Integer> beats = heard().beats();
+		float[] output = heard().output(side);
+		List<Integer> clicks = Meters.clicks(output, Math.max(0, beats.get(0) - heard().latency()), output.length);
 		assertEquals(beats.size(), clicks.size(), "clicks at " + clicks);
 		for (int i = 0; i < clicks.size(); i++) {
 			assertEquals(beats.get(i) + late, clicks.get(i) + heard().latency(), 1, "click " + i);

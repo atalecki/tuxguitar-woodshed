@@ -184,7 +184,7 @@ public class MidiSequenceParser {
 
 	// from the turn's start (its break's, if any): its first measure's time signature and tempo; after its break, a click
 	// on each beat of its Count In on the Metronome's channel (none without one), on the info track, which no mute or solo
-	// silences
+	// silences; the first of each measure it counts accented
 	private void addCountIn(MidiSequenceHelper sh, MidiPracticeTurn turn) {
 		TGMeasureHeader first = turn.getFirst();
 		long tick = getTick(turn.getStart());
@@ -192,7 +192,7 @@ public class MidiSequenceParser {
 		this.addTempo(sh, first.getTempo(), tick);
 		for (int click = 0; click < turn.getClicks() && this.metronomeChannelId != NO_METRONOME_CHANNEL; click++) {
 			long start = turn.getCountIn() + click * turn.getBeat();
-			addNote(sh, getInfoTrack(), this.metronomeClick.getNote(), start, turn.getBeat(), this.metronomeClick.getVelocity(), this.metronomeChannelId, -1, false);
+			this.addClick(sh, getInfoTrack(), start, turn.getBeat(), MidiClick.isAccented(click, first.getTimeSignature().getNumerator()));
 		}
 	}
 
@@ -408,15 +408,16 @@ public class MidiSequenceParser {
 	}
 
 	// a click on each beat of the measure that the sequence plays, on the Metronome's channel, unless that is -1 (none): a
-	// song channel, or a synthesizer's drums (MidiSampleClock.DRUMS)
+	// song channel, or a synthesizer's drums (MidiSampleClock.DRUMS); beat 1 accented
 	public void addMetronome(MidiSequenceHelper sh,TGMeasureHeader header, long startMove){
 		if( (this.flags & ADD_METRONOME) != 0) {
 			if( this.metronomeChannelId != NO_METRONOME_CHANNEL ){
 				long start = (startMove + header.getStart());
 				long length = header.getTimeSignature().getDenominator().getTime();
-				for(int i = 1; i <= header.getTimeSignature().getNumerator();i ++){
+				int beats = header.getTimeSignature().getNumerator();
+				for(int beat = 0; beat < beats; beat ++){
 					if( sh.plays(start - startMove) ){
-						addNote(sh,getMetronomeTrack(),this.metronomeClick.getNote(),start,length,this.metronomeClick.getVelocity(),this.metronomeChannelId,-1,false);
+						this.addClick(sh, getMetronomeTrack(), start, length, MidiClick.isAccented(beat, beats));
 					}
 					start += length;
 				}
@@ -424,6 +425,11 @@ public class MidiSequenceParser {
 		}
 	}
 
+
+	// the click sound on the Metronome's channel, accented or not
+	private void addClick(MidiSequenceHelper sh, int track, long start, long length, boolean accented) {
+		addNote(sh, track, this.metronomeClick.getNote(this.metronomeChannelId, accented), start, length, this.metronomeClick.getVelocity(), this.metronomeChannelId, -1, false);
+	}
 
 	// the 7-bit value (fixed to the MIDI range) and the exact semitones of a bend
 	private void addBend(MidiSequenceHelper sh,int track, long tick,int bend, double semitones, int channel, int midiVoice, boolean bendMode) {

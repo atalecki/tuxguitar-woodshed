@@ -71,7 +71,7 @@ public class TestMidiPlayerPractice {
 	public void aTimedTurnsBreakIsSilentAndLastsItsSeconds() throws Exception {
 		practiseTimed();
 		live.blocks(6100);
-		assertEquals("2557800 1 " + (64 + chosen(1).get(0)) + ", 3087000 -2 37", live.startedBetween(2557800, 3087000));
+		assertEquals("2557800 1 " + (64 + chosen(1).get(0)) + ", 3087000 -2 76", live.startedBetween(2557800, 3087000));
 	}
 
 	// paused 5.5 seconds into the break (the break before turn 2 shown, 5 seconds left), Play plays turn 2's Count In at once, from the
@@ -100,9 +100,9 @@ public class TestMidiPlayerPractice {
 		return clicks(frame) + ", " + (frame + 4 * BEAT) + " 1 " + (64 + measure);
 	}
 
-	// the Count In's 4 clicks from the frame
+	// the Count In's 4 clicks from the frame: the drums' accented note (76) on the first, the plain one (77) on the others
 	private static String clicks(long frame) {
-		return IntStream.range(0, 4).mapToObj(click -> (frame + click * BEAT) + " -2 37").collect(Collectors.joining(", "));
+		return IntStream.range(0, 4).mapToObj(click -> (frame + click * BEAT) + (click == 0 ? " -2 76" : " -2 77")).collect(Collectors.joining(", "));
 	}
 
 	private String state() {
@@ -121,7 +121,8 @@ public class TestMidiPlayerPractice {
 		port.run();
 		port.blocksToTheEnd();
 
-		assertEquals(turn(0, chosen(1).get(0)).replace(" -2 ", " -3 "), port.started());
+		// the click sound's drum note on every click: no accent there
+		assertEquals(turn(0, chosen(1).get(0)).replaceAll(" -2 7[67]", " -3 37"), port.started());
 	}
 
 	@Test

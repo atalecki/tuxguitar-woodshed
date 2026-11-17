@@ -215,7 +215,7 @@ public class TestMidiPlayerCountDown {
 
 	@Test
 	public void withoutAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
-		assertEquals(" -> end @511 | [-2 on 37 95, -2 off 37 95]", ticksOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 76 95, -2 off 76 95]", ticksOn(new ClockedSynthesizer(received, true)));
 	}
 
 	// with one too: the TuxGuitar Synthesizer's Count In clicks on its drums (the built-in click), as offline, not
@@ -224,7 +224,21 @@ public class TestMidiPlayerCountDown {
 	public void withAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
 		withPercussion();
 
-		assertEquals(" -> end @511 | [-2 on 37 95, -2 off 37 95]", ticksOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 76 95, -2 off 76 95]", ticksOn(new ClockedSynthesizer(received, true)));
+	}
+
+	// on the drums (the built-in click) the first click of each measure it counts is accented, in the time signature of
+	// the measure it leads into; on a port every click is the drum note (ticksEveryBeatOfTheMeasure)
+	@Test
+	public void onTheDrumsTheFirstClickOfEachMeasureItCountsIsAccented() throws MidiPlayerException {
+		song.getMeasureHeader(0).getTimeSignature().setNumerator(3);
+		countDown.setTickCount(7);
+		player.getSynthesizerProxy().setMidiSynthesizer(new ClockedSynthesizer(received, true));
+		player.updateChannels();
+		received.clear();
+		start();
+
+		assertEquals("[76, 77, 77, 76, 77, 77, 76]", received.stream().filter(line -> line.startsWith("-2 on ")).map(line -> line.split(" ")[2]).collect(java.util.stream.Collectors.toList()).toString());
 	}
 
 	@Test

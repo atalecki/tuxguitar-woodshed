@@ -6,6 +6,10 @@ import app.tuxguitar.util.configuration.TGConfigManager;
 /**
  * The click sound: the General MIDI drum note and the velocity that Count In and the Metronome play. A TuxGuitar
  * setting (the player's), not part of the song. Immutable: a note from 0 to 127 at a velocity from 1 to 127.
+ *
+ * Beat 1 of each measure is accented (isAccented): a synthesizer's own drums (MidiSampleClock.DRUMS, the TuxGuitar
+ * Synthesizer's built-in click, which plays whatever the note) are sent ACCENTED for it and PLAIN for the other beats;
+ * any other channel the drum note on every beat, as a General MIDI port has always played it.
  */
 public final class MidiClick {
 
@@ -15,6 +19,10 @@ public final class MidiClick {
 	// the keys it is kept under in a configuration
 	public static final String NOTE = "midi.click.note";
 	public static final String VELOCITY = "midi.click.velocity";
+
+	// the notes of an accented and a plain click on a synthesizer's own drums (General MIDI's high and low wood block)
+	public static final int ACCENTED = 76;
+	public static final int PLAIN = 77;
 
 	private static final int MAX = 127;
 
@@ -52,5 +60,19 @@ public final class MidiClick {
 
 	public int getVelocity() {
 		return this.velocity;
+	}
+
+	// the note of a click on the channel: on a synthesizer's own drums, ACCENTED or PLAIN; elsewhere the drum note
+	public int getNote(int channel, boolean accented) {
+		return (channel != MidiSampleClock.DRUMS ? this.note : (accented ? ACCENTED : PLAIN));
+	}
+
+	/**
+	 * Whether a click is accented: of clicks counted in measures of that many beats (the Metronome's beats of a
+	 * measure; Count In's clicks, in measures of the time signature it leads into), the first of each measure is beat 1.
+	 * The click counts from 0.
+	 */
+	public static boolean isAccented(int click, int beats) {
+		return (click % beats == 0);
 	}
 }

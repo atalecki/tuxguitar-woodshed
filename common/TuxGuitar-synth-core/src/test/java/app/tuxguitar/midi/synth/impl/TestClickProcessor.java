@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGMidiProcessor;
 import app.tuxguitar.midi.synth.TGSynthManager;
+import app.tuxguitar.player.base.MidiClick;
 import app.tuxguitar.util.TGContext;
 
 /**
@@ -88,6 +89,11 @@ public class TestClickProcessor {
 		return peak;
 	}
 
+	// its root mean square: a sine's, whatever its frequency, is its level over the square root of 2
+	private static double rms(float[] samples, int from, int to) {
+		return Math.sqrt(IntStream.range(from, to).mapToDouble(i -> samples[i] * samples[i]).sum() / (to - from));
+	}
+
 	// how often a sound crosses zero going up, per second, from its first crossing over the frames to its last
 	private static double frequency(float[] samples, int from, int to, float sampleRate) {
 		int[] up = IntStream.range(from + 1, to).filter(i -> samples[i - 1] <= 0 && samples[i] > 0).toArray();
@@ -158,10 +164,36 @@ public class TestClickProcessor {
 		}
 	}
 
-	// whatever the note: the drum note is for other MIDI Ports
+	// whatever the note but the accented one (MidiClick.ACCENTED): the drum note is for other MIDI Ports
 	@Test
-	public void everyNoteSoundsTheSameClick() {
+	public void everyNoteButTheAccentedOneSoundsTheSameClick() {
 		assertArrayEquals(left(44100, note(95, 0)), left(44100, new Note(42, 95, 0)));
+		assertArrayEquals(left(44100, note(95, 0)), left(44100, new Note(MidiClick.PLAIN, 95, 0)));
+	}
+
+	// beat 1's click (MidiClick.ACCENTED): a 2000 Hz tone, 3 dB louder (root mean square), with the same rise and fall,
+	// silent after 30 ms
+	@Test
+	public void theAccentedClickIsA2000HzTone3DecibelsLouderWithTheSameEnvelope() {
+		for (float rate : new float[] {44100, 48000}) {
+			float[] plain = left(rate, note(95, 0));
+			float[] accented = left(rate, new Note(MidiClick.ACCENTED, 95, 0));
+			int ms5 = Math.round(rate * 0.005f);
+			int ms30 = Math.round(rate * 0.030f);
+
+			assertEquals(2000, frequency(accented, 0, ms30, rate), 20, rate + " Hz");
+			assertEquals(Math.pow(10, 3 / 20.0), rms(accented, 0, ms30) / rms(plain, 0, ms30), 0.01, rate + " Hz: 3 dB louder");
+			assertEquals(Math.E, peak(accented, ms5, 2 * ms5) / peak(accented, 2 * ms5, 3 * ms5), 0.05, rate + " Hz: falls by e every 5 ms");
+			assertEquals(0, peak(accented, ms30, accented.length), 0, rate + " Hz: silent from 30 ms");
+		}
+	}
+
+	// as the drum tap gives it, at a velocity: what an accented note sounds from its frame
+	@Test
+	public void theAccentedClickAtAVelocityIsWhatAnAccentedNoteSounds() {
+		float[] sound = ClickProcessor.sound(44100, 64, true);
+
+		assertArrayEquals(Arrays.copyOf(left(44100, new Note(MidiClick.ACCENTED, 64, 0)), sound.length), sound);
 	}
 
 	// a note far into a later block, and one that sounds on across a block's end, click as on frame 0

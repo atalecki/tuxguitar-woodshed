@@ -228,7 +228,7 @@ Feature: Recording line-in audio
     And I have armed track 2
     When I record from measure 2 beat 1 to measure 3 beat 1
     Then the output holds 4 Count In clicks, 22050 samples apart within 1 sample
-    And every Count In click sounds the built-in click at velocity 127
+    And the Count In clicks sound the built-in click at velocity 127, accented on click 1 only
 
   # Input level
 

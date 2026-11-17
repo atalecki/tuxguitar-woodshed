@@ -42,7 +42,7 @@ public class MidiPlayerCountDown {
 	}
 
 	// one tick per beat of the header's time signature (unless a tick count is set), at the header's tempo scaled
-	// exactly by the tempo percent
+	// exactly by the tempo percent; the first of each measure of its time signature accented
 	private void playTicks(int channelId, TGMeasureHeader header) throws MidiPlayerException, InterruptedException {
 		double tgTempo = ((header.getTempo().getQuarterValue() * (double) this.getTempoPercent()) / DEFAULT_TEMPO_PERCENT);
 		long tgLength = header.getTimeSignature().getDenominator().getTime();
@@ -58,9 +58,10 @@ public class MidiPlayerCountDown {
 				tickStart += tickLength;
 				tickIndex ++;
 				if( tickIndex <= localTickCount ){
-					this.player.getOutputTransmitter().sendNoteOn(channelId, click.getNote(), click.getVelocity(), -1, false);
+					int note = click.getNote(channelId, MidiClick.isAccented(tickIndex - 1, header.getTimeSignature().getNumerator()));
+					this.player.getOutputTransmitter().sendNoteOn(channelId, note, click.getVelocity(), -1, false);
 					this.pause( 1 );
-					this.player.getOutputTransmitter().sendNoteOff(channelId, click.getNote(), click.getVelocity(), -1, false);
+					this.player.getOutputTransmitter().sendNoteOff(channelId, note, click.getVelocity(), -1, false);
 				}
 			}
 			this.pause( 10 );

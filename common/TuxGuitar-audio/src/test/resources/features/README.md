@@ -113,7 +113,11 @@ offline (`TGMetronome`, `TGDrumTap`), and live on the TuxGuitar Synthesizer's ow
 `MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by plugin delay compensation like the
 tracks), whether or not the song has a percussion channel; with another MIDI Port the Metronome is still the
 sequencer's metronome track on the percussion channel, and Count In clicks on the percussion channel as before, both
-the click sound's drum note. A song without a percussion channel clicks
+the click sound's drum note. Beat 1 is accented, decided once (lib's `MidiClick.isAccented`: the first of each
+measure's worth of clicks) for the Metronome (each measure's first beat, as its time signature says) and Count In (the
+first click of each measure it counts, in the time signature it leads into), live (the parser, Count In's timer) and
+offline (`TGMetronome`, `TGCountIn`); on the drums the note says it (`MidiClick.ACCENTED`, 76, or `PLAIN`, 77), and any
+other channel gets the drum note on every beat, so another MIDI Port is unchanged. A song without a percussion channel clicks
 on a channel of the player's own that is not in the song (`MidiClickChannels`, lib): the TuxGuitar
 Synthesizer's drums, else a new percussion channel (bank 128, Volume 127, Balance 64), General MIDI
 channel 10 on any other MIDI Port. These scenarios play on the TuxGuitar Synthesizer, so lib's and gm-utils' unit tests
@@ -210,6 +214,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 |---|---|
 | `tracks/audio_tracks` | audio tracks: adding, channels, cloning, removing, which MIDI Port they need |
 | `recording/recording_line_in` | arming, input channels and level, Count In, monitoring, recording at another Percentage of Tempo |
+| `transport/the_click_accent` | the built-in click's accent on beat 1: the Metronome and Count In, time signatures, live and offline |
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
 | `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain; what a scan reports, and why an editor does not open |
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
@@ -352,9 +357,13 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **The built-in click**: the sound of Count In and the Metronome on the TuxGuitar Synthesizer, made in code (no
   recorded sample, no General MIDI): a 1500 Hz sine from phase 0, its level rising in a straight line over its first
   0.2 ms, then falling by a factor of e every 5 ms, silent 30 ms after it starts. It is the same on the left and the
-  right and on every beat (no accent), and its level is 0.5 times the velocity / 127 (its peak, 0.9 of that, is
-  -9.4 dBFS at the default velocity 95). It starts on the sample its note reaches it, at every sample rate the same
-  sound, and adds no latency.
+  right, and its level is 0.5 times the velocity / 127 (its peak, 0.9 of that, is -9.4 dBFS at the default velocity
+  95). Beat 1 of each measure is **accented**: a 2000 Hz sine, 3 dB louder (its level 0.5 x 10^(3/20), about 0.71,
+  times the velocity / 127), with the same rise and fall; the Metronome accents each measure's first beat as its time
+  signature says (a Metronome started mid-measure does not accent the beat it starts on), and Count In the first click
+  of each measure it counts, in the time signature of the measure it leads into (8 ticks in 4/4: clicks 1 and 5; 6
+  ticks in 3/4: clicks 1 and 4). It starts on the sample its note reaches it, at every sample rate the same sound, and
+  adds no latency.
 
 ### Tracks and sound
 
@@ -460,8 +469,11 @@ These features change how TuxGuitar works today. They are requirements, not side
   mix. Count In and Metronome clicks are counted there, in two parts: a click's position is the sample on which
   TuxGuitar sends its note to the drums, where the built-in click starts (its attack is no one-sample click, so the
   position is not measured from the audio), and each click must sound on the drum tap, and in the output, above -60 dBFS
-  within its beat. **Every Count In click sounds the built-in click at velocity V**: the drum tap is, sample for sample,
-  the built-in click at that velocity starting on each click's sample, and silence elsewhere.
+  within its beat. **The Count In (or Metronome) clicks sound the built-in click at velocity V, accented on ...**: from
+  the first click to the end of the last, the drum tap is, sample for sample, the plain built-in click at that velocity
+  from each plain click's sample, silent between the clicks; an accented one is measured, its frequency over its first
+  20 ms (2000 Hz within 1%) and its level (root mean square over its 30 ms) 3 dB above the plain click's within 1%.
+  Live, the output's clicks are measured the same way, against the plain click on beat 2.
 - **A track plays for N seconds**: how long its audio lasts as the song plays; **a take is N samples long**: how long it
   is stored.
 - **Click** (in a take or a signal): a one-sample impulse. Its position is its first sample above half its peak; next to a tone, a click is a
