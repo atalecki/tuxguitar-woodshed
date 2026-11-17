@@ -103,6 +103,13 @@ public class LevelSteps {
 		assertTrue(passes > 1);
 	}
 
+	// a plucked note: the strongest frequency from 20 Hz to 2 kHz over the measure
+	@Then("track {int} sounds a {double} Hz note within 1% in measure {int}")
+	public void soundsANote(int number, double pitch, int measure) {
+		int[] bounds = heard().measure(measure);
+		assertEquals(pitch, Meters.strongest(tap(number, 0), bounds[0], bounds[1], 20, 2000, TestInterface.SAMPLE_RATE), pitch / 100);
+	}
+
 	@Then("track {int} sounds a {int} Hz tone within 1 Hz in measure {int}")
 	public void soundsAToneWithinOneHertz(int number, int frequency, int measure) {
 		assertEquals(frequency, frequency(tap(number, 0), measure), 1.0);
@@ -150,6 +157,30 @@ public class LevelSteps {
 		double first = Meters.level(tap, sounding[1] - LONG, sounding[1], one, TestInterface.SAMPLE_RATE);
 		double second = Meters.level(tap, sounding[1] - LONG, sounding[1], other, TestInterface.SAMPLE_RATE);
 		assertTrue(first > level && second > level, one + " Hz peaks at " + first + ", " + other + " Hz at " + second);
+	}
+
+	// a tone among others over the range (from its first sample above -60 dBFS for its start; at the range's end for where
+	// it ends), so a damped note is heard while it is held, not as it dies away
+	@Then("track {int} sounds a {double} Hz tone rising to {double} Hz within 1 Hz from {position} to {position}")
+	public void soundsAToneRisingToFromTo(int number, double from, double to, SongPosition start, SongPosition end) {
+		float[] tap = tap(number, 0);
+		int first = heard().sampleAt(start, 0);
+		while (Math.abs(tap[first]) < SILENT) {
+			first++;
+		}
+		int last = heard().sampleAt(end, 0);
+		assertEquals(from, Meters.peakFrequency(tap, first, first + SHORT, from - NEAR, to + NEAR, TestInterface.SAMPLE_RATE), 1.0, "where it starts");
+		assertEquals(to, Meters.peakFrequency(tap, last - LONG, last, from - NEAR, to + NEAR, TestInterface.SAMPLE_RATE), 1.0, "where it ends");
+	}
+
+	@Then("track {int} sounds a {double} Hz tone and a {double} Hz tone from {position} to {position}, each peaking above {float}")
+	public void soundsTwoTonesFromTo(int number, double one, double other, SongPosition start, SongPosition end, float level) {
+		float[] tap = tap(number, 0);
+		int first = heard().sampleAt(start, 0);
+		int last = heard().sampleAt(end, 0);
+		double firstLevel = Meters.level(tap, first, last, one, TestInterface.SAMPLE_RATE);
+		double secondLevel = Meters.level(tap, first, last, other, TestInterface.SAMPLE_RATE);
+		assertTrue(firstLevel > level && secondLevel > level, one + " Hz peaks at " + firstLevel + ", " + other + " Hz at " + secondLevel);
 	}
 
 	@Then("the output peaks below {float} in measure {int}")

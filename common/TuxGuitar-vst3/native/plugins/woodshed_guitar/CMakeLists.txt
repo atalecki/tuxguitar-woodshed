@@ -4,7 +4,7 @@
 include(../../cmake/nam.cmake)
 
 # the plugin's sound, apart from VST3: the strings, the resampling, the profile, the state, and NeuralAmpModelerCore
-add_library(tg_woodshed_core STATIC ${TG_NAM_CORE_SOURCES})
+add_library(tg_woodshed_core STATIC voice.cpp ${TG_NAM_CORE_SOURCES})
 target_include_directories(tg_woodshed_core PUBLIC . "${TG_NAM_CORE_DIR}" SYSTEM PUBLIC "${TG_NAM_CORE_DIR}/Dependencies/nlohmann" "${TG_EIGEN_DIR}")
 target_compile_features(tg_woodshed_core PUBLIC cxx_std_20)
 target_compile_definitions(tg_woodshed_core PUBLIC NAM_ENABLE_A2_FAST)

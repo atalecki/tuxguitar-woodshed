@@ -28,7 +28,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
 
   # The voice
 
-  @planned
   Scenario Outline: a note sounds its pitch
     Given I have entered fret <fret> on string <string>
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
@@ -41,7 +40,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | 5    | 1      | 440    |
       | 12   | 1      | 659.26 |
 
-  @planned
   Scenario Outline: a note is plucked at a level that follows its dynamic
     Given I have entered fret 5 on string 1 at dynamic <dynamic>
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
@@ -54,29 +52,28 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | mf      | 0.311 |
       | ppp     | 0.059 |
 
-  @planned
   Scenario: the notes of a chord ring together, each on a string of its own
     Given I have entered fret 5 on string 1
     And I have entered fret 5 on string 2
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     When I play the song from measure 1 beat 1
-    Then track 1 ends measure 1 sounding a 440 Hz tone and a 329.6 Hz tone, each peaking above 0.01
+    Then track 1 sounds a 440 Hz tone and a 329.6 Hz tone from measure 1 beat 1.5 to measure 1 beat 2, each peaking above 0.01
 
-  # a quarter note at 120 bpm ends at beat 2; a string left alone would ring for seconds
-  @planned
+  # a quarter note at 120 bpm ends at beat 2; a string left alone would ring for seconds. A damped note is heard while it
+  # is held (to beat 2), not in the 80 ms it takes to die away
   Scenario: a note is damped when it ends
     Given I have entered fret 5 on string 1
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     When I play the song from measure 1 beat 1
-    Then track 1 sounds nothing above -60 dBFS from measure 1 beat 2.5 to measure 2 beat 1
+    Then track 1 peaks at 0.374 within 1% in measure 1
+    And track 1 sounds nothing above -60 dBFS from measure 1 beat 2.5 to measure 2 beat 1
 
-  @planned
   Scenario: a bend raises the pitch of its note only
     Given I have entered fret 5 on string 1 with a full bend
     And I have entered fret 5 on string 2
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     When I play the song from measure 1 beat 1
-    Then track 1 sounds a 440 Hz tone rising to 493.9 Hz within 1 Hz in measure 1
+    Then track 1 sounds a 440 Hz tone rising to 493.9 Hz within 1 Hz from measure 1 beat 1 to measure 1 beat 2
     And track 1 sounds a 329.6 Hz tone that stays within 1 Hz in measure 1
 
   @planned
