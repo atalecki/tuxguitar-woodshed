@@ -109,42 +109,47 @@ void GuitarPlugin::applyChanges(IParameterChanges* changes) {
 	}
 }
 
-// sample for sample: each event applies from its offset; the strings' sum at the input gain, through the profile (dry
-// while a load holds the lock), at the output level, on both sides
+// the strings' sum at the input gain, through the profile (dry while a load holds the lock), at the output level, on
+// both sides
 tresult PLUGIN_API GuitarPlugin::process(ProcessData& data) {
 	applyChanges(data.inputParameterChanges);
 	if (data.numSamples <= 0 || data.numOutputs == 0 || !strings) {
 		return kResultOk;
 	}
-	int32 from = 0;
-	int32 count = (data.inputEvents ? data.inputEvents->getEventCount() : 0);
-	for (int32 i = 0; i < count; i++) {
-		Event event;
-		if (data.inputEvents->getEvent(i, event) == kResultOk) {
-			int32 to = std::max(from, std::min(data.numSamples, event.sampleOffset));
-			sound(from, to);
-			play(event);
-			from = to;
-		}
-	}
-	sound(from, data.numSamples);
-	float input = gain(parameter(kInputGain));
-	for (int32 i = 0; i < data.numSamples; i++) {
-		voice[i] *= input;
-	}
+	playEvents(data.inputEvents, data.numSamples);
+	scale(gain(parameter(kInputGain)), data.numSamples);
 	std::unique_lock<std::mutex> lock(ampLock, std::try_to_lock);
 	if (lock && amp) {
 		slimTo(*amp);
 		amp->process(voice.data(), data.numSamples);
 	}
-	float output = gain(parameter(kOutputLevel));
+	scale(gain(parameter(kOutputLevel)), data.numSamples);
 	for (int32 side = 0; side < 2; side++) {
-		float* out = data.outputs[0].channelBuffers32[side];
-		for (int32 i = 0; i < data.numSamples; i++) {
-			out[i] = voice[i] * output;
-		}
+		std::memcpy(data.outputs[0].channelBuffers32[side], voice.data(), data.numSamples * sizeof(float));
 	}
 	return kResultOk;
+}
+
+// sample for sample: each event applies from its offset
+void GuitarPlugin::playEvents(IEventList* events, int32 frames) {
+	int32 from = 0;
+	int32 count = (events ? events->getEventCount() : 0);
+	for (int32 i = 0; i < count; i++) {
+		Event event;
+		if (events->getEvent(i, event) == kResultOk) {
+			int32 to = std::max(from, std::min(frames, event.sampleOffset));
+			sound(from, to);
+			play(event);
+			from = to;
+		}
+	}
+	sound(from, frames);
+}
+
+void GuitarPlugin::scale(float by, int32 frames) {
+	for (int32 i = 0; i < frames; i++) {
+		voice[i] *= by;
+	}
 }
 
 void GuitarPlugin::sound(int32 from, int32 to) {
@@ -295,13 +300,14 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	return kResultOk;
 }
 
+// the binary attribute as a reply's "report"
+static tresult report(IAttributeList* attributes, const std::string& text) {
+	return attributes->setBinary("report", text.data(), (uint32) text.size());
+}
+
 // "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
-// "Woodshed.profile" answers the status: the profile's name, a line break, the refusal; "Woodshed.shown" answers what
-// the open editor's two lines show (read from its window), a line break between; "Woodshed.controls" what its
-// controls show; "Woodshed.move" moves the control of the parameter "id" to the "value" (a double), as the user does
-tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
-	FIDString id = message->getMessageID();
-	IAttributeList* attributes = message->getAttributes();
+// "Woodshed.profile" answers the status: the profile's name, a line break, the refusal; else kNotImplemented
+tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "Woodshed.load") == 0) {
 		const void* data = nullptr;
 		uint32 size = 0;
@@ -311,18 +317,25 @@ tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
 	}
 	if (std::strcmp(id, "Woodshed.profile") == 0) {
 		ProfileStatus now = status();
-		std::string report = now.name + "\n" + now.refusal;
-		return attributes->setBinary("report", report.data(), (uint32) report.size());
+		return report(attributes, now.name + "\n" + now.refusal);
 	}
-	if (std::strcmp(id, "Woodshed.shown") == 0 && view) {
-		std::string shown = view->shown();
-		return attributes->setBinary("report", shown.data(), (uint32) shown.size());
+	return kNotImplemented;
+}
+
+// while its editor is open: "Woodshed.shown" answers what its two lines show (read from its window), a line break
+// between; "Woodshed.controls" what its controls show; "Woodshed.move" moves the control of the parameter "id" to the
+// "value" (a double), as the user does; else kNotImplemented
+tresult GuitarPlugin::editorMessage(FIDString id, IAttributeList* attributes) {
+	if (!view) {
+		return kNotImplemented;
 	}
-	if (std::strcmp(id, "Woodshed.controls") == 0 && view) {
-		std::string controls = view->controls();
-		return attributes->setBinary("report", controls.data(), (uint32) controls.size());
+	if (std::strcmp(id, "Woodshed.shown") == 0) {
+		return report(attributes, view->shown());
 	}
-	if (std::strcmp(id, "Woodshed.move") == 0 && view) {
+	if (std::strcmp(id, "Woodshed.controls") == 0) {
+		return report(attributes, view->controls());
+	}
+	if (std::strcmp(id, "Woodshed.move") == 0) {
 		int64 param = 0;
 		const void* data = nullptr;
 		uint32 size = 0;
@@ -334,7 +347,14 @@ tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
 		view->move((ParamID) param, value);
 		return kResultOk;
 	}
-	return SingleComponentEffect::notify(message);
+	return kNotImplemented;
+}
+
+tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
+	FIDString id = message->getMessageID();
+	tresult result = profileMessage(id, message->getAttributes());
+	result = (result == kNotImplemented ? editorMessage(id, message->getAttributes()) : result);
+	return (result == kNotImplemented ? SingleComponentEffect::notify(message) : result);
 }
 
 tresult PLUGIN_API GuitarPlugin::queryInterface(const TUID _iid, void** obj) {

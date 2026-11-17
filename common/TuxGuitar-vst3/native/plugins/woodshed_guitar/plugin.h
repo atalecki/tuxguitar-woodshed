@@ -66,7 +66,11 @@ public:
 
 private:
 	void play(const Event& event);
+	void playEvents(IEventList* events, int32 frames);
 	void sound(int32 from, int32 to);
+	void scale(float by, int32 frames);
+	tresult profileMessage(FIDString id, IAttributeList* attributes);
+	tresult editorMessage(FIDString id, IAttributeList* attributes);
 	void applyChanges(IParameterChanges* changes);
 	void install(const std::string& path, const std::string& contents, const Capture& capture);
 	void restoreProfile(const std::string& path, const std::string& contents);

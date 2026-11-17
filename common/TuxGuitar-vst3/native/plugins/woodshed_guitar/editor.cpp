@@ -72,19 +72,34 @@ GuitarView* viewOf(HWND window) {
 	return reinterpret_cast<GuitarView*>(GetWindowLongPtrW(window, GWLP_USERDATA));
 }
 
-// the button, a slider moved (a gesture until its end), Quality chosen
+// the button, Quality chosen; true when handled
+bool command(GuitarView* view, WPARAM wParam) {
+	if (LOWORD(wParam) == kLoad && HIWORD(wParam) == BN_CLICKED) {
+		view->chooseProfile();
+		return true;
+	}
+	if (LOWORD(wParam) == kQualityBox && HIWORD(wParam) == CBN_SELCHANGE) {
+		view->chose();
+		return true;
+	}
+	return false;
+}
+
+// a command, or a slider moved (a gesture until its end); true when handled
+bool handled(GuitarView* view, UINT message, WPARAM wParam, LPARAM lParam) {
+	if (message == WM_COMMAND) {
+		return command(view, wParam);
+	}
+	if (message == WM_HSCROLL && lParam != 0) {
+		view->slid((void*) lParam, LOWORD(wParam) == TB_ENDTRACK);
+		return true;
+	}
+	return false;
+}
+
 LRESULT CALLBACK editorProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	GuitarView* view = viewOf(window);
-	if (view && message == WM_COMMAND && LOWORD(wParam) == kLoad && HIWORD(wParam) == BN_CLICKED) {
-		view->chooseProfile();
-		return 0;
-	}
-	if (view && message == WM_COMMAND && LOWORD(wParam) == kQualityBox && HIWORD(wParam) == CBN_SELCHANGE) {
-		view->chose();
-		return 0;
-	}
-	if (view && message == WM_HSCROLL && lParam != 0) {
-		view->slid((void*) lParam, LOWORD(wParam) == TB_ENDTRACK);
+	if (view && handled(view, message, wParam, lParam)) {
 		return 0;
 	}
 	if (message == WM_CTLCOLORSTATIC) {

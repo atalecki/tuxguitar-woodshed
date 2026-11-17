@@ -186,15 +186,15 @@ public class LevelSteps {
 	// on both sides, over all that was heard
 	@Then("track {int} sounds {float} times what track {int} sounds, sample for sample within {float}")
 	public void soundsTimesWhatAnotherSounds(int number, float times, int other, float within) {
-		for (int side = 0; side < 2; side++) {
-			float[] tap = tap(number, side);
-			float[] reference = tap(other, side);
-			int length = Math.min(tap.length, reference.length);
-			for (int i = 0; i < length; i++) {
-				assertEquals(times * reference[i], tap[i], within, "side " + side + ", sample " + i);
-			}
-			assertTrue(Meters.peak(reference, 0, length) > SILENT, "track " + other + " sounds nothing");
+		java.util.stream.IntStream.range(0, 2).forEach(side -> assertTimes(tap(number, side), tap(other, side), times, within, side));
+	}
+
+	private static void assertTimes(float[] tap, float[] reference, float times, float within, int side) {
+		int length = Math.min(tap.length, reference.length);
+		for (int i = 0; i < length; i++) {
+			assertEquals(times * reference[i], tap[i], within, "side " + side + ", sample " + i);
 		}
+		assertTrue(Meters.peak(reference, 0, length) > SILENT, "the other track sounds nothing");
 	}
 
 	// the lag (within LAGS samples either way) at which track 1 fits N times track 2 best, by the root mean square of
@@ -234,13 +234,14 @@ public class LevelSteps {
 	@Then("track {int} sounds, every sample a number, peaking above {float} in measure {int}")
 	public void soundsNumbersPeakingAbove(int number, float level, int measure) {
 		int[] bounds = heard().measure(measure);
-		for (int side = 0; side < 2; side++) {
-			float[] tap = tap(number, side);
-			for (int i = bounds[0]; i < bounds[1]; i++) {
-				assertTrue(Float.isFinite(tap[i]), "side " + side + ", sample " + i + ": " + tap[i]);
-			}
-			assertTrue(Meters.peak(tap, bounds[0], bounds[1]) > level, "peak " + Meters.peak(tap, bounds[0], bounds[1]));
+		java.util.stream.IntStream.range(0, 2).forEach(side -> assertNumbersPeakingAbove(tap(number, side), bounds, level, side));
+	}
+
+	private static void assertNumbersPeakingAbove(float[] tap, int[] bounds, float level, int side) {
+		for (int i = bounds[0]; i < bounds[1]; i++) {
+			assertTrue(Float.isFinite(tap[i]), "side " + side + ", sample " + i + ": " + tap[i]);
 		}
+		assertTrue(Meters.peak(tap, bounds[0], bounds[1]) > level, "peak " + Meters.peak(tap, bounds[0], bounds[1]));
 	}
 
 	// some sample of the measure differs by more than -60 dBFS
