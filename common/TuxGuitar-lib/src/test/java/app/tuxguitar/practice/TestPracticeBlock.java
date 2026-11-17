@@ -172,16 +172,22 @@ public class TestPracticeBlock {
 		set(TGPracticeUnitKind.MEASURE, 1, 4, 2);
 		settings.setTurns(9);
 		TGPracticeSession session = start();
-		boolean overlaps = false;
-		for (int seed = 1; seed <= 200; seed++) {
-			List<String> turns = choose(session.chooser(seed), 9);
-			for (int cycle = 0; cycle < 9; cycle += 3) {
-				assertEquals("[1-2, 2-3, 3-4]", turns.subList(cycle, cycle + 3).stream().sorted().collect(Collectors.toList()).toString(), turns.toString());
-			}
-			assertTrue(IntStream.range(1, 9).noneMatch(turn -> turns.get(turn).equals(turns.get(turn - 1))), turns.toString());
-			overlaps |= IntStream.range(1, 9).anyMatch(turn -> Math.abs(turns.get(turn).charAt(0) - turns.get(turn - 1).charAt(0)) == 1);
+		List<List<String>> runs = IntStream.rangeClosed(1, 200).mapToObj(seed -> choose(session.chooser(seed), 9)).collect(Collectors.toList());
+		runs.forEach(TestPracticeBlock::assertEachCycleChoosesEveryBlockOnceWithoutRepeats);
+		assertTrue(runs.stream().anyMatch(TestPracticeBlock::followsABlockItOverlaps));
+	}
+
+	// each cycle of 3 turns chooses blocks 1-2, 2-3 and 3-4 once, and no block comes twice in a row
+	private static void assertEachCycleChoosesEveryBlockOnceWithoutRepeats(List<String> turns) {
+		for (int cycle = 0; cycle < turns.size(); cycle += 3) {
+			assertEquals("[1-2, 2-3, 3-4]", turns.subList(cycle, cycle + 3).stream().sorted().collect(Collectors.toList()).toString(), turns.toString());
 		}
-		assertTrue(overlaps);
+		assertTrue(IntStream.range(1, turns.size()).noneMatch(turn -> turns.get(turn).equals(turns.get(turn - 1))), turns.toString());
+	}
+
+	// whether some turn chooses a block that overlaps the block before it (their first measures one apart)
+	private static boolean followsABlockItOverlaps(List<String> turns) {
+		return IntStream.range(1, turns.size()).anyMatch(turn -> Math.abs(turns.get(turn).charAt(0) - turns.get(turn - 1).charAt(0)) == 1);
 	}
 
 	private static List<String> choose(TGPracticeChooser chooser, int turns) {
