@@ -159,7 +159,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
   # A1 and A2 captures (README: the test captures). What they sound like is no number the scenario knows: they play
   # when the plugin takes them, sound, and sound other than the dry voice of track 2
 
-  @planned
   Scenario Outline: A1 and A2 captures play
     Given there is the test NAM capture "<capture>"
     And I have entered fret 5 on string 1
@@ -180,7 +179,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | A2 test.nam         |
 
   # an A2 capture holds a full and a light model (slimmable): Quality chooses, Full until I change it
-  @planned
   Scenario: Quality Light plays an A2 capture's light model
     Given there is the test NAM capture "A2 test.nam"
     And I have entered fret 5 on string 1

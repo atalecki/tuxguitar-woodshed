@@ -45,6 +45,8 @@ public:
 	void prepare(double hostRate, int maxBlock);
 	// the delay it adds, in samples at the host's rate
 	int latency() const;
+	// a slimmable capture (an A2's container) plays its full model, or, light, its smallest
+	void slim(bool light);
 	void process(float* signal, int frames);
 
 private:

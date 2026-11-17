@@ -51,6 +51,10 @@ tresult PLUGIN_API GuitarPlugin::initialize(FUnknown* context) {
 	addAudioOutput(u"Output", SpeakerArr::kStereo);
 	parameters.addParameter(new RangeParameter(u"Input gain", kInputGain, u"dB", -24.0, 24.0, 0.0, 0, ParameterInfo::kCanAutomate));
 	parameters.addParameter(new RangeParameter(u"Output level", kOutputLevel, u"dB", -40.0, 12.0, 0.0, 0, ParameterInfo::kCanAutomate));
+	StringListParameter* quality = new StringListParameter(u"Quality", kQuality, nullptr, ParameterInfo::kCanAutomate | ParameterInfo::kIsList);
+	quality->appendString(u"Full");
+	quality->appendString(u"Light");
+	parameters.addParameter(quality);
 	return kResultOk;
 }
 
@@ -129,6 +133,7 @@ tresult PLUGIN_API GuitarPlugin::process(ProcessData& data) {
 	}
 	std::unique_lock<std::mutex> lock(ampLock, std::try_to_lock);
 	if (lock && amp) {
+		slimTo(*amp);
 		amp->process(voice.data(), data.numSamples);
 	}
 	float output = gain(plain(kOutputLevel));
@@ -156,6 +161,15 @@ void GuitarPlugin::play(const Event& event) {
 	}
 }
 
+// the amp at the Quality chosen, told only when it changes
+void GuitarPlugin::slimTo(Amp& amp) {
+	int quality = (int) plain(kQuality);
+	if (quality != slimmed) {
+		amp.slim(quality == 1);
+		slimmed = quality;
+	}
+}
+
 // the capture's amp, made ready for the host's rate, takes the old one's place; or, with no capture, none does
 void GuitarPlugin::install(const std::string& path, const std::string& contents, const Capture& capture) {
 	std::shared_ptr<Amp> next;
@@ -168,6 +182,7 @@ void GuitarPlugin::install(const std::string& path, const std::string& contents,
 	{
 		std::lock_guard<std::mutex> lock(ampLock);
 		amp.swap(next);
+		slimmed = -1;
 	}
 	this->path = path;
 	this->contents = contents;
@@ -223,6 +238,7 @@ tresult PLUGIN_API GuitarPlugin::getState(IBStream* state) {
 	Saved saved;
 	saved.inputGain = plain(kInputGain);
 	saved.outputLevel = plain(kOutputLevel);
+	saved.quality = plain(kQuality);
 	saved.path = path;
 	saved.contents = contents;
 	std::string bytes = writeState(saved);
@@ -237,6 +253,7 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	}
 	SingleComponentEffect::setParamNormalized(kInputGain, getParameterObject(kInputGain)->toNormalized(saved.inputGain));
 	SingleComponentEffect::setParamNormalized(kOutputLevel, getParameterObject(kOutputLevel)->toNormalized(saved.outputLevel));
+	SingleComponentEffect::setParamNormalized(kQuality, getParameterObject(kQuality)->toNormalized(saved.quality));
 	refusal.clear();
 	restoreProfile(saved.path, saved.contents);
 	return kResultOk;

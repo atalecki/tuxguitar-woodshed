@@ -2,6 +2,7 @@
 
 #include "NAM/get_dsp.h"
 #include "NAM/nam_file.h"
+#include "NAM/slimmable.h"
 
 #include <algorithm>
 #include <cctype>
@@ -105,6 +106,15 @@ void Amp::prepare(double hostRate, int maxBlock) {
 
 int Amp::latency() const {
 	return (resampler ? resampler->latency() : 0);
+}
+
+// a container plays the first of its models whose size is above the size asked for: 0 its lightest, 1 its full one
+// (it starts on its first, the lightest, until told)
+void Amp::slim(bool light) {
+	nam::SlimmableModel* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+	if (slimmable) {
+		slimmable->SetSlimmableSize(light ? 0.0 : 1.0);
+	}
 }
 
 void Amp::run(const double* input, double* output, int frames) {

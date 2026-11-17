@@ -17,8 +17,8 @@ namespace Woodshed {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 
-// its parameters, plain values in dB
-enum ParamIds : ParamID { kInputGain = 1, kOutputLevel = 2 };
+// its parameters: the gains in dB; Quality 0 Full, 1 Light
+enum ParamIds : ParamID { kInputGain = 1, kOutputLevel = 2, kQuality = 3 };
 
 // what the plugin plays its voice through, as the user reads it: the profile's file name (empty for none) and why the
 // last file given to it was refused (empty when it was not)
@@ -60,6 +60,7 @@ private:
 	void install(const std::string& path, const std::string& contents, const Capture& capture);
 	void restoreProfile(const std::string& path, const std::string& contents);
 	void checkLatency();
+	void slimTo(Amp& amp);
 
 	std::unique_ptr<Strings> strings;
 	// the strings' sum, a block long
@@ -74,6 +75,8 @@ private:
 	std::string contents;
 	std::string refusal;
 	uint32 reportedLatency = 0;
+	// the Quality the amp plays at (-1 before it is told one)
+	int slimmed = -1;
 };
 
 }  // namespace Woodshed
