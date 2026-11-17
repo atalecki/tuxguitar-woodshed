@@ -21,7 +21,7 @@ set(TG_WOODSHED_SOURCES plugin.cpp editor.cpp "${public_sdk_SOURCE_DIR}/source/v
 smtg_add_vst3plugin(tg_woodshed_guitar PACKAGE_NAME "Woodshed Guitar" SOURCES_LIST ${TG_WOODSHED_SOURCES})
 target_link_libraries(tg_woodshed_guitar PRIVATE sdk tg_woodshed_core)
 if(SMTG_WIN)
-	target_link_libraries(tg_woodshed_guitar PRIVATE comdlg32 user32 gdi32)
+	target_link_libraries(tg_woodshed_guitar PRIVATE comctl32 comdlg32 user32 gdi32)
 endif()
 
 # times captures played as the plugin plays them (the CPU cost a hand check cannot measure): bin/woodshed-guitar-time

@@ -92,7 +92,7 @@ uint32 PLUGIN_API GuitarPlugin::getLatencySamples() {
 	return (amp ? (uint32) amp->latency() : 0);
 }
 
-double GuitarPlugin::plain(ParamID id) {
+double GuitarPlugin::parameter(ParamID id) {
 	return getParameterObject(id)->toPlain(getParamNormalized(id));
 }
 
@@ -104,7 +104,7 @@ void GuitarPlugin::applyChanges(IParameterChanges* changes) {
 		int32 offset = 0;
 		ParamValue value = 0;
 		if (queue->getPointCount() > 0 && queue->getPoint(queue->getPointCount() - 1, offset, value) == kResultOk) {
-			setParamNormalized(queue->getParameterId(), value);
+			SingleComponentEffect::setParamNormalized(queue->getParameterId(), value);
 		}
 	}
 }
@@ -128,7 +128,7 @@ tresult PLUGIN_API GuitarPlugin::process(ProcessData& data) {
 		}
 	}
 	sound(from, data.numSamples);
-	float input = gain(plain(kInputGain));
+	float input = gain(parameter(kInputGain));
 	for (int32 i = 0; i < data.numSamples; i++) {
 		voice[i] *= input;
 	}
@@ -137,7 +137,7 @@ tresult PLUGIN_API GuitarPlugin::process(ProcessData& data) {
 		slimTo(*amp);
 		amp->process(voice.data(), data.numSamples);
 	}
-	float output = gain(plain(kOutputLevel));
+	float output = gain(parameter(kOutputLevel));
 	for (int32 side = 0; side < 2; side++) {
 		float* out = data.outputs[0].channelBuffers32[side];
 		for (int32 i = 0; i < data.numSamples; i++) {
@@ -164,7 +164,7 @@ void GuitarPlugin::play(const Event& event) {
 
 // the amp at the Quality chosen, told only when it changes
 void GuitarPlugin::slimTo(Amp& amp) {
-	int quality = (int) plain(kQuality);
+	int quality = (int) parameter(kQuality);
 	if (quality != slimmed) {
 		amp.slim(quality == 1);
 		slimmed = quality;
@@ -205,6 +205,24 @@ bool GuitarPlugin::loadProfile(const std::string& path) {
 		handler->setDirty(true);
 	}
 	return true;
+}
+
+void GuitarPlugin::edit(ParamID id, double plain, Phase phase) {
+	ParamValue normalized = getParameterObject(id)->toNormalized(plain);
+	if (phase == kBegun) {
+		beginEdit(id);
+	}
+	SingleComponentEffect::setParamNormalized(id, normalized);
+	performEdit(id, normalized);
+	if (phase == kEnded) {
+		endEdit(id);
+	}
+}
+
+tresult PLUGIN_API GuitarPlugin::setParamNormalized(ParamID id, ParamValue value) {
+	tresult result = SingleComponentEffect::setParamNormalized(id, value);
+	refreshEditor();
+	return result;
 }
 
 void GuitarPlugin::editorOpened(GuitarView* view) {
@@ -253,9 +271,9 @@ void GuitarPlugin::restoreProfile(const std::string& path, const std::string& co
 
 tresult PLUGIN_API GuitarPlugin::getState(IBStream* state) {
 	Saved saved;
-	saved.inputGain = plain(kInputGain);
-	saved.outputLevel = plain(kOutputLevel);
-	saved.quality = plain(kQuality);
+	saved.inputGain = parameter(kInputGain);
+	saved.outputLevel = parameter(kOutputLevel);
+	saved.quality = parameter(kQuality);
 	saved.path = path;
 	saved.contents = contents;
 	std::string bytes = writeState(saved);
@@ -279,7 +297,8 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 
 // "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
 // "Woodshed.profile" answers the status: the profile's name, a line break, the refusal; "Woodshed.shown" answers what
-// the open editor's two lines show (read from its window), a line break between
+// the open editor's two lines show (read from its window), a line break between; "Woodshed.controls" what its
+// controls show; "Woodshed.move" moves the control of the parameter "id" to the "value" (a double), as the user does
 tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
@@ -298,6 +317,22 @@ tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
 	if (std::strcmp(id, "Woodshed.shown") == 0 && view) {
 		std::string shown = view->shown();
 		return attributes->setBinary("report", shown.data(), (uint32) shown.size());
+	}
+	if (std::strcmp(id, "Woodshed.controls") == 0 && view) {
+		std::string controls = view->controls();
+		return attributes->setBinary("report", controls.data(), (uint32) controls.size());
+	}
+	if (std::strcmp(id, "Woodshed.move") == 0 && view) {
+		int64 param = 0;
+		const void* data = nullptr;
+		uint32 size = 0;
+		double value = 0.0;
+		attributes->getInt("id", param);
+		if (attributes->getBinary("value", data, size) == kResultOk && size == sizeof(double)) {
+			std::memcpy(&value, data, sizeof(double));
+		}
+		view->move((ParamID) param, value);
+		return kResultOk;
 	}
 	return SingleComponentEffect::notify(message);
 }

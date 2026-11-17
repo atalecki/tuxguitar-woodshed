@@ -243,8 +243,10 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     When Woodshed Guitar of track 1 loads the NAM capture "Gain 3.nam"
     Then Woodshed Guitar of track 1 reports a latency of 0 samples
 
-  # Its editor: Load profile... (a file dialog for .nam files), the profile's name, and why the last file was refused. How
-  # it looks and its file dialog are checked by hand (README); what it shows is read from its window
+  # Its editor: Load profile... (a file dialog for .nam files), the profile's name, why the last file was refused, and
+  # its parameters (TuxGuitar shows its parameter window only for plugins without an editor of their own). How it looks
+  # and its file dialog are checked by hand (README); what it shows is read from its window, and a control is moved as
+  # the user moves it (the control set, then told to its window as the user's move is)
 
   Scenario: Woodshed Guitar's editor shows its profile
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
@@ -265,3 +267,38 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     When I open the editor of the source of track 1
     Then Woodshed Guitar's editor of track 1 shows "No profile: the dry guitar is heard" and ""
+
+  Scenario Outline: a control moved in Woodshed Guitar's editor changes the sound
+    Given I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have opened the editor of the source of track 1
+    When I set "<parameter>" to <value> in Woodshed Guitar's editor of track 1
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds <times> times what track 2 sounds, sample for sample within 0.001
+
+    Examples:
+      | parameter    | value | times |
+      | Input gain   | -20.0 | 0.3   |
+      | Output level | -20.0 | 0.3   |
+
+  Scenario: a control moved in Woodshed Guitar's editor modifies the song, one undo step
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have saved the song as a TuxGuitar file
+    And I have opened the editor of the source of track 1
+    When I set "Quality" to 1 in Woodshed Guitar's editor of track 1
+    Then the song is modified
+    And Woodshed Guitar of track 1 has "Quality" at 1.0
+    When I undo
+    Then Woodshed Guitar of track 1 has "Quality" at 0.0
+
+  Scenario: Woodshed Guitar's editor shows its parameters as they are
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have set "Output level" of the VST3 instrument of track 1 to -6.0
+    And I have set "Quality" of the VST3 instrument of track 1 to 1.0
+    When I open the editor of the source of track 1
+    Then Woodshed Guitar's editor of track 1 shows the controls "Input gain 0.0 dB, Output level -6.0 dB, Quality Light"

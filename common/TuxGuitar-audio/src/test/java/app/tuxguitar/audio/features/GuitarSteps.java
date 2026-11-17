@@ -178,6 +178,34 @@ public class GuitarSteps {
 		assertEquals(profile + "\n" + refusal, new String(shown, StandardCharsets.UTF_8));
 	}
 
+	// as the user moves the control of the parameter in the open editor (its plain value: dB, or Quality's index); then
+	// the app drains the gesture
+	@When("I set {string} to {double} in Woodshed Guitar's editor of track {int}")
+	public void setInTheEditor(String title, double value, int track) throws TGVst3Exception {
+		TGVst3Instance plugin = running(track);
+		plugin.message("Woodshed.move", Map.of("id", (long) plugin.findParameter(title)), Map.of("value", TGVst3Instance.doubles(value)));
+		TGLivePlugins.getInstance(world.fixture().context).drain();
+	}
+
+	@Then("Woodshed Guitar of track {int} has {string} at {double}")
+	public void hasAt(int track, String title, double value) throws TGVst3Exception {
+		assertEquals(value, (double) ofTheSong(track, plugin -> parameter(plugin, title)), 1e-9);
+	}
+
+	private static double parameter(TGVst3Instance plugin, String title) {
+		try {
+			return plugin.getParameter(plugin.findParameter(title));
+		} catch (TGVst3Exception e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	@Then("Woodshed Guitar's editor of track {int} shows the controls {string}")
+	public void itsEditorShowsTheControls(int track, String controls) throws TGVst3Exception {
+		byte[] shown = running(track).message("Woodshed.controls", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		assertEquals(controls, new String(shown, StandardCharsets.UTF_8));
+	}
+
 	@Then("Woodshed Guitar of track {int} reports a latency of {int} samples")
 	public void reportsALatencyOf(int track, int latency) throws TGVst3Exception {
 		assertEquals(latency, (int) ofTheSong(track, TGVst3Instance::getLatency));

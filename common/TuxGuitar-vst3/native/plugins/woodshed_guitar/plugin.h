@@ -56,12 +56,18 @@ public:
 	ProfileStatus status();
 	// its editor's view while one is open (none: nullptr)
 	void editorOpened(GuitarView* view);
+	// a parameter's plain value
+	double parameter(ParamID id);
+	// as its editor changes a parameter: a gesture begun, going on, or ended, each telling the host the value
+	enum Phase { kBegun, kGoingOn, kEnded };
+	void edit(ParamID id, double plain, Phase phase);
+	// the host sets a parameter: the editor follows
+	tresult PLUGIN_API setParamNormalized(ParamID id, ParamValue value) SMTG_OVERRIDE;
 
 private:
 	void play(const Event& event);
 	void sound(int32 from, int32 to);
 	void applyChanges(IParameterChanges* changes);
-	double plain(ParamID id);
 	void install(const std::string& path, const std::string& contents, const Capture& capture);
 	void restoreProfile(const std::string& path, const std::string& contents);
 	void checkLatency();

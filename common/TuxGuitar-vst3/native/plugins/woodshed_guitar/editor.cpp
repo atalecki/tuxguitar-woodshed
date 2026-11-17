@@ -2,11 +2,13 @@
 
 #include "plugin.h"
 
+#include <cstdio>
 #include <cstring>
 #include <string>
 
 #ifdef _WIN32
 #include <windows.h>
+#include <commctrl.h>
 #include <commdlg.h>
 #endif
 
@@ -17,7 +19,7 @@ using namespace Steinberg;
 namespace {
 
 const int kWidth = 460;
-const int kHeight = 112;
+const int kHeight = 196;
 
 // what the editor says of the profile and of the last refusal
 std::string profileText(const ProfileStatus& status) {
@@ -28,6 +30,12 @@ std::string refusalText(const ProfileStatus& status) {
 	return (status.refusal.empty() ? std::string() : "Not loaded: " + status.refusal);
 }
 
+std::string decibels(double value) {
+	char text[32];
+	std::snprintf(text, sizeof(text), "%.1f dB", value);
+	return text;
+}
+
 }  // namespace
 
 #ifdef _WIN32
@@ -36,6 +44,9 @@ namespace {
 
 const wchar_t kClass[] = L"WoodshedGuitarEditor";
 const int kLoad = 1;
+const int kQualityBox = 13;
+// a gain slider's position is tenths of a dB
+const double kStep = 10.0;
 
 std::wstring wide(const std::string& utf8) {
 	int size = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int) utf8.size(), nullptr, 0);
@@ -51,12 +62,29 @@ std::string utf8(const std::wstring& wide) {
 	return text;
 }
 
+std::string textOf(void* control) {
+	wchar_t line[2048];
+	GetWindowTextW((HWND) control, line, 2048);
+	return utf8(line);
+}
+
+GuitarView* viewOf(HWND window) {
+	return reinterpret_cast<GuitarView*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+}
+
+// the button, a slider moved (a gesture until its end), Quality chosen
 LRESULT CALLBACK editorProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
-	if (message == WM_COMMAND && LOWORD(wParam) == kLoad && HIWORD(wParam) == BN_CLICKED) {
-		GuitarView* view = reinterpret_cast<GuitarView*>(GetWindowLongPtrW(window, GWLP_USERDATA));
-		if (view) {
-			view->chooseProfile();
-		}
+	GuitarView* view = viewOf(window);
+	if (view && message == WM_COMMAND && LOWORD(wParam) == kLoad && HIWORD(wParam) == BN_CLICKED) {
+		view->chooseProfile();
+		return 0;
+	}
+	if (view && message == WM_COMMAND && LOWORD(wParam) == kQualityBox && HIWORD(wParam) == CBN_SELCHANGE) {
+		view->chose();
+		return 0;
+	}
+	if (view && message == WM_HSCROLL && lParam != 0) {
+		view->slid((void*) lParam, LOWORD(wParam) == TB_ENDTRACK);
 		return 0;
 	}
 	if (message == WM_CTLCOLORSTATIC) {
@@ -73,6 +101,8 @@ HINSTANCE module() {
 }
 
 void registerClass() {
+	INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_BAR_CLASSES};
+	InitCommonControlsEx(&controls);
 	WNDCLASSW type = {};
 	if (GetClassInfoW(module(), kClass, &type)) {
 		return;
@@ -101,14 +131,31 @@ tresult PLUGIN_API GuitarView::isPlatformTypeSupported(FIDString type) {
 	return (std::strcmp(type, kPlatformTypeHWND) == 0 ? kResultTrue : kResultFalse);
 }
 
+// a row: the parameter's name, its slider over its range (tenths of a dB), its value
+void GuitarView::addSlider(int row, ParamID id, const wchar_t* name, double minimum, double maximum) {
+	int y = 84 + row * 34;
+	child((HWND) window, L"STATIC", name, SS_LEFT, 12, y + 4, 90, 20, 0);
+	HWND bar = child((HWND) window, TRACKBAR_CLASSW, L"", TBS_HORZ | TBS_NOTICKS | WS_TABSTOP, 104, y, 260, 28, (int) (10 + id));
+	SendMessageW(bar, TBM_SETRANGEMIN, FALSE, (LPARAM) (minimum * kStep));
+	SendMessageW(bar, TBM_SETRANGEMAX, TRUE, (LPARAM) (maximum * kStep));
+	SendMessageW(bar, TBM_SETPAGESIZE, 0, (LPARAM) kStep);
+	sliders.push_back(Slider{id, bar, child((HWND) window, L"STATIC", L"", SS_LEFT, 372, y + 4, 76, 20, 0)});
+}
+
 tresult PLUGIN_API GuitarView::attached(void* parent, FIDString type) {
 	registerClass();
 	HWND editor = CreateWindowExW(WS_EX_CONTROLPARENT, kClass, L"Woodshed Guitar", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, kWidth, kHeight, (HWND) parent, nullptr, module(), nullptr);
-	SetWindowLongPtrW(editor, GWLP_USERDATA, (LONG_PTR) this);
+	window = editor;
 	child(editor, L"BUTTON", L"Load profile...", BS_PUSHBUTTON | WS_TABSTOP, 12, 12, 120, 28, kLoad);
 	profile = child(editor, L"STATIC", L"", SS_LEFT | SS_ENDELLIPSIS, 144, 18, kWidth - 156, 20, 0);
-	refusal = child(editor, L"STATIC", L"", SS_LEFT, 12, 52, kWidth - 24, kHeight - 60, 0);
-	window = editor;
+	refusal = child(editor, L"STATIC", L"", SS_LEFT, 12, 46, kWidth - 24, 34, 0);
+	addSlider(0, kInputGain, L"Input gain", -24.0, 24.0);
+	addSlider(1, kOutputLevel, L"Output level", -40.0, 12.0);
+	child(editor, L"STATIC", L"Quality", SS_LEFT, 12, 156, 90, 20, 0);
+	quality = child(editor, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 104, 152, 120, 80, kQualityBox);
+	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) L"Full");
+	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) L"Light");
+	SetWindowLongPtrW(editor, GWLP_USERDATA, (LONG_PTR) this);
 	plugin->editorOpened(this);
 	refresh();
 	return CPluginView::attached(parent, type);
@@ -119,7 +166,8 @@ tresult PLUGIN_API GuitarView::removed() {
 	if (window) {
 		DestroyWindow((HWND) window);
 	}
-	window = profile = refusal = nullptr;
+	window = profile = refusal = quality = nullptr;
+	sliders.clear();
 	return CPluginView::removed();
 }
 
@@ -130,14 +178,69 @@ void GuitarView::refresh() {
 	ProfileStatus status = plugin->status();
 	SetWindowTextW((HWND) profile, wide(profileText(status)).c_str());
 	SetWindowTextW((HWND) refusal, wide(refusalText(status)).c_str());
+	for (const Slider& slider : sliders) {
+		double value = plugin->parameter(slider.id);
+		SendMessageW((HWND) slider.bar, TBM_SETPOS, TRUE, (LPARAM) (value * kStep + (value < 0 ? -0.5 : 0.5)));
+		SetWindowTextW((HWND) slider.value, wide(decibels(value)).c_str());
+	}
+	SendMessageW((HWND) quality, CB_SETCURSEL, (WPARAM) plugin->parameter(kQuality), 0);
+}
+
+// a slider moved by the user: its value edited, the edit begun on its first move and ended with the move
+void GuitarView::slid(void* bar, bool ended) {
+	for (const Slider& slider : sliders) {
+		if (slider.bar == bar) {
+			double value = (double) SendMessageW((HWND) bar, TBM_GETPOS, 0, 0) / kStep;
+			plugin->edit(slider.id, value, (editing == slider.id ? GuitarPlugin::kGoingOn : GuitarPlugin::kBegun));
+			editing = slider.id;
+			SetWindowTextW((HWND) slider.value, wide(decibels(value)).c_str());
+			if (ended) {
+				plugin->edit(slider.id, value, GuitarPlugin::kEnded);
+				editing = kNoEdit;
+			}
+		}
+	}
+}
+
+// Quality chosen: one edit
+void GuitarView::chose() {
+	double index = (double) SendMessageW((HWND) quality, CB_GETCURSEL, 0, 0);
+	plugin->edit(kQuality, index, GuitarPlugin::kBegun);
+	plugin->edit(kQuality, index, GuitarPlugin::kEnded);
+}
+
+// as the user moves the parameter's control to the value: the control set, then its move told to the window
+void GuitarView::move(ParamID id, double value) {
+	if (!window) {
+		return;
+	}
+	if (id == kQuality) {
+		SendMessageW((HWND) quality, CB_SETCURSEL, (WPARAM) value, 0);
+		SendMessageW((HWND) window, WM_COMMAND, MAKEWPARAM(kQualityBox, CBN_SELCHANGE), (LPARAM) quality);
+		return;
+	}
+	for (const Slider& slider : sliders) {
+		if (slider.id == id) {
+			LPARAM position = (LPARAM) (value * kStep + (value < 0 ? -0.5 : 0.5));
+			SendMessageW((HWND) slider.bar, TBM_SETPOS, TRUE, position);
+			SendMessageW((HWND) window, WM_HSCROLL, MAKEWPARAM(TB_THUMBTRACK, (WORD) position), (LPARAM) slider.bar);
+			SendMessageW((HWND) window, WM_HSCROLL, MAKEWPARAM(TB_ENDTRACK, 0), (LPARAM) slider.bar);
+		}
+	}
 }
 
 std::string GuitarView::shown() const {
-	wchar_t line[2048];
-	GetWindowTextW((HWND) profile, line, 2048);
-	std::string text = utf8(line);
-	GetWindowTextW((HWND) refusal, line, 2048);
-	return text + "\n" + utf8(line);
+	return textOf(profile) + "\n" + textOf(refusal);
+}
+
+// as the controls read: "Input gain 0.0 dB, Output level 0.0 dB, Quality Full"
+std::string GuitarView::controls() const {
+	std::string text;
+	const char* names[] = {"Input gain ", "Output level "};
+	for (size_t i = 0; i < sliders.size(); i++) {
+		text += names[i] + decibels((double) SendMessageW((HWND) sliders[i].bar, TBM_GETPOS, 0, 0) / kStep) + ", ";
+	}
+	return text + "Quality " + (SendMessageW((HWND) quality, CB_GETCURSEL, 0, 0) == 1 ? "Light" : "Full");
 }
 
 void GuitarView::chooseProfile() {
@@ -174,13 +277,25 @@ tresult PLUGIN_API GuitarView::removed() {
 	return CPluginView::removed();
 }
 
+void GuitarView::addSlider(int, ParamID, const wchar_t*, double, double) {}
+
 void GuitarView::refresh() {}
 
-void GuitarView::chooseProfile() {}
+void GuitarView::slid(void*, bool) {}
+
+void GuitarView::chose() {}
+
+void GuitarView::move(ParamID, double) {}
 
 std::string GuitarView::shown() const {
 	return std::string();
 }
+
+std::string GuitarView::controls() const {
+	return std::string();
+}
+
+void GuitarView::chooseProfile() {}
 
 #endif
 
