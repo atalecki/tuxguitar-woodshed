@@ -115,7 +115,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 	}
 
 	// the native audio backend, from the folder; if it does not load, that is the problem. VST3 plugins are hosted by the
-	// host process in the folder, from the system's VST3 folders
+	// host process in the folder, from the system's VST3 folders and TuxGuitar's own next to the folder
 	public void load(File folder) {
 		this.load(folder, System.getProperties(), System.getenv());
 	}
@@ -123,7 +123,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 	// on the system the properties and the environment describe
 	synchronized void load(File folder, Properties system, Map<String, String> env) {
 		String os = system.getProperty("os.name", "");
-		TGVst3Hosting.getInstance(this.context).configure(TGVst3Hosting.executable(folder, os), TGVst3Folders.standard(os, env, new File(system.getProperty("user.home", "."))));
+		TGVst3Hosting.getInstance(this.context).configure(TGVst3Hosting.executable(folder, os), TGVst3Folders.scanned(os, env, new File(system.getProperty("user.home", ".")), folder));
 		try {
 			this.use(TGPortAudio.load(folder));
 			LOG.info("audio backend loaded from " + folder.getAbsolutePath() + ": host APIs " + this.backend.getHostApis() + ", " + this.backend.getDevices().size() + " devices");
