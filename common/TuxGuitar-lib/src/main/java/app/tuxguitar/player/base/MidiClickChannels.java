@@ -1,11 +1,10 @@
 package app.tuxguitar.player.base;
 
 /**
- * Which channel the clicks (Count In, the Metronome) go to, for a synthesizer with or without General MIDI drums of its
- * own (the TuxGuitar Synthesizer's: MidiSampleClock.DRUMS) and a song with or without a percussion channel. A song with
- * one clicks on it (the Metronome on a synthesizer's drums, when it has them); a song without one clicks on a channel
- * of the player's own, outside the song: the synthesizer's drums, else CLICKS, a new percussion channel (General MIDI
- * channel 10 on a port).
+ * Which channel the clicks (Count In, the Metronome) go to, for a synthesizer with or without drums of its own (the
+ * TuxGuitar Synthesizer's built-in click: MidiSampleClock.DRUMS) and a song with or without a percussion channel. A
+ * synthesizer's drums, when it has them, take every click; otherwise a song with a percussion channel clicks on it, and
+ * one without on CLICKS, a percussion channel of the player's own outside the song (General MIDI channel 10 on a port).
  */
 public final class MidiClickChannels {
 
@@ -31,13 +30,9 @@ public final class MidiClickChannels {
 		return (this.drums ? MidiSampleClock.DRUMS : (this.percussion == NONE ? CLICKS : NONE));
 	}
 
-	// the Count In's: the song's percussion channel, else the player's own
-	int countIn() {
-		return (this.percussion != NONE ? this.percussion : this.own());
-	}
-
-	// the Metronome's: the synthesizer's drums when it has them, else the Count In's
-	int metronome() {
-		return (this.drums ? MidiSampleClock.DRUMS : this.countIn());
+	// the one Count In and the Metronome click on: the synthesizer's drums when it has them, else the song's percussion
+	// channel, else the player's own
+	int clicks() {
+		return (this.drums || this.percussion == NONE ? this.own() : this.percussion);
 	}
 }

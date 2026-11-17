@@ -145,7 +145,7 @@ public class TestMidiPlayerCountDown {
 		assertEquals("on 76 @0 v127 s-1 bfalse, off 76 @1 v127 s-1 bfalse -> end @511", start());
 	}
 
-	// on a synthesizer that plays on a sample clock (the TuxGuitar Synthesizer) Count In is the same: on the percussion
+	// on a synthesizer that plays on a sample clock without drums of its own Count In is the same: on the percussion
 	// channel at once, through its sound chain, nothing on the clock
 	@Test
 	public void onASynthesizerWithASampleClockItTicksOnThePercussionChannelAtOnce() {
@@ -197,10 +197,10 @@ public class TestMidiPlayerCountDown {
 		assertEquals("3 0 | 2 0 | 2", beats + " | " + ticks + " | " + countDown.clicksBefore(header));
 	}
 
-	// without a percussion channel, on the channel the player opens for the clicks as playing starts: a percussion
-	// channel of its own on a port (see TestMidiPlayerMetronome), the drums of a synthesizer that has them (the TuxGuitar
-	// Synthesizer's)
-	private String ticksWithoutAPercussionChannelOn(MidiSynthesizer synthesizer) throws MidiPlayerException {
+	// on the channel the player opens for the clicks as playing starts: without a percussion channel, a percussion
+	// channel of its own on a port (see TestMidiPlayerMetronome); the drums of a synthesizer that has them (the TuxGuitar
+	// Synthesizer's), percussion channel or not
+	private String ticksOn(MidiSynthesizer synthesizer) throws MidiPlayerException {
 		countDown.setTickCount(1);
 		player.getSynthesizerProxy().setMidiSynthesizer(synthesizer);
 		player.updateChannels();
@@ -210,12 +210,21 @@ public class TestMidiPlayerCountDown {
 
 	@Test
 	public void withoutAPercussionChannelItTicksOnThePlayersPercussionChannelOnAPort() throws MidiPlayerException {
-		assertEquals(" -> end @511 | [-3 on 37 95, -3 off 37 95]", ticksWithoutAPercussionChannelOn(new PortSynthesizer(received)));
+		assertEquals(" -> end @511 | [-3 on 37 95, -3 off 37 95]", ticksOn(new PortSynthesizer(received)));
 	}
 
 	@Test
 	public void withoutAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
-		assertEquals(" -> end @511 | [-2 on 37 95, -2 off 37 95]", ticksWithoutAPercussionChannelOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 37 95, -2 off 37 95]", ticksOn(new ClockedSynthesizer(received, true)));
+	}
+
+	// with one too: the TuxGuitar Synthesizer's Count In clicks on its drums (the built-in click), as offline, not
+	// through the percussion channel's sound chain
+	@Test
+	public void withAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
+		withPercussion();
+
+		assertEquals(" -> end @511 | [-2 on 37 95, -2 off 37 95]", ticksOn(new ClockedSynthesizer(received, true)));
 	}
 
 	@Test
