@@ -8,7 +8,7 @@ package app.tuxguitar.vst3;
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 4;
+	static final int VERSION = 5;
 
 	// -> version, process id
 	static final int HELLO = 1;
@@ -27,9 +27,10 @@ final class TGVst3Protocol {
 	static final int SET_PARAMETER = 6;
 	// instance, parameter -> plain value
 	static final int GET_PARAMETER = 7;
-	// instance -> component state, controller state
+	// instance -> component state, controller state, the parts the plugin kept apart (count, then name and bytes; the
+	// host tells it, through the state's stream, that it keeps parts apart)
 	static final int GET_STATE = 8;
-	// instance, component state, controller state -> latency, tail
+	// instance, component state, controller state, the parts kept apart (count, then name and bytes) -> latency, tail
 	static final int SET_STATE = 9;
 	// instance
 	static final int RESET = 10;

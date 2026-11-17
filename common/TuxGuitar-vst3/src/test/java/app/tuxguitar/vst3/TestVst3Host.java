@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +25,7 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The VST3 host process, driven as TuxGuitar drives it, with the real test plugins.
@@ -78,7 +81,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 5, not 4", refused.getMessage());
+		assertEquals("the VST3 host speaks version 6, not 5", refused.getMessage());
 	}
 
 	@Test
@@ -228,6 +231,25 @@ public class TestVst3Host {
 		assertEquals(1024, state.getComponent().length);
 		assertEquals(0.75f, process(second, block(0.25f, 0.25f))[0][0]);
 		assertArrayEquals(state.getComponent(), second.getState().getComponent());
+	}
+
+	// Woodshed Guitar (TuxGuitar's own plugin) keeps its profile's contents apart, as a part of its state named "profile";
+	// a state given back with it plays that profile
+	@Test
+	public void thePartsAPluginKeepsApartComeBackWithItsState(@TempDir File folder) throws Exception {
+		File capture = new File(folder, "Gain 3.nam");
+		byte[] contents = ("{\"version\": \"0.7.0\", \"architecture\": \"Linear\", \"config\": {\"receptive_field\": 1, \"bias\": false, "
+			+ "\"in_channels\": 1, \"out_channels\": 1}, \"weights\": [3.0], \"sample_rate\": 44100}").getBytes(StandardCharsets.UTF_8);
+		Files.write(capture.toPath(), contents);
+		TGVst3Plugin woodshed = this.host.scan(new File(new File(TestPlugins.nativeBuild(), "plugins/VST3"), "Woodshed Guitar.vst3")).get(0);
+		TGVst3Instance first = this.host.open(woodshed, 44100f, FRAMES);
+		first.message("Woodshed.load", Collections.<String, Long>emptyMap(), Collections.singletonMap("path", capture.getPath().getBytes(StandardCharsets.UTF_8)));
+		TGVst3State state = first.getState();
+		TGVst3Instance second = this.host.open(woodshed, 44100f, FRAMES);
+		second.setState(state);
+		byte[] profile = second.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		assertEquals("[profile] true Gain 3.nam", state.getResources().keySet() + " " + Arrays.equals(contents, state.getResources().get("profile"))
+			+ " " + new String(profile, StandardCharsets.UTF_8).split("\n")[0]);
 	}
 
 	// what was delayed past the block still sounds in the next one, unless the plugin was reset

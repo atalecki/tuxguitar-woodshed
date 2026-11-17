@@ -173,11 +173,22 @@ public final class TGVst3Instance implements AutoCloseable {
 	}
 
 	public TGVst3State getState() throws TGVst3Exception {
-		return this.host.call(this.request(TGVst3Protocol.GET_STATE), in -> new TGVst3State(TGVst3Request.readBytes(in), TGVst3Request.readBytes(in)));
+		return this.host.call(this.request(TGVst3Protocol.GET_STATE), in -> new TGVst3State(TGVst3Request.readBytes(in), TGVst3Request.readBytes(in), readResources(in)));
+	}
+
+	private static Map<String, byte[]> readResources(DataInputStream in) throws IOException {
+		Map<String, byte[]> resources = new HashMap<String, byte[]>();
+		for (int count = in.readInt(); count > 0; count--) {
+			resources.put(TGVst3Request.readString(in), TGVst3Request.readBytes(in));
+		}
+		return resources;
 	}
 
 	public void setState(TGVst3State state) throws TGVst3Exception {
-		this.host.call(this.request(TGVst3Protocol.SET_STATE).writeBytes(state.getComponent()).writeBytes(state.getController()), this::readTiming);
+		TGVst3Request request = this.request(TGVst3Protocol.SET_STATE).writeBytes(state.getComponent()).writeBytes(state.getController());
+		request.writeInt(state.getResources().size());
+		state.getResources().forEach((name, bytes) -> request.writeString(name).writeBytes(bytes));
+		this.host.call(request, this::readTiming);
 	}
 
 	// the song holds the state now, without parameters set since (it took the state from the plugin)

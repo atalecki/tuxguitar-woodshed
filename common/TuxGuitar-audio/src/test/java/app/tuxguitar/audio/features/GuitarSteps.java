@@ -3,6 +3,8 @@ package app.tuxguitar.audio.features;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,12 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChain;
+import app.tuxguitar.io.base.TGFileFormatException;
+import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
+import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Folders;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Instance;
 import app.tuxguitar.vst3.TGVst3InstrumentProcessor;
+import app.tuxguitar.vst3.TGVst3State;
 import io.cucumber.java.After;
 import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
@@ -36,11 +43,13 @@ import io.cucumber.java.en.When;
 public class GuitarSteps {
 
 	private final AudioWorld world;
+	private final SavingSteps saving;
 	// the scenario's folder: its NAM captures and other files, and a TuxGuitar installed there
 	private Path folder;
 
-	public GuitarSteps(AudioWorld world) {
+	public GuitarSteps(AudioWorld world, SavingSteps saving) {
 		this.world = world;
+		this.saving = saving;
 	}
 
 	private Path folder() throws IOException {
@@ -261,6 +270,30 @@ public class GuitarSteps {
 	public void reportsALatencyAboveZero(int track) throws TGVst3Exception {
 		int latency = ofTheSong(track, TGVst3Instance::getLatency);
 		assertTrue(latency > 0, "latency " + latency);
+	}
+
+	// the TuxGuitar file the song is now, as the app saves it, against the one saved last
+	@Then("the song saved now is larger than the song saved before by less than a tenth of the size of {string}")
+	public void theSongSavedNowIsLargerByLessThan(String name) throws IOException {
+		long grown = this.saving.write().length - world.saved().length;
+		assertTrue(grown < Files.size(folder().resolve(name)) / 10, "grown by " + grown + " bytes");
+	}
+
+	// as the commits before captures were stored once saved it: Woodshed Guitar's state is "WSG1", Input gain, Output
+	// level and Quality (doubles), then the capture's path and contents (each its length in 8 bytes, then its bytes), all
+	// little-endian; the song written as it is, the plugins not asked for their states
+	@Given("I have saved the song as a TuxGuitar file, Woodshed Guitar of track {int} holding {string} in its own state")
+	public void haveSavedHoldingItsOwnState(int track, String name) throws IOException, TGFileFormatException {
+		byte[] path = folder().resolve(name).toString().getBytes(StandardCharsets.UTF_8);
+		byte[] contents = Files.readAllBytes(folder().resolve(name));
+		ByteBuffer state = ByteBuffer.allocate(4 + 3 * Double.BYTES + Long.BYTES + path.length + Long.BYTES + contents.length).order(ByteOrder.LITTLE_ENDIAN);
+		state.put("WSG1".getBytes(StandardCharsets.US_ASCII)).putDouble(0.0).putDouble(0.0).putDouble(0.0);
+		state.putLong(path.length).put(path).putLong(contents.length).put(contents);
+		TGChannel channel = world.channel(world.track(track));
+		TGProgram chain = TGSoundChain.get(channel);
+		TGVst3Element.setState(chain.getReceiver(), new TGVst3State(state.array(), new byte[0]));
+		TGSoundChain.save(channel, chain, world.fixture().songManager.getFactory());
+		world.setSaved(this.saving.writeAsItIs());
 	}
 
 	@Given("there is a text file {string}")

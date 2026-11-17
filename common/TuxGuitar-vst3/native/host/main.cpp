@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 4;
+const int32_t kProtocolVersion = 5;
 
 enum Operation {
 	kHello = 1,
@@ -350,19 +350,29 @@ private:
 		wire.writeDouble(read.parameter(wire.readInt()));
 	}
 
+	// the component's state, the controller's, then the parts kept apart (count, then name and bytes)
 	void getState() {
-		Instance& saved = instance();
-		std::vector<char> component = saved.componentState();
-		std::vector<char> controller = saved.controllerState();
-		wire.writeBytes(component.data(), component.size());
-		wire.writeBytes(controller.data(), controller.size());
+		SavedState saved = instance().state();
+		wire.writeBytes(saved.component.data(), saved.component.size());
+		wire.writeBytes(saved.controller.data(), saved.controller.size());
+		wire.writeInt((int32_t) saved.resources.size());
+		for (const auto& resource : saved.resources) {
+			wire.writeString(resource.first);
+			wire.writeBytes(resource.second.data(), resource.second.size());
+		}
 	}
 
 	void setState() {
 		Instance& restored = instance();
-		std::vector<char> component = wire.readBytes();
-		std::vector<char> controller = wire.readBytes();
-		restored.setState(component, controller);
+		SavedState saved;
+		saved.component = wire.readBytes();
+		saved.controller = wire.readBytes();
+		saved.resources.resize((size_t) std::max(0, wire.readInt()));
+		for (auto& resource : saved.resources) {
+			resource.first = wire.readString();
+			resource.second = wire.readBytes();
+		}
+		restored.setState(saved);
 		writeTiming(restored);
 	}
 

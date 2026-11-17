@@ -7,7 +7,9 @@ namespace Woodshed {
 
 namespace {
 
-const char kMagic[4] = {'W', 'S', 'G', '1'};
+// the magic of a state holding its contents, and of one whose contents are apart
+const char kWhole[4] = {'W', 'S', 'G', '1'};
+const char kApart[4] = {'W', 'S', 'G', '2'};
 
 void putNumber(std::string& bytes, uint64_t value) {
 	for (int i = 0; i < 8; i++) {
@@ -60,10 +62,13 @@ public:
 		return true;
 	}
 
-	bool magic() {
-		bool same = (bytes.size() >= sizeof(kMagic) && std::memcmp(bytes.data(), kMagic, sizeof(kMagic)) == 0);
-		at = sizeof(kMagic);
-		return same;
+	// whether the bytes start with the magic
+	bool magic(const char* magic) const {
+		return (bytes.size() >= 4 && std::memcmp(bytes.data(), magic, 4) == 0);
+	}
+
+	void skip(size_t count) {
+		at += count;
 	}
 
 private:
@@ -74,20 +79,24 @@ private:
 }  // namespace
 
 std::string writeState(const Saved& saved) {
-	std::string bytes(kMagic, sizeof(kMagic));
+	std::string bytes((saved.apart ? kApart : kWhole), 4);
 	putDouble(bytes, saved.inputGain);
 	putDouble(bytes, saved.outputLevel);
 	putDouble(bytes, saved.quality);
 	putText(bytes, saved.path);
-	putText(bytes, saved.contents);
+	if (!saved.apart) {
+		putText(bytes, saved.contents);
+	}
 	return bytes;
 }
 
 bool readState(const std::string& bytes, Saved& saved) {
 	Reader reader(bytes);
 	Saved read;
-	bool whole = reader.magic() && reader.real(read.inputGain) && reader.real(read.outputLevel) && reader.real(read.quality) &&
-	             reader.text(read.path) && reader.text(read.contents);
+	read.apart = reader.magic(kApart);
+	reader.skip(4);
+	bool whole = (read.apart || reader.magic(kWhole)) && reader.real(read.inputGain) && reader.real(read.outputLevel) &&
+	             reader.real(read.quality) && reader.text(read.path) && (read.apart || reader.text(read.contents));
 	if (whole) {
 		saved = read;
 	}

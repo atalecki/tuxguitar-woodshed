@@ -72,6 +72,19 @@ struct EditorWindow {
 void doEditorWindowWork();
 #endif
 
+// the integer attribute of a state's stream (IStreamAttributes) by which the host tells a plugin it keeps parts of a
+// state apart (1): the plugin may then set those parts as binary attributes of the stream, each by a name of its own,
+// and leave them out of its bytes; they come back the same way with the state
+const char* const kApart = "TuxGuitar.apart";
+
+// what a plugin saves: its component's state, its controller's (empty when the controller is the component), and the
+// parts it kept apart, by name
+struct SavedState {
+	std::vector<char> component;
+	std::vector<char> controller;
+	std::vector<std::pair<std::string, std::vector<char>>> resources;
+};
+
 struct ParameterInfo {
 	int32 id;
 	std::string title;
@@ -99,9 +112,8 @@ public:
 	void process(int32 frames, const Transport& transport, const std::vector<NoteEvent>& events);
 	double setParameter(int32 id, double plain);
 	double parameter(int32 id);
-	std::vector<char> componentState();
-	std::vector<char> controllerState();
-	void setState(const std::vector<char>& component, const std::vector<char>& controller);
+	SavedState state();
+	void setState(const SavedState& saved);
 	void reset();
 	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
 	// no window: none), its caption the title (UTF-8); false when it has none for this platform

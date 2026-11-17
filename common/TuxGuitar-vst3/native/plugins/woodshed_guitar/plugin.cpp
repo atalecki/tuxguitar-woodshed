@@ -5,6 +5,7 @@
 
 #include "public.sdk/source/main/pluginfactory.h"
 #include "pluginterfaces/base/ibstream.h"
+#include "pluginterfaces/vst/ivstattributes.h"
 #include "pluginterfaces/vst/ivstnoteexpression.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 
@@ -26,6 +27,27 @@ int32 noteId(int32 id, int16 pitch) {
 
 float gain(double decibels) {
 	return (float) std::pow(10.0, decibels / 20.0);
+}
+
+// the integer attribute of a state's stream by which TuxGuitar says it keeps parts of a state apart (1), and the name
+// of the part Woodshed Guitar keeps apart there: its profile's contents
+const char kApart[] = "TuxGuitar.apart";
+const char kProfile[] = "profile";
+
+// a binary attribute's bytes (empty when there is none)
+std::string binary(IAttributeList* attributes, const char* key) {
+	const void* data = nullptr;
+	uint32 size = 0;
+	bool found = (attributes && attributes->getBinary(key, data, size) == kResultOk && data);
+	return (found ? std::string(static_cast<const char*>(data), size) : std::string());
+}
+
+// the attributes of a state's stream when its host keeps parts of a state apart, else none
+IAttributeList* apartIn(IBStream* stream) {
+	FUnknownPtr<IStreamAttributes> attributes(stream);
+	IAttributeList* list = (attributes ? attributes->getAttributes() : nullptr);
+	int64 apart = 0;
+	return (list && list->getInt(kApart, apart) == kResultOk && apart == 1 ? list : nullptr);
 }
 
 // all of a stream's bytes
@@ -290,6 +312,11 @@ tresult PLUGIN_API GuitarPlugin::getState(IBStream* state) {
 	saved.quality = parameter(kQuality);
 	saved.path = path;
 	saved.contents = contents;
+	IAttributeList* apart = apartIn(state);
+	saved.apart = (apart && !contents.empty());
+	if (saved.apart) {
+		apart->setBinary(kProfile, contents.data(), (uint32) contents.size());
+	}
 	std::string bytes = writeState(saved);
 	int32 written = 0;
 	return state->write(bytes.data(), (int32) bytes.size(), &written);
@@ -299,6 +326,9 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	Saved saved;
 	if (!readState(readAll(state), saved)) {
 		return kResultFalse;
+	}
+	if (saved.apart) {
+		saved.contents = binary(apartIn(state), kProfile);
 	}
 	SingleComponentEffect::setParamNormalized(kInputGain, getParameterObject(kInputGain)->toNormalized(saved.inputGain));
 	SingleComponentEffect::setParamNormalized(kOutputLevel, getParameterObject(kOutputLevel)->toNormalized(saved.outputLevel));
@@ -315,20 +345,12 @@ static tresult report(IAttributeList* attributes, const std::string& text) {
 	return attributes->setBinary("report", text.data(), (uint32) text.size());
 }
 
-// a binary attribute's bytes (empty when there is none)
-static std::string text(IAttributeList* attributes, const char* key) {
-	const void* data = nullptr;
-	uint32 size = 0;
-	attributes->getBinary(key, data, size);
-	return (data ? std::string(static_cast<const char*>(data), size) : std::string());
-}
-
 // "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
 // "Woodshed.profile" answers the status: the profile's name, the refusal and the notice, a line break between; else
 // kNotImplemented
 tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "Woodshed.load") == 0) {
-		loadProfile(text(attributes, "path"));
+		loadProfile(binary(attributes, "path"));
 		return kResultOk;
 	}
 	if (std::strcmp(id, "Woodshed.profile") == 0) {
@@ -365,7 +387,7 @@ tresult GuitarPlugin::editorMessage(FIDString id, IAttributeList* attributes) {
 		return kResultOk;
 	}
 	if (std::strcmp(id, "Woodshed.click") == 0) {
-		return report(attributes, view->click(text(attributes, "button")));
+		return report(attributes, view->click(binary(attributes, "button")));
 	}
 	return kNotImplemented;
 }

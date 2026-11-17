@@ -291,6 +291,65 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
     And Woodshed Guitar of track 1 says "The profile file has changed since this song was saved"
 
+  # a capture is stored once in the song however many tracks play it: the song grows by one profile, not one per track.
+  # (Woodshed Guitar's own state stays whole wherever TuxGuitar does not keep its profile apart: in another program it
+  # holds the capture's contents, as before)
+  Scenario: a capture that several tracks play is stored once in the song
+    Given there is the test NAM capture "A1 standard test.nam"
+    And I have added a guitar track on a channel of its own
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "A1 standard test.nam"
+    And I have saved the song as a TuxGuitar file
+    When Woodshed Guitar of track 2 loads the NAM capture "A1 standard test.nam"
+    Then the song saved now is larger than the song saved before by less than a tenth of the size of "A1 standard test.nam"
+
+  Scenario: tracks sharing a capture each play it again after saving and reopening, whatever became of the file
+    Given there is a NAM capture "Gain 2.nam" that multiplies the signal by 2.0
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 3
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 4
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 3
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 4
+    And I have set "Output level" of the VST3 instrument of track 2 to -20.0
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And Woodshed Guitar of track 2 has loaded the NAM capture "Gain 3.nam"
+    And Woodshed Guitar of track 3 has loaded the NAM capture "Gain 2.nam"
+    And I have saved the song as a TuxGuitar file
+    And the NAM capture "Gain 3.nam" has been moved away
+    And the NAM capture "Gain 2.nam" has been moved away
+    When I open it again
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 3.0 times what track 4 sounds, sample for sample within 0.001
+    And track 2 sounds 0.3 times what track 4 sounds, sample for sample within 0.001
+    And track 3 sounds 2.0 times what track 4 sounds, sample for sample within 0.001
+    And the state of every VST3 plugin is byte for byte what the plugin gave when the song was saved
+    And a reader of file format 2.0 opens it with 4 measures
+
+  # a song saved before captures were stored once holds the capture in its Woodshed Guitar's own state
+  Scenario: a song whose Woodshed Guitar holds its capture in its own state still plays it
+    Given I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And I have saved the song as a TuxGuitar file, Woodshed Guitar of track 1 holding "Gain 3.nam" in its own state
+    And the NAM capture "Gain 3.nam" has been moved away
+    When I open it again
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
+    And Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
+
   # Sample rates
 
   # a capture made at 48000 Hz played on the Test Interface's 44100 Hz: the voice is resampled into the capture's rate

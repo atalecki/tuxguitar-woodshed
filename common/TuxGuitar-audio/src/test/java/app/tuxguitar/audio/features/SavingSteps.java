@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -32,6 +33,7 @@ import app.tuxguitar.io.base.TGSongReader;
 import app.tuxguitar.io.base.TGSongReaderHandle;
 import app.tuxguitar.io.base.TGSongStreamContext;
 import app.tuxguitar.io.base.TGSongWriter;
+import app.tuxguitar.io.base.TGSongWriterHandle;
 import app.tuxguitar.io.gtp.GP5InputStream;
 import app.tuxguitar.io.gtp.GP5OutputStream;
 import app.tuxguitar.io.gtp.GTPSettings;
@@ -84,7 +86,7 @@ public class SavingSteps {
 	}
 
 	// the song as a TuxGuitar file, written as the app saves it
-	private byte[] write() {
+	byte[] write() {
 		ByteArrayOutputStream file = new ByteArrayOutputStream();
 		TGActionContext context = new TGActionContext() {
 		};
@@ -93,6 +95,18 @@ public class SavingSteps {
 		context.setAttribute(TGWriteSongAction.ATTRIBUTE_OUTPUT_STREAM, file);
 		context.setAttribute(TGWriteSongAction.ATTRIBUTE_FORMAT, TGStream.TG_FORMAT);
 		TGActionManager.getInstance(world.fixture().context).execute(TGWriteSongAction.NAME, context);
+		return file.toByteArray();
+	}
+
+	// the song as a TuxGuitar file, written as it is: the plugins are not asked for their states
+	byte[] writeAsItIs() throws TGFileFormatException {
+		ByteArrayOutputStream file = new ByteArrayOutputStream();
+		TGSongWriterHandle handle = new TGSongWriterHandle();
+		handle.setSong(world.song());
+		handle.setFactory(world.fixture().songManager.getFactory());
+		handle.setContext(new TGSongStreamContext());
+		handle.setOutputStream(file);
+		TGFileFormatManager.getInstance(world.fixture().context).findSongWriter(TGStream.TG_FORMAT).write(handle);
 		return file.toByteArray();
 	}
 
@@ -129,9 +143,9 @@ public class SavingSteps {
 		return states;
 	}
 
+	// all the element keeps of it (its state, and what its state keeps apart)
 	private static String state(TGProgramElement element) {
-		String component = element.getParameters().get("vst3.state");
-		return (component != null ? component + "/" + element.getParameters().get("vst3.controller") : null);
+		return (element.getParameters().containsKey("vst3.state") ? new TreeMap<String, String>(element.getParameters()).toString() : null);
 	}
 
 	@Given("I have opened it again")
