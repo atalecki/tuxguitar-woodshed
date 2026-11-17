@@ -27,6 +27,9 @@ std::string fileName(const std::string& path);
 // the bytes of the file at the path (UTF-8); false when it cannot be read
 bool readFile(const std::string& path, std::string& contents);
 
+// whether the file at the path is there and holds other bytes than the contents
+bool differs(const std::string& path, const std::string& contents);
+
 // the capture a .nam file holds (named in the refusal); a capture made at no known rate was made at 48000 Hz, as NAM
 // captures are
 Capture readCapture(const std::string& name, const std::string& contents);

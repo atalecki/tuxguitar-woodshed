@@ -24,6 +24,7 @@ import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Instance;
 import app.tuxguitar.vst3.TGVst3InstrumentProcessor;
 import io.cucumber.java.After;
+import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -108,6 +109,17 @@ public class GuitarSteps {
 		Files.delete(folder().resolve(name));
 	}
 
+	@Given("the NAM capture {string} has been changed to multiply the signal by {double}")
+	public void theNamCaptureHasBeenChanged(String name, double gain) throws IOException {
+		assertTrue(Files.exists(folder().resolve(name)), name);
+		capture(name, "0.7.0", "Linear", gain, 44100);
+	}
+
+	@Given("the NAM capture {string} has been left as it was")
+	public void theNamCaptureHasBeenLeft(String name) throws IOException {
+		assertTrue(Files.exists(folder().resolve(name)), name);
+	}
+
 	// the plugin of the track's source as it runs
 	private TGVst3Instance running(int track) throws TGVst3Exception {
 		return TGLivePlugins.getInstance(world.fixture().context).get(world.channel(world.track(track)).getChannelId(), "source");
@@ -126,18 +138,34 @@ public class GuitarSteps {
 	@Given("Woodshed Guitar of track {int} has loaded the NAM capture {string}")
 	public void hasLoaded(int track, String name) throws TGVst3Exception, IOException {
 		loads(track, name);
-		assertEquals(name + "\n", status(running(track)));
+		assertEquals(name + "\n", profileAndRefusal(running(track)));
 	}
 
-	// the profile's name, a line break, the refusal of the last file given to it
-	private static String status(TGVst3Instance plugin) throws TGVst3Exception {
-		return new String(plugin.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()), StandardCharsets.UTF_8);
+	// what the plugin says of its profile, a line each: the profile's name, the refusal of the last file given to it, and
+	// what it says of the profile's file
+	private static String[] status(TGVst3Instance plugin) throws TGVst3Exception {
+		return lines(plugin.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()));
+	}
+
+	private static String[] lines(byte[] report) {
+		return new String(report, StandardCharsets.UTF_8).split("\n", -1);
+	}
+
+	// the profile's name, a line break, the refusal
+	private static String profileAndRefusal(TGVst3Instance plugin) throws TGVst3Exception {
+		String[] status = status(plugin);
+		return status[0] + "\n" + status[1];
+	}
+
+	// what it says of the profile's file
+	@Then("Woodshed Guitar of track {int} says {string}")
+	public void says(int track, String notice) throws TGVst3Exception {
+		assertEquals(notice, status(running(track))[2]);
 	}
 
 	@Then("Woodshed Guitar of track {int} refuses it, saying something starting {string}")
 	public void refusesIt(int track, String refusal) throws TGVst3Exception {
-		String status = status(running(track));
-		String said = status.substring(status.indexOf('\n') + 1);
+		String said = status(running(track))[1];
 		assertTrue(said.startsWith(refusal), said);
 	}
 
@@ -165,17 +193,35 @@ public class GuitarSteps {
 
 	private static String statusOf(TGVst3Instance plugin) {
 		try {
-			return status(plugin);
+			return profileAndRefusal(plugin);
 		} catch (TGVst3Exception e) {
 			throw new IllegalStateException(e);
 		}
 	}
 
-	// what its editor's two lines show, read from its window
-	@Then("Woodshed Guitar's editor of track {int} shows {string} and {string}")
-	public void itsEditorShows(int track, String profile, String refusal) throws TGVst3Exception {
-		byte[] shown = running(track).message("Woodshed.shown", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
-		assertEquals(profile + "\n" + refusal, new String(shown, StandardCharsets.UTF_8));
+	// its lines, read from its window: the profile, the refusal, what it says of the profile's file, and the text of the
+	// button it offers there ("" when it shows none)
+	// two of them read as the scenario words them: 'shows "<profile>" and "<refusal>"' or 'says "<notice>", offering
+	// "<button>"'; each is the first line read and the line after it, a line break between
+	@ParameterType("shows \"([^\"]*)\" and \"([^\"]*)\"|says \"([^\"]*)\", offering \"([^\"]*)\"")
+	public Map.Entry<Integer, String> editorLines(String profile, String refusal, String notice, String button) {
+		return (profile != null ? Map.entry(0, profile + "\n" + refusal) : Map.entry(2, notice + "\n" + button));
+	}
+
+	@Then("Woodshed Guitar's editor of track {int} {editorLines}")
+	public void itsEditorShows(int track, Map.Entry<Integer, String> lines) throws TGVst3Exception {
+		String[] shown = lines(running(track).message("Woodshed.shown", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()));
+		assertEquals(lines.getValue(), shown[lines.getKey()] + "\n" + shown[lines.getKey() + 1]);
+	}
+
+	// as the user clicks the button its editor shows with that text (it shows none: the step fails); then the app drains
+	// what the plugin told it
+	@Given("I have clicked {string} in Woodshed Guitar's editor of track {int}")
+	@When("I click {string} in Woodshed Guitar's editor of track {int}")
+	public void clickInTheEditor(String button, int track) throws TGVst3Exception {
+		byte[] clicked = running(track).message("Woodshed.click", Collections.<String, Long>emptyMap(), Map.of("button", button.getBytes(StandardCharsets.UTF_8)));
+		assertEquals(button, new String(clicked, StandardCharsets.UTF_8), "the editor shows the button");
+		TGLivePlugins.getInstance(world.fixture().context).drain();
 	}
 
 	// as the user moves the control of the parameter in the open editor (its plain value: dB, or Quality's index); then

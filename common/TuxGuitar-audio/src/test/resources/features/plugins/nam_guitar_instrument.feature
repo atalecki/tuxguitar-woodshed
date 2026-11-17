@@ -4,7 +4,7 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
   gives), the strings ring together, and the sum plays through its profile: the NAM capture (a .nam file, a Neural Amp
   Modeler model of an amp or pedal) loaded into it, the same signal on the left and the right. With no profile loaded
   it sounds its dry voice, never nothing. The profile is loaded in its own editor (Load profile...), kept in the song
-  with the capture's contents, and played at the capture's own sample rate. It runs in its helper process like every
+  with the capture's contents (a reopened song plays that copy), and played at the capture's own sample rate. It runs in its helper process like every
   VST3 plugin, and is offered in the Sound Chain like any VST3 instrument (it is not the default instrument).
 
   Background:
@@ -219,6 +219,77 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     And I play the song from measure 1 beat 1
     Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
     And Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
+
+  # the song plays the profile it was saved with, its own copy, whatever became of the file since: a song sounds the
+  # same each time it opens
+  Scenario: a reopened song plays its own copy of the profile when the NAM capture's file has changed
+    Given I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have saved the song as a TuxGuitar file
+    And the NAM capture "Gain 3.nam" has been changed to multiply the signal by 2.0
+    When I open it again
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
+    And Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
+
+  # the file at the profile's path, when it is there and no longer what the song holds, is told in the editor, which
+  # offers to load it as it is now
+  Scenario Outline: Woodshed Guitar's editor says when the profile's file is no longer what the song holds
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have saved the song as a TuxGuitar file
+    And <what became of the file>
+    And I have opened it again
+    When I open the editor of the source of track 1
+    Then Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and ""
+    And Woodshed Guitar's editor of track 1 says "<notice>", offering "<button>"
+
+    Examples:
+      | what became of the file                                                       | notice                                                  | button           |
+      | the NAM capture "Gain 3.nam" has been changed to multiply the signal by 2.0  | The profile file has changed since this song was saved | Update from file |
+      | the NAM capture "Gain 3.nam" has been moved away                             |                                                         |                  |
+      | the NAM capture "Gain 3.nam" has been left as it was                         |                                                         |                  |
+
+  Scenario: Update from file plays the NAM capture's file as it is now, and modifies the song
+    Given I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have saved the song as a TuxGuitar file
+    And the NAM capture "Gain 3.nam" has been changed to multiply the signal by 2.0
+    And I have opened it again
+    And I have opened the editor of the source of track 1
+    When I click "Update from file" in Woodshed Guitar's editor of track 1
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 2.0 times what track 2 sounds, sample for sample within 0.001
+    And Woodshed Guitar's editor of track 1 says "", offering ""
+    And the song is modified
+
+  Scenario: Update from file is one undo step
+    Given I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have saved the song as a TuxGuitar file
+    And the NAM capture "Gain 3.nam" has been changed to multiply the signal by 2.0
+    And I have opened it again
+    And I have opened the editor of the source of track 1
+    And I have clicked "Update from file" in Woodshed Guitar's editor of track 1
+    When I undo
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
+    And Woodshed Guitar of track 1 says "The profile file has changed since this song was saved"
 
   # Sample rates
 

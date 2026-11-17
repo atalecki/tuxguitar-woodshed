@@ -22,11 +22,12 @@ using namespace Steinberg::Vst;
 // its parameters: the gains in dB; Quality 0 Full, 1 Light
 enum ParamIds : ParamID { kInputGain = 1, kOutputLevel = 2, kQuality = 3 };
 
-// what the plugin plays its voice through, as the user reads it: the profile's file name (empty for none) and why the
-// last file given to it was refused (empty when it was not)
+// what the plugin plays its voice through, as the user reads it: the profile's file name (empty for none), why the
+// last file given to it was refused (empty when it was not), and what it says of the profile's file (empty: nothing)
 struct ProfileStatus {
 	std::string name;
 	std::string refusal;
+	std::string notice;
 };
 
 class GuitarPlugin : public SingleComponentEffect {
@@ -53,6 +54,8 @@ public:
 	// as its editor's Load profile... does: the capture at the path (UTF-8) becomes the profile and the host is told
 	// the plugin changed; or it is refused, the profile kept, and the status says why
 	bool loadProfile(const std::string& path);
+	// as its editor's Update from file does: the file at the profile's path loaded as it is now
+	void updateFromFile();
 	ProfileStatus status();
 	// its editor's view while one is open (none: nullptr)
 	void editorOpened(GuitarView* view);
@@ -74,6 +77,7 @@ private:
 	void applyChanges(IParameterChanges* changes);
 	void install(const std::string& path, const std::string& contents, const Capture& capture);
 	void restoreProfile(const std::string& path, const std::string& contents);
+	void checkFile();
 	void checkLatency();
 	void slimTo(Amp& amp);
 	void refreshEditor();
@@ -90,6 +94,7 @@ private:
 	std::string path;
 	std::string contents;
 	std::string refusal;
+	std::string notice;
 	uint32 reportedLatency = 0;
 	// the Quality the amp plays at (-1 before it is told one)
 	int slimmed = -1;

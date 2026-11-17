@@ -204,6 +204,7 @@ bool GuitarPlugin::loadProfile(const std::string& path) {
 		return false;
 	}
 	install(path, read, capture);
+	checkFile();
 	refreshEditor();
 	FUnknownPtr<IComponentHandler2> handler(componentHandler);
 	if (handler) {
@@ -230,8 +231,12 @@ tresult PLUGIN_API GuitarPlugin::setParamNormalized(ParamID id, ParamValue value
 	return result;
 }
 
+// an editor opening tells what became of the profile's file
 void GuitarPlugin::editorOpened(GuitarView* view) {
 	this->view = view;
+	if (view) {
+		checkFile();
+	}
 }
 
 void GuitarPlugin::refreshEditor() {
@@ -244,8 +249,12 @@ IPlugView* PLUGIN_API GuitarPlugin::createView(FIDString name) {
 	return (hasEditor() && std::strcmp(name, ViewType::kEditor) == 0 ? new GuitarView(this) : nullptr);
 }
 
+void GuitarPlugin::updateFromFile() {
+	loadProfile(path);
+}
+
 ProfileStatus GuitarPlugin::status() {
-	return ProfileStatus{(path.empty() ? std::string() : fileName(path)), refusal};
+	return ProfileStatus{(path.empty() ? std::string() : fileName(path)), refusal, notice};
 }
 
 // a change of latency is told to the host, which asks for the new one
@@ -257,21 +266,21 @@ void GuitarPlugin::checkLatency() {
 	}
 }
 
-// the file at the path when it is still there and plays, else the copy the state holds
+// the copy the state holds, whatever became of the file since (a song sounds the same each time it opens)
 void GuitarPlugin::restoreProfile(const std::string& path, const std::string& contents) {
 	if (path.empty()) {
 		install(path, contents, Capture());
 		return;
 	}
-	std::string read;
-	Capture capture = loadCapture(path, read);
-	if (capture.model) {
-		install(path, read, capture);
-		return;
-	}
-	capture = readCapture(fileName(path), contents);
+	Capture capture = readCapture(fileName(path), contents);
 	refusal = capture.refusal;
-	install((capture.model ? path : std::string()), (capture.model ? contents : std::string()), capture);
+	bool kept = (capture.model != nullptr);
+	install((kept ? path : std::string()), (kept ? contents : std::string()), capture);
+}
+
+// the file at the profile's path, when it is there and no longer the profile's contents, is told
+void GuitarPlugin::checkFile() {
+	notice = (!path.empty() && differs(path, contents) ? "The profile file has changed since this song was saved" : "");
 }
 
 tresult PLUGIN_API GuitarPlugin::getState(IBStream* state) {
@@ -296,6 +305,7 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	SingleComponentEffect::setParamNormalized(kQuality, getParameterObject(kQuality)->toNormalized(saved.quality));
 	refusal.clear();
 	restoreProfile(saved.path, saved.contents);
+	checkFile();
 	refreshEditor();
 	return kResultOk;
 }
@@ -305,26 +315,33 @@ static tresult report(IAttributeList* attributes, const std::string& text) {
 	return attributes->setBinary("report", text.data(), (uint32) text.size());
 }
 
+// a binary attribute's bytes (empty when there is none)
+static std::string text(IAttributeList* attributes, const char* key) {
+	const void* data = nullptr;
+	uint32 size = 0;
+	attributes->getBinary(key, data, size);
+	return (data ? std::string(static_cast<const char*>(data), size) : std::string());
+}
+
 // "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
-// "Woodshed.profile" answers the status: the profile's name, a line break, the refusal; else kNotImplemented
+// "Woodshed.profile" answers the status: the profile's name, the refusal and the notice, a line break between; else
+// kNotImplemented
 tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "Woodshed.load") == 0) {
-		const void* data = nullptr;
-		uint32 size = 0;
-		attributes->getBinary("path", data, size);
-		loadProfile(std::string(static_cast<const char*>(data), size));
+		loadProfile(text(attributes, "path"));
 		return kResultOk;
 	}
 	if (std::strcmp(id, "Woodshed.profile") == 0) {
 		ProfileStatus now = status();
-		return report(attributes, now.name + "\n" + now.refusal);
+		return report(attributes, now.name + "\n" + now.refusal + "\n" + now.notice);
 	}
 	return kNotImplemented;
 }
 
-// while its editor is open: "Woodshed.shown" answers what its two lines show (read from its window), a line break
+// while its editor is open: "Woodshed.shown" answers what its lines show (read from its window), a line break
 // between; "Woodshed.controls" what its controls show; "Woodshed.move" moves the control of the parameter "id" to the
-// "value" (a double), as the user does; else kNotImplemented
+// "value" (a double), as the user does; "Woodshed.click" clicks the button that shows the "button" text (UTF-8), as the
+// user does, answering that text (nothing when no button shows it); else kNotImplemented
 tresult GuitarPlugin::editorMessage(FIDString id, IAttributeList* attributes) {
 	if (!view) {
 		return kNotImplemented;
@@ -346,6 +363,9 @@ tresult GuitarPlugin::editorMessage(FIDString id, IAttributeList* attributes) {
 		}
 		view->move((ParamID) param, value);
 		return kResultOk;
+	}
+	if (std::strcmp(id, "Woodshed.click") == 0) {
+		return report(attributes, view->click(text(attributes, "button")));
 	}
 	return kNotImplemented;
 }

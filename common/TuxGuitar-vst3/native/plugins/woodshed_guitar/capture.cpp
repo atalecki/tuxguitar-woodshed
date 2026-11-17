@@ -67,6 +67,11 @@ bool readFile(const std::string& path, std::string& contents) {
 	return !file.bad();
 }
 
+bool differs(const std::string& path, const std::string& contents) {
+	std::string onDisk;
+	return readFile(path, onDisk) && onDisk != contents;
+}
+
 Capture readCapture(const std::string& name, const std::string& contents) {
 	nlohmann::json json = nlohmann::json::parse(contents, nullptr, false);
 	if (json.is_discarded()) {
