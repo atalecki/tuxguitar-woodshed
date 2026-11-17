@@ -4,11 +4,12 @@
 #include "public.sdk/source/vst/vstsinglecomponenteffect.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstmessage.h"
-#include "capture.h"
+#include "loader.h"
+#include "stage.h"
 #include "voice.h"
+#include "wake.h"
 
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -23,11 +24,13 @@ using namespace Steinberg::Vst;
 enum ParamIds : ParamID { kInputGain = 1, kOutputLevel = 2, kQuality = 3 };
 
 // what the plugin plays its voice through, as the user reads it: the profile's file name (empty for none), why the
-// last file given to it was refused (empty when it was not), and what it says of the profile's file (empty: nothing)
+// last file given to it was refused (empty when it was not), what it says of the profile's file (empty: nothing), and
+// the file name of the capture being loaded (empty: none)
 struct ProfileStatus {
 	std::string name;
 	std::string refusal;
 	std::string notice;
+	std::string loading;
 };
 
 class GuitarPlugin : public SingleComponentEffect {
@@ -35,6 +38,7 @@ public:
 	GuitarPlugin();
 
 	tresult PLUGIN_API initialize(FUnknown* context) SMTG_OVERRIDE;
+	tresult PLUGIN_API terminate() SMTG_OVERRIDE;
 	tresult PLUGIN_API setActive(TBool state) SMTG_OVERRIDE;
 	tresult PLUGIN_API setupProcessing(ProcessSetup& setup) SMTG_OVERRIDE;
 	tresult PLUGIN_API setProcessing(TBool) SMTG_OVERRIDE { return kResultOk; }
@@ -51,9 +55,10 @@ public:
 	// its messages come through IConnectionPoint, which SingleComponentEffect hides from hosts
 	tresult PLUGIN_API queryInterface(const TUID iid, void** obj) SMTG_OVERRIDE;
 
-	// as its editor's Load profile... does: the capture at the path (UTF-8) becomes the profile and the host is told
-	// the plugin changed; or it is refused, the profile kept, and the status says why
-	bool loadProfile(const std::string& path);
+	// as its editor's Load profile... does: the capture at the path (UTF-8) is loaded meanwhile, the profile playing
+	// on; then it becomes the profile and the host is told the plugin changed, or it is refused, the profile kept, and
+	// the status says why
+	void loadProfile(const std::string& path);
 	// as its editor's Update from file does: the file at the profile's path loaded as it is now
 	void updateFromFile();
 	ProfileStatus status();
@@ -75,11 +80,13 @@ private:
 	tresult profileMessage(FIDString id, IAttributeList* attributes);
 	tresult editorMessage(FIDString id, IAttributeList* attributes);
 	void applyChanges(IParameterChanges* changes);
-	void install(const std::string& path, const std::string& contents, const Capture& capture);
+	void post(Job job);
+	void finish();
+	void apply(const Loaded& loaded);
+	void applyLoad(const Loaded& loaded);
 	void restoreProfile(const std::string& path, const std::string& contents);
 	void checkFile();
 	void checkLatency();
-	void slimTo(Amp& amp);
 	void refreshEditor();
 
 	std::unique_ptr<Strings> strings;
@@ -87,17 +94,21 @@ private:
 	std::vector<float> voice;
 	double hostRate = 0.0;
 	int32 maxBlock = 0;
-	// the profile: its amp (swapped under the lock; the audio thread skips it while the lock is taken), the path it
-	// was loaded from and its contents
-	std::mutex ampLock;
-	std::shared_ptr<Amp> amp;
+	// the peak of the last block (the audio thread's)
+	float heard = 0.0f;
+	// what the audio thread plays the voice through, and what loads it (stopped before the wake goes)
+	Stage stage;
+	std::unique_ptr<Wake> wake;
+	std::unique_ptr<Loader> loader;
+	// the profile, as the plugin's own thread holds it: the path it was loaded from and its contents
 	std::string path;
 	std::string contents;
 	std::string refusal;
 	std::string notice;
+	// the capture being loaded, and the number of its job
+	std::string loadingName;
+	uint64_t loadingNumber = 0;
 	uint32 reportedLatency = 0;
-	// the Quality the amp plays at (-1 before it is told one)
-	int slimmed = -1;
 	GuitarView* view = nullptr;
 };
 

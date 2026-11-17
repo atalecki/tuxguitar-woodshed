@@ -62,12 +62,20 @@ public class PlaySteps {
 	// with Play looped on, the passes: the last one ends the song (see turn)
 	@When("I play the song live from {position} for {int} passes")
 	public void playLive(SongPosition from, int passes) throws MidiPlayerException, TGAudioDeviceException {
+		playLive(from, passes, () -> { });
+	}
+
+	// the action taken before each turn of the play loop, as the app's other threads act while the song plays
+	void playLive(SongPosition from, int passes, Runnable eachTurn) throws MidiPlayerException, TGAudioDeviceException {
 		MidiPlayer player = MidiPlayer.getInstance(world.fixture().context);
 		player.loadSequencer(new MidiSequencerImpl(world.fixture().context));
 		player.setTickPosition(from.tick(world.song()));
 		player.play();
 		world.threads().runStartHere();
-		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> turn(player, passes)));
+		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> {
+			eachTurn.run();
+			return turn(player, passes);
+		}));
 		player.closeChannels();
 	}
 

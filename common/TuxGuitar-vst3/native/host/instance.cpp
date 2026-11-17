@@ -317,6 +317,7 @@ void Instance::process(int32 frames, const Transport& transport, const std::vect
 	addEvents(events);
 	setContext(frames, transport);
 	data.numSamples = frames;
+	data.processMode = (transport.offline ? kOffline : kRealtime);
 	processor->process(data);
 	copyOut(frames);
 	eventList.clear();

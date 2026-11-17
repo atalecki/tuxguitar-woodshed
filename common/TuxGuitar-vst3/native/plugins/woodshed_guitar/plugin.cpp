@@ -19,6 +19,19 @@ namespace {
 
 // the voices: as many notes as ring together (six strings, let ring, chords in a row)
 const int kVoices = 32;
+// below this the plugin sounds nothing
+const float kSilence = 1e-6f;
+// what the plugin says when the profile's file is no longer the profile's contents
+const char kFileChanged[] = "The profile file has changed since this song was saved";
+
+// the largest absolute sample
+float peak(const float* signal, int32 frames) {
+	float loudest = 0.0f;
+	for (int32 i = 0; i < frames; i++) {
+		loudest = std::max(loudest, std::fabs(signal[i]));
+	}
+	return loudest;
+}
 
 // the note's id, its pitch when the host gives none
 int32 noteId(int32 id, int16 pitch) {
@@ -78,7 +91,16 @@ tresult PLUGIN_API GuitarPlugin::initialize(FUnknown* context) {
 	quality->appendString(u"Full");
 	quality->appendString(u"Light");
 	parameters.addParameter(quality);
+	wake = std::make_unique<Wake>([this] { finish(); });
+	loader = std::make_unique<Loader>(stage, [this] { wake->post(); });
 	return kResultOk;
+}
+
+// the loader stops before what it tells goes
+tresult PLUGIN_API GuitarPlugin::terminate() {
+	loader.reset();
+	wake.reset();
+	return SingleComponentEffect::terminate();
 }
 
 tresult PLUGIN_API GuitarPlugin::setupProcessing(ProcessSetup& setup) {
@@ -87,10 +109,7 @@ tresult PLUGIN_API GuitarPlugin::setupProcessing(ProcessSetup& setup) {
 	maxBlock = setup.maxSamplesPerBlock;
 	strings = std::make_unique<Strings>(kVoices, setup.sampleRate, pluckedString);
 	voice.assign((size_t) setup.maxSamplesPerBlock, 0.0f);
-	std::lock_guard<std::mutex> lock(ampLock);
-	if (amp) {
-		amp->prepare(hostRate, maxBlock);
-	}
+	loader->prepare(hostRate, maxBlock);
 	return result;
 }
 
@@ -109,9 +128,9 @@ tresult PLUGIN_API GuitarPlugin::setBusArrangements(SpeakerArrangement*, int32, 
 	return (numOuts == 1 && outputs[0] == SpeakerArr::kStereo ? kResultTrue : kResultFalse);
 }
 
+// the delay of the profile handed to the audio thread last, which plays from its next block
 uint32 PLUGIN_API GuitarPlugin::getLatencySamples() {
-	std::lock_guard<std::mutex> lock(ampLock);
-	return (amp ? (uint32) amp->latency() : 0);
+	return (uint32) stage.latency();
 }
 
 double GuitarPlugin::parameter(ParamID id) {
@@ -131,21 +150,23 @@ void GuitarPlugin::applyChanges(IParameterChanges* changes) {
 	}
 }
 
-// the strings' sum at the input gain, through the profile (dry while a load holds the lock), at the output level, on
-// both sides
+// the strings' sum at the input gain, through the profile, at the output level, on both sides. A profile taking over
+// crossfades while the plugin sounds (its last block did: the strings, or the profile's own ring after them). Offline
+// (an export) a profile being loaded is waited for, so it plays from this block
 tresult PLUGIN_API GuitarPlugin::process(ProcessData& data) {
 	applyChanges(data.inputParameterChanges);
 	if (data.numSamples <= 0 || data.numOutputs == 0 || !strings) {
 		return kResultOk;
 	}
+	bool sounding = (heard > kSilence);
 	playEvents(data.inputEvents, data.numSamples);
 	scale(gain(parameter(kInputGain)), data.numSamples);
-	std::unique_lock<std::mutex> lock(ampLock, std::try_to_lock);
-	if (lock && amp) {
-		slimTo(*amp);
-		amp->process(voice.data(), data.numSamples);
+	if (data.processMode == kOffline) {
+		loader->waitIdle();
 	}
+	stage.process(voice.data(), data.numSamples, (int) parameter(kQuality), sounding);
 	scale(gain(parameter(kOutputLevel)), data.numSamples);
+	heard = peak(voice.data(), data.numSamples);
 	for (int32 side = 0; side < 2; side++) {
 		std::memcpy(data.outputs[0].channelBuffers32[side], voice.data(), data.numSamples * sizeof(float));
 	}
@@ -189,50 +210,60 @@ void GuitarPlugin::play(const Event& event) {
 	}
 }
 
-// the amp at the Quality chosen, told only when it changes
-void GuitarPlugin::slimTo(Amp& amp) {
-	int quality = (int) parameter(kQuality);
-	if (quality != slimmed) {
-		amp.slim(quality == 1);
-		slimmed = quality;
-	}
-}
-
-// the capture's amp, made ready for the host's rate, takes the old one's place; or, with no capture, none does
-void GuitarPlugin::install(const std::string& path, const std::string& contents, const Capture& capture) {
-	std::shared_ptr<Amp> next;
-	if (capture.model) {
-		next = std::make_shared<Amp>(capture.model, capture.rate);
-		if (hostRate > 0.0) {
-			next->prepare(hostRate, maxBlock);
-		}
-	}
-	{
-		std::lock_guard<std::mutex> lock(ampLock);
-		amp.swap(next);
-		slimmed = -1;
-	}
-	this->path = path;
-	this->contents = contents;
-	checkLatency();
-}
-
-bool GuitarPlugin::loadProfile(const std::string& path) {
-	std::string read;
-	Capture capture = loadCapture(path, read);
-	refusal = capture.refusal;
-	if (!refusal.empty()) {
-		refreshEditor();
-		return false;
-	}
-	install(path, read, capture);
-	checkFile();
+// the job's capture is being loaded, the editor says so
+void GuitarPlugin::post(Job job) {
+	loadingName = (job.path.empty() ? std::string() : fileName(job.path));
+	loadingNumber = loader->post(std::move(job));
 	refreshEditor();
+}
+
+void GuitarPlugin::loadProfile(const std::string& path) {
+	Job job;
+	job.kind = Job::kLoad;
+	job.path = path;
+	post(job);
+}
+
+// on the plugin's own thread: what the loader found since
+void GuitarPlugin::finish() {
+	Loaded loaded;
+	while (loader && loader->take(loaded)) {
+		if (loaded.job.number == loadingNumber) {
+			loadingName.clear();
+		}
+		apply(loaded);
+		refreshEditor();
+		checkLatency();
+	}
+}
+
+// a restore whose contents were refused leaves no profile; it and a check say what became of the file
+void GuitarPlugin::apply(const Loaded& loaded) {
+	if (loaded.job.kind == Job::kLoad) {
+		applyLoad(loaded);
+		return;
+	}
+	notice = (loaded.changed ? kFileChanged : "");
+	if (!loaded.refusal.empty()) {
+		refusal = loaded.refusal;
+		path.clear();
+		contents.clear();
+	}
+}
+
+// a load taken becomes the profile (the host is told the plugin changed), or is refused, the profile kept
+void GuitarPlugin::applyLoad(const Loaded& loaded) {
+	refusal = loaded.refusal;
+	if (!refusal.empty()) {
+		return;
+	}
+	notice.clear();
+	path = loaded.job.path;
+	contents = loaded.job.contents;
 	FUnknownPtr<IComponentHandler2> handler(componentHandler);
 	if (handler) {
 		handler->setDirty(true);
 	}
-	return true;
 }
 
 void GuitarPlugin::edit(ParamID id, double plain, Phase phase) {
@@ -276,7 +307,7 @@ void GuitarPlugin::updateFromFile() {
 }
 
 ProfileStatus GuitarPlugin::status() {
-	return ProfileStatus{(path.empty() ? std::string() : fileName(path)), refusal, notice};
+	return ProfileStatus{(path.empty() ? std::string() : fileName(path)), refusal, notice, loadingName};
 }
 
 // a change of latency is told to the host, which asks for the new one
@@ -288,24 +319,37 @@ void GuitarPlugin::checkLatency() {
 	}
 }
 
-// the copy the state holds, whatever became of the file since (a song sounds the same each time it opens)
+// the copy the state holds, whatever became of the file since (a song sounds the same each time it opens): the profile
+// at once, its model loaded meanwhile; the same profile again stays as it plays
 void GuitarPlugin::restoreProfile(const std::string& path, const std::string& contents) {
-	if (path.empty()) {
-		install(path, contents, Capture());
+	if (path == this->path && contents == this->contents) {
+		checkFile();
 		return;
 	}
-	Capture capture = readCapture(fileName(path), contents);
-	refusal = capture.refusal;
-	bool kept = (capture.model != nullptr);
-	install((kept ? path : std::string()), (kept ? contents : std::string()), capture);
+	this->path = path;
+	this->contents = contents;
+	notice.clear();
+	Job job;
+	job.kind = Job::kRestore;
+	job.path = path;
+	job.contents = contents;
+	post(job);
 }
 
-// the file at the profile's path, when it is there and no longer the profile's contents, is told
+// the file at the profile's path, when it is there and no longer the profile's contents, is told (read meanwhile)
 void GuitarPlugin::checkFile() {
-	notice = (!path.empty() && differs(path, contents) ? "The profile file has changed since this song was saved" : "");
+	if (path.empty()) {
+		notice.clear();
+		return;
+	}
+	Job job;
+	job.path = path;
+	job.contents = contents;
+	loader->post(job);
 }
 
 tresult PLUGIN_API GuitarPlugin::getState(IBStream* state) {
+	finish();
 	Saved saved;
 	saved.inputGain = parameter(kInputGain);
 	saved.outputLevel = parameter(kOutputLevel);
@@ -324,6 +368,7 @@ tresult PLUGIN_API GuitarPlugin::getState(IBStream* state) {
 
 tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	Saved saved;
+	finish();
 	if (!readState(readAll(state), saved)) {
 		return kResultFalse;
 	}
@@ -335,7 +380,6 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	SingleComponentEffect::setParamNormalized(kQuality, getParameterObject(kQuality)->toNormalized(saved.quality));
 	refusal.clear();
 	restoreProfile(saved.path, saved.contents);
-	checkFile();
 	refreshEditor();
 	return kResultOk;
 }
@@ -346,8 +390,8 @@ static tresult report(IAttributeList* attributes, const std::string& text) {
 }
 
 // "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
-// "Woodshed.profile" answers the status: the profile's name, the refusal and the notice, a line break between; else
-// kNotImplemented
+// "Woodshed.profile" answers the status: the profile's name, the refusal, the notice and the capture being loaded, a
+// line break between; else kNotImplemented
 tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "Woodshed.load") == 0) {
 		loadProfile(binary(attributes, "path"));
@@ -355,7 +399,7 @@ tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 	}
 	if (std::strcmp(id, "Woodshed.profile") == 0) {
 		ProfileStatus now = status();
-		return report(attributes, now.name + "\n" + now.refusal + "\n" + now.notice);
+		return report(attributes, now.name + "\n" + now.refusal + "\n" + now.notice + "\n" + now.loading);
 	}
 	return kNotImplemented;
 }
@@ -393,6 +437,7 @@ tresult GuitarPlugin::editorMessage(FIDString id, IAttributeList* attributes) {
 }
 
 tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
+	finish();
 	FIDString id = message->getMessageID();
 	tresult result = profileMessage(id, message->getAttributes());
 	result = (result == kNotImplemented ? editorMessage(id, message->getAttributes()) : result);

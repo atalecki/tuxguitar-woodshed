@@ -156,6 +156,69 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | Odd.nam    | Odd.nam could not be loaded:                                     |
       | Next.nam   | Next.nam could not be loaded:                                    |
 
+  # Loading in the background: a profile is read and made ready on a thread of Woodshed Guitar's own, so its helper goes
+  # on answering and playing; the profile it had plays on until the new one is ready, which then takes over with a
+  # crossfade of 30 ms while it sounds (at once after a silent block). Played offline (an export, and the
+  # scenarios that do not play live), each block waits for a profile being loaded, so it plays from the next block.
+  # Track 1 is heard on the left of the output, track 2 on the right, each at the same Volume, low enough that neither
+  # reaches full scale. Live, a plugin opened as playing starts plays its
+  # dry voice until the profile its song holds is loaded (a moment), so what is measured starts at beat 3
+
+  Scenario: Woodshed Guitar answers while it loads a profile, and the one it had stays until the new one is ready
+    Given there is the test NAM capture "A1 standard test.nam"
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have opened the editor of the source of track 1
+    When Woodshed Guitar of track 1 starts loading the NAM capture "A1 standard test.nam"
+    Then Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and "Loading A1 standard test.nam..."
+    And once it has loaded, Woodshed Guitar's editor of track 1 shows "Profile: A1 standard test.nam" and ""
+
+  Scenario: a profile loaded while the song plays live takes over with a crossfade of 30 ms, the sound never stopping
+    Given there is a NAM capture "Gain 2.nam" that multiplies the signal by 2.0
+    And track 1 has a quarter note on every beat
+    And I have added a guitar track on a channel of its own
+    And track 2 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And I have set the Volume of track 1's channel to 64
+    And I have set the Balance of track 1's channel to 0
+    And I have set the Volume of track 2's channel to 64
+    And I have set the Balance of track 2's channel to 127
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    When I play the song live from measure 1 beat 1, Woodshed Guitar of track 1 loading the NAM capture "Gain 2.nam" at measure 2 beat 1
+    Then from measure 1 beat 3 on, the output's left side sounds 3.0 times its right side, then 2.0 times, changing over in 30 ms within 2 ms, never outside those two
+
+  Scenario: a file refused while the song plays live leaves the profile playing
+    Given there is a text file "notes.txt"
+    And track 1 has a quarter note on every beat
+    And I have added a guitar track on a channel of its own
+    And track 2 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And I have set the Volume of track 1's channel to 64
+    And I have set the Balance of track 1's channel to 0
+    And I have set the Volume of track 2's channel to 64
+    And I have set the Balance of track 2's channel to 127
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    When I play the song live from measure 1 beat 1, Woodshed Guitar of track 1 loading the file "notes.txt" at measure 2 beat 1
+    Then from measure 1 beat 3 on, the output's left side sounds 3.0 times its right side, sample for sample within 0.001
+
+  # the resampling's delay is reported from the block the new profile plays, so plugin delay compensation realigns the
+  # tracks from the next one
+  Scenario: a profile made at another sample rate, loaded while the song plays live, keeps the tracks in time
+    Given there is a NAM capture "Gain 3 at 48 kHz.nam" that multiplies the signal by 3.0, made at 48000 Hz
+    And track 1 has a quarter note on every beat
+    And I have added a guitar track on a channel of its own
+    And track 2 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And I have set the Volume of track 1's channel to 64
+    And I have set the Balance of track 1's channel to 0
+    And I have set the Volume of track 2's channel to 64
+    And I have set the Balance of track 2's channel to 127
+    When I play the song live from measure 1 beat 1, Woodshed Guitar of track 1 loading the NAM capture "Gain 3 at 48 kHz.nam" at measure 2 beat 1
+    Then from measure 3 beat 1 on, the output's left side sounds 3.0 times its right side, in time to the sample, within 1% RMS
+
   # A1 and A2 captures (README: the test captures). What they sound like is no number the scenario knows: they play
   # when the plugin takes them, sound, and sound other than the dry voice of track 2, shifted or not (both are made at
   # 48 kHz, so track 1 reports the resampling's latency)
@@ -349,6 +412,31 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     And I play the song from measure 1 beat 1
     Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
     And Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
+
+  # offline (an export), the plugin opened as the render starts waits for the profile it is given back, however long it
+  # takes to load
+  Scenario: played offline, a reopened song plays a capture that takes long to load from its first sample
+    Given there is a NAM capture "Large 3.nam" that multiplies the signal by 3.0, with 5 MB of notes in it
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Large 3.nam"
+    And I have saved the song as a TuxGuitar file
+    When I open it again
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
+
+  # a song whose capture cannot be read (its file damaged) opens with the dry voice, saying why
+  Scenario: a song whose Woodshed Guitar holds a capture it cannot read plays no profile, saying why
+    Given there is a text file "notes.txt"
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have saved the song as a TuxGuitar file, Woodshed Guitar of track 1 holding "notes.txt" in its own state
+    When I open it again
+    Then Woodshed Guitar of track 1 plays no profile
+    And Woodshed Guitar of track 1 refuses it, saying something starting "notes.txt could not be loaded: it is not the JSON of a .nam file"
 
   # Sample rates
 

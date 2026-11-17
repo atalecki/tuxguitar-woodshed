@@ -197,21 +197,12 @@ public class LevelSteps {
 		assertTrue(Meters.peak(reference, 0, length) > SILENT, "the other track sounds nothing");
 	}
 
-	// the lag (within LAGS samples either way) at which track 1 fits N times track 2 best, by the root mean square of
-	// what is left; it is 0, and what is left is within the fraction of N times track 2's root mean square
-	private static final int LAGS = 64;
-
+	// the lag at which track 1 fits N times track 2 best is 0, and what is left is within the fraction (see Fit)
 	@Then("track {int} sounds {float} times what track {int} sounds, in time to the sample, within {int}% RMS")
 	public void soundsTimesInTime(int number, float times, int other, int percent) {
 		float[] tap = tap(number, 0);
 		float[] reference = tap(other, 0);
-		int length = Math.min(tap.length, reference.length) - LAGS;
-		int best = java.util.stream.IntStream.rangeClosed(-LAGS, LAGS).boxed()
-			.min(java.util.Comparator.comparingDouble(lag -> residual(tap, reference, times, lag, length))).get();
-		double scale = Math.sqrt(java.util.stream.IntStream.range(LAGS, length).mapToDouble(i -> times * reference[i] * times * reference[i]).sum());
-		assertEquals(0, best, "lag of the best fit");
-		assertTrue(scale > 0, "track " + other + " sounds nothing");
-		assertTrue(residual(tap, reference, times, 0, length) <= scale * percent / 100, "left " + residual(tap, reference, times, 0, length) / scale);
+		Fit.assertInTime(tap, reference, times, 0, Math.min(tap.length, reference.length), percent);
 	}
 
 	// not track 2 shifted: at its best-fitting lag, what is left is more than the fraction of track 2's root mean square
@@ -219,21 +210,11 @@ public class LevelSteps {
 	public void soundsOtherAtEveryLag(int number, int other, int percent) {
 		float[] tap = tap(number, 0);
 		float[] reference = tap(other, 0);
-		int length = Math.min(tap.length, reference.length) - LAGS;
-		double least = java.util.stream.IntStream.rangeClosed(-LAGS, LAGS).mapToDouble(lag -> residual(tap, reference, 1f, lag, length)).min().getAsDouble();
-		double scale = Math.sqrt(java.util.stream.IntStream.range(LAGS, length).mapToDouble(i -> reference[i] * reference[i]).sum());
+		int length = Math.min(tap.length, reference.length) - Fit.LAGS;
+		double least = java.util.stream.IntStream.rangeClosed(-Fit.LAGS, Fit.LAGS).mapToDouble(lag -> Fit.residual(tap, reference, 1f, lag, Fit.LAGS, length)).min().getAsDouble();
+		double scale = Math.sqrt(java.util.stream.IntStream.range(Fit.LAGS, length).mapToDouble(i -> reference[i] * reference[i]).sum());
 		assertTrue(scale > 0, "track " + other + " sounds nothing");
 		assertTrue(least > scale * percent / 100, "left at best " + least / scale);
-	}
-
-	// the root sum of squares of track minus N times the reference lag samples earlier
-	private static double residual(float[] tap, float[] reference, float times, int lag, int length) {
-		double sum = 0;
-		for (int i = LAGS; i < length; i++) {
-			double left = tap[i] - times * reference[i - lag];
-			sum += left * left;
-		}
-		return Math.sqrt(sum);
 	}
 
 	@Then("track {int}'s left and right sides are the same, sample for sample")

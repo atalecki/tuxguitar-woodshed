@@ -26,7 +26,11 @@ std::string profileText(const ProfileStatus& status) {
 	return (status.name.empty() ? std::string("No profile: the dry guitar is heard") : "Profile: " + status.name);
 }
 
+// a capture being loaded is told in place of the last refusal
 std::string refusalText(const ProfileStatus& status) {
+	if (!status.loading.empty()) {
+		return "Loading " + status.loading + "...";
+	}
 	return (status.refusal.empty() ? std::string() : "Not loaded: " + status.refusal);
 }
 

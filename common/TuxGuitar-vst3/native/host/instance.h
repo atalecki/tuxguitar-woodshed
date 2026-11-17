@@ -50,6 +50,8 @@ struct Transport {
 	int32 denominator;
 	double quarters;
 	int64 samples;
+	// rendered offline (an export): the plugin may take its time over the block
+	bool offline;
 };
 
 // the window of a plugin's own editor as the system shows it (for checks); all 0 when no editor is open

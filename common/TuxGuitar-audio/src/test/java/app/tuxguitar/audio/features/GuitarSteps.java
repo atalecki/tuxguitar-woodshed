@@ -8,9 +8,11 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -22,6 +24,7 @@ import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.io.base.TGFileFormatException;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
@@ -42,14 +45,19 @@ import io.cucumber.java.en.When;
  */
 public class GuitarSteps {
 
+	// how long a load may take before a step gives up waiting for it
+	private static final long LOADING = 10_000_000_000L;
+
 	private final AudioWorld world;
 	private final SavingSteps saving;
+	private final PlaySteps play;
 	// the scenario's folder: its NAM captures and other files, and a TuxGuitar installed there
 	private Path folder;
 
-	public GuitarSteps(AudioWorld world, SavingSteps saving) {
+	public GuitarSteps(AudioWorld world, SavingSteps saving, PlaySteps play) {
 		this.world = world;
 		this.saving = saving;
+		this.play = play;
 	}
 
 	private Path folder() throws IOException {
@@ -95,6 +103,15 @@ public class GuitarSteps {
 		capture(name, "0.7.0", "Linear", gain, rate);
 	}
 
+	// as large as a full-size capture, so it takes a while to load: the same Linear one, with notes in its metadata
+	@Given("there is a NAM capture {string} that multiplies the signal by {double}, with {int} MB of notes in it")
+	public void thereIsALargeNamCapture(String name, double gain, int megabytes) throws IOException {
+		capture(name, "0.7.0", "Linear", gain, 44100);
+		String json = new String(Files.readAllBytes(folder().resolve(name)), StandardCharsets.UTF_8);
+		String notes = String.join("", Collections.nCopies(megabytes * 1024 * 1024, "n"));
+		Files.write(folder().resolve(name), (json.substring(0, json.length() - 1) + ", \"metadata\": {\"notes\": \"" + notes + "\"}}").getBytes(StandardCharsets.UTF_8));
+	}
+
 	@Given("there is a NAM capture {string} of the architecture {string}")
 	public void thereIsANamCaptureOfTheArchitecture(String name, String architecture) throws IOException {
 		capture(name, "0.7.0", architecture, 1.0, 44100);
@@ -134,14 +151,96 @@ public class GuitarSteps {
 		return TGLivePlugins.getInstance(world.fixture().context).get(world.channel(world.track(track)).getChannelId(), "source");
 	}
 
-	// as its editor's Load profile... does, with the file of the scenario's folder; then the app drains what the plugin
-	// told it
+	// as its editor's Load profile... does, with the file of the scenario's folder; once it has loaded it, the app drains
+	// what the plugin told it
 	@When("Woodshed Guitar of track {int} loads the NAM capture {string}")
 	@When("Woodshed Guitar of track {int} loads the file {string}")
 	public void loads(int track, String name) throws TGVst3Exception, IOException {
-		byte[] path = folder().resolve(name).toString().getBytes(StandardCharsets.UTF_8);
-		running(track).message("Woodshed.load", Collections.<String, Long>emptyMap(), Map.of("path", path));
+		startsLoading(track, name);
+		awaitLoaded(running(track));
 		TGLivePlugins.getInstance(world.fixture().context).drain();
+	}
+
+	@When("Woodshed Guitar of track {int} starts loading the NAM capture {string}")
+	public void startsLoading(int track, String name) throws TGVst3Exception, IOException {
+		load(running(track), name);
+	}
+
+	private void load(TGVst3Instance plugin, String name) throws TGVst3Exception, IOException {
+		byte[] path = folder().resolve(name).toString().getBytes(StandardCharsets.UTF_8);
+		plugin.message("Woodshed.load", Collections.<String, Long>emptyMap(), Map.of("path", path));
+	}
+
+	// until it says it loads nothing
+	private static void awaitLoaded(TGVst3Instance plugin) throws TGVst3Exception {
+		long until = System.nanoTime() + LOADING;
+		while (!status(plugin)[3].isEmpty()) {
+			assertTrue(System.nanoTime() < until, "still loading");
+			Thread.onSpinWait();
+		}
+	}
+
+	@Then("once it has loaded, Woodshed Guitar's editor of track {int} {editorLines}")
+	public void onceLoadedItsEditorShows(int track, Map.Entry<Integer, String> lines) throws TGVst3Exception {
+		awaitLoaded(running(track));
+		itsEditorShows(track, lines);
+	}
+
+	// live, the load asked of the plugin as the live synthesizer runs it (the app's synthesizer tells TGLivePlugins, see
+	// TGLiveAudio.play) before the first turn of the play loop that finds the song at the position, the song playing on
+	@When("I play the song live from {position}, Woodshed Guitar of track {int} loading the NAM capture {string} at {position}")
+	@When("I play the song live from {position}, Woodshed Guitar of track {int} loading the file {string} at {position}")
+	public void playLiveLoading(SongPosition from, int track, String name, SongPosition at) throws Exception {
+		world.synthesizer().addChannelListener(TGLivePlugins.getInstance(world.fixture().context));
+		MidiPlayer player = MidiPlayer.getInstance(world.fixture().context);
+		long tick = at.tick(world.song());
+		AtomicBoolean asked = new AtomicBoolean();
+		this.play.playLive(from, 1, () -> {
+			if (player.getTickPosition() >= tick) {
+				loadOnce(asked, track, name);
+			}
+		});
+		assertTrue(asked.get(), "asked while the song played");
+	}
+
+	private void loadOnce(AtomicBoolean asked, int track, String name) {
+		if (!asked.getAndSet(true)) {
+			loadUnchecked(track, name);
+		}
+	}
+
+	private void loadUnchecked(int track, String name) {
+		try {
+			load(running(track), name);
+		} catch (TGVst3Exception | IOException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	@Then("from {position} on, the output's left side sounds {float} times its right side, then {float} times, changing over in {int} ms within {int} ms, never outside those two")
+	public void theOutputChangesOver(SongPosition from, float first, float then, int millis, int within) {
+		float[][] live = fromThenOn(from);
+		Fit.assertChangeover(live[0], live[1], first, then, millis, within, TestInterface.SAMPLE_RATE);
+	}
+
+	@Then("from {position} on, the output's left side sounds {float} times its right side, sample for sample within 0.001")
+	public void fromThenTheOutputIsTimes(SongPosition from, float times) {
+		float[][] live = fromThenOn(from);
+		Fit.assertBetween(live[0], live[1], times, times);
+	}
+
+	// the live output's two sides from the position on (the device's clock is the song's, played from its start)
+	private float[][] fromThenOn(SongPosition from) {
+		int start = (int) Signals.sampleOf(from, world.song(), TestInterface.SAMPLE_RATE);
+		float[][] live = world.live();
+		return new float[][] {Arrays.copyOfRange(live[0], start, live[0].length), Arrays.copyOfRange(live[1], start, live[1].length)};
+	}
+
+	@Then("from {position} on, the output's left side sounds {float} times its right side, in time to the sample, within {int}% RMS")
+	public void fromThenTheOutputIsInTime(SongPosition from, float times, int percent) {
+		float[][] live = world.live();
+		int start = (int) Signals.sampleOf(from, world.song(), TestInterface.SAMPLE_RATE);
+		Fit.assertInTime(live[0], live[1], times, start, Math.min(live[0].length, live[1].length), percent);
 	}
 
 	@Given("Woodshed Guitar of track {int} has loaded the NAM capture {string}")
@@ -150,8 +249,8 @@ public class GuitarSteps {
 		assertEquals(name + "\n", profileAndRefusal(running(track)));
 	}
 
-	// what the plugin says of its profile, a line each: the profile's name, the refusal of the last file given to it, and
-	// what it says of the profile's file
+	// what the plugin says of its profile, a line each: the profile's name, the refusal of the last file given to it,
+	// what it says of the profile's file, and the name of the capture it is loading (none: empty)
 	private static String[] status(TGVst3Instance plugin) throws TGVst3Exception {
 		return lines(plugin.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()));
 	}
@@ -166,9 +265,10 @@ public class GuitarSteps {
 		return status[0] + "\n" + status[1];
 	}
 
-	// what it says of the profile's file
+	// what it says of the profile's file, once it has loaded what it was given
 	@Then("Woodshed Guitar of track {int} says {string}")
 	public void says(int track, String notice) throws TGVst3Exception {
+		awaitLoaded(running(track));
 		assertEquals(notice, status(running(track))[2]);
 	}
 
@@ -184,6 +284,7 @@ public class GuitarSteps {
 		TGVst3InstrumentProcessor processor = new TGVst3InstrumentProcessor(TGVst3Hosting.getInstance(world.fixture().context));
 		try {
 			processor.restoreParameters(source.getParameters());
+			awaitLoaded(processor.getInstance());
 			return look.apply(processor.getInstance());
 		} finally {
 			processor.close();
@@ -195,9 +296,10 @@ public class GuitarSteps {
 		assertEquals(name + "\n", ofTheSong(track, GuitarSteps::statusOf));
 	}
 
+	// whatever it says of a capture it refused
 	@Then("Woodshed Guitar of track {int} plays no profile")
 	public void playsNoProfile(int track) throws TGVst3Exception {
-		assertEquals("\n", ofTheSong(track, GuitarSteps::statusOf));
+		assertEquals("", ofTheSong(track, GuitarSteps::statusOf).split("\n", -1)[0]);
 	}
 
 	private static String statusOf(TGVst3Instance plugin) {
@@ -223,13 +325,14 @@ public class GuitarSteps {
 		assertEquals(lines.getValue(), shown[lines.getKey()] + "\n" + shown[lines.getKey() + 1]);
 	}
 
-	// as the user clicks the button its editor shows with that text (it shows none: the step fails); then the app drains
-	// what the plugin told it
+	// as the user clicks the button its editor shows with that text (it shows none: the step fails); once the plugin has
+	// loaded what it asked for, the app drains what the plugin told it
 	@Given("I have clicked {string} in Woodshed Guitar's editor of track {int}")
 	@When("I click {string} in Woodshed Guitar's editor of track {int}")
 	public void clickInTheEditor(String button, int track) throws TGVst3Exception {
 		byte[] clicked = running(track).message("Woodshed.click", Collections.<String, Long>emptyMap(), Map.of("button", button.getBytes(StandardCharsets.UTF_8)));
 		assertEquals(button, new String(clicked, StandardCharsets.UTF_8), "the editor shows the button");
+		awaitLoaded(running(track));
 		TGLivePlugins.getInstance(world.fixture().context).drain();
 	}
 

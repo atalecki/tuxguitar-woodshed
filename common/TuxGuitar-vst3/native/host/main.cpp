@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 5;
+const int32_t kProtocolVersion = 6;
 
 enum Operation {
 	kHello = 1,
@@ -323,6 +323,7 @@ private:
 		transport.denominator = wire.readInt();
 		transport.quarters = wire.readDouble();
 		transport.samples = wire.readLong();
+		transport.offline = (wire.readInt() != 0);
 		return transport;
 	}
 

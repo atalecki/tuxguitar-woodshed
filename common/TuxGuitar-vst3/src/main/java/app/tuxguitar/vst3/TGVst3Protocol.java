@@ -8,7 +8,7 @@ package app.tuxguitar.vst3;
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 5;
+	static final int VERSION = 6;
 
 	// -> version, process id
 	static final int HELLO = 1;
@@ -20,8 +20,9 @@ final class TGVst3Protocol {
 	static final int OPEN = 3;
 	// instance
 	static final int CLOSE = 4;
-	// instance, frames, transport (playing, tempo, numerator, denominator, quarters, samples), events (count, then type,
-	// offset, pitch, note id, value) -> latency, tail
+	// instance, frames, transport (playing, tempo, numerator, denominator, quarters, samples, offline: 1 for a render
+	// that is not live, the plugin may take its time), events (count, then type, offset, pitch, note id, value) ->
+	// latency, tail
 	static final int PROCESS = 5;
 	// instance, parameter, plain value -> plain value, latency, tail
 	static final int SET_PARAMETER = 6;

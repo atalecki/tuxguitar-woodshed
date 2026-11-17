@@ -147,7 +147,7 @@ public final class TGVst3Instance implements AutoCloseable {
 		this.blocks.write(block, frames);
 		TGVst3Request request = this.request(TGVst3Protocol.PROCESS).writeInt(frames);
 		request.writeInt(transport.isPlaying() ? 1 : 0).writeDouble(transport.getTempo()).writeInt(transport.getNumerator())
-			.writeInt(transport.getDenominator()).writeDouble(transport.getQuarters()).writeLong(transport.getSamples());
+			.writeInt(transport.getDenominator()).writeDouble(transport.getQuarters()).writeLong(transport.getSamples()).writeInt(offline ? 1 : 0);
 		request.writeInt(events.size());
 		for (TGVst3NoteEvent event : events) {
 			request.writeInt(event.getType()).writeInt(event.getOffset()).writeInt(event.getPitch()).writeInt(event.getNoteId()).writeFloat(event.getValue());

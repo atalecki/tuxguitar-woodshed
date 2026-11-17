@@ -81,7 +81,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 6, not 5", refused.getMessage());
+		assertEquals("the VST3 host speaks version 7, not 6", refused.getMessage());
 	}
 
 	@Test
@@ -244,6 +244,10 @@ public class TestVst3Host {
 		TGVst3Plugin woodshed = this.host.scan(new File(new File(TestPlugins.nativeBuild(), "plugins/VST3"), "Woodshed Guitar.vst3")).get(0);
 		TGVst3Instance first = this.host.open(woodshed, 44100f, FRAMES);
 		first.message("Woodshed.load", Collections.<String, Long>emptyMap(), Collections.singletonMap("path", capture.getPath().getBytes(StandardCharsets.UTF_8)));
+		// it loads on a thread of its own: once it says it loads nothing (its status's fourth line), it has
+		while (!new String(first.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()), StandardCharsets.UTF_8).endsWith("\n")) {
+			Thread.onSpinWait();
+		}
 		TGVst3State state = first.getState();
 		TGVst3Instance second = this.host.open(woodshed, 44100f, FRAMES);
 		second.setState(state);
