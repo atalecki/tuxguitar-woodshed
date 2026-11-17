@@ -33,7 +33,7 @@ later on the branch.
 | --- | --- | --- | --- |
 | 1 | On track 1, Load profile... **Lead**. Save the song as `slice2.tg`, close it. | The song saves. | not run |
 | 2 | In Explorer, copy **Clean.nam** over **Lead.nam** (same name, other contents). Open `slice2.tg` and press Play. | Track 1 still sounds like **Lead** (the song's own copy), not like Clean. | not run |
-| 3 | Open track 1's Woodshed Guitar editor. | Below "Profile: Lead.nam" it says "The profile file has changed since this song was saved", with an **Update from file** button next to it. | not run |
+| 3 | Open track 1's Woodshed Guitar editor. | Below "Profile: Lead.nam" it says "The profile file has changed since it was loaded.", with an **Update from file** button next to it. | not run |
 | 4 | Click **Update from file**, then press Play. | The editor shows "Loading Lead.nam..." for a moment, then the line and the button go away; track 1 now sounds like Clean (the file as it is now). The song shows as modified. | not run |
 | 5 | Edit > Undo, then press Play. | Track 1 sounds like the old Lead again, and the editor says again that the file has changed, with **Update from file**. | not run |
 | 6 | Put the original **Lead.nam** back. Close and reopen `slice2.tg`, open the editor. | No line about the file and no **Update from file** button: the file is what the song holds. | not run |
@@ -49,7 +49,7 @@ later on the branch.
   (including its undo), one stored copy for tracks sharing a capture, songs saved before this slice still opening, the
   crossfade's length and the absence of gaps, the editor answering while a capture loads, and the latency of a 48 kHz
   capture loaded while playing. This page checks what a person hears and sees with real captures.
-- Live, a song's first notes right after it opens may sound dry for a moment while its captures load (the plugin never
-  makes playback wait). Exports wait for them, so an export always plays the capture from its first note.
+- Exports wait for a capture still loading, so an export always plays it from its first note. Since slice 3, Play waits
+  for it too (see **Woodshed Guitar, slice 3**).
 - Known, pinned, not part of this slice: a parameter that TuxGuitar sets on a plugin kept open while nothing plays it
   is left out of the saved song.
