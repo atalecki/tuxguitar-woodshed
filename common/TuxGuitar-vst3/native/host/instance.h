@@ -23,9 +23,10 @@ namespace TuxGuitar {
 
 using namespace Steinberg;
 
-// what the controller told the host
+// what the controller told the host (dirty: its state changed outside any edit, a file loaded, say), or that the
+// editor's window was hidden by its close box (the editor may have changed the plugin without saying so)
 struct Notification {
-	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4 };
+	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4, kDirty = 5, kEditorHidden = 6 };
 	int32 kind;
 	int32 id;     // the parameter, or the restart flags
 	double plain; // the parameter's plain value

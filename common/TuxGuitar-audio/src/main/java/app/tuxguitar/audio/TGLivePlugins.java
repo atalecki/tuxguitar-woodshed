@@ -225,8 +225,21 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		last.values().forEach(gesture -> this.store(gesture.channel, gesture.element, gesture.instance));
 	}
 
-	// the song's element keeps the plugin's state, one change of the song
+	// the song's element keeps the plugin's state, one change of the song; none when the song holds that state already
+	// (an editor closed having changed nothing)
 	private void store(int channel, String element, TGVst3Instance instance) {
+		try {
+			TGVst3State state = instance.getState();
+			if (!instance.isAgreed(state)) {
+				this.take(channel, element, instance, state);
+			}
+		} catch (TGVst3Exception | TGActionException e) {
+			// the plugin is gone, or the song refused the change: the song stays as it was
+			LOG.warn("the state of the VST3 plugin of " + element + " on channel " + channel + " was not kept: " + e.getMessage());
+		}
+	}
+
+	private void take(int channel, String element, TGVst3Instance instance, TGVst3State state) {
 		TGDocumentManager document = TGDocumentManager.getInstance(this.context);
 		TGActionContext change = new TGActionContext() {
 		};
@@ -234,16 +247,10 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG, document.getSong());
 		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, document.getSongManager().getChannel(document.getSong(), channel));
 		change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_ELEMENT, element);
-		try {
-			TGVst3State state = instance.getState();
-			change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_STATE, state);
-			TGActionManager.getInstance(this.context).execute(TGSetPluginStateAction.NAME, change);
-			instance.agree(state);
-			this.kept(channel, element, instance);
-		} catch (TGVst3Exception | TGActionException e) {
-			// the plugin is gone, or the song refused the change: the song stays as it was
-			LOG.warn("the state of the VST3 plugin of " + element + " on channel " + channel + " was not kept: " + e.getMessage());
-		}
+		change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_STATE, state);
+		TGActionManager.getInstance(this.context).execute(TGSetPluginStateAction.NAME, change);
+		instance.agree(state);
+		this.kept(channel, element, instance);
 	}
 
 	// the plugin kept for the element did the change the song's element now holds: it is not opened again for it

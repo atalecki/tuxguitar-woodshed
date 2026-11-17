@@ -8,7 +8,7 @@ package app.tuxguitar.vst3;
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 3;
+	static final int VERSION = 4;
 
 	// -> version, process id
 	static final int HELLO = 1;

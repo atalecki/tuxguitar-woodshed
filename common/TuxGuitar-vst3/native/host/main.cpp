@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 3;
+const int32_t kProtocolVersion = 4;
 
 enum Operation {
 	kHello = 1,

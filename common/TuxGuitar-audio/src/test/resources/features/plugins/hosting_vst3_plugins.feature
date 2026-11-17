@@ -434,3 +434,26 @@ Feature: Hosting VST3 plugins
     And the plugin has loaded its preset "Loud" for VST3 effect 1 of track 1
     When I undo
     Then the state of VST3 effect 1 of track 1 is byte for byte what it was before the preset
+
+  # A capture player (TONE3000, Gateway) loads a capture in its own editor without moving a parameter: no gesture. That
+  # the running plugin keeps it when the song is played again or another chain changes is TestLivePlugins' (the
+  # scenarios close the synthesizer's channels after each play).
+  Scenario: a capture loaded in a plugin's own editor that says it is dirty modifies the song
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have saved the song as a TuxGuitar file
+    When the plugin loads the capture 7 into VST3 effect 1 of track 1 saying so
+    Then the capture of VST3 effect 1 of track 1 is 7
+    And the song is modified
+
+  Scenario: a capture loaded in a plugin's own editor that says nothing is kept once I close the editor
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have opened the editor of VST3 effect 1 of track 1
+    And the plugin has loaded the capture 7 into VST3 effect 1 of track 1 without saying so
+    When I close the plugin's own editor of VST3 effect 1 of track 1 by its close box
+    Then the capture of VST3 effect 1 of track 1 is 7
+
+  Scenario: a capture loaded in a plugin's own editor is one undo step
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the plugin has loaded the capture 7 into VST3 effect 1 of track 1 saying so
+    When I undo
+    Then the capture of VST3 effect 1 of track 1 is 0

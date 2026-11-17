@@ -79,7 +79,11 @@ offer yet). Without a device Record is refused, and an input channel the device 
 Count In / Metronome click is a TuxGuitar setting kept in the app's configuration (`MidiClick.read`/`write`). Plugin editors are implemented headless: `TGLivePlugins` knows each VST3 plugin of a
 sound chain as it runs (a live render's, else one kept open for its element), opens its own editor or TuxGuitar's
 parameter editor (`TGOpenPluginEditorAction`), and turns one gesture or preset in it into one
-`TGSetPluginStateAction` when an app drains it on the thread that edits the song (the audio thread only notes it).
+`TGSetPluginStateAction` when an app drains it on the thread that edits the song (the audio thread only notes it). A
+change outside a gesture (a capture loaded: the plugin says it is dirty) or its own editor's window hidden by its close
+box is drained the same way, unless the song already holds that state (`TGVst3Gestures`). A running plugin sent its
+element again unchanged (each Play, each change of any chain) keeps what its editor did that the song has not taken
+(`TGVst3Instance.restore`).
 An installed app's synthesizer runs VST3 effects and instruments and tells `TGLivePlugins` each time a channel's chain
 changes (synth-core's `TGSynthChannelListener`), so editors open on the plugin that sounds (an editor opened before
 the synthesizer runs a plugin just added waits for it, at most 5 s) and close when it stops; TuxGuitar's parameter

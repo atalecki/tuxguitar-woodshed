@@ -182,7 +182,16 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	// the song holds the state now, without parameters set since (it took the state from the plugin)
 	public void agree(TGVst3State state) {
-		this.agreed = Map.entry(state, Collections.<Integer, Double>emptyMap());
+		this.agreed = agreement(state);
+	}
+
+	// whether the song already holds the state, without parameters set since: taking it again would change nothing
+	public boolean isAgreed(TGVst3State state) {
+		return agreement(state).equals(this.agreed);
+	}
+
+	private static Map.Entry<TGVst3State, Map<Integer, Double>> agreement(TGVst3State state) {
+		return Map.entry(state, Collections.<Integer, Double>emptyMap());
 	}
 
 	// the song gives the plugin the state, then the parameters set since (by id, plain values): set, unless they are what

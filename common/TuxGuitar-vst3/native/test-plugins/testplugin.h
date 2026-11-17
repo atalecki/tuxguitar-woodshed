@@ -110,10 +110,13 @@ private:
 	tresult sizeMessage(FIDString id, IAttributeList* attributes);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
+	void load(int64 capture, bool dirty);
 
 	PluginSpec spec;
 	std::vector<double> values;
 	int32 preset;
+	// the capture its editor loaded (no parameter: a file, as a NAM capture player loads one), 0 for none
+	int32 capture = 0;
 	uint32 reportedLatency;
 	// the gesture of a "TG.gesture-later" not done yet: its parameter and values
 	ParamID laterParam = 0;

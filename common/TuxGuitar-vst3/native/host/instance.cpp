@@ -20,8 +20,9 @@ using namespace Steinberg::Vst;
 
 namespace {
 
-// what the controller tells the host goes to the instance
-class Handler : public U::Implements<U::Directly<IComponentHandler>> {
+// what the controller tells the host goes to the instance: its edits, restarts, and that its state changed outside an
+// edit (dirty); it has no editor TuxGuitar opens on request, and group edits are heard as their edits
+class Handler : public U::Implements<U::Directly<IComponentHandler, IComponentHandler2>> {
 public:
 	explicit Handler(Instance* instance) : instance(instance) {}
 
@@ -29,6 +30,11 @@ public:
 	tresult PLUGIN_API performEdit(ParamID id, ParamValue normalized) override { return tell(Notification::kPerformEdit, id, normalized); }
 	tresult PLUGIN_API endEdit(ParamID id) override { return tell(Notification::kEndEdit, id, 0.0); }
 	tresult PLUGIN_API restartComponent(int32 flags) override { return tell(Notification::kRestart, flags, 0.0); }
+
+	tresult PLUGIN_API setDirty(TBool state) override { return (state ? tell(Notification::kDirty, 0, 0.0) : kResultOk); }
+	tresult PLUGIN_API requestOpenEditor(FIDString) override { return kNotImplemented; }
+	tresult PLUGIN_API startGroupEdit() override { return kResultOk; }
+	tresult PLUGIN_API finishGroupEdit() override { return kResultOk; }
 
 private:
 	tresult tell(int32 kind, int32 id, double normalized) {
@@ -436,12 +442,16 @@ void constrain(HWND window, WINDOWPOS* position) {
 	}
 }
 
-// closing an editor's window (its close box, Alt+F4) hides it, the plugin's view still in it: Edit shows it again. The
-// window is destroyed when TuxGuitar closes the editor. Gone to a screen of another DPI, it tells the view that screen's
-// scale and takes the frame Windows suggests. Resized, it tells the view, within the sizes the view accepts
+// closing an editor's window (its close box, Alt+F4) hides it, the plugin's view still in it: Edit shows it again; the
+// instance tells TuxGuitar, as what the editor did may not have been told. The window is destroyed when TuxGuitar
+// closes the editor. Gone to a screen of another DPI, it tells the view that screen's scale and takes the frame Windows
+// suggests. Resized, it tells the view, within the sizes the view accepts
 LRESULT CALLBACK editorProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	if (message == WM_CLOSE) {
 		ShowWindow(window, SW_HIDE);
+		if (editing(window)) {
+			editing(window)->notify(Notification::kEditorHidden, 0, 0.0);
+		}
 		return 0;
 	}
 	if (message == WM_DPICHANGED) {

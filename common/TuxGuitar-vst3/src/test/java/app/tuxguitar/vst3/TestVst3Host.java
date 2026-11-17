@@ -78,7 +78,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 4, not 3", refused.getMessage());
+		assertEquals("the VST3 host speaks version 5, not 4", refused.getMessage());
 	}
 
 	@Test
@@ -256,6 +256,39 @@ public class TestVst3Host {
 		gain.message("TG.gesture", Collections.singletonMap("id", (long) id), Collections.singletonMap("values", TGVst3Instance.doubles(2.5, 3.0)));
 		assertEquals(Arrays.asList("BEGIN_EDIT 1 0.0", "PERFORM_EDIT 1 2.5", "PERFORM_EDIT 1 3.0", "END_EDIT 1 0.0"), heard);
 		assertEquals(3.0, gain.getParameter(id));
+	}
+
+	private static String heard(List<TGVst3Notice> notices) {
+		return notices.stream().map(notice -> notice.getKind() + " " + notice.getParameter()).collect(java.util.stream.Collectors.joining(", "));
+	}
+
+	// a capture loaded in the plugin's own editor is no edit: a plugin that says it is dirty is heard saying so, one that
+	// says nothing is not heard; either way the capture is in its state
+	@Test
+	public void aCaptureLoadedInThePluginsEditorIsHeardOnlyWhenThePluginSaysItIsDirty() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		List<TGVst3Notice> notices = new ArrayList<TGVst3Notice>();
+		gain.setListener(notices::add);
+		gain.message("TG.load", Map.of("capture", 7L, "dirty", 0L), Collections.<String, byte[]>emptyMap());
+		String silent = heard(notices);
+		gain.message("TG.load", Map.of("capture", 8L, "dirty", 1L), Collections.<String, byte[]>emptyMap());
+		TGVst3Instance second = open("Test Gain");
+		second.setState(gain.getState());
+		byte[] capture = second.message("TG.capture", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		assertEquals(" | DIRTY 0 | 8", silent + " | " + heard(notices) + " | " + java.nio.ByteBuffer.wrap(capture).order(java.nio.ByteOrder.nativeOrder()).getInt());
+	}
+
+	// its close box hides the editor's window, which the plugin's host is told: the editor may have changed the plugin
+	@Test
+	public void anEditorClosedByItsCloseBoxIsHeardHidden() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		List<TGVst3Notice> notices = new ArrayList<TGVst3Notice>();
+		gain.setListener(notices::add);
+		gain.openEditor(0, "");
+		inFront(gain);
+		gain.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		once(gain, editor -> !editor.isShown());
+		assertEquals("EDITOR_HIDDEN 0", heard(notices));
 	}
 
 	// a gesture ends when the edit that began it ends: a preset choice begins the preset and every parameter it sets

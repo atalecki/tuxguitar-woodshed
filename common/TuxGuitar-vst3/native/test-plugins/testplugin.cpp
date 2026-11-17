@@ -332,7 +332,8 @@ double TestPlugin::value(ParamID id) const {
 	return (index >= 0 ? values[index] : 0.0);
 }
 
-// the state: "TGTP", the preset, each parameter's plain value, then zeros up to 1 KB
+// the state: "TGTP", the preset, each parameter's plain value, then zeros up to 1 KB but for the capture, in the last 4
+// bytes
 tresult PLUGIN_API TestPlugin::getState(IBStream* state) {
 	char bytes[kStateBytes] = {0};
 	std::memcpy(bytes, "TGTP", 4);
@@ -340,6 +341,7 @@ tresult PLUGIN_API TestPlugin::getState(IBStream* state) {
 	for (size_t i = 0; i < values.size(); i++) {
 		std::memcpy(bytes + 8 + i * sizeof(double), &values[i], sizeof(double));
 	}
+	std::memcpy(bytes + kStateBytes - sizeof(int32), &capture, sizeof(int32));
 	int32 written = 0;
 	return state->write(bytes, kStateBytes, &written);
 }
@@ -351,6 +353,7 @@ tresult PLUGIN_API TestPlugin::setState(IBStream* state) {
 		return kResultFalse;
 	}
 	std::memcpy(&preset, bytes + 4, sizeof(int32));
+	std::memcpy(&capture, bytes + kStateBytes - sizeof(int32), sizeof(int32));
 	for (size_t i = 0; i < values.size(); i++) {
 		std::memcpy(&values[i], bytes + 8 + i * sizeof(double), sizeof(double));
 		ParamID id = spec.params[i].id;
@@ -412,8 +415,10 @@ tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 
 // the test messages play the plugin's own editor: "TG.gesture" moves a parameter through values in one gesture,
 // "TG.gesture-later" does it at the plugin's next call from its host (a process, or a parameter read), as an editor
-// does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
-// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
+// does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.load" loads the
+// "capture" (an integer kept in the state, no parameter, no edit begun or ended), saying the plugin is dirty when "dirty"
+// is 1, as a capture player loading a file may or may not; "TG.capture" answers the capture (4 bytes); "TG.report"
+// answers with what the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
 // "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
 // "window" of another thread to answer a message, and "TG.in-modal" answers three bytes: 1 while it does (0 else), 1 once
 // a plugin of the module or an editor's view went while it did, and how many plugins of the module are alive; and
@@ -455,6 +460,17 @@ tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 		attributes->getInt("index", index);
 		choosePreset((int32) index);
 		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.load") == 0) {
+		int64 loaded = 0;
+		int64 dirty = 0;
+		attributes->getInt("capture", loaded);
+		attributes->getInt("dirty", dirty);
+		load(loaded, dirty == 1);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.capture") == 0) {
+		return attributes->setBinary("report", &capture, sizeof(int32));
 	}
 	if (std::strcmp(id, "TG.crash") == 0) {
 		std::fputs("Test plugin: crashing as asked\n", stderr);
@@ -505,6 +521,15 @@ void TestPlugin::gesture(ParamID id, const std::vector<double>& plain) {
 		edit(id, value);
 	}
 	endEdit(id);
+}
+
+// as a capture player's editor loads a file: the state changes, no parameter does; dirty, the host is told so
+void TestPlugin::load(int64 loaded, bool dirty) {
+	capture = (int32) loaded;
+	FUnknownPtr<IComponentHandler2> handler(componentHandler);
+	if (dirty && handler) {
+		handler->setDirty(true);
+	}
 }
 
 // as the editor's preset menu does it: the preset and every parameter it sets, in one gesture

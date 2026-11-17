@@ -405,6 +405,23 @@ public class TestVst3Processors {
 		assertEquals(5.0, gain.getParameter(gain.findParameter("Gain")));
 	}
 
+	// the plugin as its element gave it is what the song holds; changed since, it is not, until the song takes it; an
+	// element with parameters set since its state is not a state the song holds without them
+	@Test
+	public void theSongHoldsThePluginsStateUntilItChangesAndAgainOnceTheSongTakesIt() throws TGVst3Exception {
+		TGProgramElement element = element("Test Gain");
+		TGVst3Element.setParameter(element, parameter("Test Gain", "Gain"), 3.0);
+		TGAudioProcessor processor = effect(element);
+		TGVst3Instance gain = ((TGVst3Processor) processor).getInstance();
+		boolean withParameters = gain.isAgreed(gain.getState());
+		processor.restoreParameters(element("Test Gain").getParameters());
+		boolean asGiven = gain.isAgreed(gain.getState());
+		gain.setParameter(gain.findParameter("Gain"), 5.0);
+		boolean changed = gain.isAgreed(gain.getState());
+		gain.agree(gain.getState());
+		assertEquals("false true false true", withParameters + " " + asGiven + " " + changed + " " + gain.isAgreed(gain.getState()));
+	}
+
 	@Test
 	public void anEffectWhoseHostStoppedSoundsNothingAndTheStopIsReported() throws TGVst3Exception {
 		TGAudioProcessor processor = effect(element("Test Gain"));
