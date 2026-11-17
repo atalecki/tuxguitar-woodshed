@@ -1,6 +1,6 @@
 # Woodshed Guitar, the VST3 instrument TuxGuitar ships: plucked strings played through a NAM capture (README of the
 # audio features). Its bundle goes to <build>/plugins/VST3, apart from the test plugins, as it ships in TuxGuitar's own
-# plugins folder.
+# plugins folder. woodshed-guitar-time (bin/) times captures played as the plugin plays them, for the CPU cost.
 include(../../cmake/nam.cmake)
 
 # the plugin's sound, apart from VST3: the strings, the resampling, the profile, the state, and NeuralAmpModelerCore
@@ -23,3 +23,8 @@ target_link_libraries(tg_woodshed_guitar PRIVATE sdk tg_woodshed_core)
 if(SMTG_WIN)
 	target_link_libraries(tg_woodshed_guitar PRIVATE comdlg32 user32 gdi32)
 endif()
+
+# times captures played as the plugin plays them (the CPU cost a hand check cannot measure): bin/woodshed-guitar-time
+add_executable(woodshed-guitar-time time.cpp)
+target_link_libraries(woodshed-guitar-time PRIVATE tg_woodshed_core)
+set_target_properties(woodshed-guitar-time PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
