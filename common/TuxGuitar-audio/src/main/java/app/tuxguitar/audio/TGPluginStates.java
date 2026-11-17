@@ -18,6 +18,7 @@ import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Instance;
+import app.tuxguitar.vst3.TGVst3State;
 
 /**
  * Before a song is saved, each VST3 plugin of each sound chain gives its state, which the chain keeps in place of the
@@ -58,7 +59,9 @@ final class TGPluginStates {
 	// false when the plugin is gone
 	private static boolean store(TGVst3Instance running, TGProgramElement plugin) {
 		try {
-			TGVst3Element.setState(plugin, running.getState());
+			TGVst3State state = running.getState();
+			TGVst3Element.setState(plugin, state);
+			running.agree(state);
 			return true;
 		} catch (TGVst3Exception e) {
 			LOG.debug("the running VST3 plugin of " + plugin.getId() + " is gone, its state is read from a fresh one: " + e.getMessage());

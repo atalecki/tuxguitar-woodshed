@@ -375,6 +375,31 @@ public class TestLivePlugins {
 		assertEquals("2.0 3.0", undone + " " + running(channel, "effect-1").getParameter(1));
 	}
 
+	// a plugin changed as it runs, not through the song (a capture loaded in its own editor), keeps the change while the
+	// synthesizer is sent the channel again (as each Play does, and each change of a sound chain)
+	@Test
+	public void aRunningPluginKeepsAChangeTheSongHasNotTakenWhenItsChannelIsSentAgain() throws Exception {
+		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
+		TGSynthChannel channel = playLive(synthesizer);
+		running(channel, "effect-1").setParameter(1, 4.0);
+		this.addGain();
+		this.sendAgain(synthesizer);
+		assertEquals("4.0 2.0", running(channel, "effect-1").getParameter(1) + " " + running(channel, "effect-2").getParameter(1));
+	}
+
+	// saving took the running plugin's state: a change since that the song has not taken stays when the channel is sent
+	// again
+	@Test
+	public void aRunningPluginKeepsAChangeMadeAfterSavingWhenItsChannelIsSentAgain() throws Exception {
+		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
+		TGSynthChannel channel = playLive(synthesizer);
+		running(channel, "effect-1").setParameter(1, 4.0);
+		TGPluginStates.store(this.fixture.context, this.fixture.song, this.fixture.songManager.getFactory(), 44100f);
+		running(channel, "effect-1").setParameter(1, 5.0);
+		this.sendAgain(synthesizer);
+		assertEquals(5.0, running(channel, "effect-1").getParameter(1));
+	}
+
 	// a plugin changed as it runs (not through the song) gives the song its state; a disabled one is opened afresh
 	@Test
 	public void savingTakesARunningPluginsStateUnlessItIsDisabled() throws Exception {

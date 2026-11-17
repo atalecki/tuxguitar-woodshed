@@ -31,6 +31,7 @@ import app.tuxguitar.vst3.TGVst3Gestures;
 import app.tuxguitar.vst3.TGVst3Instance;
 import app.tuxguitar.vst3.TGVst3Parameter;
 import app.tuxguitar.vst3.TGVst3PluginProcessor;
+import app.tuxguitar.vst3.TGVst3State;
 
 /**
  * The VST3 plugins of the song's sound chains as they run, each known by its channel and the id of its element of the
@@ -234,8 +235,10 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, document.getSongManager().getChannel(document.getSong(), channel));
 		change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_ELEMENT, element);
 		try {
-			change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_STATE, instance.getState());
+			TGVst3State state = instance.getState();
+			change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_STATE, state);
 			TGActionManager.getInstance(this.context).execute(TGSetPluginStateAction.NAME, change);
+			instance.agree(state);
 			this.kept(channel, element, instance);
 		} catch (TGVst3Exception | TGActionException e) {
 			// the plugin is gone, or the song refused the change: the song stays as it was
