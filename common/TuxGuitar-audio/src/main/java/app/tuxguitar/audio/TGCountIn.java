@@ -1,5 +1,6 @@
 package app.tuxguitar.audio;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -14,26 +15,24 @@ import app.tuxguitar.song.models.TGTimeSignature;
 /**
  * Count In: clicks one beat apart before the first measure plays, the first one where playing starts and the last one
  * a beat before the first measure. One per beat of the measure playing starts in (or as many as the Count In ticks
- * set), a beat being the unit of its time signature at its tempo and the first pass's tempo scale, exactly; the first
- * click of each measure of that time signature it counts accented (MidiClick.isAccented), as live.
+ * set), a beat being the unit of its time signature at its tempo and the first pass's tempo scale, exactly; accented
+ * as live (MidiClick.isCountInAccented: on the bar lines before where the first measure starts playing).
  * Positions are samples from where playing starts. Stopped early, it lasts until the stop and keeps the clicks before
  * it. Immutable.
  */
 public final class TGCountIn {
 
-	public static final TGCountIn NONE = new TGCountIn(0, 1, 0, 0);
+	public static final TGCountIn NONE = new TGCountIn(new ArrayList<Boolean>(), 0, 0);
 
-	private final int clicks;
-	// beats per measure of the time signature it counts in
-	private final int measure;
+	// whether each click is accented, one per click
+	private final List<Boolean> accents;
 	// samples per beat, not rounded
 	private final double beat;
 	// samples before the first measure
 	private final long length;
 
-	private TGCountIn(int clicks, int measure, double beat, long length) {
-		this.clicks = clicks;
-		this.measure = measure;
+	private TGCountIn(List<Boolean> accents, double beat, long length) {
+		this.accents = accents;
 		this.beat = beat;
 		this.length = length;
 	}
@@ -51,7 +50,8 @@ public final class TGCountIn {
 		TGTimeSignature signature = first.getHeader().getTimeSignature();
 		double quarters = signature.getDenominator().getTime() / (double) TGDuration.QUARTER_TIME;
 		double beat = quarters * 60.0 * sampleRate / first.getTempo();
-		return new TGCountIn(clicks, signature.getNumerator(), beat, Math.round(clicks * beat));
+		List<Boolean> accents = IntStream.range(0, clicks).mapToObj(click -> MidiClick.isCountInAccented(click, clicks, signature, first.getFrom())).collect(Collectors.toList());
+		return new TGCountIn(accents, beat, Math.round(clicks * beat));
 	}
 
 	// samples before the first measure
@@ -61,13 +61,13 @@ public final class TGCountIn {
 
 	// its clicks, from the sample it starts on: a beat apart; those after where it stopped left out
 	public TGClicks clicks(long start) {
-		List<Integer> clicks = IntStream.range(0, this.clicks).filter(click -> Math.round(click * this.beat) < this.length).boxed().collect(Collectors.toList());
+		List<Integer> clicks = IntStream.range(0, this.accents.size()).filter(click -> Math.round(click * this.beat) < this.length).boxed().collect(Collectors.toList());
 		return new TGClicks(clicks.stream().map(click -> start + Math.round(click * this.beat)).collect(Collectors.toList()),
-			clicks.stream().map(click -> MidiClick.isAccented(click, this.measure)).collect(Collectors.toList()));
+			clicks.stream().map(this.accents::get).collect(Collectors.toList()));
 	}
 
 	// stopped at the sample
 	public TGCountIn until(long sample) {
-		return new TGCountIn(this.clicks, this.measure, this.beat, Math.min(this.length, sample));
+		return new TGCountIn(this.accents, this.beat, Math.min(this.length, sample));
 	}
 }

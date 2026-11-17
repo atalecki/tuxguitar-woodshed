@@ -48,6 +48,11 @@ public class ClickAccentSteps {
 		assertDrums(heard().timeline().getCountIn().positions(), velocity, index -> index == click - 1 || index == other - 1);
 	}
 
+	@Then("the Count In clicks sound the built-in click at velocity {int}, accented on no click")
+	public void countInAccentedOnNone(int velocity) {
+		assertDrums(heard().timeline().getCountIn().positions(), velocity, index -> false);
+	}
+
 	// beat 1 of each measure, where the song plays it
 	@Then("the Metronome clicks sound the built-in click at velocity {int}, accented on beat 1 of measures {int} to {int} only")
 	public void metronomeAccentedOn(int velocity, int first, int last) {

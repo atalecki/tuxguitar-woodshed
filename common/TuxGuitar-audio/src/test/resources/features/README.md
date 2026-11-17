@@ -135,10 +135,14 @@ offline (`TGMetronome`, `TGDrumTap`), and live on the TuxGuitar Synthesizer's ow
 `MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by plugin delay compensation like the
 tracks), whether or not the song has a percussion channel; with another MIDI Port the Metronome is still the
 sequencer's metronome track on the percussion channel, and Count In clicks on the percussion channel as before, both
-the click sound's drum note. Beat 1 is accented, decided once (lib's `MidiClick.isAccented`: the first of each
-measure's worth of clicks) for the Metronome (each measure's first beat, as its time signature says) and Count In (the
-first click of each measure it counts, in the time signature it leads into), live (the parser, Count In's timer) and
-offline (`TGMetronome`, `TGCountIn`); on the drums the note says it (`MidiClick.ACCENTED`, 76, or `PLAIN`, 77), and any
+the click sound's drum note. Beat 1 is accented, decided once for the Metronome (lib's `MidiClick.isAccented`: each
+measure's first beat, as its time signature says) and once for Count In (`MidiClick.isCountInAccented`): Count In
+counts backwards from where playing starts, in the time signature of the measure it starts in, so its accents fall on
+the bar lines before the downbeat (6 clicks before 4/4 sound "3 4 | 1 2 3 4", 2 before 3/4 "2 3", unaccented). A
+start on another beat is led into that beat, as a musician counts in to a pickup (4 clicks before beat 3 sound
+"3 4 | 1 2"), which also covers a click-up step of beats; a start between two beats has no click on a beat of the
+song, so its first click is accented, then the first of each measure's worth after it, as before. One rule live (the
+parser's practice turns, Count In's timer) and offline (`TGMetronome`, `TGCountIn`, practice turns included); on the drums the note says it (`MidiClick.ACCENTED`, 76, or `PLAIN`, 77), and any
 other channel gets the drum note on every beat, so another MIDI Port is unchanged. A song without a percussion channel clicks
 on a channel of the player's own that is not in the song (`MidiClickChannels`, lib): the TuxGuitar
 Synthesizer's drums, else a new percussion channel (bank 128, Volume 127, Balance 64), General MIDI

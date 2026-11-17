@@ -72,8 +72,8 @@ public class TestMidiPlayerCountDown {
 
 	// only the side stick's key and time, when sent at the default velocity, on no voice, not in bend mode
 	private String note(String kind, int key, int velocity, int voice, boolean bendMode) {
-		boolean plain = (velocity == TGVelocities.DEFAULT && voice == -1 && !bendMode);
-		return kind + " " + key + " @" + countDown.now + (plain ? "" : " v" + velocity + " s" + voice + " b" + bendMode);
+		String sent = " v" + velocity + " s" + voice + " b" + bendMode;
+		return kind + " " + key + " @" + countDown.now + (sent.equals(" v" + TGVelocities.DEFAULT + " s-1 bfalse") ? "" : sent);
 	}
 
 	public TestMidiPlayerCountDown() {
@@ -215,7 +215,7 @@ public class TestMidiPlayerCountDown {
 
 	@Test
 	public void withoutAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
-		assertEquals(" -> end @511 | [-2 on 76 95, -2 off 76 95]", ticksOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 77 95, -2 off 77 95]", ticksOn(new ClockedSynthesizer(received, true)));
 	}
 
 	// with one too: the TuxGuitar Synthesizer's Count In clicks on its drums (the built-in click), as offline, not
@@ -224,21 +224,48 @@ public class TestMidiPlayerCountDown {
 	public void withAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
 		withPercussion();
 
-		assertEquals(" -> end @511 | [-2 on 76 95, -2 off 76 95]", ticksOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 77 95, -2 off 77 95]", ticksOn(new ClockedSynthesizer(received, true)));
 	}
 
-	// on the drums (the built-in click) the first click of each measure it counts is accented, in the time signature of
-	// the measure it leads into; on a port every click is the drum note (ticksEveryBeatOfTheMeasure)
-	@Test
-	public void onTheDrumsTheFirstClickOfEachMeasureItCountsIsAccented() throws MidiPlayerException {
-		song.getMeasureHeader(0).getTimeSignature().setNumerator(3);
-		countDown.setTickCount(7);
+	// the notes Count In sends the drums (the built-in click), so many ticks before the player's tick
+	private String accentsBefore(long tick, int ticks) throws MidiPlayerException {
+		countDown.setTickCount(ticks);
 		player.getSynthesizerProxy().setMidiSynthesizer(new ClockedSynthesizer(received, true));
 		player.updateChannels();
+		player.setTickPosition(tick);
+		// as Play does before Count In
+		player.changeTickPosition();
 		received.clear();
 		start();
+		return received.stream().filter(line -> line.startsWith("-2 on ")).map(line -> line.split(" ")[2]).collect(java.util.stream.Collectors.joining(" "));
+	}
 
-		assertEquals("[76, 77, 77, 76, 77, 77, 76]", received.stream().filter(line -> line.startsWith("-2 on ")).map(line -> line.split(" ")[2]).collect(java.util.stream.Collectors.toList()).toString());
+	// on the drums (the built-in click) the clicks on beat 1 are accented, counted backwards from where playing starts
+	// in the time signature of its measure (MidiClick.isCountInAccented): 7 clicks before 3/4 are "3 | 1 2 3 | 1 2 3";
+	// on a port every click is the drum note (ticksEveryBeatOfTheMeasure)
+	@Test
+	public void onTheDrumsTheClicksOnTheBarLinesBeforeTheStartAreAccented() throws MidiPlayerException {
+		song.getMeasureHeader(0).getTimeSignature().setNumerator(3);
+
+		assertEquals("77 76 77 77 76 77 77", accentsBefore(song.getMeasureHeader(0).getStart(), 7));
+	}
+
+	// from beat 3 of 4/4, 4 clicks are "3 4 | 1 2"
+	@Test
+	public void beforeAStartOnABeatTheClicksLeadIntoThatBeat() throws MidiPlayerException {
+		assertEquals("77 77 76 77", accentsBefore(song.getMeasureHeader(0).getStart() + 2 * TGDuration.QUARTER_TIME, 4));
+	}
+
+	// from half way through beat 2 no click falls on a beat of the song: the first is accented, as before
+	@Test
+	public void beforeAStartBetweenTwoBeatsTheFirstClickIsAccented() throws MidiPlayerException {
+		assertEquals("76 77 77 77 76 77", accentsBefore(song.getMeasureHeader(0).getStart() + 3 * TGDuration.QUARTER_TIME / 2, 6));
+	}
+
+	// in the second measure, it is where playing starts in that measure that counts
+	@Test
+	public void theStartIsCountedFromItsOwnMeasure() throws MidiPlayerException {
+		assertEquals("77 77 76", accentsBefore(song.getMeasureHeader(1).getStart() + TGDuration.QUARTER_TIME, 3));
 	}
 
 	@Test
