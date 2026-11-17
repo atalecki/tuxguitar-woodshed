@@ -57,6 +57,8 @@ import org.w3c.dom.Node;
 public class TGSongWriterImpl extends TGStream implements TGSongWriter {
 
 	private Document document;
+	// the shared values of the song being written
+	private TGSharedValues sharedValues;
 	// the codec of the takes of a song with audio channels; none (Android): such a song cannot be written
 	private volatile TGTakeCodec takeCodec;
 
@@ -118,7 +120,9 @@ public class TGSongWriterImpl extends TGStream implements TGSongWriter {
 			this.addAttributeInt(nodeVersion, "minor", TGVersion.CURRENT.getMinor());
 			this.addAttributeInt(nodeVersion, "revision", TGVersion.CURRENT.getRevision());
 			Node nodeSong = this.addNode(nodeRoot, TAG_TGSONG);
+			this.sharedValues = new TGSharedValues();
 			this.writeSong(handle.getSong(), nodeSong);
+			this.sharedValues.write(this.document, nodeSong);
 			TGAudioPart audio = (TGAudioPart.isIn(handle.getSong()) ? new TGAudioPart(handle.getSong()) : null);
 			if (audio != null) {
 				audio.write(this.document, nodeSong);
@@ -172,7 +176,7 @@ public class TGSongWriterImpl extends TGStream implements TGSongWriter {
 			TGChannelParameter parameter = parameters.next();
 			Node nodeParameter = this.addNode(nodeChannel, TAG_CHANNEL_PARAMETER);
 			this.addAttribute(nodeParameter, TAG_KEY, parameter.getKey());
-			this.addAttribute(nodeParameter, TAG_VALUE, parameter.getValue());
+			this.addAttribute(nodeParameter, TAG_VALUE, this.sharedValues.written(parameter.getValue()));
 		}
 	}
 

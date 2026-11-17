@@ -106,6 +106,7 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 			Node root = getChildNode(xmlDocument, TAG_TGFile);
 			Node nodeSong = getChildNode(root, TAG_TGSONG);
 			this.readSong(song, nodeSong);
+			TGSharedValues.read(nodeSong, song);
 			if (takes != null) {
 				TGAudioPart.read(nodeSong, song, takes, codec);
 			}
