@@ -107,7 +107,7 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
     And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
-    And I have set "<parameter>" of Woodshed Guitar of track 1 to <dB>
+    And I have set "<parameter>" of the VST3 instrument of track 1 to <dB>
     When I play the song from measure 1 beat 1
     Then track 1 sounds <times> times what track 2 sounds, sample for sample within 0.001
 
@@ -189,7 +189,7 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
     And Woodshed Guitar of track 1 has loaded the NAM capture "A2 test.nam"
     And Woodshed Guitar of track 2 has loaded the NAM capture "A2 test.nam"
-    And I have set "Quality" of Woodshed Guitar of track 2 to 1.0
+    And I have set "Quality" of the VST3 instrument of track 2 to 1.0
     When I play the song from measure 1 beat 1
     Then track 2 sounds, every sample a number, peaking above 0.001 in measure 1
     And track 1 sounds other than track 2 in measure 1
