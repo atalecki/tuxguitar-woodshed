@@ -4,6 +4,7 @@
 #include "state.h"
 
 #include "public.sdk/source/main/pluginfactory.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/vst/ivstattributes.h"
 #include "pluginterfaces/vst/ivstnoteexpression.h"
@@ -218,12 +219,19 @@ void GuitarPlugin::post(Job job) {
 	refreshEditor();
 }
 
-// once for all the loads under way: a host that hears no progress is not told
+// once for all the loads under way, saying the file being loaded (none for contents without a path), so a host can
+// name it: a load posted while one is under way begins it again with its own file; a host that hears no progress is
+// not told
 void GuitarPlugin::beginRestoring() {
 	FUnknownPtr<IProgress> progress(componentHandler);
-	if (!restoring && progress) {
-		restoring = (progress->start(IProgress::AsyncStateRestoration, nullptr, restoration) == kResultOk);
+	if (!progress) {
+		return;
 	}
+	if (restoring) {
+		progress->finish(restoration);
+	}
+	std::u16string what = StringConvert::convert(loadingName);
+	restoring = (progress->start(IProgress::AsyncStateRestoration, (what.empty() ? nullptr : reinterpret_cast<const tchar*>(what.c_str())), restoration) == kResultOk);
 }
 
 void GuitarPlugin::endRestoring() {

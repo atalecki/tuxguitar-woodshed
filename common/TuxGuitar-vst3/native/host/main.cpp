@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 7;
+const int32_t kProtocolVersion = 8;
 
 enum Operation {
 	kHello = 1,
@@ -272,11 +272,13 @@ private:
 		}
 	}
 
-	// its latency, its tail, and whether it restores its state in the background (1, else 0)
+	// its latency, its tail, whether it restores its state in the background (1, else 0) and what that restoration said
+	// it does (empty for nothing)
 	void writeTiming(Instance& timed) {
 		wire.writeInt(timed.latency());
 		wire.writeInt(timed.tail());
 		wire.writeInt(timed.restoring() ? 1 : 0);
+		wire.writeString(timed.restoringWhat());
 	}
 
 	Instance& instance() { return instance(wire.readInt()); }

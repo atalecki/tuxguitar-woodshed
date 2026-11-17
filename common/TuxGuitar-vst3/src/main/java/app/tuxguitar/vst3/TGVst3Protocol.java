@@ -4,13 +4,13 @@ package app.tuxguitar.vst3;
  * The requests TuxGuitar sends the VST3 host process (native/host/main.cpp is the other side). A request is one of these
  * operations and its fields; its reply is a status (0 done, 1 refused, then the reason), the operation's fields, then
  * what the plugins told the host since the last reply. All of it big-endian, strings and bytes as a length and the
- * bytes (UTF-8 for strings). A plugin's timing is its latency, its tail, and whether it is restoring its state in the
+ * bytes (UTF-8 for strings). A plugin's timing is its latency, its tail, whether it is restoring its state in the
  * background (1, else 0: a state restoration it told of through IProgress is under way, so it does not yet play as its
- * state says).
+ * state says) and what that restoration said it does (its description: the file it loads, say; empty for nothing).
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 7;
+	static final int VERSION = 8;
 
 	// -> version, process id
 	static final int HELLO = 1;

@@ -1,6 +1,7 @@
 #include "instance.h"
 
 #include "public.sdk/source/vst/hosting/hostclasses.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
@@ -39,8 +40,8 @@ public:
 	tresult PLUGIN_API startGroupEdit() override { return kResultOk; }
 	tresult PLUGIN_API finishGroupEdit() override { return kResultOk; }
 
-	tresult PLUGIN_API start(ProgressType type, const tchar*, ID& outID) override {
-		outID = instance->beginProgress(type == AsyncStateRestoration);
+	tresult PLUGIN_API start(ProgressType type, const tchar* optionalDescription, ID& outID) override {
+		outID = instance->beginProgress(type == AsyncStateRestoration, (optionalDescription ? StringConvert::convert(optionalDescription) : std::string()));
 		return kResultOk;
 	}
 	tresult PLUGIN_API update(ID, ParamValue) override { return kResultOk; }
@@ -776,10 +777,10 @@ void Instance::notify(int32 kind, int32 id, double normalized) {
 	}
 }
 
-IProgress::ID Instance::beginProgress(bool restoration) {
+IProgress::ID Instance::beginProgress(bool restoration, const std::string& what) {
 	IProgress::ID id = nextProgress++;
 	if (restoration) {
-		restorations.insert(id);
+		restorations[id] = what;
 	}
 	return id;
 }

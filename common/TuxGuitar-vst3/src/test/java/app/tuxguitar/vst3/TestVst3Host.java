@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,7 +82,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 8, not 7", refused.getMessage());
+		assertEquals("the VST3 host speaks version 9, not 8", refused.getMessage());
 	}
 
 	@Test
@@ -327,6 +328,48 @@ public class TestVst3Host {
 		assertEquals("false true", task + " " + gain.isRestoring());
 	}
 
+	// a plugin restoring its state says what it restores when it begins (IProgress's description; nothing said: empty),
+	// asked of its host however long it has; null when it is not restoring
+	@Test
+	public void aPluginRestoringItsStateSaysWhatItRestoresUntilItHasFinished() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		String before = gain.getRestoring();
+		gain.message("TG.restoring", Collections.singletonMap("underway", 1L), Collections.singletonMap("what", "Big Room ü.wav".getBytes(StandardCharsets.UTF_8)));
+		String during = gain.getRestoring();
+		restoring(gain, 0L);
+		String after = gain.getRestoring();
+		restoring(gain, 1L);
+		assertEquals("null Big Room ü.wav null []", before + " " + during + " " + after + " [" + gain.getRestoring() + "]");
+	}
+
+	// asked of a host that stopped, a plugin restores nothing
+	@Test
+	public void aPluginRestoringItsStateWhoseHostStoppedRestoresNothing() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		restoring(gain, 1L);
+		TestPlugins.kill(this.host.getPid());
+		assertNull(gain.getRestoring());
+	}
+
+	@Test
+	public void aPluginIsNamedAsItsModuleNamesIt() throws TGVst3Exception {
+		assertEquals("Test Gain", open("Test Gain").getName());
+	}
+
+	// Woodshed Guitar says the file of the profile it loads; a load given while one is under way, its own file
+	@Test
+	public void woodshedGuitarRestoringItsStateSaysTheFileItLoads(@TempDir File folder) throws Exception {
+		File large = large(folder);
+		File capture = gain3(folder);
+		TGVst3Instance woodshed = this.woodshed();
+		load(woodshed, large);
+		String first = woodshed.getRestoring();
+		load(woodshed, capture);
+		String second = woodshed.getRestoring();
+		untilRestored(woodshed);
+		assertEquals("Large.nam, Gain 3.nam, null", first + ", " + second + ", " + woodshed.getRestoring());
+	}
+
 	// Woodshed Guitar restores its state while it loads a profile on a thread of its own: its host, asked, hears when it
 	// has finished, and the profile is then loaded; the next load restores it again
 	@Test
@@ -344,14 +387,21 @@ public class TestVst3Host {
 	// loads given one after the other, the first not ready yet, are one restoration, which ends once the last is ready
 	@Test
 	public void woodshedGuitarLoadingTwiceInARowRestoresItsStateUntilTheLastIsReady(@TempDir File folder) throws Exception {
-		File capture = gain3(folder);
-		Files.write(capture.toPath(), Arrays.copyOf(Files.readAllBytes(capture.toPath()), (int) capture.length() - 1));
-		Files.write(capture.toPath(), (", \"metadata\": {\"notes\": \"" + String.join("", Collections.nCopies(5 * 1024 * 1024, "n")) + "\"}}").getBytes(StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.APPEND);
+		File capture = large(folder);
 		TGVst3Instance woodshed = this.woodshed();
 		load(woodshed, capture);
 		load(woodshed, capture);
 		untilRestored(woodshed);
-		assertEquals("Gain 3.nam\n\n\n", profile(woodshed));
+		assertEquals("Large.nam\n\n\n", profile(woodshed));
+	}
+
+	// a NAM capture "Large.nam" in the folder, multiplying the signal by 3, with 5 MB of notes: it takes a while to load
+	private static File large(File folder) throws Exception {
+		File capture = new File(folder, "Large.nam");
+		byte[] gain3 = Files.readAllBytes(gain3(folder).toPath());
+		Files.write(capture.toPath(), Arrays.copyOf(gain3, gain3.length - 1));
+		Files.write(capture.toPath(), (", \"metadata\": {\"notes\": \"" + String.join("", Collections.nCopies(5 * 1024 * 1024, "n")) + "\"}}").getBytes(StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.APPEND);
+		return capture;
 	}
 
 	// waits, 10 seconds at most, until it says it restores its state no more (its host asked meanwhile)

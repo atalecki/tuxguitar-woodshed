@@ -15,7 +15,8 @@ import app.tuxguitar.util.log.TGLog;
 
 /**
  * A plugin open in the VST3 host process: it processes blocks of up to the maximum block agreed when it opened, keeps
- * the latency and tail it last reported, and whether it restores its state in the background, and hands what it tells
+ * the latency and tail it last reported, and whether it restores its state in the background (and what it said that
+ * restoration does), and hands what it tells
  * its host (edits from its own editor, restarts) to its listener. Its parameters are set and read by plain value.
  */
 public final class TGVst3Instance implements AutoCloseable {
@@ -35,8 +36,7 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	private final TGVst3Host host;
 	private final TGVst3SharedBlocks blocks;
-	// "VST3 plugin name", as the log names it
-	private final String label;
+	private final String name;
 	private final int id;
 	private final int inputs;
 	private final int outputs;
@@ -45,8 +45,8 @@ public final class TGVst3Instance implements AutoCloseable {
 	// set by the reader thread of the host when a late reply comes
 	private volatile int latency;
 	private volatile int tail;
-	// when it was first heard restoring its state in the background (System.nanoTime), null while it is not
-	private volatile Long restoringSince;
+	// its state restoration in the background as last heard, null while it is not restoring
+	private volatile Restoring restoring;
 	private TGVst3Listener listener;
 	// the state and the parameters set since that the song and the plugin last agreed on (the song gave them, or took the
 	// state), null before any
@@ -55,7 +55,7 @@ public final class TGVst3Instance implements AutoCloseable {
 	private TGVst3Instance(TGVst3Host host, TGVst3SharedBlocks blocks, String name, int id, int inputs, int outputs, boolean editor, List<TGVst3Parameter> parameters) {
 		this.host = host;
 		this.blocks = blocks;
-		this.label = "VST3 plugin " + name;
+		this.name = name;
 		this.id = id;
 		this.inputs = inputs;
 		this.outputs = outputs;
@@ -82,17 +82,28 @@ public final class TGVst3Instance implements AutoCloseable {
 	private Void readTiming(DataInputStream in) throws IOException {
 		this.latency = in.readInt();
 		this.tail = in.readInt();
-		this.heardRestoring(in.readInt() == 1);
+		this.heardRestoring(in.readInt() == 1, TGVst3Request.readString(in));
 		return null;
 	}
 
-	private void heardRestoring(boolean restoring) {
-		Long since = this.restoringSince;
-		this.restoringSince = (!restoring ? null : (since != null ? since : Long.valueOf(System.nanoTime())));
+	// a restoration heard again keeps when it was first heard
+	private void heardRestoring(boolean restoring, String what) {
+		Restoring heard = this.restoring;
+		this.restoring = (!restoring ? null : new Restoring(heard != null ? heard.since : System.nanoTime(), what));
 	}
 
 	private TGVst3Request request(int operation) {
 		return new TGVst3Request(operation).writeInt(this.id);
+	}
+
+	// "VST3 plugin name", as the log names it
+	private String label() {
+		return "VST3 plugin " + this.name;
+	}
+
+	// the plugin's name, as its module says
+	public String getName() {
+		return this.name;
 	}
 
 	// the host process it runs in
@@ -147,17 +158,25 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	// for the milliseconds at most
 	boolean isRestoring(long wait) {
-		Long since = this.restoringSince;
-		if (since == null || System.nanoTime() - since >= TimeUnit.MILLISECONDS.toNanos(wait)) {
-			return false;
+		Restoring heard = this.restoring;
+		return (heard != null && System.nanoTime() - heard.since < TimeUnit.MILLISECONDS.toNanos(wait) && this.getRestoring() != null);
+	}
+
+	// what it restores in the background, as it said when it began (its description: the file it loads, say; empty when
+	// it said nothing), however long it has; null when it does not. Its host is asked only while it was last heard
+	// restoring; a host that stopped has nothing to restore. Any thread may ask
+	public String getRestoring() {
+		if (this.restoring == null) {
+			return null;
 		}
 		try {
 			this.host.call(this.request(TGVst3Protocol.TIMING), this::readTiming);
 		} catch (TGVst3Exception e) {
-			LOG.debug(this.label + ": not asked whether it still restores its state, its host is gone: " + e.getMessage());
-			return false;
+			LOG.debug(this.label() + ": not asked whether it still restores its state, its host is gone: " + e.getMessage());
+			return null;
 		}
-		return (this.restoringSince != null);
+		Restoring heard = this.restoring;
+		return (heard != null ? heard.what : null);
 	}
 
 	// live: the first frames of the block's two sides go through the plugin, in place, with the events on their samples;
@@ -264,7 +283,7 @@ public final class TGVst3Instance implements AutoCloseable {
 	// is not supported)
 	public boolean openEditor(long owner, String title) throws TGVst3Exception {
 		int opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner).writeString(title), in -> in.readInt());
-		LOG.debug(this.label + EDITOR_OPENED[opened]);
+		LOG.debug(this.label() + EDITOR_OPENED[opened]);
 		return (opened != 0);
 	}
 
@@ -275,7 +294,7 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	public void closeEditor() throws TGVst3Exception {
 		this.host.call(this.request(TGVst3Protocol.CLOSE_EDITOR), in -> null);
-		LOG.debug(this.label + ": editor closed");
+		LOG.debug(this.label() + ": editor closed");
 	}
 
 	// a message to the plugin's controller; its answer (the binary attribute "report"), empty when it gave none
@@ -309,11 +328,11 @@ public final class TGVst3Instance implements AutoCloseable {
 			}
 		} catch (TGVst3Exception e) {
 			// the host is gone, and the plugin with it
-			LOG.debug(this.label + ": not closed in its host, which is gone: " + e.getMessage());
+			LOG.debug(this.label() + ": not closed in its host, which is gone: " + e.getMessage());
 		}
 		this.host.closed(this.id);
 		this.blocks.close();
-		LOG.info(this.label + " closed");
+		LOG.info(this.label() + " closed");
 	}
 
 	// values as a plugin reads them from a binary attribute: doubles in the machine's byte order
@@ -323,5 +342,17 @@ public final class TGVst3Instance implements AutoCloseable {
 			bytes.putDouble(value);
 		}
 		return bytes.array();
+	}
+
+	// a state restoration in the background: when it was first heard (System.nanoTime) and what it said it does
+	private static final class Restoring {
+
+		private final long since;
+		private final String what;
+
+		private Restoring(long since, String what) {
+			this.since = since;
+			this.what = what;
+		}
 	}
 }

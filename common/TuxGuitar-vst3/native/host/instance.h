@@ -15,6 +15,7 @@
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -139,11 +140,13 @@ public:
 	// what the controller's component handler hears
 	void notify(int32 kind, int32 id, double normalized);
 	// work the plugin does in the background (IProgress), begun (its id) and finished: whether it restores the
-	// plugin's state (a capture loaded on a thread of its own, say)
-	Vst::IProgress::ID beginProgress(bool restoration);
+	// plugin's state (a capture loaded on a thread of its own, say), and what it said it does (UTF-8, empty for nothing)
+	Vst::IProgress::ID beginProgress(bool restoration, const std::string& what);
 	void endProgress(Vst::IProgress::ID id);
 	// whether a state restoration the plugin began is under way: it does not play as its state says yet
 	bool restoring() const { return !restorations.empty(); }
+	// what the first of the restorations under way said it does, empty for none (or nothing said)
+	std::string restoringWhat() const { return (restorations.empty() ? std::string() : restorations.begin()->second); }
 
 private:
 	Instance(VST3::Hosting::Module::Ptr module, int32 maxBlock, const std::string& shared);
@@ -179,8 +182,9 @@ private:
 	Vst::ParameterChanges changes;
 	Vst::ParameterChanges outputChanges;
 	std::vector<Notification> notifications;
-	// the state restorations under way, by progress id, and the id the next progress takes
-	std::set<Vst::IProgress::ID> restorations;
+	// the state restorations under way and what each said it does, by progress id (in the order begun), and the id the
+	// next progress takes
+	std::map<Vst::IProgress::ID, std::string> restorations;
 	Vst::IProgress::ID nextProgress = 1;
 	bool active = false;
 };

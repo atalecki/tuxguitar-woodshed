@@ -106,10 +106,11 @@ private:
 	void gesture(ParamID id, const std::vector<double>& values);
 	void gestureNow();
 	static std::vector<double> doubles(IAttributeList* attributes);
+	static std::u16string whatOf(IAttributeList* attributes);
 	tresult viewMessage(FIDString id, IAttributeList* attributes);
 	tresult sizeMessage(FIDString id, IAttributeList* attributes);
 	tresult restoringMessage(FIDString id, IAttributeList* attributes);
-	tresult tellProgress(IProgress* progress, bool restoring, bool underway);
+	tresult tellProgress(IProgress* progress, bool restoring, bool underway, const char16_t* what);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
 	void load(int64 capture, bool dirty);
