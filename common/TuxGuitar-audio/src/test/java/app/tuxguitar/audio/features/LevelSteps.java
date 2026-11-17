@@ -183,6 +183,52 @@ public class LevelSteps {
 		assertTrue(firstLevel > level && secondLevel > level, one + " Hz peaks at " + firstLevel + ", " + other + " Hz at " + secondLevel);
 	}
 
+	// on both sides, over all that was heard
+	@Then("track {int} sounds {float} times what track {int} sounds, sample for sample within {float}")
+	public void soundsTimesWhatAnotherSounds(int number, float times, int other, float within) {
+		for (int side = 0; side < 2; side++) {
+			float[] tap = tap(number, side);
+			float[] reference = tap(other, side);
+			int length = Math.min(tap.length, reference.length);
+			for (int i = 0; i < length; i++) {
+				assertEquals(times * reference[i], tap[i], within, "side " + side + ", sample " + i);
+			}
+			assertTrue(Meters.peak(reference, 0, length) > SILENT, "track " + other + " sounds nothing");
+		}
+	}
+
+	@Then("track {int}'s left and right sides are the same, sample for sample")
+	public void sidesAreTheSame(int number) {
+		float[] left = tap(number, 0);
+		org.junit.jupiter.api.Assertions.assertArrayEquals(left, tap(number, 1));
+		assertTrue(Meters.peak(left, 0, left.length) > SILENT, "track " + number + " sounds nothing");
+	}
+
+	@Then("track {int} sounds, every sample a number, peaking above {float} in measure {int}")
+	public void soundsNumbersPeakingAbove(int number, float level, int measure) {
+		int[] bounds = heard().measure(measure);
+		for (int side = 0; side < 2; side++) {
+			float[] tap = tap(number, side);
+			for (int i = bounds[0]; i < bounds[1]; i++) {
+				assertTrue(Float.isFinite(tap[i]), "side " + side + ", sample " + i + ": " + tap[i]);
+			}
+			assertTrue(Meters.peak(tap, bounds[0], bounds[1]) > level, "peak " + Meters.peak(tap, bounds[0], bounds[1]));
+		}
+	}
+
+	// some sample of the measure differs by more than -60 dBFS
+	@Then("track {int} sounds other than track {int} in measure {int}")
+	public void soundsOtherThan(int number, int other, int measure) {
+		int[] bounds = heard().measure(measure);
+		float[] tap = tap(number, 0);
+		float[] reference = tap(other, 0);
+		float most = 0;
+		for (int i = bounds[0]; i < bounds[1]; i++) {
+			most = Math.max(most, Math.abs(tap[i] - reference[i]));
+		}
+		assertTrue(most > SILENT, "differs by at most " + most);
+	}
+
 	@Then("the output peaks below {float} in measure {int}")
 	public void theOutputPeaksBelow(float level, int measure) {
 		float peak = Math.max(peak(heard().left(), measure), peak(heard().right(), measure));

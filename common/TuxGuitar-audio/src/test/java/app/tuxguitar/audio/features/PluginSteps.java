@@ -333,6 +333,12 @@ public class PluginSteps {
 		assertTrue(world.succeeded());
 	}
 
+	// a parameter of the plugin that is the track's source
+	@Given("I have set {string} of Woodshed Guitar of track {int} to {double}")
+	public void haveSetASourcesParameter(String title, int track, double value) throws TGVst3Exception {
+		setParameter(title, null, track, value);
+	}
+
 	@Given("I have set {string} of VST3 effect {int} of track {int} to {double}")
 	public void haveSetAnEffectsParameter(String title, int effect, int track, double value) throws TGVst3Exception {
 		setParameter(title, effect, track, value);

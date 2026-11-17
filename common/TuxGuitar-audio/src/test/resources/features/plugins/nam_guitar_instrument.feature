@@ -35,10 +35,11 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Then track 1 sounds a <pitch> Hz note within 1% in measure 1
 
     Examples:
-      | fret | string | pitch  |
-      | 0    | 6      | 82.41  |
-      | 5    | 1      | 440    |
-      | 12   | 1      | 659.26 |
+      | fret | string | pitch   |
+      | 0    | 6      | 82.41   |
+      | 5    | 1      | 440     |
+      | 12   | 1      | 659.26  |
+      | 22   | 1      | 1174.66 |
 
   Scenario Outline: a note is plucked at a level that follows its dynamic
     Given I have entered fret 5 on string 1 at dynamic <dynamic>
@@ -76,7 +77,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Then track 1 sounds a 440 Hz tone rising to 493.9 Hz within 1 Hz from measure 1 beat 1 to measure 1 beat 2
     And track 1 sounds a 329.6 Hz tone that stays within 1 Hz in measure 1
 
-  @planned
   Scenario: Woodshed Guitar sounds the same signal on the left and the right
     Given I have entered fret 5 on string 1
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
@@ -87,7 +87,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
   # The profile. Track 2 holds the same note as track 1, on a channel of its own, and stays dry: it is what Woodshed
   # Guitar sounds with no profile.
 
-  @planned
   Scenario: the profile plays the voice through the NAM capture
     Given I have entered fret 5 on string 1
     And I have added a guitar track on a channel of its own
@@ -100,7 +99,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
     And Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
 
-  @planned
   Scenario Outline: Input gain and Output level scale what Woodshed Guitar sounds
     Given I have entered fret 5 on string 1
     And I have added a guitar track on a channel of its own
@@ -119,19 +117,16 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | Output level | -20.0 | 0.3   |
       | Output level | 0.0   | 3.0   |
 
-  @planned
   Scenario: with no profile loaded, Woodshed Guitar plays no profile
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     Then Woodshed Guitar of track 1 plays no profile
 
-  @planned
   Scenario: loading a profile modifies the song
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And I have saved the song as a TuxGuitar file
     When Woodshed Guitar of track 1 loads the NAM capture "Gain 3.nam"
     Then the song is modified
 
-  @planned
   Scenario: loading a profile is one undo step
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
@@ -140,7 +135,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
 
   # Refusals: the plugin keeps the profile it had, and its editor shows why (here, what the plugin says)
 
-  @planned
   Scenario Outline: a file Woodshed Guitar cannot play is refused, saying why, and the profile stays
     Given there is a text file "notes.txt"
     And there is a text file "Broken.nam"
@@ -204,7 +198,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
 
   # Saving
 
-  @planned
   Scenario: the profile comes back after saving and reopening the song
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
@@ -213,7 +206,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Then Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
 
   # the song holds the capture's contents, as a song opened on another computer needs them
-  @planned
   Scenario: a reopened song plays its profile when the NAM capture's file is gone
     Given I have entered fret 5 on string 1
     And I have added a guitar track on a channel of its own
@@ -248,7 +240,6 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.01
     And Woodshed Guitar of track 1 reports a latency above 0 samples
 
-  @planned
   Scenario: a profile made at the device's sample rate adds no latency
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     When Woodshed Guitar of track 1 loads the NAM capture "Gain 3.nam"

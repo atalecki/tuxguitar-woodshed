@@ -1,5 +1,6 @@
 package app.tuxguitar.audio.features;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -85,6 +86,14 @@ public class ChannelSteps {
 		world.fixture().actionContext.setAttribute(TGUpdateChannelAction.ATTRIBUTE_BALANCE, (short) balance);
 		updateChannel(number);
 		assertTrue(world.succeeded());
+	}
+
+	// a new guitar track, last, on a new channel (as the app adds one)
+	@Given("I have added a guitar track on a channel of its own")
+	public void haveAddedAGuitarTrackOnAChannelOfItsOwn() {
+		int channels = world.song().countChannels();
+		world.executeUndoable(new TGAddNewTrackAction(world.fixture().context), new TGUndoableAddTrackController());
+		assertEquals(channels + 1, world.song().countChannels());
 	}
 
 	// a new guitar track, last, then set to play on the channel of the other track
