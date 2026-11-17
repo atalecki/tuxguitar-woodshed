@@ -22,7 +22,7 @@ const int kVoices = 32;
 // below this the plugin sounds nothing
 const float kSilence = 1e-6f;
 // what the plugin says when the profile's file is no longer the profile's contents
-const char kFileChanged[] = "The profile file has changed since this song was saved";
+const char kFileChanged[] = "The profile file has changed since it was loaded.";
 
 // the largest absolute sample
 float peak(const float* signal, int32 frames) {
