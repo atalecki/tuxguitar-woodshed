@@ -2,6 +2,8 @@
 // the reason the user reads; and the amp stage that plays the voice through it.
 #pragma once
 
+#include "resampler.h"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,8 +34,9 @@ Capture readCapture(const std::string& name, const std::string& contents);
 // the capture at the path: refused when it is no .nam file or cannot be read, else as its contents say
 Capture loadCapture(const std::string& path, std::string& contents);
 
-// the voice played through a capture's model at the host's rate: in place, a block at a time
-class Amp {
+// the voice played through a capture's model at the host's rate: in place, a block at a time; at the model's own rate
+// (resampled into it and back) when the host's differs
+class Amp : private ModelBlock {
 public:
 	Amp(std::shared_ptr<nam::DSP> model, double modelRate);
 	~Amp();
@@ -45,10 +48,11 @@ public:
 	void process(float* signal, int frames);
 
 private:
-	void run(const double* in, double* out, int frames);
+	void run(const double* in, double* out, int frames) override;
 
 	std::shared_ptr<nam::DSP> model;
 	double modelRate;
+	std::unique_ptr<Resampler> resampler;
 	std::vector<double> in;
 	std::vector<double> out;
 };

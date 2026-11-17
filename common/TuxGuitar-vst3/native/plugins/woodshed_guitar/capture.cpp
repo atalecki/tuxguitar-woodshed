@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -93,14 +94,17 @@ Amp::Amp(std::shared_ptr<nam::DSP> model, double modelRate) : model(std::move(mo
 
 Amp::~Amp() = default;
 
-void Amp::prepare(double, int maxBlock) {
+// a rate within half a hertz of the host's is the host's
+void Amp::prepare(double hostRate, int maxBlock) {
+	resampler.reset(std::fabs(hostRate - modelRate) < 0.5 ? nullptr : new Resampler(hostRate, modelRate, maxBlock));
+	int modelBlock = (resampler ? resampler->maxModelBlock() : maxBlock);
 	in.assign((size_t) maxBlock, 0.0);
 	out.assign((size_t) maxBlock, 0.0);
-	model->ResetAndPrewarm(modelRate, maxBlock);
+	model->ResetAndPrewarm(modelRate, modelBlock);
 }
 
 int Amp::latency() const {
-	return 0;
+	return (resampler ? resampler->latency() : 0);
 }
 
 void Amp::run(const double* input, double* output, int frames) {
@@ -110,6 +114,10 @@ void Amp::run(const double* input, double* output, int frames) {
 }
 
 void Amp::process(float* signal, int frames) {
+	if (resampler) {
+		resampler->process(signal, signal, frames, *this);
+		return;
+	}
 	std::copy(signal, signal + frames, in.begin());
 	run(in.data(), out.data(), frames);
 	std::copy(out.begin(), out.begin() + frames, signal);

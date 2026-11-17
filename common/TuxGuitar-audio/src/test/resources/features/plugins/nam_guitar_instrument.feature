@@ -225,8 +225,8 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
 
   # a capture made at 48000 Hz played on the Test Interface's 44100 Hz: the voice is resampled into the capture's rate
   # and back, so pitch and timing stay; the delay that adds is reported as the plugin's latency, which plugin delay
-  # compensation makes up for, so track 1 stays in time with track 2
-  @planned
+  # compensation makes up for, so track 1 stays in time with track 2 (to the sample; resampling leaves out what lies
+  # above 0.45 times the lower rate, so the two differ a little where a pluck starts)
   Scenario: a profile made at another sample rate keeps pitch and timing, its delay reported as latency
     Given there is a NAM capture "Gain 3 at 48 kHz.nam" that multiplies the signal by 3.0, made at 48000 Hz
     And I have entered fret 5 on string 1
@@ -237,7 +237,7 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
     When Woodshed Guitar of track 1 loads the NAM capture "Gain 3 at 48 kHz.nam"
     And I play the song from measure 1 beat 1
-    Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.01
+    Then track 1 sounds 3.0 times what track 2 sounds, in time to the sample, within 1% RMS
     And Woodshed Guitar of track 1 reports a latency above 0 samples
 
   Scenario: a profile made at the device's sample rate adds no latency

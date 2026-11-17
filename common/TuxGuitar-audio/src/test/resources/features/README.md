@@ -480,6 +480,9 @@ These features change how TuxGuitar works today. They are requirements, not side
   2 kHz, over the measure's sounding samples, is within 1% of the note's pitch.
 - **Track 1 sounds N times what track 2 sounds, sample for sample within e**: on both sides of the taps, every sample of
   track 1 is within e of N times track 2's at the same sample.
+- **Track 1 sounds N times what track 2 sounds, in time to the sample, within p% RMS**: of the lags up to 64 samples
+  either way, track 1 fits N times track 2 best (least root mean square of what is left) at 0, and what is left there is
+  within p% of N times track 2's root mean square (left side).
 - **A tone within 1% (or 1 Hz)**: by its fundamental frequency. **No ... above -60 dBFS**: by the level at that
   frequency. **Nothing**, in a list of tones per measure: no tone above -60 dBFS there.
 - **Nothing else above -60 dBFS**: no sample other than the named signals above 0.001.
