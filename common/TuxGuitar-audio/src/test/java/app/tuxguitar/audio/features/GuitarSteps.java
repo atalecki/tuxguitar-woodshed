@@ -171,6 +171,13 @@ public class GuitarSteps {
 		}
 	}
 
+	// what its editor's two lines show, read from its window
+	@Then("Woodshed Guitar's editor of track {int} shows {string} and {string}")
+	public void itsEditorShows(int track, String profile, String refusal) throws TGVst3Exception {
+		byte[] shown = running(track).message("Woodshed.shown", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		assertEquals(profile + "\n" + refusal, new String(shown, StandardCharsets.UTF_8));
+	}
+
 	@Then("Woodshed Guitar of track {int} reports a latency of {int} samples")
 	public void reportsALatencyOf(int track, int latency) throws TGVst3Exception {
 		assertEquals(latency, (int) ofTheSong(track, TGVst3Instance::getLatency));

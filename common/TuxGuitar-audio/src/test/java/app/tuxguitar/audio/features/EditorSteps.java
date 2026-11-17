@@ -94,6 +94,7 @@ public class EditorSteps {
 		openTheEditor(effect, track, null);
 	}
 
+	@Given("I have opened the editor of the source of track {int}")
 	@When("I open the editor of the source of track {int}")
 	public void openTheEditorOfTheSource(int track) {
 		openTheEditor(null, track);
@@ -130,6 +131,11 @@ public class EditorSteps {
 	@Then("the plugin's own editor of VST3 effect {int} of track {int} is open")
 	public void itsOwnEditorIsOpen(int effect, int track) {
 		assertTrue(editor(effect, track).isOwn());
+	}
+
+	@Then("the plugin's own editor of the source of track {int} is open")
+	public void theSourcesOwnEditorIsOpen(int track) {
+		assertTrue(live().getEditor(channel(track).getChannelId(), "source").isOwn());
 	}
 
 	@Then("the window of the plugin's own editor of VST3 effect {int} of track {int} is titled {string}")

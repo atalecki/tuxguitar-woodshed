@@ -243,10 +243,25 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     When Woodshed Guitar of track 1 loads the NAM capture "Gain 3.nam"
     Then Woodshed Guitar of track 1 reports a latency of 0 samples
 
-  # Its editor (what it shows, the file dialog, the real tone and its cost are checked by hand: README)
+  # Its editor: Load profile... (a file dialog for .nam files), the profile's name, and why the last file was refused. How
+  # it looks and its file dialog are checked by hand (README); what it shows is read from its window
 
-  @planned
-  Scenario: Woodshed Guitar has an editor of its own
+  Scenario: Woodshed Guitar's editor shows its profile
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    When Woodshed Guitar of track 1 loads the NAM capture "Gain 3.nam"
+    Then the plugin's own editor of the source of track 1 is open
+    And Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and ""
+
+  Scenario: Woodshed Guitar's editor shows why a file was refused, and the profile it kept
+    Given there is a text file "notes.txt"
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3.nam"
+    And I have opened the editor of the source of track 1
+    When Woodshed Guitar of track 1 loads the file "notes.txt"
+    Then Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and "Not loaded: notes.txt is not a NAM capture: Woodshed Guitar plays .nam files"
+
+  Scenario: with no profile, Woodshed Guitar's editor says the dry guitar is heard
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     When I open the editor of the source of track 1
-    Then the plugin's own editor of the source of track 1 is open
+    Then Woodshed Guitar's editor of track 1 shows "No profile: the dry guitar is heard" and ""

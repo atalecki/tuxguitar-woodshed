@@ -1,5 +1,6 @@
 #include "plugin.h"
 
+#include "editor.h"
 #include "state.h"
 
 #include "public.sdk/source/main/pluginfactory.h"
@@ -194,14 +195,30 @@ bool GuitarPlugin::loadProfile(const std::string& path) {
 	Capture capture = loadCapture(path, read);
 	refusal = capture.refusal;
 	if (!refusal.empty()) {
+		refreshEditor();
 		return false;
 	}
 	install(path, read, capture);
+	refreshEditor();
 	FUnknownPtr<IComponentHandler2> handler(componentHandler);
 	if (handler) {
 		handler->setDirty(true);
 	}
 	return true;
+}
+
+void GuitarPlugin::editorOpened(GuitarView* view) {
+	this->view = view;
+}
+
+void GuitarPlugin::refreshEditor() {
+	if (view) {
+		view->refresh();
+	}
+}
+
+IPlugView* PLUGIN_API GuitarPlugin::createView(FIDString name) {
+	return (hasEditor() && std::strcmp(name, ViewType::kEditor) == 0 ? new GuitarView(this) : nullptr);
 }
 
 ProfileStatus GuitarPlugin::status() {
@@ -256,11 +273,13 @@ tresult PLUGIN_API GuitarPlugin::setState(IBStream* state) {
 	SingleComponentEffect::setParamNormalized(kQuality, getParameterObject(kQuality)->toNormalized(saved.quality));
 	refusal.clear();
 	restoreProfile(saved.path, saved.contents);
+	refreshEditor();
 	return kResultOk;
 }
 
 // "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
-// "Woodshed.profile" answers the status: the profile's name, a line break, the refusal
+// "Woodshed.profile" answers the status: the profile's name, a line break, the refusal; "Woodshed.shown" answers what
+// the open editor's two lines show (read from its window), a line break between
 tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
 	FIDString id = message->getMessageID();
 	IAttributeList* attributes = message->getAttributes();
@@ -275,6 +294,10 @@ tresult PLUGIN_API GuitarPlugin::notify(IMessage* message) {
 		ProfileStatus now = status();
 		std::string report = now.name + "\n" + now.refusal;
 		return attributes->setBinary("report", report.data(), (uint32) report.size());
+	}
+	if (std::strcmp(id, "Woodshed.shown") == 0 && view) {
+		std::string shown = view->shown();
+		return attributes->setBinary("report", shown.data(), (uint32) shown.size());
 	}
 	return SingleComponentEffect::notify(message);
 }

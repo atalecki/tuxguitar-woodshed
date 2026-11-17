@@ -17,7 +17,7 @@ if(MSVC)
 endif()
 
 set(SMTG_CUSTOM_BINARY_LOCATION "${CMAKE_BINARY_DIR}/plugins")
-set(TG_WOODSHED_SOURCES plugin.cpp "${public_sdk_SOURCE_DIR}/source/vst/vstsinglecomponenteffect.cpp")
+set(TG_WOODSHED_SOURCES plugin.cpp editor.cpp "${public_sdk_SOURCE_DIR}/source/vst/vstsinglecomponenteffect.cpp")
 smtg_add_vst3plugin(tg_woodshed_guitar PACKAGE_NAME "Woodshed Guitar" SOURCES_LIST ${TG_WOODSHED_SOURCES})
 target_link_libraries(tg_woodshed_guitar PRIVATE sdk tg_woodshed_core)
 if(SMTG_WIN)

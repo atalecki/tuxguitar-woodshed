@@ -14,6 +14,8 @@
 
 namespace Woodshed {
 
+class GuitarView;
+
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 
@@ -43,6 +45,7 @@ public:
 	tresult PLUGIN_API setState(IBStream* state) SMTG_OVERRIDE;
 	tresult PLUGIN_API getState(IBStream* state) SMTG_OVERRIDE;
 	tresult PLUGIN_API setComponentState(IBStream* state) SMTG_OVERRIDE { return setState(state); }
+	IPlugView* PLUGIN_API createView(FIDString name) SMTG_OVERRIDE;
 	tresult PLUGIN_API notify(IMessage* message) SMTG_OVERRIDE;
 	// its messages come through IConnectionPoint, which SingleComponentEffect hides from hosts
 	tresult PLUGIN_API queryInterface(const TUID iid, void** obj) SMTG_OVERRIDE;
@@ -51,6 +54,8 @@ public:
 	// the plugin changed; or it is refused, the profile kept, and the status says why
 	bool loadProfile(const std::string& path);
 	ProfileStatus status();
+	// its editor's view while one is open (none: nullptr)
+	void editorOpened(GuitarView* view);
 
 private:
 	void play(const Event& event);
@@ -61,6 +66,7 @@ private:
 	void restoreProfile(const std::string& path, const std::string& contents);
 	void checkLatency();
 	void slimTo(Amp& amp);
+	void refreshEditor();
 
 	std::unique_ptr<Strings> strings;
 	// the strings' sum, a block long
@@ -77,6 +83,7 @@ private:
 	uint32 reportedLatency = 0;
 	// the Quality the amp plays at (-1 before it is told one)
 	int slimmed = -1;
+	GuitarView* view = nullptr;
 };
 
 }  // namespace Woodshed
