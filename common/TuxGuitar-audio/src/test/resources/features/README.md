@@ -75,7 +75,13 @@ through the standard `IProgress` (type `AsyncStateRestoration`), the helper hear
 timing (its latency, its tail, and that flag; a request of its own asks for it, protocol version 7), and its processor
 is busy meanwhile (`TGVst3Processor.isBusy`), which lib's player already waits for before it starts (as it waits for a
 soundfont's instruments to load); a plugin restoring for 5 seconds (`TGVst3Instance.RESTORING_WAIT`, from when it was
-first heard) is no longer waited for, so Play starts anyway. The player's position
+first heard) is no longer waited for, so Play starts anyway. Then, while one still restores, an app shows a quiet hint
+(`TGLoadingHint`, read as often as the app likes; the desktop shows it in a status line at the foot of the main window,
+which is hidden otherwise): "<plugin> is still loading <what>", what being the description the plugin gave
+`IProgress::start` (Woodshed Guitar gives the file of the profile it loads; a load given while one is under way begins
+the restoration again with its own file), or "its sound" when it gave none, until that plugin has finished or no longer
+runs. The helper tells that description with the plugin's timing too (protocol version 8). Play that waited until the
+plugins were ready shows no hint. The player's position
 is the one the output sounds: live, lib's sequencer on the synthesizer's clock reports the tick the output sounds
 (chains' latency plus output latency behind what it schedules); offline, `TGReportedPositions` reports it block by
 block the same way (through every turn's Count In it stays on the turn's first tick, as live, where a Count In is a
@@ -534,7 +540,10 @@ These features change how TuxGuitar works today. They are requirements, not side
 
 Each test plugin keeps a state of 1 KB that changes with its parameters and its preset, so saving can be checked byte
 for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
-it from its own editor, as one gesture (begin edit, changes, end edit). The helper process reports its process id and
+it from its own editor, as one gesture (begin edit, changes, end edit). "Track N's plugin loading "X" as Play starts" is
+the plugin, as Play starts, telling its host it restores its state in the background (`IProgress`,
+`AsyncStateRestoration`, its description X; none without), as a plugin loading a file on a thread of its own does, until
+the scenario says it has finished. The helper process reports its process id and
 open sockets, so "runs apart" and "listens on no network port" can be checked.
 
 TuxGuitar's own plugins (built by the same native build, into `native-build/plugins`, apart from the test plugins;

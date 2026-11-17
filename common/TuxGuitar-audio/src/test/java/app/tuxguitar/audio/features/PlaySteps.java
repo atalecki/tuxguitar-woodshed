@@ -67,10 +67,16 @@ public class PlaySteps {
 
 	// the action taken before each turn of the play loop, as the app's other threads act while the song plays
 	void playLive(SongPosition from, int passes, Runnable eachTurn) throws MidiPlayerException, TGAudioDeviceException {
+		playLive(from, passes, () -> { }, eachTurn);
+	}
+
+	// and the action taken as Play starts: the song's chains run, Play has not yet waited for them to be ready
+	void playLive(SongPosition from, int passes, Runnable asPlayStarts, Runnable eachTurn) throws MidiPlayerException, TGAudioDeviceException {
 		MidiPlayer player = MidiPlayer.getInstance(world.fixture().context);
 		player.loadSequencer(new MidiSequencerImpl(world.fixture().context));
 		player.setTickPosition(from.tick(world.song()));
 		player.play();
+		asPlayStarts.run();
 		world.threads().runStartHere();
 		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> {
 			eachTurn.run();

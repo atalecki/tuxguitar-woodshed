@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
@@ -135,6 +136,11 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	public synchronized TGVst3Instance get(int channel, String element) throws TGVst3Exception {
 		TGVst3Instance instance = this.running.get(key(channel, element));
 		return (instance != null ? instance : this.kept(channel, element));
+	}
+
+	// the plugins of the renders that run, by channel then element
+	public synchronized List<TGVst3Instance> getRunning() {
+		return this.running.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(Map.Entry::getValue).collect(Collectors.toList());
 	}
 
 	// the plugin of the element as it runs, or the one kept open for it; null when neither is (none is opened)
