@@ -8,8 +8,8 @@ import app.tuxguitar.player.base.MidiClick;
 /**
  * The drum tap: what the TuxGuitar Synthesizer's own drums sound over a timeline, outside every sound chain, where they
  * join the output mix, left and right: the built-in click (ClickProcessor), as live. They click the Count In: each
- * click's note reaches the drums on its sample and the click sounds from it, adding no latency. The Metronome clicks
- * here too (TGMetronome).
+ * click reaches the drums on its sample at the click sound's velocity (its drum note is for other MIDI Ports) and
+ * sounds from it, adding no latency. The Metronome clicks here too (TGMetronome).
  */
 public final class TGDrumTap {
 
@@ -27,7 +27,7 @@ public final class TGDrumTap {
 		drums.setSampleRate(timeline.getSampleRate());
 		for (TGClicks clicks : List.of(timeline.getCountIn(), metronome)) {
 			for (long position : clicks.positions()) {
-				drums.sendNoteOn(click.getNote(), click.getVelocity(), -1, false, position);
+				drums.click(click.getVelocity(), position);
 			}
 		}
 		float[][] block = new float[2][TGBlocks.FRAMES];

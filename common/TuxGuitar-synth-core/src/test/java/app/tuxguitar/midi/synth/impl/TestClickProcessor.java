@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -57,16 +58,22 @@ public class TestClickProcessor {
 		return sides;
 	}
 
+	// one block, filled again each time: the processor writes over what it held
 	private static float[][] blocks(TGMidiProcessor processor) {
 		float[][] sides = new float[2][BLOCKS * FRAMES];
 		float[][] block = new float[2][FRAMES];
 		for (int b = 0; b < BLOCKS; b++) {
 			processor.process(block);
-			for (int side = 0; side < 2; side++) {
-				System.arraycopy(block[side], 0, sides[side], b * FRAMES, FRAMES);
-			}
+			copy(block, sides, b * FRAMES);
 		}
 		return sides;
+	}
+
+	// the block's sides into the sides, from the frame on
+	private static void copy(float[][] block, float[][] sides, int at) {
+		for (int side = 0; side < sides.length; side++) {
+			System.arraycopy(block[side], 0, sides[side], at, block[side].length);
+		}
 	}
 
 	private static float[] left(float sampleRate, Note... notes) {
@@ -81,19 +88,10 @@ public class TestClickProcessor {
 		return peak;
 	}
 
-	// how often a sound crosses zero going up, per second, over the frames
+	// how often a sound crosses zero going up, per second, from its first crossing over the frames to its last
 	private static double frequency(float[] samples, int from, int to, float sampleRate) {
-		int first = -1;
-		int last = -1;
-		int crossings = 0;
-		for (int i = from + 1; i < to; i++) {
-			if (samples[i - 1] <= 0 && samples[i] > 0) {
-				first = (first < 0 ? i : first);
-				last = i;
-				crossings++;
-			}
-		}
-		return (crossings - 1) * sampleRate / (last - first);
+		int[] up = IntStream.range(from + 1, to).filter(i -> samples[i - 1] <= 0 && samples[i] > 0).toArray();
+		return (up.length - 1) * sampleRate / (up[up.length - 1] - up[0]);
 	}
 
 	private static float[] shifted(float[] samples, int by) {
@@ -207,18 +205,18 @@ public class TestClickProcessor {
 		assertArrayEquals(play(44100, note(95, 0)), blocks(click));
 	}
 
-	// through a 16-bit buffer, the same click within a 16-bit step
+	// through 16-bit buffers of a block each, the same click within a 16-bit step
 	@Test
-	public void itFillsABufferWithTheClick() {
+	public void itFillsBuffersWithTheClick() {
 		ClickProcessor click = new ClickProcessor();
 		click.sendNoteOn(37, 127, -1, false, 0);
-		TGAudioBuffer buffer = new TGAudioBuffer();
-		click.fillBuffer(buffer);
-		float[][] block = new float[2][FRAMES];
-		buffer.read(block);
 		float[] expected = left(44100, note(127, 0));
-		for (int i = 0; i < FRAMES; i++) {
-			assertEquals(expected[i], block[1][i], 1.0 / Short.MAX_VALUE, "at " + i);
+		for (int b = 0; b < 2; b++) {
+			TGAudioBuffer buffer = new TGAudioBuffer();
+			click.fillBuffer(buffer);
+			float[][] block = new float[2][FRAMES];
+			buffer.read(block);
+			assertArrayEquals(Arrays.copyOfRange(expected, b * FRAMES, (b + 1) * FRAMES), block[1], 1f / Short.MAX_VALUE, "block " + b);
 		}
 	}
 

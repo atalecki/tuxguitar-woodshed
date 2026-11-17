@@ -44,26 +44,22 @@ public class ClickProcessor implements TGMidiProcessor {
 	private final Queue<Click> sent = new ConcurrentLinkedQueue<Click>();
 	private final List<Click> sounding = new ArrayList<Click>();
 	// the click at velocity 127, a sample per frame
-	private float[] sound = sound(TGAudioBuffer.SAMPLE_RATE);
+	private float[] sound = sound(TGAudioBuffer.SAMPLE_RATE, 1f);
 	// the frames filled since it opened
 	private long frames;
 	private volatile boolean open = true;
 
 	// the click at the rate and velocity, a sample per frame: what a note at that velocity sounds from its frame
 	public static float[] sound(float sampleRate, int velocity) {
-		float[] sound = sound(sampleRate);
-		float gain = gain(velocity);
-		for (int frame = 0; frame < sound.length; frame++) {
-			sound[frame] *= gain;
-		}
-		return sound;
+		return sound(sampleRate, gain(velocity));
 	}
 
-	private static float[] sound(float sampleRate) {
+	// at the gain, as a note adds it to a block: the first frame is silent (phase 0, no level yet)
+	private static float[] sound(float sampleRate, float gain) {
 		float[] sound = new float[(int) Math.round(LENGTH * sampleRate)];
-		for (int frame = 0; frame < sound.length; frame++) {
+		for (int frame = 1; frame < sound.length; frame++) {
 			double time = frame / (double) sampleRate;
-			sound[frame] = (float) (LEVEL * Math.min(1, time / ATTACK) * Math.exp(-time / DECAY) * Math.sin(2 * Math.PI * FREQUENCY * time));
+			sound[frame] = gain * (float) (LEVEL * Math.min(1, time / ATTACK) * Math.exp(-time / DECAY) * Math.sin(2 * Math.PI * FREQUENCY * time));
 		}
 		return sound;
 	}
@@ -73,7 +69,7 @@ public class ClickProcessor implements TGMidiProcessor {
 	}
 
 	public void setSampleRate(float sampleRate) {
-		this.sound = sound(sampleRate);
+		this.sound = sound(sampleRate, 1f);
 	}
 
 	// the clicks over the next block, left and right alike
@@ -130,7 +126,13 @@ public class ClickProcessor implements TGMidiProcessor {
 		this.sendNoteOn(key, velocity, voice, bendMode, 0);
 	}
 
+	// whatever the note: a note on is a click at its velocity
 	public void sendNoteOn(int key, int velocity, int voice, boolean bendMode, long frame) {
+		this.click(velocity, frame);
+	}
+
+	// a click at the velocity, on a frame of the next fill (counted from its first frame); the drum tap's clicks
+	public void click(int velocity, long frame) {
 		this.sent.add(new Click(frame, gain(velocity)));
 	}
 
