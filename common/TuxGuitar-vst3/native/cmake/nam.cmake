@@ -1,7 +1,7 @@
 # NeuralAmpModelerCore, the engine that plays NAM captures in Woodshed Guitar, pinned: release v0.6.0 of
 # github.com/sdatkinson/NeuralAmpModelerCore (commit 0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842), MIT-licensed, with the
 # nlohmann/json 3.12.0 it holds (Dependencies/nlohmann, MIT); and Eigen, the submodule that release names
-# (gitlab.com/libeigen/eigen at bc3b39870ecb690a623a3f49149a358b95c5781d, Eigen 3.5 in development, MPL2). Each is
+# (gitlab.com/libeigen/eigen at bc3b39870ecb690a623a3f49149a358b95c5781d, Eigen 5.0.1, MPL2). Each is
 # downloaded as its archive at that commit and checked against its SHA256 (fetch.cmake). Only what the plugin builds
 # from is extracted: NAM/, the json header, the licences, and NAM's two example captures that the timing tool plays.
 # Set TG_NAM_CORE_DIR (holding NAM, Dependencies/nlohmann and LICENSE) and TG_EIGEN_DIR (holding Eigen and
