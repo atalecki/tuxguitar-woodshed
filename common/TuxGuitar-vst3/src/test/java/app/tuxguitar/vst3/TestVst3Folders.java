@@ -70,4 +70,13 @@ class TestVst3Folders {
 	void onWindowsTheVariablesAreFoundInAnyCase() {
 		assertEquals("/common/VST3, /local/Programs/Common/VST3", folders("Windows 11", Map.of("CommonProgramFiles", "/common", "LocalAppData", "/local")));
 	}
+
+	// TuxGuitar's own plugins (Woodshed Guitar) are in the folder vst3 next to the folder of its native libraries (the
+	// install directory's lib), scanned after the system's
+	@Test
+	void theScanIsOfTheSystemsFoldersThenTuxGuitarsOwnNextToItsNativeLibraries(@TempDir File install) {
+		File lib = new File(install, "lib");
+		List<File> folders = TGVst3Folders.scanned("Windows 11", WINDOWS, HOME, lib);
+		assertEquals(TGVst3Folders.standard("Windows 11", WINDOWS, HOME) + " " + new File(install, "vst3"), folders.subList(0, 2) + " " + folders.get(2));
+	}
 }
