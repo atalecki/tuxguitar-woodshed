@@ -43,6 +43,7 @@ Feature: Hosting VST3 plugins
     Then "Test Gain" runs in a process other than TuxGuitar's
     And neither TuxGuitar nor the plugin process listens on a network port
 
+  @planned
   Scenario: a VST3 effect that hangs goes silent while the other tracks keep playing on their beats
     Given track 1 has a quarter note on every beat
     And I have chosen the VST3 instrument "Test Click" for track 1
@@ -54,8 +55,8 @@ Feature: Hosting VST3 plugins
     And I have set "Hang at" of VST3 effect 1 of track 1 to 88200
     When I play the song from measure 1 beat 1
     Then the output's left side holds 4 clicks and its right side 16 clicks
-    # 600 samples: the General MIDI drums' latency, which plugin delay compensation counts
-    And every right click reaches the output 600 samples after its beat, within 1 sample
+    # no plugin delays, and the built-in click (Count In, the Metronome) delays nothing: no plugin delay compensation
+    And every right click reaches the output 0 samples after its beat, within 1 sample
 
   # VST3 effects
 

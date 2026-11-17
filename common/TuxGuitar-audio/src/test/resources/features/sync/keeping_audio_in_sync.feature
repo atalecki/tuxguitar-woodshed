@@ -81,6 +81,17 @@ Feature: Keeping audio in sync
     When I play the song from measure 1 beat 1 until the song ends
     Then the output's left side holds 16 clicks and its right side 16 clicks
 
+  # the built-in click delays nothing: without a delaying plugin, the tracks are not delayed for the Count In or the
+  # Metronome
+  @planned
+  Scenario: the Count In and the Metronome add no latency
+    Given I have turned Count In on
+    And I have turned the Metronome on
+    When I play the song from measure 1 beat 1
+    Then every left click reaches the output 0 samples after its beat, within 1 sample
+    And the last Count In click reaches the output 22050 samples before the left click of measure 1 beat 1, within 1 sample
+    And the output holds 16 Metronome clicks, each within 1 sample of the left click on its beat
+
   Scenario: the Metronome sounds with the tracks whatever the plugins delay
     Given I have added the VST3 effect "Test Latency" to track 1
     And I have set "Latency" of VST3 effect 1 of track 1 to 2048
@@ -89,7 +100,7 @@ Feature: Keeping audio in sync
     Then the output holds 16 Metronome clicks, each within 1 sample of the left click on its beat
 
   # Live, the right side holds the audio track's take and the Metronome, on the same beats. A click is where it first
-  # reaches half its peak: the Side Stick's, 7 samples into its note
+  # reaches half its peak: the built-in click's, a few samples into its note
   Scenario: while the song plays live, the Metronome sounds with the tracks whatever the plugins delay
     Given I have added the VST3 effect "Test Latency" to track 1
     And I have set "Latency" of VST3 effect 1 of track 1 to 2048
@@ -244,18 +255,22 @@ Feature: Keeping audio in sync
     And the output's right side holds 24 clicks, each within 1 samples of a click on its left side
 
   # live, as offline, nothing drops out at the jump back, though the takes play late by the plugin delay compensation
-  # (the drums' 600 samples here): the audio before the jump fades out over 256 samples (the second half of the fade
+  # (track 1's 600 samples here): the audio before the jump fades out over 256 samples (the second half of the fade
   # is below half the level), the next pass starts at full level
   Scenario: live, with Play looped on, a take sounds on across each jump back
     Given track 2 has a take of a constant level of 0.25 from measure 1 beat 1 to the end of measure 4
+    And I have added the VST3 effect "Test Latency" to track 1
+    And I have set "Latency" of VST3 effect 1 of track 1 to 600
     And I have turned Play looped on over measures 2 to 3
     When I play the song live from measure 2 beat 1 for 3 passes
     Then the output's right side sounds for at least 528000 samples, at most 129 samples at a time below half its peak
 
   # live, a monitored input sounds from the very first sample of play: the track's timeline plays late by the plugin
-  # delay compensation (the drums' 600 samples here), but the input it starts with goes on before it, as while stopped
+  # delay compensation (track 1's 600 samples here), but the input it starts with goes on before it, as while stopped
   Scenario: live, a monitored input sounds from the very start of play
-    Given I have armed track 2
+    Given I have added the VST3 effect "Test Latency" to track 1
+    And I have set "Latency" of VST3 effect 1 of track 1 to 600
+    And I have armed track 2
     And I have set track 2's monitoring to Always
     And the player plays a constant level of 0.25 on input channel 1
     When I play the song live from measure 2 beat 1
