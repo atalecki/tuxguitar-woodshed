@@ -41,12 +41,19 @@ Stop ends a live session, Pause keeps it and Play then plays the paused pass aga
 passes left, or, paused in a break, the next turn's Count In at once (`MidiPractice.play`), moving the position ends it and the song plays on from there, and the session ending stops the
 player; a sequencer that cannot take turns added while it plays (`MidiSequencer.takesEventsWhilePlaying`: only
 TuxGuitar's own can) refuses a session: editor-utils' `TGPracticeEdits` (installed by the app) ends the
-session under way (`TGPracticeUnderWay`) on any edit but a flag, and checks a flag, its undo and its redo against the
-session's chooser, refusing one the next cycles could not play; it also tells the app which edits to refuse while
-playing (`TGPracticeEdits.disables`: during a session, playing or paused, all but a flag, the undo or redo of a
-flag and a move of the caret) and which menu items and toolbar buttons to grey out (`TGPracticeEdits.greys`: those of
-the actions it refuses during a session, paused too); during a session moving the caret moves only the caret
-(`TGPracticeCaret.movesPlayer`: the caret moves the player only while the song plays outside a session). The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
+session under way (`TGPracticeUnderWay`) on any edit but those it keeps going through (`TGPracticeEdits.keeps`: a
+flag, mute and solo, a marker added, changed or removed, and the undo and redo of each; an undo step is judged by
+the edits in it, `TGUndoableGroup`, since the desktop joins an action's edits and those of the actions it runs in one
+step, and the session goes on only when it keeps them all), and checks a flag, its undo and its redo against the
+session's chooser, refusing one the next cycles could not play; it also tells the app which
+edits to refuse while playing (`TGPracticeEdits.disables`: during a session, playing or paused, all but a flag, the
+undo or redo of an edit it keeps going through and a move of the caret) and which menu items and toolbar buttons to
+grey out (`TGPracticeEdits.greys`: those of the actions it refuses during a session, paused too); during a session
+moving the caret moves only the caret (`TGPracticeCaret.movesPlayer`: the caret, also by a measure with Measure
+First, Previous, Next and Last, moves the player only while the song plays outside a session). The marker actions and
+their undoable edit are editor-utils' (`TGUpdateMarkerAction`, `TGRemoveMarkerAction`, `TGUndoableMarkerGeneric`).
+Record is refused during a session, saying why (`TGAudioStatus.practiceRefusal`, which `TGRecordAction` throws as a
+`TGActionException`), and `TGAudioStatus.canRecord` is false then, so Tools > Record is greyed out. The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
 Live practice scenarios play on the live device as the
 other live scenarios do (`LivePractisingSteps`). Known and pinned, not fixed (ordinary playback): offline, a note ending
 where the song ends or a loop jumps back is never sent its note off (`TestGeneralMidiRender.pinnedDefect...`); live, a
@@ -104,7 +111,12 @@ values again after an undo or redo, and closes once the plugin no longer runs. T
 clicks on the General MIDI drums outside every sound chain: offline (`TGMetronome`), and live on the TuxGuitar
 Synthesizer's own drums (the channel `MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by
 plugin delay compensation like the tracks); with another MIDI Port it is still the sequencer's metronome track on the
-percussion channel, and Count In clicks on the percussion channel as before. A bend carries its exact semitones next to
+percussion channel, and Count In clicks on the percussion channel as before. A song without a percussion channel clicks
+on a channel of the player's own that is not in the song (`MidiClickChannels`, lib): the TuxGuitar
+Synthesizer's drums, Count In too, else a new percussion channel (bank 128, Volume 127, Balance 64), General MIDI
+channel 10 on any other MIDI Port. These scenarios play on the TuxGuitar Synthesizer, so lib's and gm-utils' unit tests
+cover it (`TestMidiPlayerMetronome`, `TestMidiPlayerCountDown`, `TestClicksOnAPort`), and the UAT page "Count In and
+Metronome without a percussion track" what is heard. A bend carries its exact semitones next to
 its 7-bit value, and a VST3 instrument tunes the note of the bent string alone. Entering a note sounds it
 (`TGNoteEntry.install`, a headless twin of the desktop's note controller: an app installs one of the two). "Live"
 scenarios play through the player on a live synthesizer of the scenario, which plays through the live audio device
@@ -153,7 +165,15 @@ follow the steps as they follow interleaved practice's turns. A beat as the unit
 turn's span (lib's `TGPracticeSpan`: its beats, then the joint): offline and live a turn of the timeline plays what the
 span plays of each of its measures, from one tick to another (`TGSongTime.unit`), and offline the notes of a span that is
 not whole measures are its own, parsed alone (`TGMidiTaps`), so a note is cut at the joint and the joint plays only what
-starts on its first tick. Live scenarios read a step played again by its notes'
+starts on its first tick. Units per block (`TGPracticeSettings.setUnitsPerBlock`, 1 until changed) makes a session's
+pool blocks (`TGPracticeBlock`: `TGPracticeBlock.blocks` is the one place that cuts the pool's units into every run of
+so many in a row, refusing fewer than 1 or more than the pool holds; a block weighs as its most difficult unit); the
+chooser, the weight rule and the schedule take blocks, and a turn plays its block from its first unit to its last (the
+plan's and the span's from and to, as a click-up step's run of sections), a block of beats through the barline to its
+joint; `TGPracticeWording` words a block of more than one unit by its first and last unit, capitalised as a unit is
+("Lines 4–5": `transport.practice.block-turn`, `block-timed-turn`, `block-break`, the run by
+`transport.practice.block.<kind>`). The desktop sets it in Interleaved Practice's units per block field.
+Live scenarios read a step played again by its notes'
 level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
@@ -194,7 +214,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
-| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats with their joint offline and live) |
+| `practice/interleaved_practice` | interleaved practice: measures, lines, pages or beats (each with its joint) in random turns, Count In per turn, difficulty flags, blocks of so many units in a row (implemented: choosing, flags, playing offline and live; the interval clock offline and live; beats with their joint offline and live; blocks, but for the desktop's field) |
 | `practice/interleaved_click_up` | interleaved click-up: sections (measures, lines, pages or beats) added one at a time up a tempo ladder, a Count In at each step's tempo, passes, Repeat step and Previous step, live and offline, takes |
 
 ## How the scenarios run
@@ -497,9 +517,10 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 
 ### Practice
 
-- **Interleaved practice**: a session of a number of **turns**. Each turn plays one **unit** chosen from the **pool**,
-  each of its measures once and in score order (repeat signs and alternate endings inside it are not followed; a measure
-  no pass of the song reaches, such as a third ending of a repeat played twice, plays too), with a
+- **Interleaved practice**: a session of a number of **turns**. Each turn plays one **block** (one **unit**, until I
+  change Units per block) chosen from the **pool**, each of its measures once and in score order (repeat signs and
+  alternate endings inside it are not followed; a measure no pass of the song reaches, such as a third ending of a
+  repeat played twice, plays too), with a
   Count In before it: interleaved practice's own **"Count In before each turn"**, on until I turn it off, whether or not
   Count In is on, in the time signature and tempo of the unit's first measure at the Percentage of Tempo (Count In
   ticks set its length as usual). The next turn's Count In (or, with "Count In before each turn" off, its first
@@ -507,9 +528,13 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   itself. A turn's end is a jump in song time: takes fade out before it and start at full level after it (see
   Crossfade), live as offline, and effect tails ring on into the next turn as across a loop's jump back. The Metronome
   clicks on the turns' beats as usual. Stop, moving the position, or an edit to the song ends the session, except
-  flagging a measure (see Difficulty flag). The caret moves freely during a session, playing or paused: clicking the
-  score or moving the caret moves only the caret, not the position, so the session goes on (and the Difficulty flag
-  goes to the caret's measure); moving the position (the transport) still ends it. During a session, playing or paused,
+  flagging a measure (see Difficulty flag), muting or soloing a track, and adding, changing or removing a marker
+  (each still an undo step; their undo and redo keep the session too). The caret moves freely during a session,
+  playing or paused: clicking the score or moving the caret, a measure at a time too (Measure First, Previous, Next
+  and Last, from the menu, the toolbar or the Transport window), moves only the caret, not the position, so the
+  session goes on (and the Difficulty flag goes to the caret's measure); moving the position (the transport) still
+  ends it. Selecting stays refused. Record is greyed out and refused during a session, saying why
+  ("Interleaved practice is under way: stop it to record."). During a session, playing or paused,
   every menu item and toolbar button of an edit the session refuses is greyed out. Pause keeps the session: Play then plays the paused turn again from the start of its Count In,
   and the session goes on from there with the turns it had chosen; the turns before it count as played. A session
   needs a sequencer that takes the turns added while it plays (TuxGuitar's own); on another it is refused, saying why. Play looped, the Loop Range and Training Mode take no part in a session: it plays at the
@@ -546,6 +571,23 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   reflow with the window and the zoom, and the Page layout has no pages).
 - **Pool**: the units a session chooses from, a range such as `measures 1 to 16`, `lines 1 to 8`, `pages 1 to 4`;
   beats are chosen from a range of measures (`beats over measures 3 to 4`).
+- **Units per block** (1 until I change it, at least 1): how many units of the pool in a row a turn plays. A session
+  whose units per block is below 1 is refused ("A block needs at least 1 measure."), and so is one whose pool holds
+  fewer units ("A block of 5 measures does not fit in the pool's 4 measures."; beats count the pool's beats). With 1,
+  a block is a unit and interleaved practice is as it was.
+- **Block**: what a turn of interleaved practice plays and the random choice chooses: a run of Units per block units
+  of the pool in a row, in score order. The pool's blocks are every such run, sliding by one unit and only whole ones
+  (measures 1 to 6 in blocks of 2: `1-2, 2-3, 3-4, 4-5, 5-6`); a pool of exactly that many units is one block. Lines
+  and pages are the fixed groups, so a block of 2 lines is two lines in a row. Beats count through the barline in
+  score order, whatever the time signatures (measure 3 in 3/4, blocks of 2: `..., m3b2-m3b3, m3b3-m4b1, m4b1-m4b2,
+  ...`), and a block of beats plays its beats, then the joint after its last one; its Count In is its first beat's
+  measure's. The cycles, the weight rule, No consecutive repeats and the interval clock count blocks as they count
+  units (a timed turn loops its block). Two blocks are the same only when they have the same first and last unit:
+  one that overlaps the block before (`1-2` after `2-3`) is no repeat. A block weighs as its most difficult measure,
+  so a flag weighs every block that holds its measure. **Block reading**: a block reads as its first and last unit,
+  `2-3` (measures, lines or pages by their numbers), `m3b4-m4b1` (beats), and a block of one unit as that unit (`3`,
+  `m3b2`); a refusal names it "The block of measures 1–2" ("The block of measure 3 beat 4 to measure 4 beat 1"), a
+  block of one unit as the unit ("Measure 5").
 - **A beat (unit)**: one beat of a measure as a unit of interleaved practice, or a section of interleaved click-up. Its
   beat is the unit of its measure's time signature, as in a Position (an eighth in 6/8): the beats of measures 3 to 4
   in 4/4 are 8 units, and a measure of 6/8 gives 6. The pool and the passage are still ranges of measures, every beat
@@ -565,7 +607,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   its turn ends with it. A turn ends at the joint beat's end, where the next turn's Count In starts; TuxGuitar reports
   the joint's beat as it sounds; the Metronome clicks on it; an audio track's take plays through the joint beat and
   fades out over its last 256 samples; with the interval clock every pass plays its joint.
-- **No consecutive repeats** (on until I turn it off): no unit is chosen for two turns in a row, also across cycles.
+- **No consecutive repeats** (on until I turn it off): no unit (block) is chosen for two turns in a row, also across
+  cycles.
   With it on, a session is refused when its weights cannot keep that rule: with w the heaviest unit's weight and L a
   cycle's length (the weights added up), a session of up to L turns needs 2w <= L + 1, a longer one 2w <= L.
 - **Complete cycle before reshuffle** (on until I turn it off): turns go in **cycles**; each cycle chooses every unit
@@ -576,7 +619,7 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   Flagging during a session does not end it: the cycle under way keeps its turns and the next cycles use the new
   weights (every cycle none of whose turns has started playing, also when, live, its first turn is already chosen); a flag those weights could not play (see No consecutive repeats) is refused, saying why. Undoing or redoing
   a flag during a session is a flag: the same rule, the same refusal, and a refused undo or redo changes nothing.
-  A line or page weighs as much as its most difficult measure.
+  A line or page weighs as much as its most difficult measure, and so does a block (see Block).
 - **Interleaved click-up**: a session that brings a **passage** up to speed (Molly Gebrian's "interleaved clicking
   up"). It plays a list of **steps**, worked out once when it starts: with N **sections** in play (N = 1, 2, ... up to
   all of them, one more at a time), step i (from 0) plays at **rung** i of the **tempo ladder** the sections
@@ -591,7 +634,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   signs inside them are not followed); a step's end is a jump in song time (takes fade, tails ring on), live as
   offline. The Percentage of Tempo, Play looped, the Loop Range and Training Mode take no part, and are as they were
   afterwards; random choice, the weight rule and the interval clock do not apply, and a flag set during a session
-  keeps it and changes none of its steps. Stop, moving the position or an edit ends the session; Pause keeps it, and
+  keeps it and changes none of its steps. Stop, moving the position or an edit ends the session, but for the edits
+  interleaved practice's session goes on through (a flag, mute and solo, markers, and their undo and redo), and
+  moving the caret moves only the caret, as there; Record is refused as there; Pause keeps it, and
   Play then plays the paused step again from its Count In. **Repeat step** plays the step under way again at once, from
   its Count In, and **Previous step** the step before it (during step 1, step 1 again); the steps then go on from
   there. Paused, they choose the step Play plays from its Count In (Repeat step: the paused one, as Play would anyway).
@@ -625,6 +670,12 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - **A beat at a step's tempo**: where the beat falls when the song plays at that step's tempo (see Tempo ladder).
 - **Random seed**: the scenarios fix the random choice by a seed (1 unless they say otherwise), so they run the same
   each time; the scenarios on choosing check the rules for every seed in a range and do not play.
+- **A session under way**: an interleaved practice or click-up session started and not yet ended, playing or paused.
+  What it lets through and what ends it: see Interleaved practice; the edits it goes on through are each an undo step.
+- **Track and markers reading**: `track 1 reads "mute"`: the track's solo and mute, `solo`, `mute`, `solo mute` or
+  `-` for neither; `the markers read "m2 Intro, m3 Verse"`: the song's markers in measure order, each `m<measure>
+  <title>`, `""` for none. A marker is added, renamed and removed as the Marker editor and list do (the update and
+  remove marker actions, one undo step each).
 
 ## Out of scope
 
@@ -641,8 +692,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 - What the channel's Reverb, Chorus, Tremolo and Phaser do on audio tracks and with VST3 instruments.
 - Which native audio library the backend uses.
 - Interleaved practice: how the desktop shows a session (the dialog, the turn shown in the Transport window, the
-  Difficulty menu: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections); with the interval clock, the
+  Difficulty menu, smooth scroll keeping pace with the turn's tempo: checked by hand, not by these scenarios); hiding the notation while a turn plays; where the cursor rests after a session; Training Mode raising the Percentage of Tempo per cycle; units by marker (sections); with the interval clock, the
   time left in the whole session, a sound at a break's start or end, and times other than whole minutes (turns,
   sessions) and whole seconds (breaks).
 - Interleaved click-up: how the desktop shows it (the dialog, the step shown in the Transport window, the Repeat step
-  and Previous step buttons: checked by hand); a ladder that climbs down; tempos other than whole percents or bpm.
+  and Previous step buttons, smooth scroll keeping pace with the step's tempo: checked by hand; the pace is
+  `MidiPlayer.getHeardScale`, the scale lib tests, applied by `TGTempoScale.millis`); a ladder that climbs down; tempos other than whole percents or bpm.

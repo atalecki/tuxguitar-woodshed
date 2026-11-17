@@ -65,7 +65,8 @@ At 120 bpm written, 60% is 72 bpm (a measure lasts 3.3 seconds), 70% is 84 bpm (
 
 - Known and not to report: with a VST3 instrument, the note held when Repeat Step, Previous Step or Pause cuts a step
   short rings on, because the plugin ignores All Notes Off. It is fixed on its own branch.
-- Not to report: smooth scrolling during a session still paces itself by the Percentage of Tempo, not the step's tempo.
+- Smooth scrolling during a session now paces itself by the step's tempo, not the Percentage of Tempo (commit
+  `04d878570`): checked in steps 20 to 24 of What a practice session lets through.
 - The toolbar's tempo now rounds to the nearest bpm (125 at 75% shows 94), as the Transport window's always did.
 - Repeat Step and Previous Step have no default keyboard shortcut. They can be given one in Tools > Shortcuts.
 - A section that is a line or a page is a fixed group counted from measure 1 (Measures per line, Lines per page), as in

@@ -2,7 +2,8 @@ package app.tuxguitar.practice;
 
 /**
  * Interleaved practice as the musician sets it, checked only when a session starts (TGPracticeSession.start): what a
- * turn plays, the pool (from and to, unit numbers from 1), the number of turns, the groups, the two rules and whether
+ * turn plays (a block of so many units in a row, TGPracticeBlock: 1 until changed), the pool (from and to, unit
+ * numbers from 1), the number of turns, the groups, the two rules and whether
  * each turn has a Count In (its own, whether or not the player's Count In is on), all three on until turned off; and the
  * interval clock (off until turned on), which times the session instead of counting its turns (TGPracticeClock): a
  * turn's minutes, a break's seconds, a session's minutes, and whether a Count In comes before every pass of a turn or
@@ -16,6 +17,7 @@ public class TGPracticeSettings {
 	public static final int DEFAULT_SESSION_MINUTES = 30;
 
 	private TGPracticeUnitKind unit = TGPracticeUnitKind.MEASURE;
+	private int unitsPerBlock = 1;
 	private int poolFrom = 1;
 	private int poolTo = 1;
 	private int turns = 1;
@@ -36,6 +38,15 @@ public class TGPracticeSettings {
 
 	public void setUnit(TGPracticeUnitKind unit) {
 		this.unit = unit;
+	}
+
+	// how many units of the pool in a row a turn plays
+	public int getUnitsPerBlock() {
+		return this.unitsPerBlock;
+	}
+
+	public void setUnitsPerBlock(int unitsPerBlock) {
+		this.unitsPerBlock = unitsPerBlock;
 	}
 
 	public int getPoolFrom() {

@@ -8,21 +8,22 @@ import app.tuxguitar.app.view.component.tab.TablatureEditor;
 import app.tuxguitar.editor.undo.TGCannotRedoException;
 import app.tuxguitar.editor.undo.TGCannotUndoException;
 import app.tuxguitar.editor.undo.TGUndoableEdit;
+import app.tuxguitar.editor.undo.TGUndoableGroup;
 import app.tuxguitar.editor.undo.impl.TGUndoableEditBase;
 import app.tuxguitar.util.TGContext;
 
-public class TGUndoableJoined extends TGUndoableEditBase{
+public class TGUndoableJoined extends TGUndoableEditBase implements TGUndoableGroup {
 
 	private int doAction;
 	private TGUndoableCaretState undoableState;
-	private List<Object> undoables;
+	private List<TGUndoableEdit> undoables;
 
 	public TGUndoableJoined(TGContext context){
 		super(context);
 
 		this.doAction = UNDO_ACTION;
 		this.undoableState = new TGUndoableCaretState(context);
-		this.undoables = new ArrayList<Object>();
+		this.undoables = new ArrayList<TGUndoableEdit>();
 	}
 
 	public void addUndoableEdit(TGUndoableEdit undoable){
@@ -62,6 +63,10 @@ public class TGUndoableJoined extends TGUndoableEditBase{
 	public TGUndoableJoined endUndo(){
 		this.undoableState.endUndo();
 		return this;
+	}
+
+	public List<TGUndoableEdit> getEdits(){
+		return this.undoables;
 	}
 
 	public boolean isEmpty(){

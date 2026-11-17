@@ -4,9 +4,9 @@ import java.util.SplittableRandom;
 
 /**
  * Chooses a session's turns one by one. With "Complete cycle before reshuffle" the turns go in cycles, each holding
- * every unit of the pool as many times as its weight: a turn chooses among what is left of the cycle, in proportion
+ * every block of the pool as many times as its weight: a turn chooses among what is left of the cycle, in proportion
  * to it. Without, each turn chooses in proportion to the weights. With "No consecutive repeats" a turn never chooses
- * the unit before, nor (with cycles) one that would leave the rest of the cycle, or the next cycle's start, no order
+ * the block before, nor (with cycles) one that would leave the rest of the cycle, or the next cycle's start, no order
  * that keeps the rule. A cycle reads the weights when its first turn starts playing: a flag set during a cycle counts
  * from the next one, even when that one's first turn was chosen ahead (ahead) and has not started yet. One chooser per
  * session; the player chooses on its thread while an edit checks a flag on another, so each call holds the chooser.
@@ -17,7 +17,7 @@ public final class TGPracticeChooser {
 	// a generator whose streams for nearby seeds are unrelated (java.util.Random's first numbers for seeds 1, 2, 3...
 	// are nearly the same, so a choice over many seeds would not be random)
 	private final SplittableRandom random;
-	// what is left of the cycle under way, by unit of the pool
+	// what is left of the cycle under way, by block of the pool
 	private int[] cycle;
 	private int previous = TGPracticeArrangement.NONE;
 	private int chosen;
@@ -35,21 +35,21 @@ public final class TGPracticeChooser {
 		return this.session;
 	}
 
-	// the unit of the next turn, which starts playing now
-	public synchronized TGPracticeUnit next() {
-		TGPracticeUnit unit = this.ahead();
+	// the block of the next turn, which starts playing now
+	public synchronized TGPracticeBlock next() {
+		TGPracticeBlock block = this.ahead();
 		this.started();
-		return unit;
+		return block;
 	}
 
-	// the unit of the next turn, chosen ahead of playing it, once the turn before has started; started() says when it
+	// the block of the next turn, chosen ahead of playing it, once the turn before has started; started() says when it
 	// starts
-	public synchronized TGPracticeUnit ahead() {
+	public synchronized TGPracticeBlock ahead() {
 		this.started();
-		int unit = (this.session.isCompleteCycle() ? this.nextInTheCycle() : this.draw(this.chancesOnTheirOwn()));
-		this.previous = unit;
+		int block = (this.session.isCompleteCycle() ? this.nextInTheCycle() : this.draw(this.chancesOnTheirOwn()));
+		this.previous = block;
 		this.chosen++;
-		return this.session.getPool().get(unit);
+		return this.session.getPool().get(block);
 	}
 
 	// the turn chosen last has started playing: a cycle it opened holds the weights the song has now, less that turn
@@ -67,10 +67,10 @@ public final class TGPracticeChooser {
 		if (opens) {
 			this.cycle = this.session.weights();
 		}
-		int unit = this.draw(this.chancesInTheCycle());
-		this.cycle[unit]--;
+		int block = this.draw(this.chancesInTheCycle());
+		this.cycle[block]--;
 		this.opened = opens;
-		return unit;
+		return block;
 	}
 
 	// refuses a flag, set now, whose weights the next cycles could not play keeping "No consecutive repeats"; the cycle
@@ -116,38 +116,38 @@ public final class TGPracticeChooser {
 		return chances;
 	}
 
-	// a unit that holds more than half of the next cycle must start it: the cycle under way may not end with it
+	// a block that holds more than half of the next cycle must start it: the cycle under way may not end with it
 	private int[] chancesInTheCycle() {
 		int last = (this.turnsAfterTheCycle() > 0 ? TGPracticeArrangement.majority(this.session.weights()) : TGPracticeArrangement.NONE);
 		int[] chances = new int[this.cycle.length];
-		for (int unit = 0; unit < chances.length; unit++) {
-			chances[unit] = (this.keepsTheRule(unit, last) ? this.cycle[unit] : 0);
+		for (int block = 0; block < chances.length; block++) {
+			chances[block] = (this.keepsTheRule(block, last) ? this.cycle[block] : 0);
 		}
 		return chances;
 	}
 
-	// whether choosing the unit (one left of the cycle) leaves the rest of the cycle an order that keeps the rule, ending
-	// with another unit than the given one
-	private boolean keepsTheRule(int unit, int last) {
+	// whether choosing the block (one left of the cycle) leaves the rest of the cycle an order that keeps the rule, ending
+	// with another block than the given one
+	private boolean keepsTheRule(int block, int last) {
 		if (!this.session.isNoConsecutiveRepeats()) {
 			return true;
 		}
-		if (this.cycle[unit] == 0 || unit == this.previous) {
+		if (this.cycle[block] == 0 || block == this.previous) {
 			return false;
 		}
 		int[] left = this.cycle.clone();
-		left[unit]--;
-		return TGPracticeArrangement.feasible(left, unit, last);
+		left[block]--;
+		return TGPracticeArrangement.feasible(left, block, last);
 	}
 
-	// a unit, at random, in proportion to its chances
+	// a block, at random, in proportion to its chances
 	private int draw(int[] chances) {
 		int left = this.random.nextInt(TGPracticeArrangement.total(chances));
-		int unit = 0;
-		while (left >= chances[unit]) {
-			left -= chances[unit];
-			unit++;
+		int block = 0;
+		while (left >= chances[block]) {
+			left -= chances[block];
+			block++;
 		}
-		return unit;
+		return block;
 	}
 }

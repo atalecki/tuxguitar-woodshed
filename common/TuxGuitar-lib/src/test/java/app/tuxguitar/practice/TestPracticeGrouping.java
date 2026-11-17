@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -118,6 +119,43 @@ public class TestPracticeGrouping {
 		assertEquals("64 64", TGPracticeGrouping.poolLimit(TGPracticeUnitKind.BEAT, 5, 3, SONG) + " " + TGPracticeGrouping.of(5, 3).count(TGPracticeUnitKind.BEAT, SONG));
 	}
 
+	// how many units a form's pool of the kind holds, counted without building them, for each pool (from, to, from,
+	// to...), with lines of so many measures and pages of so many lines
+	private static String poolUnits(TGSong song, TGPracticeUnitKind kind, int measuresPerLine, int linesPerPage, int... pools) {
+		TGPracticeSettings form = new TGPracticeSettings();
+		form.setUnit(kind);
+		form.setMeasuresPerLine(measuresPerLine);
+		form.setLinesPerPage(linesPerPage);
+		return IntStream.range(0, pools.length / 2).mapToObj(pool -> {
+			form.setPool(pools[2 * pool], pools[2 * pool + 1]);
+			return String.valueOf(TGPracticeGrouping.poolUnits(form, song));
+		}).collect(Collectors.joining(" "));
+	}
+
+	// measures 2-5, lines 2-3, pages 1-4 of 64 measures; the beats of measures 3-4, 4 of 4/4 and 6 of 6/8
+	@Test
+	public void aFormsPoolHoldsItsUnitsOrItsMeasuresBeats() {
+		TGSong song = PracticeSongs.song(SONG);
+		PracticeSongs.signature(song, 4, 6, 8);
+		assertEquals("4 2 4 10", poolUnits(song, TGPracticeUnitKind.MEASURE, 4, 4, 2, 5) + " " + poolUnits(song, TGPracticeUnitKind.LINE, 4, 4, 2, 3) + " "
+			+ poolUnits(song, TGPracticeUnitKind.PAGE, 4, 4, 1, 4) + " " + poolUnits(song, TGPracticeUnitKind.BEAT, 4, 4, 3, 4));
+	}
+
+	// a pool refused when the session starts holds the part of it in the song (from before measure 1, to past the
+	// song's end, beats past it too), none when it is empty
+	@Test
+	public void aFormsPoolHoldsItsPartInTheSongNoneWhenEmpty() {
+		TGSong song = PracticeSongs.song(SONG);
+		assertEquals("3 5 0 | 20", poolUnits(song, TGPracticeUnitKind.MEASURE, 4, 4, 0, 3, 60, 70, 5, 4) + " | " + poolUnits(song, TGPracticeUnitKind.BEAT, 4, 4, 60, 70));
+	}
+
+	// a group size of 0 counts as 1 would: a line of one measure, a page of one line
+	@Test
+	public void aGroupSizeOfNoneCountsAsOneWould() {
+		TGSong song = PracticeSongs.song(SONG);
+		assertEquals("64 64", poolUnits(song, TGPracticeUnitKind.LINE, 0, 4, 1, 99) + " " + poolUnits(song, TGPracticeUnitKind.PAGE, 1, 0, 1, 99));
+	}
+
 	private static String beat(TGMeasureHeader header, int beat) {
 		try {
 			TGPracticeUnit unit = TGPracticeUnit.beat(header, beat);
@@ -139,7 +177,18 @@ public class TestPracticeGrouping {
 
 	@Test
 	public void aKindOfUnitIsGivenInRangesOfItsOwnButBeatsInMeasures() {
-		assertEquals("[MEASURE, LINE, PAGE, MEASURE] beat beats Beat", Arrays.stream(TGPracticeUnitKind.values()).map(TGPracticeUnitKind::rangeKind)
-			.collect(Collectors.toList()) + " " + TGPracticeUnitKind.BEAT.getName() + " " + TGPracticeUnitKind.BEAT.getName(2) + " " + TGPracticeUnitKind.BEAT.title());
+		assertEquals("[MEASURE, LINE, PAGE, MEASURE] beat beats", Arrays.stream(TGPracticeUnitKind.values()).map(TGPracticeUnitKind::rangeKind)
+			.collect(Collectors.toList()) + " " + TGPracticeUnitKind.BEAT.getName() + " " + TGPracticeUnitKind.BEAT.getName(2));
+	}
+
+	// line 3 of measures 9 to 12, built again; then with another kind, number, first or last measure, and a measure
+	@Test
+	public void aUnitIsTheSameAsAnotherOfTheSameKindNumberAndMeasures() {
+		TGPracticeUnit line = new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 9, 12);
+		Object[] others = {new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 9, 12), new TGPracticeUnit(TGPracticeUnitKind.PAGE, 3, 9, 12),
+			new TGPracticeUnit(TGPracticeUnitKind.LINE, 4, 9, 12), new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 8, 12),
+			new TGPracticeUnit(TGPracticeUnitKind.LINE, 3, 9, 11), "Line 3"};
+		assertEquals("[true, false, false, false, false, false] true", Arrays.stream(others).map(line::equals).collect(Collectors.toList()) + " "
+			+ (line.hashCode() == others[0].hashCode()));
 	}
 }

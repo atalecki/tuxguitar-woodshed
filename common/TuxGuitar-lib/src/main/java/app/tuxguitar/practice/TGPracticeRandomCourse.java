@@ -5,7 +5,7 @@ import java.util.Optional;
 import app.tuxguitar.song.models.TGMeasureHeader;
 
 /**
- * Interleaved practice's course: each turn's unit chosen at random by the session's chooser (TGPracticeChooser), then
+ * Interleaved practice's course: each turn's block chosen at random by the session's chooser (TGPracticeChooser), then
  * planned by its schedule (TGPracticeSchedule), at the tempo scale the session plays at. It is counted or timed as the
  * session is, and ends with it.
  */

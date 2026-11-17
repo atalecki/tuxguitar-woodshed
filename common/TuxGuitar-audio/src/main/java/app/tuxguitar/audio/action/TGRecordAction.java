@@ -3,8 +3,10 @@ package app.tuxguitar.audio.action;
 import java.util.List;
 
 import app.tuxguitar.action.TGActionContext;
+import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGAudioDevice;
 import app.tuxguitar.audio.TGAudioSession;
+import app.tuxguitar.audio.TGAudioStatus;
 import app.tuxguitar.audio.TGLiveDevice;
 import app.tuxguitar.audio.TGLiveRecording;
 import app.tuxguitar.audio.TGRecording;
@@ -21,7 +23,8 @@ import app.tuxguitar.util.log.TGLog;
 /**
  * Records the armed tracks while the song plays from a position until another one is reached in the last pass, or
  * until that pass ends. It needs an armed track, the TuxGuitar Synthesizer as the MIDI Port and an audio device (the
- * session's: none when the native audio library did not load or the devices did not open), and then succeeds,
+ * session's: none when the native audio library did not load or the devices did not open), and no practice session
+ * under way (refused saying why, a TGActionException: see TGAudioStatus.practiceRefusal), and then succeeds,
  * whether or not it made a take (ATTRIBUTE_TAKES says how many). What was
  * heard while recording is left in the context as TGPlayAction.ATTRIBUTE_RENDER. While it runs, the session says a
  * recording is under way.
@@ -49,6 +52,11 @@ public class TGRecordAction extends TGActionBase {
 	}
 
 	protected void processAction(TGActionContext context) {
+		String practising = TGAudioStatus.practiceRefusal(getContext());
+		if (practising != null) {
+			LOG.warn("recording refused: " + practising);
+			throw new TGActionException(practising);
+		}
 		TGSong song = context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG);
 		TGAudioSession session = TGAudioSession.getInstance(getContext());
 		MidiPlayer player = MidiPlayer.getInstance(getContext());

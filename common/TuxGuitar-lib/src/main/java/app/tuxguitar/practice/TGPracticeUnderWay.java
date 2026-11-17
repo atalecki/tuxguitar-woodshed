@@ -5,8 +5,8 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 /**
  * The practice session under way in a context: the course that began playing last, until it ends (TGPracticeCourse.end:
- * after its last turn, or as Stop, moving the position or an edit ends it). An edit made meanwhile asks it: the course
- * checks a flag, and any other edit ends it.
+ * after its last turn, or as Stop, moving the position or an edit ends it). An edit made meanwhile asks it (see
+ * editor-utils' TGPracticeEdits): the course checks a flag, mute, solo and markers keep it, and any other edit ends it.
  */
 public final class TGPracticeUnderWay {
 

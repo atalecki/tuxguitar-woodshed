@@ -2,7 +2,7 @@ package app.tuxguitar.practice;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.function.BiPredicate;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -29,34 +29,38 @@ public class TestTempoScale {
 		return (int) (tempo.getInUSQ() * 100.00 / percent);
 	}
 
-	// for how many written tempos (1 to 400 bpm) and percents (1 to 1000) a percent scale reads otherwise than the
-	// Percentage of Tempo did
-	private static int differ(BiPredicate<TGTempo, Integer> same) {
-		int differ = 0;
-		for (int bpm = 1; bpm <= 400; bpm++) {
-			TGTempo tempo = tempo(bpm);
-			for (int percent = 1; percent <= 1000; percent++) {
-				differ += (same.test(tempo, percent) ? 0 : 1);
-			}
-		}
-		return differ;
+	// whether a percent scale reads a value (a written bpm, a span in ms) as the formula it replaced did
+	private interface Same {
+		boolean test(int value, int percent);
+	}
+
+	// for how many values (first to last) and percents (1 to 1000) a percent scale reads otherwise than the formula it
+	// replaced did
+	private static long differ(int first, int last, Same same) {
+		return IntStream.rangeClosed(first, last).mapToLong(value -> IntStream.rangeClosed(1, 1000).filter(percent -> !same.test(value, percent)).count()).sum();
+	}
+
+	// for how many written tempos (1 to 400 bpm) and percents a percent scale reads otherwise than the Percentage of Tempo
+	// did
+	private static long differ(Same same) {
+		return differ(1, 400, same);
 	}
 
 	@Test
 	public void aPercentLastsAsLongAsThePercentageOfTempoDoesForEveryPercentAndTempo() {
-		assertEquals(0, differ((tempo, percent) -> TGTempoScale.percent(percent).usq(tempo) == sequenceUsq(tempo, percent)));
+		assertEquals(0, differ((bpm, percent) -> TGTempoScale.percent(percent).usq(tempo(bpm)) == sequenceUsq(tempo(bpm), percent)));
 	}
 
 	// the audio's formula (TGSampleTime.tempo, before it read a scale)
 	@Test
 	public void aPercentIsHeardAtTheTempoTimesThePercentageForEveryPercentAndTempo() {
-		assertEquals(0, differ((tempo, percent) -> TGTempoScale.percent(percent).exactBpm(tempo.getQuarterValue()) == tempo.getQuarterValue() * percent / 100.0));
+		assertEquals(0, differ((bpm, percent) -> TGTempoScale.percent(percent).exactBpm(bpm) == bpm * percent / 100.0));
 	}
 
 	// the schedule's formula (TGPracticeSchedule.micros, before it read a scale), for a 4/4 measure and an odd few ticks
 	@Test
 	public void aPercentLastsAsLongAsTheScheduleReckonedForEveryPercentAndTempo() {
-		assertEquals(0, differ((tempo, percent) -> scheduled(3840, tempo, percent) && scheduled(7, tempo, percent)));
+		assertEquals(0, differ((bpm, percent) -> scheduled(3840, tempo(bpm), percent) && scheduled(7, tempo(bpm), percent)));
 	}
 
 	private static boolean scheduled(long ticks, TGTempo tempo, int percent) {
@@ -82,6 +86,20 @@ public class TestTempoScale {
 	public void aQuarterLastsTheWrittenTimeOverTheScaleRoundedDown() {
 		assertEquals("1000000 666666 500000 333333 769230", TGTempoScale.percent(50).usq(tempo(120)) + " " + TGTempoScale.bpm(90, 120).usq(tempo(120))
 			+ " " + TGTempoScale.bpm(120, 120).usq(tempo(120)) + " " + TGTempoScale.percent(150).usq(tempo(120)) + " " + TGTempoScale.percent(65).usq(tempo(120)));
+	}
+
+	// the desktop's smooth scroll's formula for a span at the Percentage of Tempo (TablatureScrollPlaying.updateSpeed,
+	// before it read a scale), for spans of up to 10 s
+	@Test
+	public void aPercentLastsAsLongAsTheSmoothScrollReckonedForEveryPercentAndSpan() {
+		assertEquals(0, differ(0, 10000, (ms, percent) -> TGTempoScale.percent(percent).millis(ms) == ms * 100 / percent));
+	}
+
+	// a 4/4 measure at 120 bpm lasts 2000 ms: 2500 at 80%, 3333.33 at 72 bpm, 1333.33 at 150%; nothing lasts nothing
+	@Test
+	public void aSpanLastsTheWrittenTimeOverTheScaleRoundedDown() {
+		assertEquals("2500 3333 1333 0", TGTempoScale.percent(80).millis(2000) + " " + TGTempoScale.bpm(72, 120).millis(2000) + " "
+			+ TGTempoScale.percent(150).millis(2000) + " " + TGTempoScale.percent(80).millis(0));
 	}
 
 	@Test

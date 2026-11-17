@@ -125,21 +125,49 @@ public class PractisingSteps {
 		return grouping.units(kind, pool[0], pool[1], world.song(), "pool");
 	}
 
-	// the notes the unit sounds, one per beat: its measures', each measure once, in order; a beat's, then its joint's,
-	// the next beat's (of its measure, or the next measure's first; none after the song's last)
-	List<Integer> notesOf(TGPracticeUnit unit) {
-		if (unit.getKind() != TGPracticeUnitKind.BEAT) {
-			return notesOf(unit.getFirst(), unit.getLast());
+	// the blocks of so many units in a row of the pool, every such run, sliding by one (README, Block)
+	List<List<TGPracticeUnit>> blocks(TGPracticeUnitKind kind, int[] pool, int units) throws TGPracticeRefusal {
+		List<TGPracticeUnit> all = units(kind, pool);
+		return IntStream.rangeClosed(0, all.size() - units).mapToObj(first -> all.subList(first, first + units)).collect(Collectors.toList());
+	}
+
+	// the notes each block sounds (see notesOf)
+	List<List<Integer>> notesOfBlocks(TGPracticeUnitKind kind, int[] pool, int units) throws TGPracticeRefusal {
+		return blocks(kind, pool, units).stream().map(block -> notesOf(block.get(0), block.get(block.size() - 1))).collect(Collectors.toList());
+	}
+
+	// the notes the units from one to the other sound, one per beat: their measures', each measure once, in order; or
+	// the beats'
+	List<Integer> notesOf(TGPracticeUnit from, TGPracticeUnit to) {
+		return (from.getKind() != TGPracticeUnitKind.BEAT ? notesOf(from.getFirst(), to.getLast()) : notesOfBeats(from, to));
+	}
+
+	// the notes the beats from one to the other sound, through the barline, then the joint's, the beat after the last (of
+	// its measure, or the next measure's first; none after the song's last)
+	private List<Integer> notesOfBeats(TGPracticeUnit from, TGPracticeUnit to) {
+		List<Integer> notes = new ArrayList<Integer>();
+		for (int measure = from.getFirst(); measure <= to.getFirst(); measure++) {
+			int first = (measure == from.getFirst() ? from.getNumber() : 1);
+			int last = (measure == to.getFirst() ? to.getNumber() : beats(measure));
+			notes.addAll(Collections.nCopies(last - first + 1, BASE + measure));
 		}
-		int joint = (unit.getNumber() < world.song().getMeasureHeader(unit.getFirst() - 1).getTimeSignature().getNumerator() ? unit.getFirst() : unit.getFirst() + 1);
-		return (joint <= world.song().countMeasureHeaders() ? Arrays.asList(BASE + unit.getFirst(), BASE + joint) : Arrays.asList(BASE + unit.getFirst()));
+		int joint = (to.getNumber() < beats(to.getFirst()) ? to.getFirst() : to.getFirst() + 1);
+		if (joint <= world.song().countMeasureHeaders()) {
+			notes.add(BASE + joint);
+		}
+		return notes;
+	}
+
+	// the beats of the measure (from 1): its time signature's numerator
+	private int beats(int measure) {
+		return world.song().getMeasureHeader(measure - 1).getTimeSignature().getNumerator();
 	}
 
 	// the notes the measures (first to last, from 1) sound, each measure once, in order: one per beat
 	List<Integer> notesOf(int first, int last) {
 		List<Integer> notes = new ArrayList<Integer>();
 		for (int measure = first; measure <= last; measure++) {
-			notes.addAll(Collections.nCopies(world.song().getMeasureHeader(measure - 1).getTimeSignature().getNumerator(), BASE + measure));
+			notes.addAll(Collections.nCopies(beats(measure), BASE + measure));
 		}
 		return notes;
 	}
@@ -181,7 +209,30 @@ public class PractisingSteps {
 
 	@Then("each turn sounds the notes of one {unit} of {pool}, each within 1 sample of its beat at {int}%")
 	public void eachTurnSoundsAUnitAt(TGPracticeUnitKind kind, int[] pool, int percent) throws TGPracticeRefusal {
-		List<List<Integer>> units = units(kind, pool).stream().map(this::notesOf).collect(Collectors.toList());
+		eachTurnSoundsOneOf(notesOfBlocks(kind, pool, 1), percent);
+	}
+
+	// offline or live
+	@Then("each turn sounds the notes of one block of {int} {unit}s of {pool}, each measure once and in order, each within 1 sample of its beat")
+	public void eachTurnSoundsABlock(int units, TGPracticeUnitKind kind, int[] pool) throws TGPracticeRefusal {
+		eachTurnSoundsOneOf(notesOfBlocks(kind, pool, units), percent());
+	}
+
+	// as many turns as blocks, each block's once, offline or live
+	@Then("the turns sound each block of {int} beats of {pool} once, its beats, then the note of the beat after it, each within 1 sample of its beat")
+	public void theTurnsSoundEachBlockOnce(int units, int[] pool) throws TGPracticeRefusal {
+		List<List<Integer>> blocks = notesOfBlocks(TGPracticeUnitKind.BEAT, pool, units);
+		eachTurnSoundsOneOf(blocks, percent());
+		List<List<Integer>> sounded = turns().stream().map(PractisingSteps::notes).collect(Collectors.toList());
+		assertEquals(sorted(blocks), sorted(sounded), "the turns sound " + sounded);
+	}
+
+	private static List<String> sorted(List<List<Integer>> notes) {
+		return notes.stream().map(List::toString).sorted().collect(Collectors.toList());
+	}
+
+	// each turn's notes are one of those given, each on its beat at the Percentage of Tempo
+	private void eachTurnSoundsOneOf(List<List<Integer>> units, int percent) {
 		List<List<Note>> turns = turns();
 		for (int turn = 0; turn < turns.size(); turn++) {
 			List<Integer> notes = notes(turns.get(turn));

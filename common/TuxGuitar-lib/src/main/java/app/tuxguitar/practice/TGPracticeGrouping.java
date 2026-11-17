@@ -3,6 +3,7 @@ package app.tuxguitar.practice;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.song.models.TGSong;
 
@@ -47,10 +48,25 @@ public final class TGPracticeGrouping {
 		return (songMeasures + this.measures(kind) - 1) / this.measures(kind);
 	}
 
-	// the last unit a pool of the kind may reach in a song of that many measures, for a form still being filled in: a
-	// group size below 1 (refused when the session starts) bounds it as 1 would
+	// the groups of a form still being filled in: a group size below 1 (refused when the session starts) as 1
+	private static TGPracticeGrouping ofForm(int measuresPerLine, int linesPerPage) {
+		return new TGPracticeGrouping(Math.max(1, measuresPerLine), Math.max(1, linesPerPage));
+	}
+
+	// the last unit a pool of the kind may reach in a song of that many measures, for a form still being filled in
 	public static int poolLimit(TGPracticeUnitKind kind, int measuresPerLine, int linesPerPage, int songMeasures) {
-		return new TGPracticeGrouping(Math.max(1, measuresPerLine), Math.max(1, linesPerPage)).count(kind, songMeasures);
+		return ofForm(measuresPerLine, linesPerPage).count(kind, songMeasures);
+	}
+
+	// how many units the pool of a form still being filled in holds, counted without building them: 1 for each unit of
+	// its range, or each measure's beats for beats; the numbers before 1 or past the song's end left out; 0 when that
+	// leaves none
+	static int poolUnits(TGPracticeSettings form, TGSong song) {
+		TGPracticeUnitKind kind = form.getUnit();
+		TGPracticeGrouping grouping = ofForm(form.getMeasuresPerLine(), form.getLinesPerPage());
+		int last = Math.min(form.getPoolTo(), grouping.count(kind.rangeKind(), song.countMeasureHeaders()));
+		return IntStream.rangeClosed(Math.max(1, form.getPoolFrom()), last)
+			.map(number -> (kind == TGPracticeUnitKind.BEAT ? TGPracticeUnit.beatCount(song.getMeasureHeader(number - 1)) : 1)).sum();
 	}
 
 	// the units of the kind in a range from one number to another (from 1) of the kind's range kind, in score order (the
@@ -67,6 +83,11 @@ public final class TGPracticeGrouping {
 		if (to > count) {
 			throw new TGPracticeRefusal("The " + range + " reaches past the song's " + count + " " + ranged.getName(count) + ".");
 		}
+		return this.unitsIn(kind, from, to, song);
+	}
+
+	// the units of the kind that the range's units with the numbers from and to hold, in score order
+	private List<TGPracticeUnit> unitsIn(TGPracticeUnitKind kind, int from, int to, TGSong song) {
 		List<TGPracticeUnit> units = new ArrayList<TGPracticeUnit>();
 		for (int number = from; number <= to; number++) {
 			units.addAll(this.unitsOf(kind, number, song));

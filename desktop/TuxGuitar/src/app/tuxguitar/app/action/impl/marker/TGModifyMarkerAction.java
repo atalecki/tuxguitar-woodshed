@@ -4,6 +4,8 @@ import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.TGActionBase;
+import app.tuxguitar.editor.action.marker.TGRemoveMarkerAction;
+import app.tuxguitar.editor.action.marker.TGUpdateMarkerAction;
 import app.tuxguitar.song.models.TGMarker;
 import app.tuxguitar.util.TGContext;
 

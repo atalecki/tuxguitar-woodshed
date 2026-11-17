@@ -83,6 +83,7 @@ public class SongSteps {
 	@Then("the flag is refused, saying {string}")
 	@Then("the undo is refused, saying {string}")
 	@Then("the redo is refused, saying {string}")
+	@Then("Record is refused, saying {string}")
 	public void theRefusalReads(String refusal) {
 		assertEquals(refusal, world.refusal());
 	}

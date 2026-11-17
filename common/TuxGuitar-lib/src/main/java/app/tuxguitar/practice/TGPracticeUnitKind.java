@@ -23,11 +23,6 @@ public enum TGPracticeUnitKind {
 		return this.name;
 	}
 
-	// "Line"
-	public String title() {
-		return Character.toUpperCase(this.name.charAt(0)) + this.name.substring(1);
-	}
-
 	// the kind a range of units of this kind is given in: its own, but measures for beats
 	public TGPracticeUnitKind rangeKind() {
 		return (this == BEAT ? MEASURE : this);

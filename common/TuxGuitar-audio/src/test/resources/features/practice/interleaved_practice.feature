@@ -2,8 +2,8 @@
 Feature: Interleaved practice
   To learn a piece by heart, I practise its measures, lines or pages in a random order instead of from start to end,
   so that I recall each part on its own and not only from the part before it. A session plays a number of turns. Each
-  turn is one unit of the song chosen from the units I practise (the pool), with a Count In before it in that unit's
-  own time signature and tempo, interleaved practice's own whether or not Count In is on; the next turn's Count In
+  turn is one unit of the song chosen from the units I practise (the pool), or a block of so many of them in a row,
+  with a Count In before it in that unit's own time signature and tempo, interleaved practice's own whether or not Count In is on; the next turn's Count In
   starts as soon as a unit ends, until the last turn or Stop.
   A line is a fixed group of measures and a page a fixed group of lines, both set for the session, whatever the
   score's layout shows. Measures I flag as difficult come up more often.
@@ -413,6 +413,60 @@ Feature: Interleaved practice
     And the song has 63 measures
     And interleaved practice has ended
 
+  # mute, solo and markers change no note a turn plays: the session goes on through them, each still an undo step, and
+  # through their undo and redo. Had the edit ended it, the player would have stopped at the edit (see above)
+  Scenario Outline: <edit> during a session keeps it, and the turns play on
+    Given I have added the marker "Intro" at measure 2
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, <edit> during turn 2
+    Then the player stopped by itself within 512 samples of turn 3's end
+    And track 1 reads "<track>" and the markers read "<markers>"
+
+    Examples:
+      | edit                                         | track | markers            |
+      | muting track 1                               | mute  | m2 Intro           |
+      | soloing track 1                              | solo  | m2 Intro           |
+      | adding the marker "Verse" at measure 3       | -     | m2 Intro, m3 Verse |
+      | renaming the marker of measure 2 to "Chorus" | -     | m2 Chorus          |
+      | removing the marker of measure 2             | -     |                    |
+
+  Scenario Outline: undoing <an edit> during a session keeps it too
+    Given I have <made it>
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, undoing during turn 2
+    Then the player stopped by itself within 512 samples of turn 3's end
+    And track 1 reads "-" and the markers read ""
+
+    Examples:
+      | an edit  | made it                               |
+      | a mute   | muted track 1                         |
+      | a solo   | soloed track 1                        |
+      | a marker | added the marker "Intro" at measure 2 |
+
+  Scenario Outline: redoing <an edit> during a session keeps it too
+    Given I have <made it>
+    And I have undone it
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, redoing during turn 2
+    Then the player stopped by itself within 512 samples of turn 3's end
+    And track 1 reads "<track>" and the markers read "<markers>"
+
+    Examples:
+      | an edit  | made it                               | track | markers  |
+      | a mute   | muted track 1                         | mute  |          |
+      | a solo   | soloed track 1                        | solo  |          |
+      | a marker | added the marker "Intro" at measure 2 | -     | m2 Intro |
+
+  # Tools > Record is greyed out during a session, playing or paused; the action refuses too, and the session goes on
+  Scenario: Record during a session is refused, saying why, and the session goes on
+    Given I have added an audio track recording input channel 1
+    And I have armed track 2
+    And I have set interleaved practice to measures over measures 1 to 4
+    When I practise 3 turns live, choosing Record during turn 2
+    Then Record is refused, saying "Interleaved practice is under way: stop it to record."
+    And the player stopped by itself within 512 samples of turn 3's end
+    And track 2's takes read ""
+
   # The interval clock: timed turns that loop their unit, with a break between turns, for a session of so many minutes.
   # At 120 bpm in 4/4 a measure lasts 2 seconds (88200 samples), a line of 4 measures 8 seconds, a page 32 seconds, and
   # a Count In of 4 clicks 2 seconds. A turn starts with its first Count In click (or, with "Count In before each turn"
@@ -787,3 +841,135 @@ Feature: Interleaved practice
     Then every turn lasts 44100 samples, within 1 sample
     And track 2 fades from 0.4 to 0 over the last 256 samples of turns 1 and 2, within 1 sample
     And track 2's first sample of each turn is 0.4
+
+  # Blocks (README, Block; Units per block): each turn plays a block, a run of so many units of the pool in a row, and
+  # the pool's blocks are every such run, in score order, sliding by one unit: the random choice, the weights, the rules
+  # and the interval clock take a block as they take a unit. A block reads as its first and last unit, `2-3`, a block of
+  # beats as its first and last beat, `m3b4-m4b1`, and a block of one unit as that unit, `3`
+
+  Scenario: a turn plays a block of one unit until I change it
+    When I set interleaved practice to lines over lines 1 to 4
+    Then interleaved practice's units per block is 1
+
+  # beats count through the barline, in score order: measure 3 in 3/4 gives 3 beats, then measure 4's 4 follow
+  Scenario Outline: with units per block at <n>, the pool's blocks are every run of <n> of its <unit>s in a row
+    Given I have set the time signature of measure 3 only to <signature>
+    And I have set interleaved practice's units per block to <n>
+    When I start interleaved practice of <unit>s over <pool> for 1 turn, with lines of 2 measures and pages of 2 lines
+    Then interleaved practice's pool is the <count> blocks "<blocks>"
+
+    Examples:
+      | signature | unit    | pool            | n | count | blocks                                                                      |
+      | 4/4       | measure | measures 1 to 6 | 2 | 5     | 1-2, 2-3, 3-4, 4-5, 5-6                                                     |
+      | 4/4       | measure | measures 1 to 6 | 3 | 4     | 1-3, 2-4, 3-5, 4-6                                                          |
+      | 4/4       | measure | measures 1 to 3 | 1 | 3     | 1, 2, 3                                                                     |
+      | 4/4       | measure | measures 5 to 7 | 3 | 1     | 5-7                                                                         |
+      | 4/4       | line    | lines 1 to 4    | 2 | 3     | 1-2, 2-3, 3-4                                                               |
+      | 4/4       | page    | pages 1 to 3    | 2 | 2     | 1-2, 2-3                                                                    |
+      | 4/4       | beat    | measures 3 to 4 | 2 | 7     | m3b1-m3b2, m3b2-m3b3, m3b3-m3b4, m3b4-m4b1, m4b1-m4b2, m4b2-m4b3, m4b3-m4b4 |
+      | 3/4       | beat    | measures 3 to 4 | 2 | 6     | m3b1-m3b2, m3b2-m3b3, m3b3-m4b1, m4b1-m4b2, m4b2-m4b3, m4b3-m4b4            |
+      | 3/4       | beat    | measures 3 to 4 | 3 | 5     | m3b1-m3b3, m3b2-m4b1, m3b3-m4b2, m4b1-m4b3, m4b2-m4b4                       |
+
+  # the weight rule counts blocks: measures 1 to 4 in blocks of 2 with measure 1 flagged 3x weigh 3x, 1x and 1x, a
+  # cycle of 5 turns
+  Scenario Outline: a session whose blocks cannot be played as set is refused, saying why, and one that can is started
+    Given I have flagged measure 1 as <flag> difficult
+    And I have set interleaved practice's units per block to <n>
+    When I start interleaved practice of <unit>s over <pool> for <turns> turns
+    Then starting is <outcome>
+
+    Examples:
+      | flag | n | unit    | pool            | turns | outcome                                                                                                           |
+      | 1x   | 0 | measure | measures 1 to 4 | 6     | refused, saying "A block needs at least 1 measure."                                                               |
+      | 1x   | 5 | measure | measures 1 to 4 | 6     | refused, saying "A block of 5 measures does not fit in the pool's 4 measures."                                    |
+      | 1x   | 5 | beat    | measures 3 to 3 | 6     | refused, saying "A block of 5 beats does not fit in the pool's 4 beats."                                          |
+      | 1x   | 4 | measure | measures 1 to 4 | 1     | accepted                                                                                                          |
+      | 1x   | 4 | measure | measures 1 to 4 | 2     | refused, saying "The block of measures 1–4 would come twice in a row."                                            |
+      | 3x   | 2 | measure | measures 1 to 4 | 5     | accepted                                                                                                          |
+      | 3x   | 2 | measure | measures 1 to 4 | 6     | refused, saying "The block of measures 1–2 comes up 3 times in a cycle of 5 turns and would come twice in a row." |
+      | 1x   | 2 | beat    | measures 3 to 3 | 6     | accepted                                                                                                          |
+
+  Scenario: every cycle chooses each block once, and only the same block is a repeat, not one that overlaps
+    Given I have set interleaved practice to measures over measures 1 to 4
+    And I have set interleaved practice's units per block to 2
+    When interleaved practice chooses 9 turns, with every random seed from 1 to 200
+    Then turns 1 to 3, turns 4 to 6 and turns 7 to 9 each choose the blocks "1-2, 2-3, 3-4" once each
+    And no two turns in a row choose the same block
+    And with at least one of the seeds, two turns in a row choose blocks that overlap
+
+  # a flag weighs every block that holds its measure
+  Scenario Outline: a block is as difficult as its most difficult measure
+    Given I have flagged measure 4 as 3x difficult
+    And I have set interleaved practice's units per block to 2
+    When I start interleaved practice of <unit>s over <pool> for 1 turn
+    Then interleaved practice's blocks weigh "<weights>"
+
+    Examples:
+      | unit    | pool            | weights                    |
+      | measure | measures 2 to 6 | 1x, 3x, 3x, 1x             |
+      | beat    | measures 3 to 4 | 1x, 1x, 1x, 3x, 3x, 3x, 3x |
+
+  Scenario Outline: each turn plays its block of <unit>s, each measure once and in order, after its Count In
+    Given I have set interleaved practice to <unit>s over <pool>, with lines of 2 measures and pages of 2 lines
+    And I have set interleaved practice's units per block to 2
+    When I practise 3 turns
+    Then each turn sounds the notes of one block of 2 <unit>s of <pool>, each measure once and in order, each within 1 sample of its beat
+    And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
+    And the player has stopped by itself at the end of turn 3
+
+    Examples:
+      | unit    | pool            |
+      | measure | measures 1 to 4 |
+      | line    | lines 1 to 4    |
+      | page    | pages 1 to 3    |
+
+  # the 7 blocks of 2 beats of measures 3 and 4 (above), m3b4-m4b1 through the barline, each played as its 2 beats and
+  # the joint. (A time signature changed here would push the Background's notes on into the next measures, as changing
+  # one does in TuxGuitar, so these scenarios keep 4/4.)
+  Scenario: a block of beats plays through the barline, then the joint's note
+    Given I have set interleaved practice to beats over measures 3 to 4
+    And I have set interleaved practice's units per block to 2
+    When I practise 7 turns
+    Then the turns sound each block of 2 beats of measures 3 to 4 once, its beats, then the note of the beat after it, each within 1 sample of its beat
+    And every turn lasts 66150 samples, within 1 sample
+    And the player has stopped by itself at the end of turn 7
+
+  # the block m3b4-m4b1: measure 3's last note sounds on through the barline to the joint (a beat alone, m3b4, would cut
+  # it at m4b1), and the joint, m4b2, plays only the note on its first tick
+  Scenario: a note held through the barline inside a block of beats sounds on to the joint
+    Given track 1 has these notes in measures 3 and 4 instead of one on every beat:
+      | position | MIDI note | length         |
+      | m3b4     | 65        | a half note    |
+      | m4b2     | 66        | an eighth note |
+      | m4b2.5   | 67        | an eighth note |
+    And I have set interleaved practice to beats over measures 3 to 4
+    And I have set interleaved practice's units per block to 2
+    When I practise 7 turns
+    Then the turn of m3b4 sounds MIDI note 65 from m3b4 to m4b2, then 66 to m4b2.5, each within 1 sample, and nothing else above -60 dBFS
+    And the turn of m3b4 lasts 66150 samples, within 1 sample
+
+  Scenario: live, each turn plays its block of measures after its Count In
+    Given I have set interleaved practice to measures over measures 1 to 4
+    And I have set interleaved practice's units per block to 2
+    When I practise 3 turns live
+    Then each turn sounds the notes of one block of 2 measures of measures 1 to 4, each measure once and in order, each within 1 sample of its beat
+    And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
+    And the player stopped by itself within 512 samples of turn 3's end
+
+  Scenario: live, a block of beats plays through the barline, then the joint's note
+    Given I have set interleaved practice to beats over measures 3 to 4
+    And I have set interleaved practice's units per block to 2
+    When I practise 7 turns live
+    Then the turns sound each block of 2 beats of measures 3 to 4 once, its beats, then the note of the beat after it, each within 1 sample of its beat
+    And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
+    And the player stopped by itself within 512 samples of turn 7's end
+
+  # a pass of a block of 2 measures lasts 4 seconds: after a Count In of 2 seconds, pass 15 starts at 58 seconds
+  Scenario: with the interval clock, a turn loops its block until the turn's time is up
+    Given I have set interleaved practice to measures over measures 1 to 3
+    And I have set interleaved practice's units per block to 2
+    And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 1 minute
+    When I practise the session
+    Then the output holds 1 turn started
+    And the turn sounds the notes of one block of 2 measures of measures 1 to 3 15 times back to back, each measure once and in order every time, each within 1 sample of its beat at 100%
+    And the turn ends 2734200 samples after it started, within 1 sample

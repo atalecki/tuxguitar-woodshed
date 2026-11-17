@@ -14,12 +14,12 @@ import app.tuxguitar.util.TGContext;
  * What moving the caret by an action does besides: the selection goes unless the action keeps it, and the beat the
  * caret reaches is played when the settings say so.
  */
-final class TGCaretMoved {
+public final class TGCaretMoved {
 
 	private TGCaretMoved() {
 	}
 
-	static void clearSelection(TGActionContext context, Tablature tablature) {
+	public static void clearSelection(TGActionContext context, Tablature tablature) {
 		if (!Boolean.TRUE.equals(context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_KEEP_SELECTION))) {
 			tablature.getSelector().clearSelection();
 		}

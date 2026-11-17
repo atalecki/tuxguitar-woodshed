@@ -125,10 +125,10 @@ public class TestMidiPractice {
 		return chosen(session, seed, turns, TGPracticeUnit::getFirst);
 	}
 
-	// what the function says of each unit the seed chooses for the session, in order
+	// what the function says of each block's first unit the seed chooses for the session, in order
 	static <T> List<T> chosen(TGPracticeSession session, long seed, int turns, Function<TGPracticeUnit, T> of) {
 		TGPracticeChooser chooser = session.chooser(seed);
-		return IntStream.range(0, turns).mapToObj(turn -> of.apply(chooser.next())).collect(Collectors.toList());
+		return IntStream.range(0, turns).mapToObj(turn -> of.apply(chooser.next().getFrom())).collect(Collectors.toList());
 	}
 
 	private List<Integer> chosen(int turns) {

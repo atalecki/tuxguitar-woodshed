@@ -1,6 +1,10 @@
 package app.tuxguitar.editor.practice;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.ToIntFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
@@ -12,8 +16,11 @@ import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.action.edit.TGRedoAction;
 import app.tuxguitar.editor.action.edit.TGUndoAction;
 import app.tuxguitar.editor.undo.TGUndoableEdit;
+import app.tuxguitar.editor.undo.TGUndoableGroup;
 import app.tuxguitar.editor.undo.TGUndoableManager;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficulty;
+import app.tuxguitar.editor.undo.impl.marker.TGUndoableMarkerGeneric;
+import app.tuxguitar.editor.undo.impl.track.TGUndoableTrackSoloMute;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeRefusal;
@@ -25,12 +32,18 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
 /**
  * What an edit does to the interleaved practice session under way (TGPracticeUnderWay). Flagging a measure, and undoing
  * or redoing a flag, goes on with it when its next cycles can play the weights that makes (the chooser checks it), and
- * counts from the next cycle; else the action is refused saying why (a TGActionException), and changes nothing. Any other
- * edit of the song (an undo step made, undone or redone) ends the session. One per context, installed by the app,
- * which also asks it which edits to refuse while playing (disables) and which items to grey out (greys): during a
- * session only flags and moves of the caret go through.
+ * counts from the next cycle; else the action is refused saying why (a TGActionException), and changes nothing. Muting
+ * or soloing a track and adding, changing or removing a marker, which change no note a turn plays, go on with it, and so
+ * do their undo and redo (keeps). Any other edit of the song (an undo step made, undone or redone) ends the session.
+ * One per context, installed by the app, which also asks it which edits to refuse while playing (disables) and which
+ * items to grey out (greys): during a session only flags, the undo and redo of an edit it keeps, and moves of the caret
+ * go through.
  */
 public final class TGPracticeEdits implements TGActionInterceptor {
+
+	// the undoable edits a session goes on through: a flag (checked, see intercept), mute and solo, a marker
+	private static final List<Class<? extends TGUndoableEdit>> KEPT = Arrays.asList(TGUndoableDifficulty.class, TGUndoableTrackSoloMute.class,
+		TGUndoableMarkerGeneric.class);
 
 	private final TGContext context;
 
@@ -50,8 +63,8 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 	}
 
 	// whether the app refuses the edit (one of the actions it refuses while playing) now: while the player runs or a
-	// session is under way, playing or paused, but for a flag, the undo or redo of a flag and a move of the caret during
-	// a session (see TGPracticeCaret)
+	// session is under way, playing or paused, but for a flag, the undo or redo of an edit the session keeps and a move
+	// of the caret during a session (see TGPracticeCaret)
 	public static boolean disables(TGContext context, String id) {
 		if (isUnderWay(context)) {
 			return !letsThrough(context, id);
@@ -69,64 +82,73 @@ public final class TGPracticeEdits implements TGActionInterceptor {
 		return (TGPracticeUnderWay.getInstance(context).getCourse() != null);
 	}
 
-	// what a session lets through: a flag, and a move of the caret
+	// what a session lets through: a flag, the undo or redo of an edit it keeps, and a move of the caret
 	private static boolean letsThrough(TGContext context, String id) {
-		return (isFlag(context, id) || TGPracticeCaret.isMove(id));
+		return (TGChangeDifficultyAction.NAME.equals(id) || isKeptUndoOrRedo(context, id) || TGPracticeCaret.isMove(id));
 	}
 
-	// whether the action sets a flag: flagging a measure, or undoing or redoing a flag
-	private static boolean isFlag(TGContext context, String id) {
+	// whether the action undoes or redoes an edit the session keeps
+	private static boolean isKeptUndoOrRedo(TGContext context, String id) {
 		TGUndoableManager undo = TGUndoableManager.getInstance(context);
-		return (TGChangeDifficultyAction.NAME.equals(id) || isFlag(id, TGUndoAction.NAME, undo.getEditToBeUndone())
-			|| isFlag(id, TGRedoAction.NAME, undo.getEditToBeRedone()));
+		return (isKept(id, TGUndoAction.NAME, undo.getEditToBeUndone()) || isKept(id, TGRedoAction.NAME, undo.getEditToBeRedone()));
 	}
 
-	private static boolean isFlag(String id, String action, TGUndoableEdit edit) {
-		return (action.equals(id) && edit instanceof TGUndoableDifficulty);
+	private static boolean isKept(String id, String action, TGUndoableEdit edit) {
+		return (action.equals(id) && keeps(edit));
+	}
+
+	// whether the session under way goes on through the undo step, made, undone or redone: through every edit in it
+	private static boolean keeps(TGUndoableEdit step) {
+		return (step != null && edits(step).allMatch(edit -> KEPT.stream().anyMatch(kept -> kept.isInstance(edit))));
+	}
+
+	// the edits an undo step is made of: a group's (the desktop joins an action's edits in one step), each in turn; else
+	// the step itself
+	private static Stream<TGUndoableEdit> edits(TGUndoableEdit step) {
+		return (step instanceof TGUndoableGroup ? ((TGUndoableGroup) step).getEdits().stream().flatMap(TGPracticeEdits::edits) : Stream.of(step));
 	}
 
 	// refuses a flag the session under way could not play; intercepts nothing
 	public boolean intercept(String id, TGActionContext actionContext) throws TGActionException {
 		TGPracticeCourse course = TGPracticeUnderWay.getInstance(this.context).getCourse();
-		Flag flag = (course != null ? this.flagOf(id, actionContext) : null);
-		if (flag != null) {
-			flag.check(course);
+		if (course != null) {
+			for (Flag flag : this.flagsOf(id, actionContext)) {
+				flag.check(course);
+			}
 		}
 		return false;
 	}
 
-	// an edit other than a flag's ends the session under way
+	// an edit the session does not keep ends the session under way
 	private void edited(TGUndoableEdit edit) {
 		TGPracticeCourse course = TGPracticeUnderWay.getInstance(this.context).getCourse();
-		if (course != null && edit != null && !(edit instanceof TGUndoableDifficulty)) {
+		if (course != null && edit != null && !keeps(edit)) {
 			course.end();
 		}
 	}
 
-	// the flag the action sets; null for one that sets none
-	private Flag flagOf(String id, TGActionContext actionContext) {
+	// the flags the action sets; none for one that sets none
+	private List<Flag> flagsOf(String id, TGActionContext actionContext) {
 		TGUndoableManager undo = TGUndoableManager.getInstance(this.context);
 		if (TGUndoAction.NAME.equals(id)) {
-			return this.flagOf(undo.getEditToBeUndone(), TGUndoableDifficulty::getUndoableDifficulty);
+			return this.flagsOf(undo.getEditToBeUndone(), TGUndoableDifficulty::getUndoableDifficulty);
 		}
 		if (TGRedoAction.NAME.equals(id)) {
-			return this.flagOf(undo.getEditToBeRedone(), TGUndoableDifficulty::getRedoableDifficulty);
+			return this.flagsOf(undo.getEditToBeRedone(), TGUndoableDifficulty::getRedoableDifficulty);
 		}
 		if (TGChangeDifficultyAction.NAME.equals(id)) {
 			TGMeasureHeader header = actionContext.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_HEADER);
-			return new Flag(header, ((Integer) actionContext.getAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY)).intValue());
+			return Arrays.asList(new Flag(header, ((Integer) actionContext.getAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY)).intValue()));
 		}
-		return null;
+		return Arrays.asList();
 	}
 
-	// the flag undoing or redoing the edit sets again; null when it is no flag's
-	private Flag flagOf(TGUndoableEdit edit, ToIntFunction<TGUndoableDifficulty> difficulty) {
-		if (!(edit instanceof TGUndoableDifficulty)) {
-			return null;
-		}
-		TGUndoableDifficulty flag = (TGUndoableDifficulty) edit;
+	// the flags undoing or redoing the undo step sets again: those of the flags' edits in it (none for no step)
+	private List<Flag> flagsOf(TGUndoableEdit step, ToIntFunction<TGUndoableDifficulty> difficulty) {
 		TGDocumentManager document = TGDocumentManager.getInstance(this.context);
-		return new Flag(document.getSongManager().getMeasureHeaderAt(document.getSong(), flag.getPosition()), difficulty.applyAsInt(flag));
+		return Stream.ofNullable(step).flatMap(TGPracticeEdits::edits).filter(TGUndoableDifficulty.class::isInstance).map(TGUndoableDifficulty.class::cast)
+			.map(flag -> new Flag(document.getSongManager().getMeasureHeaderAt(document.getSong(), flag.getPosition()), difficulty.applyAsInt(flag)))
+			.collect(Collectors.toList());
 	}
 
 	private static final class Flag {

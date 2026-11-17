@@ -63,7 +63,7 @@ public class TestPractiseAction {
 		TGPracticeChooser chooser = session.chooser(SEED);
 		List<String> measures = new ArrayList<String>();
 		for (int turn = 0; turn < turns; turn++) {
-			measures.add("m" + chooser.next().getFirst());
+			measures.add("m" + chooser.next().getFrom().getFirst());
 		}
 		return String.join(" ", measures);
 	}

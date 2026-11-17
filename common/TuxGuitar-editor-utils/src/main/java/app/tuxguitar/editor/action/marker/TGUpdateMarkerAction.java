@@ -1,4 +1,4 @@
-package app.tuxguitar.app.action.impl.marker;
+package app.tuxguitar.editor.action.marker;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.document.TGDocumentContextAttributes;

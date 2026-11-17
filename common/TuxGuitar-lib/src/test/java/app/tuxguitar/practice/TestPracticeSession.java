@@ -3,6 +3,7 @@ package app.tuxguitar.practice;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
+import java.util.function.IntUnaryOperator;
 
 import org.junit.jupiter.api.Test;
 
@@ -173,9 +174,10 @@ public class TestPracticeSession {
 		assertEquals("[1, 1, 3, 1]", Arrays.toString(TGPracticeSession.start(settings, song).weights()));
 		set(TGPracticeUnitKind.PAGE, 1, 4, 1);
 		assertEquals("[3, 1, 1, 1]", Arrays.toString(TGPracticeSession.start(settings, song).weights()));
-		assertEquals("3 2 1", TGPracticeGrouping.of(4, 4).unit(TGPracticeUnitKind.LINE, 3, 64).weight(song)
-			+ " " + TGPracticeGrouping.of(1, 1).unit(TGPracticeUnitKind.LINE, 12, 64).weight(song)
-			+ " " + TGPracticeGrouping.of(1, 1).unit(TGPracticeUnitKind.LINE, 13, 64).weight(song));
+		IntUnaryOperator flags = TGPracticeUnit.difficulties(song);
+		assertEquals("3 2 1", TGPracticeGrouping.of(4, 4).unit(TGPracticeUnitKind.LINE, 3, 64).weight(flags)
+			+ " " + TGPracticeGrouping.of(1, 1).unit(TGPracticeUnitKind.LINE, 12, 64).weight(flags)
+			+ " " + TGPracticeGrouping.of(1, 1).unit(TGPracticeUnitKind.LINE, 13, 64).weight(flags));
 	}
 
 	// a pool of beats holds every beat of its measures, each as difficult as its measure

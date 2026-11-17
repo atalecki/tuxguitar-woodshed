@@ -4,13 +4,14 @@ import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.editor.undo.TGCannotRedoException;
 import app.tuxguitar.editor.undo.TGCannotUndoException;
 import app.tuxguitar.editor.undo.TGUndoableEdit;
+import app.tuxguitar.editor.undo.TGUndoableGroup;
 
 import java.util.ArrayList;
 
 /**
  * Created by tubus on 26.01.17.
  */
-public class TGUndoableEditComposite implements TGUndoableEdit {
+public class TGUndoableEditComposite implements TGUndoableGroup {
 
 	private ArrayList<TGUndoableEdit> edits = new ArrayList<TGUndoableEdit>();
 

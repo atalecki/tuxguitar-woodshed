@@ -61,8 +61,6 @@ public class MidiPlayer{
 	private boolean metronomeEnabled;
 	private MidiClick click = MidiClick.DEFAULT;
 	private int metronomeTrack;
-	// the synthesizer's drums while open (see updateDrums)
-	private MidiChannel drums;
 	private int infoTrack;
 	private int loopSHeader;
 	private int loopEHeader;
@@ -834,19 +832,25 @@ public class MidiPlayer{
 				this.getSynthesizerProxy().closeChannel(getChannelRouter().getMidiChannel(channelId));
 				this.getChannelRouter().removeMidiChannel(channelId);
 			}
-			if( this.drums != null ){
-				this.getSynthesizerProxy().closeChannel(this.drums);
-				this.drums = null;
-			}
 		} finally {
 			this.unlock();
 		}
 	}
 
+	// the channels the clicks go to, for this synthesizer and song (see MidiClickChannels)
+	private MidiClickChannels getClickChannels() {
+		return new MidiClickChannels(this.hasDrums(), this.getPercussionChannelId());
+	}
+
 	// where the Metronome clicks: on the drums of a synthesizer's sample clock that has them (the TuxGuitar
-	// Synthesizer's, outside every sound chain), else on the song's percussion channel (-1, none, without one)
+	// Synthesizer's, outside every sound chain), else where the Count In clicks
 	private int getMetronomeChannelId() {
-		return (this.hasDrums() ? MidiSampleClock.DRUMS : this.getPercussionChannelId());
+		return this.getClickChannels().metronome();
+	}
+
+	// where the Count In clicks: on the song's percussion channel, else on the player's own channel for the clicks
+	public int getCountInChannelId() {
+		return this.readLocked(() -> this.getClickChannels().countIn());
 	}
 
 	private boolean hasDrums() {
@@ -854,25 +858,39 @@ public class MidiPlayer{
 		return (clock != null && clock.hasDrums());
 	}
 
-	// a synthesizer's drums, opened once, play at the percussion channel's Volume and Balance as the channel would (a
-	// new channel's without one)
-	private void updateDrums() throws MidiPlayerException {
-		if( this.hasDrums() ){
-			this.drums = (this.drums != null ? this.drums : this.getSynthesizerProxy().openChannel(MidiSampleClock.DRUMS));
+	// the player's own channel for the clicks (see MidiClickChannels), opened and routed with the song's: a
+	// synthesizer's drums play at the percussion channel's Volume and Balance as the channel would (a new channel's
+	// without one); CLICKS is sent a new percussion channel's settings
+	private void updateClickChannel(int own) throws MidiPlayerException {
+		if( own == MidiSampleClock.DRUMS ){
 			TGChannel percussion = this.getSongManager().getPercussionChannel(this.getSong());
 			TGChannel levels = (percussion != null ? percussion : this.getSongManager().getFactory().newChannel());
-			this.drums.sendControlChange(MidiControllers.VOLUME, (int)((this.getVolume() / 10.00) * levels.getVolume()));
-			this.drums.sendControlChange(MidiControllers.BALANCE, levels.getBalance());
+			this.getOutputTransmitter().sendControlChange(own, MidiControllers.VOLUME, (int)((this.getVolume() / 10.00) * levels.getVolume()));
+			this.getOutputTransmitter().sendControlChange(own, MidiControllers.BALANCE, levels.getBalance());
 		}
+		if( own == MidiClickChannels.CLICKS ){
+			this.updateChannel(this.newClickChannel());
+		}
+	}
+
+	// a new percussion channel with the id CLICKS, in no song
+	private TGChannel newClickChannel() {
+		TGChannel channel = this.getSongManager().getFactory().newChannel();
+		channel.setChannelId(MidiClickChannels.CLICKS);
+		channel.setBank(TGChannel.DEFAULT_PERCUSSION_BANK);
+		channel.setProgram(TGChannel.DEFAULT_PERCUSSION_PROGRAM);
+		return channel;
 	}
 
 	public void updateChannels() throws MidiPlayerException {
 		try {
 			this.lock();
 
-			this.removeUnusedChannels();
-			this.openMissingChannels();
-			this.updateDrums();
+			int own = this.getClickChannels().own();
+			List<Integer> channelIds = this.neededChannelIds(own);
+			this.removeUnusedChannels(channelIds);
+			this.openMissingChannels(channelIds);
+			this.updateClickChannel(own);
 
 			// Update channels
 			Iterator<TGChannel> tgChannels = this.getSong().getChannels();
@@ -884,15 +902,25 @@ public class MidiPlayer{
 		}
 	}
 
-	// Remove the channels no longer in the song, or no longer open in the synthesizer.
+	// the ids of the channels the player routes to: the song's, then its own for the clicks when it needs one
+	private List<Integer> neededChannelIds(int own) {
+		List<Integer> channelIds = new ArrayList<Integer>();
+		this.getSong().getChannels().forEachRemaining(channel -> channelIds.add(channel.getChannelId()));
+		if( own != MidiClickChannels.NONE ){
+			channelIds.add(own);
+		}
+		return channelIds;
+	}
+
+	// Remove the channels no longer needed, or no longer open in the synthesizer.
 	// The router never holds a null channel: openMissingChannels adds only the ones the synthesizer opened.
-	private void removeUnusedChannels() throws MidiPlayerException {
+	private void removeUnusedChannels(List<Integer> neededChannelIds) throws MidiPlayerException {
 		Iterator<Integer> iterator = getChannelRouter().getMidiChannelIds().iterator();
 		while( iterator.hasNext() ){
 			int channelId = iterator.next().intValue();
 			MidiChannel midiChannel = getChannelRouter().getMidiChannel(channelId);
 
-			boolean removableChannel = ( this.getSongManager().getChannel(getSong(), channelId) == null || !this.getSynthesizerProxy().isChannelOpen(midiChannel));
+			boolean removableChannel = (!neededChannelIds.contains(channelId) || !this.getSynthesizerProxy().isChannelOpen(midiChannel));
 			if( removableChannel ){
 				this.getSynthesizerProxy().closeChannel(midiChannel);
 				this.getChannelRouter().removeMidiChannel(channelId);
@@ -900,16 +928,14 @@ public class MidiPlayer{
 		}
 	}
 
-	// Open a channel for every song channel without one, when the synthesizer can open it.
-	private void openMissingChannels() throws MidiPlayerException {
+	// Open a channel for every needed one without one, when the synthesizer can open it.
+	private void openMissingChannels(List<Integer> neededChannelIds) throws MidiPlayerException {
 		List<Integer> channelIds = getChannelRouter().getMidiChannelIds();
-		Iterator<TGChannel> tgChannels = this.getSong().getChannels();
-		while( tgChannels.hasNext() ){
-			TGChannel tgChannel = tgChannels.next();
-			if(!channelIds.contains(Integer.valueOf(tgChannel.getChannelId())) ){
-				MidiChannel midiChannel = this.getSynthesizerProxy().openChannel(tgChannel.getChannelId());
+		for( Integer channelId : neededChannelIds ){
+			if(!channelIds.contains(channelId) ){
+				MidiChannel midiChannel = this.getSynthesizerProxy().openChannel(channelId);
 				if( midiChannel != null ){
-					this.getChannelRouter().addMidiChannel(tgChannel.getChannelId(), midiChannel);
+					this.getChannelRouter().addMidiChannel(channelId, midiChannel);
 				}
 			}
 		}

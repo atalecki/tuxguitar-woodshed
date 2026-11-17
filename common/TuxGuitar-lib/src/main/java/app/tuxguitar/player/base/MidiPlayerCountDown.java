@@ -29,12 +29,10 @@ public class MidiPlayerCountDown {
 		try {
 			this.running = true;
 
-			int channelId = this.player.getPercussionChannelId();
-			if( channelId >= 0 ){
-				TGMeasureHeader header = this.findMeasureHeader();
-				if( header != null ){
-					this.playTicks(channelId, header);
-				}
+			int channelId = this.player.getCountInChannelId();
+			TGMeasureHeader header = this.findMeasureHeader();
+			if( header != null ){
+				this.playTicks(channelId, header);
 			}
 
 			this.running = false;

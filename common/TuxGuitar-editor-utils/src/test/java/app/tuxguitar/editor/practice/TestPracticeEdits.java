@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -21,8 +22,18 @@ import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
 import app.tuxguitar.editor.action.composition.TGChangeTripletFeelAction;
 import app.tuxguitar.editor.action.edit.TGRedoAction;
 import app.tuxguitar.editor.action.edit.TGUndoAction;
+import app.tuxguitar.editor.action.marker.TGRemoveMarkerAction;
+import app.tuxguitar.editor.action.marker.TGUpdateMarkerAction;
+import app.tuxguitar.editor.action.track.TGSetTrackMuteAction;
+import app.tuxguitar.editor.action.track.TGSetTrackSoloAction;
+import app.tuxguitar.editor.undo.TGUndoableActionController;
+import app.tuxguitar.editor.undo.TGUndoableEdit;
+import app.tuxguitar.editor.undo.TGUndoableManager;
+import app.tuxguitar.editor.undo.impl.TGUndoableEditComposite;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableDifficultyController;
 import app.tuxguitar.editor.undo.impl.custom.TGUndoableTripletFeelController;
+import app.tuxguitar.editor.undo.impl.marker.TGUndoableMarkerGenericController;
+import app.tuxguitar.editor.undo.impl.track.TGUndoableTrackSoloMuteController;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeRefusal;
@@ -30,13 +41,16 @@ import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
 import app.tuxguitar.practice.TGPracticeUnderWay;
 import app.tuxguitar.practice.TGTempoScale;
+import app.tuxguitar.song.models.TGMarker;
 import app.tuxguitar.song.models.TGMeasureHeader;
+import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
 
 /**
  * Edits during an interleaved practice session (TGPracticeEdits), as the app runs them: a flag, and the undo or redo of
- * one, goes on when the next cycles can play its weights, else it is refused saying why and changes nothing; any other
- * edit, or its undo, ends the session. Without a session under way nothing is checked.
+ * one, goes on when the next cycles can play its weights, else it is refused saying why and changes nothing; mute,
+ * solo and a marker, and their undo and redo, go on unchecked; any other edit, or its undo, ends the session. Without
+ * a session under way nothing is checked.
  *
  * Each case: a song of four measures, the edits made before, then a session of 6 turns of measures over measures 1 to
  * the last given, its chooser under way with one turn chosen, then the edits made during it. It reads "the refusal's
@@ -52,9 +66,13 @@ public class TestPracticeEdits {
 	private static final class Edits {
 		private final SongActionFixture fixture = SongActionFixture.onDocument();
 		private TGPracticeSession session;
+		// the undo step the actions run together make, while they run (see together)
+		private TGUndoableEditComposite step;
 
 		Edits() {
 			fixture.measureCount(4);
+			fixture.map(new TGSetTrackMuteAction(fixture.context), new TGSetTrackSoloAction(fixture.context), new TGUpdateMarkerAction(fixture.context),
+				new TGRemoveMarkerAction(fixture.context));
 			TGPracticeEdits.install(fixture.context);
 		}
 
@@ -68,10 +86,31 @@ public class TestPracticeEdits {
 			TGPracticeUnderWay.getInstance(fixture.context).begin(course);
 		}
 
+		// as the app keeps an action's undo step: the edit its controller makes, alone, or in the step under way
+		private void executeUndoable(TGActionBase action, TGUndoableActionController controller) {
+			TGUndoableEdit started = controller.startUndoable(fixture.context, fixture.actionContext);
+			fixture.execute(action);
+			TGUndoableEdit edit = controller.endUndoable(fixture.context, fixture.actionContext, started);
+			if (step != null) {
+				step.addEdit(edit);
+			} else {
+				TGUndoableManager.getInstance(fixture.context).addEdit(edit);
+			}
+		}
+
+		// the edits made in one undo step, as the desktop keeps an action's edits, and those of the actions it runs,
+		// joined in one step (TGUndoableJoined); here in a composite
+		void together(Consumer<Edits> edits) {
+			step = new TGUndoableEditComposite();
+			edits.accept(this);
+			TGUndoableManager.getInstance(fixture.context).addEdit(step);
+			step = null;
+		}
+
 		void flag(int measure, int difficulty) {
 			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_HEADER, fixture.song.getMeasureHeader(measure - 1));
 			fixture.actionContext.setAttribute(TGChangeDifficultyAction.ATTRIBUTE_DIFFICULTY, difficulty);
-			fixture.executeUndoable(new TGChangeDifficultyAction(fixture.context), new TGUndoableDifficultyController());
+			executeUndoable(new TGChangeDifficultyAction(fixture.context), new TGUndoableDifficultyController());
 		}
 
 		void undo() {
@@ -103,7 +142,33 @@ public class TestPracticeEdits {
 			fixture.actionContext.setAttribute(TGChangeTripletFeelAction.ATTRIBUTE_TRIPLET_FEEL, TGMeasureHeader.TRIPLET_FEEL_EIGHTH);
 			fixture.actionContext.setAttribute(TGChangeTripletFeelAction.ATTRIBUTE_APPLY_TO_END, false);
 			fixture.actionContext.setAttribute(TGActionBase.ATTRIBUTE_SUCCESS, null);
-			fixture.executeUndoable(new TGChangeTripletFeelAction(fixture.context), new TGUndoableTripletFeelController());
+			executeUndoable(new TGChangeTripletFeelAction(fixture.context), new TGUndoableTripletFeelController());
+		}
+
+		void mute() {
+			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, fixture.song.getTrack(0));
+			fixture.actionContext.setAttribute(TGSetTrackMuteAction.ATTRIBUTE_MUTE, Boolean.TRUE);
+			executeUndoable(new TGSetTrackMuteAction(fixture.context), new TGUndoableTrackSoloMuteController());
+		}
+
+		void solo() {
+			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, fixture.song.getTrack(0));
+			fixture.actionContext.setAttribute(TGSetTrackSoloAction.ATTRIBUTE_SOLO, Boolean.TRUE);
+			executeUndoable(new TGSetTrackSoloAction(fixture.context), new TGUndoableTrackSoloMuteController());
+		}
+
+		// the marker "Verse" on measure 3
+		void marker() {
+			TGMarker marker = fixture.songManager.getFactory().newMarker();
+			marker.setMeasure(3);
+			marker.setTitle("Verse");
+			fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_MARKER, marker);
+			executeUndoable(new TGUpdateMarkerAction(fixture.context), new TGUndoableMarkerGenericController());
+		}
+
+		void markedAndUndone() {
+			marker();
+			undo();
 		}
 
 		void endedThenFlagged() {
@@ -112,6 +177,11 @@ public class TestPracticeEdits {
 		}
 
 		String during(Consumer<Edits> before, int last, Consumer<Edits> edit) throws TGPracticeRefusal {
+			return during(before, last, edit, Edits::flags);
+		}
+
+		// "the refusal's message (go on without one) | the reading of the song | whether the session has ended"
+		String during(Consumer<Edits> before, int last, Consumer<Edits> edit, Function<Edits, String> reading) throws TGPracticeRefusal {
 			before.accept(this);
 			underWay(last);
 			String outcome = "go on";
@@ -120,7 +190,21 @@ public class TestPracticeEdits {
 			} catch (TGActionException refused) {
 				outcome = refused.getMessage();
 			}
-			return outcome + " | " + fixture.measures(measure -> String.valueOf(measure.getHeader().getDifficulty())) + " | " + session.isEnded();
+			return outcome + " | " + reading.apply(this) + " | " + session.isEnded();
+		}
+
+		// each measure's flag
+		String flags() {
+			return fixture.measures(measure -> String.valueOf(measure.getHeader().getDifficulty()));
+		}
+
+		// track 1's solo and mute (solo, mute or -) | the markers (m<measure> <title>, - for none)
+		String soloMuteAndMarkers() {
+			TGTrack track = fixture.song.getTrack(0);
+			String state = ((track.isSolo() ? "solo " : "") + (track.isMute() ? "mute" : "")).trim();
+			String markers = fixture.songManager.getMarkers(fixture.song).stream().map(marker -> "m" + marker.getMeasure() + " " + marker.getTitle())
+				.collect(Collectors.joining(", "));
+			return (state.isEmpty() ? "-" : state) + " | " + (markers.isEmpty() ? "-" : markers);
 		}
 	}
 
@@ -146,6 +230,44 @@ public class TestPracticeEdits {
 			reads("any other edit ends the session", "go on | 1 | 1 | 1 | 1 | true", NOTHING, 4, Edits::tripletFeel),
 			reads("undoing any other edit ends the session", "go on | 1 | 1 | 1 | 1 | true", Edits::tripletFeel, 4, Edits::undo),
 			reads("without a session under way a flag is not checked", "go on | 1 | 3 | 1 | 1 | true", NOTHING, 2, Edits::endedThenFlagged));
+	}
+
+	// reads "the refusal's message (go on without one) | track 1's solo and mute | the markers | whether the session has ended"
+	private static DynamicTest keeps(String name, String expected, Consumer<Edits> before, Consumer<Edits> edit) {
+		return DynamicTest.dynamicTest(name, () -> assertEquals(expected, new Edits().during(before, 4, edit, Edits::soloMuteAndMarkers)));
+	}
+
+	// mute, solo and a marker change no note a turn plays: the session goes on through them and their undo and redo
+	@TestFactory
+	public List<DynamicTest> editsASessionGoesOnThrough() {
+		return Arrays.asList(
+			keeps("muting a track", "go on | mute | - | false", NOTHING, Edits::mute),
+			keeps("soloing a track", "go on | solo | - | false", NOTHING, Edits::solo),
+			keeps("a marker", "go on | - | m3 Verse | false", NOTHING, Edits::marker),
+			keeps("undoing a mute", "go on | - | - | false", Edits::mute, Edits::undo),
+			keeps("undoing a marker", "go on | - | - | false", Edits::marker, Edits::undo),
+			keeps("redoing a marker", "go on | - | m3 Verse | false", Edits::markedAndUndone, Edits::redo));
+	}
+
+	// a flag in a step of its own, as the desktop keeps it, then another
+	private static void flaggedTogetherTwice(Edits edits) {
+		edits.together(edit -> edit.flag(2, 3));
+		edits.together(edit -> edit.flag(2, 1));
+	}
+
+	// the desktop keeps each action's edits joined in one undo step: the session looks at the edits in it, goes on when
+	// it keeps them all, and checks the flags in it
+	@TestFactory
+	public List<DynamicTest> editsInOneStep() {
+		return Arrays.asList(
+			reads("a flag the next cycles can play goes on", "go on | 1 | 3 | 1 | 1 | false", NOTHING, 4, edits -> edits.together(edit -> edit.flag(2, 3))),
+			reads("undoing a flag the next cycles could not play is refused", TOO_HEAVY + " | 1 | 1 | 1 | 1 | false", TestPracticeEdits::flaggedTogetherTwice, 2, Edits::undo),
+			keeps("muting a track goes on", "go on | mute | - | false", NOTHING, edits -> edits.together(Edits::mute)),
+			keeps("undoing a marker goes on", "go on | - | - | false", edits -> edits.together(Edits::marker), Edits::undo),
+			keeps("a mute and a triplet feel in one step end the session", "go on | mute | - | true", NOTHING, edits -> edits.together(edit -> {
+				edit.mute();
+				edit.tripletFeel();
+			})));
 	}
 
 	// the app's action that moves the caret left
@@ -192,6 +314,19 @@ public class TestPracticeEdits {
 		edits.undo();
 	}
 
+	// a mute undone then a marker made and undone: one to undo (the mute) and one to redo (the marker), neither a flag
+	private static void mutedThenMarkedAndUndone(Edits edits) {
+		edits.mute();
+		edits.markedAndUndone();
+	}
+
+	// a mute and a marker each in a step of its own, as the desktop keeps them, the marker undone
+	private static void mutedThenMarkedTogetherAndUndone(Edits edits) {
+		edits.together(Edits::mute);
+		edits.together(Edits::marker);
+		edits.undo();
+	}
+
 	@TestFactory
 	public List<DynamicTest> whatTheAppDisables() {
 		return Arrays.asList(
@@ -199,6 +334,8 @@ public class TestPracticeEdits {
 			disables("playing the song, every edit and caret move is", "true true true true true", Edits::flaggedAndUndone, true, false),
 			disables("in a session, a flag, the undo and redo of a flag and a caret move are not", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
 			disables("in a session, undo and redo of another edit are", "false true true true false", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
+			disables("in a session, the undo of a mute and the redo of a marker are not", "false true false false false", TestPracticeEdits::mutedThenMarkedAndUndone, true, true),
+			disables("in a session, nor are they in steps of their own", "false true false false false", TestPracticeEdits::mutedThenMarkedTogetherAndUndone, true, true),
 			disables("in a paused session, as in a playing one", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
 	}
 
@@ -211,7 +348,23 @@ public class TestPracticeEdits {
 			greys("playing the song, nothing more", "false false false false false", Edits::flaggedAndUndone, true, false),
 			greys("in a session, all but a flag, the undo and redo of a flag and a caret move", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, true, true),
 			greys("in a session, undo and redo of another edit too", "false true true true false", TestPracticeEdits::tripletFeelTwiceAndUndone, true, true),
+			greys("in a paused session, all but the undo of a mute and the redo of a marker too", "false true false false false", TestPracticeEdits::mutedThenMarkedAndUndone, false, true),
 			greys("in a paused session, as in a playing one", "false true false false false", TestPracticeEdits::flaggedTwiceAndUndone, false, true));
+	}
+
+	// the app's action that selects all
+	private static final String SELECT_ALL = "action.selection.select-all";
+
+	// selecting stays refused during a session, playing or paused, after edits it keeps too: "playing | paused", each
+	// "disabled greyed"
+	@Test
+	public void selectingStaysRefusedDuringASession() throws TGPracticeRefusal {
+		assertEquals("true true | true true", refusesSelecting(true) + " | " + refusesSelecting(false));
+	}
+
+	private static String refusesSelecting(boolean running) throws TGPracticeRefusal {
+		TGContext context = state(TestPracticeEdits::mutedThenMarkedAndUndone, running, true).fixture.context;
+		return TGPracticeEdits.disables(context, SELECT_ALL) + " " + TGPracticeEdits.greys(context, SELECT_ALL);
 	}
 
 	// whether moving the caret moves the player too: "stopped playing | in a session playing paused"; only while the
