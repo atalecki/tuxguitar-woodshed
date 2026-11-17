@@ -214,6 +214,18 @@ public class LevelSteps {
 		assertTrue(residual(tap, reference, times, 0, length) <= scale * percent / 100, "left " + residual(tap, reference, times, 0, length) / scale);
 	}
 
+	// not track 2 shifted: at its best-fitting lag, what is left is more than the fraction of track 2's root mean square
+	@Then("track {int} sounds other than track {int} at every lag up to 64 samples, by more than {int}% RMS")
+	public void soundsOtherAtEveryLag(int number, int other, int percent) {
+		float[] tap = tap(number, 0);
+		float[] reference = tap(other, 0);
+		int length = Math.min(tap.length, reference.length) - LAGS;
+		double least = java.util.stream.IntStream.rangeClosed(-LAGS, LAGS).mapToDouble(lag -> residual(tap, reference, 1f, lag, length)).min().getAsDouble();
+		double scale = Math.sqrt(java.util.stream.IntStream.range(LAGS, length).mapToDouble(i -> reference[i] * reference[i]).sum());
+		assertTrue(scale > 0, "track " + other + " sounds nothing");
+		assertTrue(least > scale * percent / 100, "left at best " + least / scale);
+	}
+
 	// the root sum of squares of track minus N times the reference lag samples earlier
 	private static double residual(float[] tap, float[] reference, float times, int lag, int length) {
 		double sum = 0;

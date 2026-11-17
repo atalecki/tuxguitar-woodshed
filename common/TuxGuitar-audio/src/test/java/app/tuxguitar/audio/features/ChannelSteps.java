@@ -19,6 +19,7 @@ import app.tuxguitar.gm.GMChannelRouterConfigurator;
 import app.tuxguitar.player.base.MidiInstrument;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.TGMessagesManager;
+import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -73,17 +74,15 @@ public class ChannelSteps {
 		assertTrue(world.succeeded());
 	}
 
-	// Volume and Balance as the channel's mixer sets them
-	@Given("I have set the Volume of track {int}'s channel to {int}")
-	public void haveSetTheVolume(int number, int volume) {
-		world.fixture().actionContext.setAttribute(TGUpdateChannelAction.ATTRIBUTE_VOLUME, (short) volume);
-		updateChannel(number);
-		assertTrue(world.succeeded());
+	// Volume and Balance as the channel's mixer sets them: the attribute of the channel update
+	@ParameterType("Volume|Balance")
+	public String mixer(String name) {
+		return (name.equals("Volume") ? TGUpdateChannelAction.ATTRIBUTE_VOLUME : TGUpdateChannelAction.ATTRIBUTE_BALANCE);
 	}
 
-	@Given("I have set the Balance of track {int}'s channel to {int}")
-	public void haveSetTheBalance(int number, int balance) {
-		world.fixture().actionContext.setAttribute(TGUpdateChannelAction.ATTRIBUTE_BALANCE, (short) balance);
+	@Given("I have set the {mixer} of track {int}'s channel to {int}")
+	public void haveSetTheMixer(String attribute, int number, int value) {
+		world.fixture().actionContext.setAttribute(attribute, (short) value);
 		updateChannel(number);
 		assertTrue(world.succeeded());
 	}

@@ -157,7 +157,8 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | Next.nam   | Next.nam could not be loaded:                                    |
 
   # A1 and A2 captures (README: the test captures). What they sound like is no number the scenario knows: they play
-  # when the plugin takes them, sound, and sound other than the dry voice of track 2
+  # when the plugin takes them, sound, and sound other than the dry voice of track 2, shifted or not (both are made at
+  # 48 kHz, so track 1 reports the resampling's latency)
 
   Scenario Outline: A1 and A2 captures play
     Given there is the test NAM capture "<capture>"
@@ -171,7 +172,7 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     And I play the song from measure 1 beat 1
     Then Woodshed Guitar of track 1 plays the profile "<capture>"
     And track 1 sounds, every sample a number, peaking above 0.001 in measure 1
-    And track 1 sounds other than track 2 in measure 1
+    And track 1 sounds other than track 2 at every lag up to 64 samples, by more than 10% RMS
 
     Examples:
       | capture             |
