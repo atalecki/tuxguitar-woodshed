@@ -70,6 +70,25 @@ Feature: Saving audio tracks and plugins
     And "Gain" of VST3 effect 2 of track 2 is 2.0
     And the state of every VST3 plugin is byte for byte what the plugin gave when the song was saved
 
+  # A plugin TuxGuitar keeps open while no render runs it (one whose editor was used) gives its state when the song is
+  # saved only while it still holds what the song's element holds; once the song changed the element since (a
+  # parameter set through TuxGuitar, an undo), the song's element is what is saved
+  Scenario: a parameter set on a plugin kept open while no render runs it is saved
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the plugin has set "Gain" of VST3 effect 1 of track 1 to 3.0
+    And I have set "Gain" of VST3 effect 1 of track 1 to 4.0
+    And I have saved the song as a TuxGuitar file
+    When I open it again
+    Then "Gain" of VST3 effect 1 of track 1 is 4.0
+
+  Scenario: an edit in the editor of a plugin kept open while no render runs it, undone, is not saved
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the plugin has set "Gain" of VST3 effect 1 of track 1 to 3.0
+    And I have undone it
+    And I have saved the song as a TuxGuitar file
+    When I open it again
+    Then "Gain" of VST3 effect 1 of track 1 is 2.0
+
   Scenario: the General MIDI program a VST3 instrument replaced comes back after reopening
     Given I have set the General MIDI program of track 1's channel to "Distortion Electric Guitar"
     And I have chosen the VST3 instrument "Test Sine" for track 1

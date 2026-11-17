@@ -112,6 +112,17 @@ public class ListeningSteps {
 		assertEquals(heard().sampleAt(position, 0), first, 1);
 	}
 
+	// on either side of its tap
+	@Then("track {int} sounds nothing above -60 dBFS from {position} to {position}")
+	public void soundsNothingFrom(int number, SongPosition from, SongPosition to) {
+		int first = heard().sampleAt(from, 0);
+		int end = heard().sampleAt(to, 0);
+		float[] left = heard().tap(world.track(number), 0);
+		float[] right = heard().tap(world.track(number), 1);
+		float peak = Math.max(Meters.peak(left, first, end), Meters.peak(right, first, end));
+		assertTrue(peak < SILENT, "peaks at " + peak);
+	}
+
 	@Then("no two consecutive samples of track {int} differ by more than {float} from {position} to {position}")
 	public void noJump(int number, float most, SongPosition from, SongPosition to) {
 		float[] tap = tap(number);

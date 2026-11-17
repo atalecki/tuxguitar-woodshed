@@ -67,8 +67,8 @@ public final class TGLiveAudio implements TGSynthOutput {
 	// what an app installs at startup: audio tracks sound their takes (TGLiveTakes), entering a note sounds it
 	// (TGNoteEntry), songs save their takes and plugin states (TGAudioSaving), editing actions are refused during a
 	// recording, those of the app's rule too (desktop: those it disables while playing), the synthesizer plays through
-	// the live device and runs VST3 effects and instruments (TGVst3Processors), and the app's audio export writes
-	// through TGAudioExport
+	// the live device and runs VST3 effects and instruments (TGVst3Processors), the app's audio export writes through
+	// TGAudioExport, and Play stopping its wait for a plugin still loading gives a hint (TGLoadingHint)
 	public static synchronized TGLiveAudio install(TGContext context, Predicate<String> refused) {
 		TGLiveAudio audio = getInstance(context);
 		if (!audio.installed) {
@@ -79,6 +79,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 			TGSynthManager.getInstance(context).addExtension(TGSynthOutput.class, audio);
 			TGSynthManager.getInstance(context).addExtension(TGSynthAudioExporter.class, new TGAudioExport(context));
 			TGVst3Processors.install(context);
+			TGLoadingHint.install(context);
 			audio.installed = true;
 		}
 		return audio;
@@ -115,7 +116,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 	}
 
 	// the native audio backend, from the folder; if it does not load, that is the problem. VST3 plugins are hosted by the
-	// host process in the folder, from the system's VST3 folders
+	// host process in the folder, from the system's VST3 folders and TuxGuitar's own next to the folder
 	public void load(File folder) {
 		this.load(folder, System.getProperties(), System.getenv());
 	}
@@ -123,7 +124,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 	// on the system the properties and the environment describe
 	synchronized void load(File folder, Properties system, Map<String, String> env) {
 		String os = system.getProperty("os.name", "");
-		TGVst3Hosting.getInstance(this.context).configure(TGVst3Hosting.executable(folder, os), TGVst3Folders.standard(os, env, new File(system.getProperty("user.home", "."))));
+		TGVst3Hosting.getInstance(this.context).configure(TGVst3Hosting.executable(folder, os), TGVst3Folders.scanned(os, env, new File(system.getProperty("user.home", ".")), folder));
 		try {
 			this.use(TGPortAudio.load(folder));
 			LOG.info("audio backend loaded from " + folder.getAbsolutePath() + ": host APIs " + this.backend.getHostApis() + ", " + this.backend.getDevices().size() + " devices");

@@ -106,20 +106,29 @@ private:
 	void gesture(ParamID id, const std::vector<double>& values);
 	void gestureNow();
 	static std::vector<double> doubles(IAttributeList* attributes);
+	static std::u16string whatOf(IAttributeList* attributes);
 	tresult viewMessage(FIDString id, IAttributeList* attributes);
 	tresult sizeMessage(FIDString id, IAttributeList* attributes);
+	tresult restoringMessage(FIDString id, IAttributeList* attributes);
+	tresult tellProgress(IProgress* progress, bool restoring, bool underway, const char16_t* what);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
+	void load(int64 capture, bool dirty);
 
 	PluginSpec spec;
 	std::vector<double> values;
 	int32 preset;
+	// the capture its editor loaded (no parameter: a file, as a NAM capture player loads one), 0 for none
+	int32 capture = 0;
 	uint32 reportedLatency;
 	// the gesture of a "TG.gesture-later" not done yet: its parameter and values
 	ParamID laterParam = 0;
 	std::vector<double> later;
 	// its editor's view, as the test messages read and play it
 	ViewState view;
+	// the state restoration and the editor's task it told its host of (IProgress) and has not finished, 0 for none
+	IProgress::ID restoration = 0;
+	IProgress::ID background = 0;
 };
 
 }  // namespace TuxGuitar

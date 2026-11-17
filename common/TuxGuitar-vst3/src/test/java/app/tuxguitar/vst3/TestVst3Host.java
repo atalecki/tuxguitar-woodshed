@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +26,7 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The VST3 host process, driven as TuxGuitar drives it, with the real test plugins.
@@ -78,7 +82,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 4, not 3", refused.getMessage());
+		assertEquals("the VST3 host speaks version 9, not 8", refused.getMessage());
 	}
 
 	@Test
@@ -230,6 +234,185 @@ public class TestVst3Host {
 		assertArrayEquals(state.getComponent(), second.getState().getComponent());
 	}
 
+	// Woodshed Guitar (TuxGuitar's own plugin) keeps its profile's contents apart, as a part of its state named "profile";
+	// a state given back with it plays that profile
+	@Test
+	public void thePartsAPluginKeepsApartComeBackWithItsState(@TempDir File folder) throws Exception {
+		File capture = gain3(folder);
+		TGVst3Instance first = this.woodshed();
+		load(first, capture);
+		// it loads on a thread of its own: once it says it loads nothing (its status's fourth line), it has
+		while (!profile(first).endsWith("\n")) {
+			Thread.onSpinWait();
+		}
+		TGVst3State state = first.getState();
+		TGVst3Instance second = this.woodshed();
+		second.setState(state);
+		assertEquals("[profile] true Gain 3.nam", state.getResources().keySet() + " " + Arrays.equals(Files.readAllBytes(capture.toPath()), state.getResources().get("profile"))
+			+ " " + profile(second).split("\n")[0]);
+	}
+
+	// a NAM capture "Gain 3.nam" in the folder, multiplying the signal by 3
+	private static File gain3(File folder) throws Exception {
+		File capture = new File(folder, "Gain 3.nam");
+		Files.write(capture.toPath(), ("{\"version\": \"0.7.0\", \"architecture\": \"Linear\", \"config\": {\"receptive_field\": 1, \"bias\": false, "
+			+ "\"in_channels\": 1, \"out_channels\": 1}, \"weights\": [3.0], \"sample_rate\": 44100}").getBytes(StandardCharsets.UTF_8));
+		return capture;
+	}
+
+	// Woodshed Guitar, TuxGuitar's own plugin
+	private TGVst3Instance woodshed() throws TGVst3Exception {
+		TGVst3Plugin woodshed = this.host.scan(new File(new File(TestPlugins.nativeBuild(), "plugins/VST3"), "Woodshed Guitar.vst3")).get(0);
+		return this.host.open(woodshed, 44100f, FRAMES);
+	}
+
+	private static void load(TGVst3Instance woodshed, File capture) throws TGVst3Exception {
+		woodshed.message("Woodshed.load", Collections.<String, Long>emptyMap(), Collections.singletonMap("path", capture.getPath().getBytes(StandardCharsets.UTF_8)));
+	}
+
+	// its status: the profile, the refusal, the notice and the capture being loaded, a line break between
+	private static String profile(TGVst3Instance woodshed) throws TGVst3Exception {
+		return new String(woodshed.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()), StandardCharsets.UTF_8);
+	}
+
+	// a plugin restoring its state in the background (it told its host, IProgress) is restoring until it says it has
+	// finished; one that never began is not
+	@Test
+	public void aPluginRestoringItsStateInTheBackgroundIsRestoringUntilItSaysItHasFinished() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		boolean before = gain.isRestoring();
+		restoring(gain, 1L);
+		boolean during = gain.isRestoring();
+		restoring(gain, 0L);
+		assertEquals("false true false", before + " " + during + " " + gain.isRestoring());
+	}
+
+	private static void restoring(TGVst3Instance instance, long underway) throws TGVst3Exception {
+		instance.message("TG.restoring", Collections.singletonMap("underway", underway), Collections.<String, byte[]>emptyMap());
+	}
+
+	// a plugin that never says it has finished is waited for no longer than the wait, from when it was first heard
+	@Test
+	public void aPluginThatNeverFinishesRestoringIsNoLongerRestoringOnceTheWaitHasPassed() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		restoring(gain, 1L);
+		long heard = System.nanoTime();
+		boolean within = gain.isRestoring(300);
+		LockSupport.parkNanos(Duration.ofMillis(100).toNanos());
+		boolean still = gain.isRestoring(300);
+		// a park may end early: until the wait has passed
+		while (System.nanoTime() - heard < Duration.ofMillis(300).toNanos()) {
+			LockSupport.parkNanos(Duration.ofMillis(10).toNanos());
+		}
+		assertEquals("true true false", within + " " + still + " " + gain.isRestoring(300));
+	}
+
+	// a plugin restoring its state whose host has stopped has nothing left to wait for
+	@Test
+	public void aPluginRestoringItsStateWhoseHostStoppedIsNoLongerRestoring() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		restoring(gain, 1L);
+		TestPlugins.kill(this.host.getPid());
+		assertFalse(gain.isRestoring());
+	}
+
+	// a task the plugin's editor runs in the background (IProgress) restores nothing: it is not waited for, and its end
+	// does not end a restoration under way
+	@Test
+	public void aTaskOfThePluginsEditorInTheBackgroundIsNoRestorationAndEndsNone() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.message("TG.background", Collections.singletonMap("underway", 1L), Collections.<String, byte[]>emptyMap());
+		boolean task = gain.isRestoring();
+		restoring(gain, 1L);
+		gain.message("TG.background", Collections.singletonMap("underway", 0L), Collections.<String, byte[]>emptyMap());
+		assertEquals("false true", task + " " + gain.isRestoring());
+	}
+
+	// a plugin restoring its state says what it restores when it begins (IProgress's description; nothing said: empty),
+	// asked of its host however long it has; null when it is not restoring
+	@Test
+	public void aPluginRestoringItsStateSaysWhatItRestoresUntilItHasFinished() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		String before = gain.getRestoring();
+		gain.message("TG.restoring", Collections.singletonMap("underway", 1L), Collections.singletonMap("what", "Big Room ü.wav".getBytes(StandardCharsets.UTF_8)));
+		String during = gain.getRestoring();
+		restoring(gain, 0L);
+		String after = gain.getRestoring();
+		restoring(gain, 1L);
+		assertEquals("null Big Room ü.wav null []", before + " " + during + " " + after + " [" + gain.getRestoring() + "]");
+	}
+
+	// asked of a host that stopped, a plugin restores nothing
+	@Test
+	public void aPluginRestoringItsStateWhoseHostStoppedRestoresNothing() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		restoring(gain, 1L);
+		TestPlugins.kill(this.host.getPid());
+		assertNull(gain.getRestoring());
+	}
+
+	@Test
+	public void aPluginIsNamedAsItsModuleNamesIt() throws TGVst3Exception {
+		assertEquals("Test Gain", open("Test Gain").getName());
+	}
+
+	// Woodshed Guitar says the file of the profile it loads; a load given while one is under way, its own file
+	@Test
+	public void woodshedGuitarRestoringItsStateSaysTheFileItLoads(@TempDir File folder) throws Exception {
+		File large = large(folder);
+		File capture = gain3(folder);
+		TGVst3Instance woodshed = this.woodshed();
+		load(woodshed, large);
+		String first = woodshed.getRestoring();
+		load(woodshed, capture);
+		String second = woodshed.getRestoring();
+		untilRestored(woodshed);
+		assertEquals("Large.nam, Gain 3.nam, null", first + ", " + second + ", " + woodshed.getRestoring());
+	}
+
+	// Woodshed Guitar restores its state while it loads a profile on a thread of its own: its host, asked, hears when it
+	// has finished, and the profile is then loaded; the next load restores it again
+	@Test
+	public void woodshedGuitarRestoresItsStateUntilTheProfileItLoadsIsReady(@TempDir File folder) throws Exception {
+		TGVst3Instance woodshed = this.woodshed();
+		File capture = gain3(folder);
+		load(woodshed, capture);
+		boolean loading = woodshed.isRestoring();
+		untilRestored(woodshed);
+		String loaded = profile(woodshed);
+		load(woodshed, capture);
+		assertEquals("true Gain 3.nam\n\n\n true", loading + " " + loaded + " " + woodshed.isRestoring());
+	}
+
+	// loads given one after the other, the first not ready yet, are one restoration, which ends once the last is ready
+	@Test
+	public void woodshedGuitarLoadingTwiceInARowRestoresItsStateUntilTheLastIsReady(@TempDir File folder) throws Exception {
+		File capture = large(folder);
+		TGVst3Instance woodshed = this.woodshed();
+		load(woodshed, capture);
+		load(woodshed, capture);
+		untilRestored(woodshed);
+		assertEquals("Large.nam\n\n\n", profile(woodshed));
+	}
+
+	// a NAM capture "Large.nam" in the folder, multiplying the signal by 3, with 5 MB of notes: it takes a while to load
+	private static File large(File folder) throws Exception {
+		File capture = new File(folder, "Large.nam");
+		byte[] gain3 = Files.readAllBytes(gain3(folder).toPath());
+		Files.write(capture.toPath(), Arrays.copyOf(gain3, gain3.length - 1));
+		Files.write(capture.toPath(), (", \"metadata\": {\"notes\": \"" + String.join("", Collections.nCopies(5 * 1024 * 1024, "n")) + "\"}}").getBytes(StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.APPEND);
+		return capture;
+	}
+
+	// waits, 10 seconds at most, until it says it restores its state no more (its host asked meanwhile)
+	private static void untilRestored(TGVst3Instance instance) {
+		assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+			while (instance.isRestoring(Duration.ofMinutes(1).toMillis())) {
+				Thread.onSpinWait();
+			}
+		});
+	}
+
 	// what was delayed past the block still sounds in the next one, unless the plugin was reset
 	private float tailAfter(boolean reset) throws TGVst3Exception {
 		TGVst3Instance latency = open("Test Latency");
@@ -256,6 +439,39 @@ public class TestVst3Host {
 		gain.message("TG.gesture", Collections.singletonMap("id", (long) id), Collections.singletonMap("values", TGVst3Instance.doubles(2.5, 3.0)));
 		assertEquals(Arrays.asList("BEGIN_EDIT 1 0.0", "PERFORM_EDIT 1 2.5", "PERFORM_EDIT 1 3.0", "END_EDIT 1 0.0"), heard);
 		assertEquals(3.0, gain.getParameter(id));
+	}
+
+	private static String heard(List<TGVst3Notice> notices) {
+		return notices.stream().map(notice -> notice.getKind() + " " + notice.getParameter()).collect(java.util.stream.Collectors.joining(", "));
+	}
+
+	// a capture loaded in the plugin's own editor is no edit: a plugin that says it is dirty is heard saying so, one that
+	// says nothing is not heard; either way the capture is in its state
+	@Test
+	public void aCaptureLoadedInThePluginsEditorIsHeardOnlyWhenThePluginSaysItIsDirty() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		List<TGVst3Notice> notices = new ArrayList<TGVst3Notice>();
+		gain.setListener(notices::add);
+		gain.message("TG.load", Map.of("capture", 7L, "dirty", 0L), Collections.<String, byte[]>emptyMap());
+		String silent = heard(notices);
+		gain.message("TG.load", Map.of("capture", 8L, "dirty", 1L), Collections.<String, byte[]>emptyMap());
+		TGVst3Instance second = open("Test Gain");
+		second.setState(gain.getState());
+		byte[] capture = second.message("TG.capture", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		assertEquals(" | DIRTY 0 | 8", silent + " | " + heard(notices) + " | " + java.nio.ByteBuffer.wrap(capture).order(java.nio.ByteOrder.nativeOrder()).getInt());
+	}
+
+	// its close box hides the editor's window, which the plugin's host is told: the editor may have changed the plugin
+	@Test
+	public void anEditorClosedByItsCloseBoxIsHeardHidden() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		List<TGVst3Notice> notices = new ArrayList<TGVst3Notice>();
+		gain.setListener(notices::add);
+		gain.openEditor(0, "");
+		inFront(gain);
+		gain.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		once(gain, editor -> !editor.isShown());
+		assertEquals("EDITOR_HIDDEN 0", heard(notices));
 	}
 
 	// a gesture ends when the edit that began it ends: a preset choice begins the preset and every parameter it sets

@@ -70,22 +70,22 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		this.problem = null;
 	}
 
-	// the element's state, else the one the plugin opened with (a plugin running the element again goes back to it)
+	// the element's state, else the one the plugin opened with (a plugin running an element the song changed goes back to
+	// it; one running the same element again keeps what its editor did since)
 	private void restore(Map<String, String> parameters) throws TGVst3Exception {
 		if (this.instance == null) {
 			return;
 		}
 		TGVst3State state = TGVst3Element.state(parameters);
-		this.instance.setState(state != null ? state : this.opened);
-		for (Map.Entry<Integer, Double> parameter : TGVst3Element.parameters(parameters).entrySet()) {
-			this.instance.setParameter(parameter.getKey(), parameter.getValue());
-		}
+		this.instance.restore(state != null ? state : this.opened, TGVst3Element.parameters(parameters));
 	}
 
 	public void storeParameters(Map<String, String> parameters) {
 		try {
 			if (this.instance != null) {
-				TGVst3Element.store(parameters, this.plugin, this.instance.getState());
+				TGVst3State state = this.instance.getState();
+				TGVst3Element.store(parameters, this.plugin, state);
+				this.instance.agree(state);
 			}
 		} catch (TGVst3Exception e) {
 			this.lost(e);
@@ -175,8 +175,11 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		return (this.instance != null);
 	}
 
+	// while its plugin restores its state in the background, for a while at most (see TGVst3Instance.isRestoring): Play
+	// waits for it, so the first note sounds as the plugin's state says
 	public boolean isBusy() {
-		return false;
+		TGVst3Instance instance = this.instance;
+		return (instance != null && instance.isRestoring());
 	}
 
 	public void close() {

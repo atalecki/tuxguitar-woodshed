@@ -63,7 +63,25 @@ through it (`TGAudioExport`, synth-core's `TGSynthAudioExporter` extension: the 
 those formats when the audio plugin is installed). Saving is implemented in lib's TuxGuitar file format (format 3.0: a
 `TGAudio` node in content.xml, each take a 32-bit float wave entry `takes/<id>.wav` written by this module's
 `TGTakeWave`) and `TGAudioSaving.install`, which gives the take codec to the reader and writer and stores each VST3
-plugin's state before the write action. The player's position
+plugin's state before the write action. A plugin may keep parts of its state apart (its resources: the helper tells it
+so through the state's stream, the `IStreamAttributes` integer "TuxGuitar.apart", and it sets each part as a binary
+attribute it names, protocol version 5); a sound chain's element keeps each as a shared channel parameter value (lib's
+`TGChannelParameter.SHARED`), which a TuxGuitar file keeps once however many elements hold it (`TGSharedValues`: a
+`TGSharedValues` node in content.xml, format 2.0 and 3.0 alike; an older version reads the reference as the value, and
+a file whose node went opens without those values). Woodshed Guitar keeps its profile's contents apart, so a capture
+several tracks play is stored once; in another program its state holds them, as before. Play waits for the plugins of
+the song's chains that restore their state in the background (a profile loading): a VST3 plugin tells its host so
+through the standard `IProgress` (type `AsyncStateRestoration`), the helper hears it and tells it with each plugin's
+timing (its latency, its tail, and that flag; a request of its own asks for it, protocol version 7), and its processor
+is busy meanwhile (`TGVst3Processor.isBusy`), which lib's player already waits for before it starts (as it waits for a
+soundfont's instruments to load); a plugin restoring for 5 seconds (`TGVst3Instance.RESTORING_WAIT`, from when it was
+first heard) is no longer waited for, so Play starts anyway. Then, while one still restores, an app shows a quiet hint
+(`TGLoadingHint`, read as often as the app likes; the desktop shows it in a status line at the foot of the main window,
+which is hidden otherwise): "<plugin> is still loading <what>", what being the description the plugin gave
+`IProgress::start` (Woodshed Guitar gives the file of the profile it loads; a load given while one is under way begins
+the restoration again with its own file), or "its sound" when it gave none, until that plugin has finished or no longer
+runs. The helper tells that description with the plugin's timing too (protocol version 8). Play that waited until the
+plugins were ready shows no hint. The player's position
 is the one the output sounds: live, lib's sequencer on the synthesizer's clock reports the tick the output sounds
 (chains' latency plus output latency behind what it schedules); offline, `TGReportedPositions` reports it block by
 block the same way (through every turn's Count In it stays on the turn's first tick, as live, where a Count In is a
@@ -79,7 +97,11 @@ offer yet). Without a device Record is refused, and an input channel the device 
 Count In / Metronome click is a TuxGuitar setting kept in the app's configuration (`MidiClick.read`/`write`). Plugin editors are implemented headless: `TGLivePlugins` knows each VST3 plugin of a
 sound chain as it runs (a live render's, else one kept open for its element), opens its own editor or TuxGuitar's
 parameter editor (`TGOpenPluginEditorAction`), and turns one gesture or preset in it into one
-`TGSetPluginStateAction` when an app drains it on the thread that edits the song (the audio thread only notes it).
+`TGSetPluginStateAction` when an app drains it on the thread that edits the song (the audio thread only notes it). A
+change outside a gesture (a capture loaded: the plugin says it is dirty) or its own editor's window hidden by its close
+box is drained the same way, unless the song already holds that state (`TGVst3Gestures`). A running plugin sent its
+element again unchanged (each Play, each change of any chain) keeps what its editor did that the song has not taken
+(`TGVst3Instance.restore`).
 An installed app's synthesizer runs VST3 effects and instruments and tells `TGLivePlugins` each time a channel's chain
 changes (synth-core's `TGSynthChannelListener`), so editors open on the plugin that sounds (an editor opened before
 the synthesizer runs a plugin just added waits for it, at most 5 s) and close when it stops; TuxGuitar's parameter
@@ -218,6 +240,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
 | `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain; what a scan reports, and why an editor does not open |
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
+| `plugins/nam_guitar_instrument` | Woodshed Guitar, the VST3 instrument TuxGuitar ships: plucked strings through a NAM capture, its profile; found in TuxGuitar's own plugins folder |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
@@ -384,6 +407,22 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **VST3 instrument**: a VST3 plugin that turns notes into sound; it replaces the General MIDI program as the source.
   Notes reach it with their velocity, and bends reach it per note, in exact semitones, so other notes ringing on the
   track are not bent.
+- **Woodshed Guitar**: the VST3 instrument TuxGuitar ships (in **TuxGuitar's own plugins folder**, `vst3` next to the
+  folder of its native libraries, `lib`, in the install directory, scanned after the system's VST3 folders). Each note
+  plucks a string of its own (one voice per note id); the strings are summed and played through its **profile**, the
+  NAM capture loaded into it, the same signal left and right. Its **dry voice** is what it sounds with no profile.
+  "Woodshed Guitar of track 1" is the plugin of track 1's source.
+- **NAM capture**: a `.nam` file, a Neural Amp Modeler model of an amp or pedal, in the A1 format (JSON) that
+  NeuralAmpModelerCore reads; "a NAM capture that multiplies the signal by 3.0" is one of the architecture `Linear` whose
+  single weight is 3.0, made at 44100 Hz unless the scenario gives a rate. A capture **made at** a sample rate is played
+  at that rate: Woodshed Guitar resamples into it and back, and reports the delay that adds as its latency.
+- **A1 and A2** (NAM captures): the two NAM model families. Woodshed Guitar plays every capture NeuralAmpModelerCore
+  v0.6.0 reads, file versions 0.5.0 to 0.7.x: A1, WaveNet (Standard, Lite, Feather, Nano), LSTM and ConvNet; A2, the A2
+  WaveNets (Full and Lite) in their slimmable container (Quality chooses); and `Linear` (an impulse response). A newer
+  file version, or an architecture the core does not know, is refused, saying what the core's validation says.
+  **The test captures** (`src/test/resources/captures`): "A1 standard test.nam" and "A2 test.nam", made by
+  `make_test_captures.py` from the structure of NeuralAmpModelerCore's own examples with weights of their own
+  (deterministic), so no real capture is in the tests.
 - **Volume and Balance**: the channel's, applied after the sound chain, with today's laws. Balance 0 is full left, 127
   full right, 64 the centre (today's constant-power law leaves the two sides up to 1.3% apart there). Volume 127 with
   Balance 0 or 127 passes the signal unchanged to its side. On a stereo signal the same law applies to each side: the
@@ -479,6 +518,13 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **Click** (in a take or a signal): a one-sample impulse. Its position is its first sample above half its peak; next to a tone, a click is a
   jump of more than 0.1 between two samples. A time-stretched click is no longer one sample.
 - **Peak**: the largest absolute sample value, 1.0 being full scale (0 dBFS).
+- **A note within 1%** (of a plucked string, rich in overtones): the frequency of the highest level, from 20 Hz to
+  2 kHz, over the measure's sounding samples, is within 1% of the note's pitch.
+- **Track 1 sounds N times what track 2 sounds, sample for sample within e**: on both sides of the taps, every sample of
+  track 1 is within e of N times track 2's at the same sample.
+- **Track 1 sounds N times what track 2 sounds, in time to the sample, within p% RMS**: of the lags up to 64 samples
+  either way, track 1 fits N times track 2 best (least root mean square of what is left) at 0, and what is left there is
+  within p% of N times track 2's root mean square (left side).
 - **A tone within 1% (or 1 Hz)**: by its fundamental frequency. **No ... above -60 dBFS**: by the level at that
   frequency. **Nothing**, in a list of tones per measure: no tone above -60 dBFS there.
 - **Nothing else above -60 dBFS**: no sample other than the named signals above 0.001.
@@ -518,8 +564,18 @@ These features change how TuxGuitar works today. They are requirements, not side
 
 Each test plugin keeps a state of 1 KB that changes with its parameters and its preset, so saving can be checked byte
 for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
-it from its own editor, as one gesture (begin edit, changes, end edit). The helper process reports its process id and
+it from its own editor, as one gesture (begin edit, changes, end edit). "Track N's plugin loading "X" as Play starts" is
+the plugin, as Play starts, telling its host it restores its state in the background (`IProgress`,
+`AsyncStateRestoration`, its description X; none without), as a plugin loading a file on a thread of its own does, until
+the scenario says it has finished. The helper process reports its process id and
 open sockets, so "runs apart" and "listens on no network port" can be checked.
+
+TuxGuitar's own plugins (built by the same native build, into `native-build/plugins`, apart from the test plugins;
+"the VST3 folders hold the test plugins and TuxGuitar's own plugins" adds that folder):
+
+| Plugin | Kind | Does | Latency | Tail |
+|---|---|---|---|---|
+| `Woodshed Guitar` | VST3 instrument | plucks a string per note, peaking at 0.5 × velocity / 127, following per-note tuning and damped at its note off; the strings summed, scaled by its parameter `Input gain` (dB, 0 by default), played through its profile, then scaled by `Output level` (dB, 0 by default); the same on both sides. Loads a profile from a path given in a message (as its editor's Load profile... does) and says it is dirty, or refuses the file saying why (what NeuralAmpModelerCore's validation says of a .nam it cannot read). A profile is loaded in the background: a thread of the plugin's own reads and checks the capture (a file, or a state's contents given back) and makes its model ready for the host's rate, so its helper goes on answering and playing; the profile it had plays on (its editor says "Loading <file>..." meanwhile), then the new one is handed to the audio thread through an atomic pointer (no lock, no allocation there) and takes over at the next block, crossfading linearly over 30 ms while the plugin sounds (its last block did; at once after a silent one); its latency is reported from that hand-over, so plugin delay compensation realigns from the next block. A render that is not live (an export, the scenarios that do not play live: the helper tells the block's process mode, protocol 6) waits for a profile being loaded, so it plays from the next block; while a profile loads it tells its host it restores its state (`IProgress`, `AsyncStateRestoration`), so live, Play waits for it (5 seconds at most, then plays its dry voice until the profile is ready); parameter `Quality` (0: Full, by default; 1: Light) chooses the light model of a slimmable capture (A2); its state holds the profile's path and contents (in TuxGuitar the contents are kept apart, stored once per song; a state that holds them, as other programs and the commits before this were given, is read too), and a state given back plays those contents whatever became of the file since (a song sounds the same each time it opens). When the file at the profile's path is there and holds other bytes, it says "The profile file has changed since it was loaded." (checked when a state is given back, a file is loaded and its editor opens), and its editor offers Update from file, which loads that file as Load profile... does. Its editor (Windows) has Load profile..., the profile's and the refusal's lines, that notice with Update from file, and a control per parameter, each move a gesture (TuxGuitar's parameter window is only for plugins without an editor); messages read what it shows and move a control as the user does | 0, or the resampling's delay for a profile made at another rate | 0 |
 
 `Old Amp` is a VST 2 plugin placed in the VST3 folders by a scenario. `Missing Amp` is no plugin at all: a scenario's
 song names it by a module that is not on this computer (as a song made where it is installed would). The NAM captures
@@ -703,6 +759,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
 
 ## Out of scope
 
+- Woodshed Guitar, checked by hand (the UAT page `nam-guitar-instrument`), not by these scenarios: how its editor looks
+  and its file dialog, the tone of a real NAM capture, how much like a guitar it sounds, and its cost in CPU with full-size
+  captures on several tracks. A NAM capture dropped on a track is `nam_captures`' (planned), not Woodshed Guitar's.
 - Failure handling: a plugin that crashes or hangs, a plugin missing on another machine, an audio device unplugged
   while recording, a song opened on a device whose sample rate differs from its takes'. One narrow exception: a VST3
   plugin that hangs goes silent for each block it does not answer in time while the other tracks keep playing on their

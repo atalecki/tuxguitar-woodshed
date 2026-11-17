@@ -68,11 +68,16 @@ public class PluginSteps {
 		return TGVst3Hosting.getInstance(world.fixture().context);
 	}
 
-	private static File nativeBuild() {
+	static File nativeBuild() {
 		return new File(System.getProperty("tg.vst3.native"));
 	}
 
-	private static File host() {
+	// the folder the native build puts TuxGuitar's own plugins in
+	static File ownPlugins() {
+		return new File(new File(nativeBuild(), "plugins"), "VST3");
+	}
+
+	static File host() {
 		File bin = new File(nativeBuild(), "bin");
 		File windows = new File(bin, "tuxguitar-vst3-host.exe");
 		return (windows.isFile() ? windows : new File(bin, "tuxguitar-vst3-host"));
@@ -81,7 +86,20 @@ public class PluginSteps {
 	// as TuxGuitar does when it starts: the VST3 folders scanned, VST3 plugins given to the synthesizer
 	@Given("the VST3 folders hold the test plugins")
 	public void theVst3FoldersHoldTheTestPlugins() throws TGVst3Exception {
-		hosting().configure(host(), Arrays.asList(new File(new File(nativeBuild(), "VST3"), "Release")));
+		hold(Arrays.asList(testPlugins()));
+	}
+
+	@Given("the VST3 folders hold the test plugins and TuxGuitar's own plugins")
+	public void theVst3FoldersHoldTheTestPluginsAndTuxGuitarsOwn() throws TGVst3Exception {
+		hold(Arrays.asList(testPlugins(), ownPlugins()));
+	}
+
+	private static File testPlugins() {
+		return new File(new File(nativeBuild(), "VST3"), "Release");
+	}
+
+	private void hold(List<File> folders) throws TGVst3Exception {
+		hosting().configure(host(), folders);
 		world.reporting().install(world.fixture().context);
 		TGVst3Processors.install(world.fixture().context);
 		this.scanned = hosting().scan();

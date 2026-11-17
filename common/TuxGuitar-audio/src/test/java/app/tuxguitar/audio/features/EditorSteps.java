@@ -26,6 +26,7 @@ import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Instance;
+import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -82,6 +83,7 @@ public class EditorSteps {
 		world.attempt(new TGOpenPluginEditorAction(world.fixture().context));
 	}
 
+	@Given("I have opened the editor of VST3 effect {int} of track {int}")
 	@When("I open the editor of VST3 effect {int} of track {int}")
 	public void openTheEditorOfAnEffect(int effect, int track) {
 		openTheEditor(effect, track);
@@ -92,6 +94,7 @@ public class EditorSteps {
 		openTheEditor(effect, track, null);
 	}
 
+	@Given("I have opened the editor of the source of track {int}")
 	@When("I open the editor of the source of track {int}")
 	public void openTheEditorOfTheSource(int track) {
 		openTheEditor(null, track);
@@ -128,6 +131,11 @@ public class EditorSteps {
 	@Then("the plugin's own editor of VST3 effect {int} of track {int} is open")
 	public void itsOwnEditorIsOpen(int effect, int track) {
 		assertTrue(editor(effect, track).isOwn());
+	}
+
+	@Then("the plugin's own editor of the source of track {int} is open")
+	public void theSourcesOwnEditorIsOpen(int track) {
+		assertTrue(live().getEditor(channel(track).getChannelId(), "source").isOwn());
 	}
 
 	@Then("the window of the plugin's own editor of VST3 effect {int} of track {int} is titled {string}")
@@ -212,6 +220,49 @@ public class EditorSteps {
 		this.beforePreset = state(effect(effect, track));
 		running(effect, track).message("TG.preset", Map.of("index", (long) PRESETS.indexOf(preset)), Collections.<String, byte[]>emptyMap());
 		live().drain();
+	}
+
+	// whether the plugin says it is dirty
+	@ParameterType("saying so|without saying so")
+	public Boolean saying(String saying) {
+		return saying.equals("saying so");
+	}
+
+	// a capture loaded in the plugin's own editor (no gesture), the plugin saying it is dirty or not; then the app drains
+	@Given("the plugin has loaded the capture {int} into VST3 effect {int} of track {int} {saying}")
+	@When("the plugin loads the capture {int} into VST3 effect {int} of track {int} {saying}")
+	public void thePluginLoadsTheCapture(int capture, int effect, int track, boolean dirty) throws TGVst3Exception {
+		running(effect, track).message("TG.load", Map.of("capture", (long) capture, "dirty", dirty ? 1L : 0L), Collections.<String, byte[]>emptyMap());
+		live().drain();
+	}
+
+	// its close box hides the window; the hide comes with a reply of the plugin's host, then the app drains
+	@When("I close the plugin's own editor of VST3 effect {int} of track {int} by its close box")
+	public void closeTheEditorByItsCloseBox(int effect, int track) throws TGVst3Exception {
+		TGVst3Instance plugin = running(effect, track);
+		plugin.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		long end = System.currentTimeMillis() + 2000;
+		while (plugin.getEditorWindow().isShown() && System.currentTimeMillis() < end) {
+			java.util.concurrent.locks.LockSupport.parkNanos(5000000);
+		}
+		live().drain();
+	}
+
+	private static int capture(TGVst3Instance plugin) throws TGVst3Exception {
+		byte[] capture = plugin.message("TG.capture", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		return java.nio.ByteBuffer.wrap(capture).order(java.nio.ByteOrder.nativeOrder()).getInt();
+	}
+
+	// of the song: the plugin opened afresh from the element
+	@Then("the capture of VST3 effect {int} of track {int} is {int}")
+	public void theCaptureIs(int effect, int track, int capture) throws TGVst3Exception {
+		TGVst3EffectProcessor processor = new TGVst3EffectProcessor(TGVst3Hosting.getInstance(world.fixture().context));
+		try {
+			processor.restoreParameters(effect(effect, track).getParameters());
+			assertEquals(capture, capture(processor.getInstance()));
+		} finally {
+			processor.close();
+		}
 	}
 
 	// the state of the plugin opened from the element

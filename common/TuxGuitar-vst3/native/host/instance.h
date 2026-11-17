@@ -15,7 +15,9 @@
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -23,9 +25,10 @@ namespace TuxGuitar {
 
 using namespace Steinberg;
 
-// what the controller told the host
+// what the controller told the host (dirty: its state changed outside any edit, a file loaded, say), or that the
+// editor's window was hidden by its close box (the editor may have changed the plugin without saying so)
 struct Notification {
-	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4 };
+	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4, kDirty = 5, kEditorHidden = 6 };
 	int32 kind;
 	int32 id;     // the parameter, or the restart flags
 	double plain; // the parameter's plain value
@@ -49,6 +52,8 @@ struct Transport {
 	int32 denominator;
 	double quarters;
 	int64 samples;
+	// rendered offline (an export): the plugin may take its time over the block
+	bool offline;
 };
 
 // the window of a plugin's own editor as the system shows it (for checks); all 0 when no editor is open
@@ -70,6 +75,19 @@ struct EditorWindow {
 // of the window owning it, TuxGuitar's UI thread, which waits for that reply
 void doEditorWindowWork();
 #endif
+
+// the integer attribute of a state's stream (IStreamAttributes) by which the host tells a plugin it keeps parts of a
+// state apart (1): the plugin may then set those parts as binary attributes of the stream, each by a name of its own,
+// and leave them out of its bytes; they come back the same way with the state
+const char* const kApart = "TuxGuitar.apart";
+
+// what a plugin saves: its component's state, its controller's (empty when the controller is the component), and the
+// parts it kept apart, by name
+struct SavedState {
+	std::vector<char> component;
+	std::vector<char> controller;
+	std::vector<std::pair<std::string, std::vector<char>>> resources;
+};
 
 struct ParameterInfo {
 	int32 id;
@@ -98,9 +116,8 @@ public:
 	void process(int32 frames, const Transport& transport, const std::vector<NoteEvent>& events);
 	double setParameter(int32 id, double plain);
 	double parameter(int32 id);
-	std::vector<char> componentState();
-	std::vector<char> controllerState();
-	void setState(const std::vector<char>& component, const std::vector<char>& controller);
+	SavedState state();
+	void setState(const SavedState& saved);
 	void reset();
 	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
 	// no window: none), its caption the title (UTF-8); false when it has none for this platform
@@ -122,6 +139,14 @@ public:
 
 	// what the controller's component handler hears
 	void notify(int32 kind, int32 id, double normalized);
+	// work the plugin does in the background (IProgress), begun (its id) and finished: whether it restores the
+	// plugin's state (a capture loaded on a thread of its own, say), and what it said it does (UTF-8, empty for nothing)
+	Vst::IProgress::ID beginProgress(bool restoration, const std::string& what);
+	void endProgress(Vst::IProgress::ID id);
+	// whether a state restoration the plugin began is under way: it does not play as its state says yet
+	bool restoring() const { return !restorations.empty(); }
+	// what the first of the restorations under way said it does, empty for none (or nothing said)
+	std::string restoringWhat() const { return (restorations.empty() ? std::string() : restorations.begin()->second); }
 
 private:
 	Instance(VST3::Hosting::Module::Ptr module, int32 maxBlock, const std::string& shared);
@@ -157,6 +182,10 @@ private:
 	Vst::ParameterChanges changes;
 	Vst::ParameterChanges outputChanges;
 	std::vector<Notification> notifications;
+	// the state restorations under way and what each said it does, by progress id (in the order begun), and the id the
+	// next progress takes
+	std::map<Vst::IProgress::ID, std::string> restorations;
+	Vst::IProgress::ID nextProgress = 1;
 	bool active = false;
 };
 

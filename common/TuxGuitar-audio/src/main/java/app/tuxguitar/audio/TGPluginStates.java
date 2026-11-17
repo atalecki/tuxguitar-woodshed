@@ -1,8 +1,10 @@
 package app.tuxguitar.audio;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import app.tuxguitar.midi.synth.TGAudioProcessor;
 import app.tuxguitar.midi.synth.TGAudioProcessorFactory;
@@ -18,12 +20,14 @@ import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Instance;
+import app.tuxguitar.vst3.TGVst3State;
 
 /**
  * Before a song is saved, each VST3 plugin of each sound chain gives its state, which the chain keeps in place of the
  * parameters set since the last one: saved with the song, it comes back byte for byte. An enabled plugin that runs (see
- * TGLivePlugins) gives the state it has as it runs; any other opens for it in a helper of its own, with what the chain
- * holds, and closes again (a disabled effect gives its state too). A channel without VST3 plugins is left as it is.
+ * TGLivePlugins: one kept open only while it follows the song's element) gives the state it has as it runs, and is the
+ * song's from then on; any other opens for it in a helper of its own, with what the chain holds, and closes again (a
+ * disabled effect gives its state too). A channel without VST3 plugins is left as it is.
  */
 final class TGPluginStates {
 
@@ -38,19 +42,24 @@ final class TGPluginStates {
 			TGChannel channel = channels.next();
 			TGProgram chain = TGSoundChain.get(channel);
 			List<TGProgramElement> plugins = plugins(chain);
+			Map<String, TGVst3Instance> gave = new HashMap<String, TGVst3Instance>();
 			for (TGProgramElement plugin : plugins) {
-				store(context, channel.getChannelId(), chain, plugin, sampleRate);
+				store(context, channel.getChannelId(), chain, plugin, sampleRate, gave);
 			}
 			if (!plugins.isEmpty()) {
 				TGSoundChain.save(channel, chain, factory);
 			}
+			gave.forEach((element, plugin) -> TGLivePlugins.getInstance(context).took(channel.getChannelId(), element, plugin));
 		}
 	}
 
-	// from the plugin as it runs when it is enabled, else (or when it is gone) from a fresh one
-	private static void store(TGContext context, int channel, TGProgram chain, TGProgramElement plugin, float sampleRate) {
+	// from the plugin as it runs when it is enabled (it gave the state, by element), else (or when it is gone) from a
+	// fresh one
+	private static void store(TGContext context, int channel, TGProgram chain, TGProgramElement plugin, float sampleRate, Map<String, TGVst3Instance> gave) {
 		TGVst3Instance running = (plugin.isEnabled() ? TGLivePlugins.getInstance(context).find(channel, plugin.getId()) : null);
-		if (running == null || !store(running, plugin)) {
+		if (running != null && store(running, plugin)) {
+			gave.put(plugin.getId(), running);
+		} else {
 			store(processor(context, plugin, chain), plugin, sampleRate);
 		}
 	}
@@ -58,7 +67,9 @@ final class TGPluginStates {
 	// false when the plugin is gone
 	private static boolean store(TGVst3Instance running, TGProgramElement plugin) {
 		try {
-			TGVst3Element.setState(plugin, running.getState());
+			TGVst3State state = running.getState();
+			TGVst3Element.setState(plugin, state);
+			running.agree(state);
 			return true;
 		} catch (TGVst3Exception e) {
 			LOG.debug("the running VST3 plugin of " + plugin.getId() + " is gone, its state is read from a fresh one: " + e.getMessage());

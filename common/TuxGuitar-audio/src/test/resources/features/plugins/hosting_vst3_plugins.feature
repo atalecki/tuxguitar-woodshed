@@ -434,3 +434,52 @@ Feature: Hosting VST3 plugins
     And the plugin has loaded its preset "Loud" for VST3 effect 1 of track 1
     When I undo
     Then the state of VST3 effect 1 of track 1 is byte for byte what it was before the preset
+
+  # A capture player (TONE3000, Gateway) loads a capture in its own editor without moving a parameter: no gesture. That
+  # the running plugin keeps it when the song is played again or another chain changes is TestLivePlugins' (the
+  # scenarios close the synthesizer's channels after each play).
+  Scenario: a capture loaded in a plugin's own editor that says it is dirty modifies the song
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have saved the song as a TuxGuitar file
+    When the plugin loads the capture 7 into VST3 effect 1 of track 1 saying so
+    Then the capture of VST3 effect 1 of track 1 is 7
+    And the song is modified
+
+  Scenario: a capture loaded in a plugin's own editor that says nothing is kept once I close the editor
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have opened the editor of VST3 effect 1 of track 1
+    And the plugin has loaded the capture 7 into VST3 effect 1 of track 1 without saying so
+    When I close the plugin's own editor of VST3 effect 1 of track 1 by its close box
+    Then the capture of VST3 effect 1 of track 1 is 7
+
+  Scenario: a capture loaded in a plugin's own editor is one undo step
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the plugin has loaded the capture 7 into VST3 effect 1 of track 1 saying so
+    When I undo
+    Then the capture of VST3 effect 1 of track 1 is 0
+
+  # A plugin still loading when Play starts
+  #
+  # Play waits for the plugins of the song's chains that restore their state in the background, 5 seconds at most from
+  # when each began (see Woodshed Guitar's scenarios). When it stops waiting while one still restores, the app shows a
+  # quiet hint naming the plugin and what it loads, as the plugin told its host when it began (the description of its
+  # IProgress), until that plugin has finished (what it loads later, Play not waiting for it, shows none). An app reads
+  # the hint as often as it likes (the desktop: in the status line at the foot of its window); here it is read at each
+  # turn of the play loop
+  Scenario: Play that stops waiting for a plugin still loading shows a hint naming it and what it loads, until it has loaded
+    Given track 1 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1, track 1's plugin loading "Big Room.wav" as Play starts, until measure 3 beat 1, then "Hall.wav" from measure 4 beat 1
+    Then until measure 3 beat 1 the app's loading hint read "Test Sine is still loading Big Room.wav", and nothing from then on
+
+  Scenario: the hint of a plugin that does not say what it loads says it loads its sound
+    Given track 1 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1, track 1's plugin loading as Play starts, until measure 3 beat 1
+    Then until measure 3 beat 1 the app's loading hint read "Test Sine is still loading its sound", and nothing from then on
+
+  Scenario: Play that waited until a plugin had loaded shows no hint, even when the plugin loads again as the song plays
+    Given track 1 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1, track 1's plugin loading "Big Room.wav" as Play starts, for 1 second, then "Hall.wav" from measure 1 beat 1
+    Then the app's loading hint read nothing while the song played

@@ -11,28 +11,15 @@ set(TG_VST3_SDK_PARTS
 	"pluginterfaces|vst3_pluginterfaces|4f547e8e102b47de4a8b8aaf343c73b700786372|ee70777eebb8450fc04fae2a6dd452f723d12bfb8222af443b8c1f8a9259089a"
 	"public.sdk|vst3_public_sdk|586dc5e6c8012c3e4b01c79389375cbe96bdb1da|71319491b771068b8e2c5374c22830a339677e9d54c4cd33af4a0aa210e4c838")
 
+include("${CMAKE_CURRENT_LIST_DIR}/fetch.cmake")
+
 function(tg_fetch_vst3_sdk_part destination part repository commit sha256)
-	set(directory "${destination}/${part}")
-	if(EXISTS "${directory}/.tg-${commit}")
-		return()
-	endif()
-	set(archive "${destination}/${repository}-${commit}.tar.gz")
-	message(STATUS "VST3 SDK: downloading ${repository} at ${commit}")
-	file(DOWNLOAD "https://github.com/steinbergmedia/${repository}/archive/${commit}.tar.gz" "${archive}"
-		EXPECTED_HASH SHA256=${sha256} STATUS status TLS_VERIFY ON)
-	list(GET status 0 code)
-	if(NOT code EQUAL 0)
-		message(FATAL_ERROR "VST3 SDK: could not download ${repository} (${status}). Set TG_VST3_SDK_DIR to a local copy.")
-	endif()
-	set(patterns "*")
+	set(patterns "")
 	if(part STREQUAL "public.sdk")
-		set(patterns "${repository}-${commit}/source/*" "${repository}-${commit}/LICENSE.txt")
+		set(patterns "source/*" "LICENSE.txt")
 	endif()
-	file(REMOVE_RECURSE "${directory}" "${destination}/${repository}-${commit}")
-	file(ARCHIVE_EXTRACT INPUT "${archive}" DESTINATION "${destination}" PATTERNS ${patterns})
-	file(RENAME "${destination}/${repository}-${commit}" "${directory}")
-	file(TOUCH "${directory}/.tg-${commit}")
-	file(REMOVE "${archive}")
+	tg_fetch_archive("${destination}/${part}" "https://github.com/steinbergmedia/${repository}/archive/${commit}.tar.gz"
+		"${repository}-${commit}" "${commit}" "${sha256}" "Set TG_VST3_SDK_DIR to a local copy." ${patterns})
 endfunction()
 
 if(NOT TG_VST3_SDK_DIR)
@@ -45,8 +32,5 @@ endif()
 
 # every part says it is MIT-licensed, which fits TuxGuitar's LGPL-2.1
 foreach(part base cmake pluginterfaces public.sdk)
-	file(STRINGS "${TG_VST3_SDK_DIR}/${part}/LICENSE.txt" TG_VST3_SDK_LICENSE LIMIT_COUNT 1)
-	if(NOT TG_VST3_SDK_LICENSE STREQUAL "MIT License")
-		message(FATAL_ERROR "VST3 SDK: ${TG_VST3_SDK_DIR}/${part}/LICENSE.txt is not the MIT License (${TG_VST3_SDK_LICENSE})")
-	endif()
+	tg_check_licence("${TG_VST3_SDK_DIR}/${part}/LICENSE.txt" "MIT License")
 endforeach()

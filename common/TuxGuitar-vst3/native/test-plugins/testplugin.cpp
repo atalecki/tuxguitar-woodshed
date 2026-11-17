@@ -3,6 +3,7 @@
 #include "pluginterfaces/base/ibstream.h"
 #include "public.sdk/source/common/pluginview.h"
 #include "public.sdk/source/main/pluginfactory.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
@@ -332,7 +333,8 @@ double TestPlugin::value(ParamID id) const {
 	return (index >= 0 ? values[index] : 0.0);
 }
 
-// the state: "TGTP", the preset, each parameter's plain value, then zeros up to 1 KB
+// the state: "TGTP", the preset, each parameter's plain value, then zeros up to 1 KB but for the capture, in the last 4
+// bytes
 tresult PLUGIN_API TestPlugin::getState(IBStream* state) {
 	char bytes[kStateBytes] = {0};
 	std::memcpy(bytes, "TGTP", 4);
@@ -340,6 +342,7 @@ tresult PLUGIN_API TestPlugin::getState(IBStream* state) {
 	for (size_t i = 0; i < values.size(); i++) {
 		std::memcpy(bytes + 8 + i * sizeof(double), &values[i], sizeof(double));
 	}
+	std::memcpy(bytes + kStateBytes - sizeof(int32), &capture, sizeof(int32));
 	int32 written = 0;
 	return state->write(bytes, kStateBytes, &written);
 }
@@ -351,6 +354,7 @@ tresult PLUGIN_API TestPlugin::setState(IBStream* state) {
 		return kResultFalse;
 	}
 	std::memcpy(&preset, bytes + 4, sizeof(int32));
+	std::memcpy(&capture, bytes + kStateBytes - sizeof(int32), sizeof(int32));
 	for (size_t i = 0; i < values.size(); i++) {
 		std::memcpy(&values[i], bytes + 8 + i * sizeof(double), sizeof(double));
 		ParamID id = spec.params[i].id;
@@ -393,7 +397,7 @@ tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
 }
 
 // "TG.resize": the view asks its host for that "width" and "height"; "TG.drag-to": the user drags the window's border
-// until its inside is that "width" and "height" (kNotImplemented for others)
+// until its inside is that "width" and "height"; else restoringMessage
 tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 	int64 width = 0;
 	int64 height = 0;
@@ -407,13 +411,53 @@ tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 		dragTo(view.window, width, height);
 		return kResultOk;
 	}
-	return kNotImplemented;
+	return restoringMessage(id, attributes);
+}
+
+// "TG.restoring": with "underway" 1 the plugin tells its host it restores its state in the background (IProgress), as a
+// plugin loading a file on a thread of its own does, saying it does its binary "what" (UTF-8) when there is one (nothing said without), and
+// with 0 that it has finished; "TG.background" the same of a task its editor started that restores nothing; refused by
+// a host that hears no progress (kNotImplemented for other messages)
+tresult TestPlugin::restoringMessage(FIDString id, IAttributeList* attributes) {
+	bool restoring = (std::strcmp(id, "TG.restoring") == 0);
+	if (!restoring && std::strcmp(id, "TG.background") != 0) {
+		return kNotImplemented;
+	}
+	int64 underway = 0;
+	attributes->getInt("underway", underway);
+	std::u16string what = whatOf(attributes);
+	FUnknownPtr<IProgress> progress(componentHandler);
+	return (progress ? tellProgress(progress, restoring, underway == 1, what.empty() ? nullptr : what.c_str()) : kResultFalse);
+}
+
+// the message's binary "what" (UTF-8), empty when there is none
+std::u16string TestPlugin::whatOf(IAttributeList* attributes) {
+	const void* data = nullptr;
+	uint32 size = 0;
+	if (attributes->getBinary("what", data, size) != kResultTrue) {
+		return std::u16string();
+	}
+	return StringConvert::convert(std::string(static_cast<const char*>(data), size));
+}
+
+// the restoration or the editor's task begun, saying what it does (nullptr for nothing), or finished, once
+tresult TestPlugin::tellProgress(IProgress* progress, bool restoring, bool underway, const char16_t* what) {
+	IProgress::ID& task = (restoring ? restoration : background);
+	if (underway && task == 0) {
+		progress->start(restoring ? IProgress::AsyncStateRestoration : IProgress::UIBackgroundTask, reinterpret_cast<const tchar*>(what), task);
+	} else if (!underway && task != 0) {
+		progress->finish(task);
+		task = 0;
+	}
+	return kResultOk;
 }
 
 // the test messages play the plugin's own editor: "TG.gesture" moves a parameter through values in one gesture,
 // "TG.gesture-later" does it at the plugin's next call from its host (a process, or a parameter read), as an editor
-// does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.report" answers with what
-// the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
+// does on its own window's thread between the host's calls; "TG.preset" chooses a preset; "TG.load" loads the
+// "capture" (an integer kept in the state, no parameter, no edit begun or ended), saying the plugin is dirty when "dirty"
+// is 1, as a capture player loading a file may or may not; "TG.capture" answers the capture (4 bytes); "TG.report"
+// answers with what the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
 // "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
 // "window" of another thread to answer a message, and "TG.in-modal" answers three bytes: 1 while it does (0 else), 1 once
 // a plugin of the module or an editor's view went while it did, and how many plugins of the module are alive; and
@@ -455,6 +499,17 @@ tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 		attributes->getInt("index", index);
 		choosePreset((int32) index);
 		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.load") == 0) {
+		int64 loaded = 0;
+		int64 dirty = 0;
+		attributes->getInt("capture", loaded);
+		attributes->getInt("dirty", dirty);
+		load(loaded, dirty == 1);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.capture") == 0) {
+		return attributes->setBinary("report", &capture, sizeof(int32));
 	}
 	if (std::strcmp(id, "TG.crash") == 0) {
 		std::fputs("Test plugin: crashing as asked\n", stderr);
@@ -505,6 +560,15 @@ void TestPlugin::gesture(ParamID id, const std::vector<double>& plain) {
 		edit(id, value);
 	}
 	endEdit(id);
+}
+
+// as a capture player's editor loads a file: the state changes, no parameter does; dirty, the host is told so
+void TestPlugin::load(int64 loaded, bool dirty) {
+	capture = (int32) loaded;
+	FUnknownPtr<IComponentHandler2> handler(componentHandler);
+	if (dirty && handler) {
+		handler->setDirty(true);
+	}
 }
 
 // as the editor's preset menu does it: the preset and every parameter it sets, in one gesture
