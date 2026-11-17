@@ -143,9 +143,12 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return this.running.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(Map.Entry::getValue).collect(Collectors.toList());
 	}
 
-	// the plugin of the element as it runs, or the one kept open for it; null when neither is (none is opened)
+	// the plugin of the element as it runs, or the one kept open for it while it follows the song's element (it was
+	// opened from what the element holds, or the element took its state since); null when neither is (none is opened)
 	public synchronized TGVst3Instance find(int channel, String element) {
-		return this.current(key(channel, element));
+		Kept kept = this.kept.get(key(channel, element));
+		boolean follows = (kept != null && kept.follows(TGSoundChain.element(this.chain(channel), element)));
+		return this.running.getOrDefault(key(channel, element), (follows ? kept.instance : null));
 	}
 
 	private TGVst3Instance current(String key) {
@@ -158,7 +161,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		TGProgram chain = this.chain(channel);
 		TGProgramElement song = TGSoundChain.element(chain, element);
 		Kept kept = this.kept.get(key(channel, element));
-		if (kept == null || !kept.parameters.equals(song.getParameters())) {
+		if (kept == null || !kept.follows(song)) {
 			this.close(kept);
 			kept = this.open(channel, chain, song);
 			this.kept.put(key(channel, element), kept);
@@ -256,11 +259,12 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_STATE, state);
 		TGActionManager.getInstance(this.context).execute(TGSetPluginStateAction.NAME, change);
 		instance.agree(state);
-		this.kept(channel, element, instance);
+		this.took(channel, element, instance);
 	}
 
-	// the plugin kept for the element did the change the song's element now holds: it is not opened again for it
-	private synchronized void kept(int channel, String element, TGVst3Instance instance) {
+	// the plugin kept for the element did the change the song's element now holds, or gave the state it holds: it is not
+	// opened again for it
+	synchronized void took(int channel, String element, TGVst3Instance instance) {
 		Kept kept = this.kept.get(key(channel, element));
 		if (kept != null && kept.instance == instance) {
 			this.kept.put(key(channel, element), new Kept(kept.processor, instance, TGSoundChain.element(this.chain(channel), element).getParameters()));
@@ -356,6 +360,11 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			this.processor = processor;
 			this.instance = instance;
 			this.parameters = new HashMap<String, String>(parameters);
+		}
+
+		// whether it holds what the song's element holds: opened from it, or the element took its state since
+		boolean follows(TGProgramElement element) {
+			return this.parameters.equals(element.getParameters());
 		}
 	}
 

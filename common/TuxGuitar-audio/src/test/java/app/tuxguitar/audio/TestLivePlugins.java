@@ -473,6 +473,30 @@ public class TestLivePlugins {
 		assertEquals("4.0 4.0", enabled + " " + songGain("effect-1"));
 	}
 
+	// a kept plugin changed without telling (its editor said nothing) gives the song its state, and is the song's after
+	// saving: it is not opened again for the element it gave
+	@Test
+	public void savingTakesAKeptPluginsStateAndKeepsItForTheSong() throws Exception {
+		TGVst3Instance first = gain("effect-1");
+		first.setParameter(1, 4.0);
+		TGPluginStates.store(this.fixture.context, this.fixture.song, this.fixture.songManager.getFactory(), 44100f);
+		assertEquals("4.0 | 4.0 kept", songGain("effect-1") + " | " + read(first));
+	}
+
+	// a kept plugin the song's element no longer follows (a parameter set through TuxGuitar since) does not give the song
+	// its state: the song's element is saved as it is
+	@Test
+	public void savingLeavesTheSongsElementAsItIsWhenItsKeptPluginNoLongerFollowsIt() throws Exception {
+		gesture(gain("effect-1"), 3.0);
+		this.live.drain();
+		this.fixture.actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, 1);
+		this.fixture.actionContext.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, 1);
+		this.fixture.actionContext.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_VALUE, 5.0);
+		this.fixture.execute(new TGSetPluginParameterAction(this.fixture.context));
+		TGPluginStates.store(this.fixture.context, this.fixture.song, this.fixture.songManager.getFactory(), 44100f);
+		assertEquals(5.0, songGain("effect-1"));
+	}
+
 	// its host process gone (crashed), the plugin is opened afresh from the song: the chain keeps a state, not parameters
 	@Test
 	public void savingOpensAfreshAPluginWhoseRunningOneIsGone() throws Exception {
