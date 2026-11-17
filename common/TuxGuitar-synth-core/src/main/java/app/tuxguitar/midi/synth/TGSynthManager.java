@@ -1,15 +1,21 @@
 package app.tuxguitar.midi.synth;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import app.tuxguitar.midi.synth.impl.ClickProcessorFactory;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.singleton.TGSingletonFactory;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 public class TGSynthManager {
+
+	// the sources built into the synthesizer, whatever plugins are installed: found by type first, but not among the
+	// supported types a track can choose (the built-in click is no instrument)
+	private static final List<TGMidiProcessorFactory> BUILT_IN = Collections.singletonList(new ClickProcessorFactory());
 
 	private Map<Class<?>, Object> extensions;
 
@@ -39,7 +45,8 @@ public class TGSynthManager {
 	}
 
 	public TGMidiProcessorFactory findMidiProcessorFactory(String type) {
-		return find(this.getExtensions(TGMidiProcessorFactory.class), type);
+		TGMidiProcessorFactory builtIn = find(BUILT_IN, type);
+		return (builtIn != null ? builtIn : find(this.getExtensions(TGMidiProcessorFactory.class), type));
 	}
 
 	public TGAudioProcessorFactory findAudioProcessorFactory(String type) {

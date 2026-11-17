@@ -6,7 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
+import app.tuxguitar.midi.synth.impl.ClickProcessorFactory;
 import app.tuxguitar.player.base.MidiChannel;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiReceiver;
@@ -59,8 +59,8 @@ public class TGSynthModel implements MidiSynthesizer, MidiSampleClock{
 		}
 	}
 
-	// the channel DRUMS is the synthesizer's own drums: Gervill's General MIDI drum kit (bank 128, program 0), outside
-	// every sound chain
+	// the channel DRUMS is the synthesizer's own drums, where Count In and the Metronome click: the built-in click (see
+	// ClickProcessor), outside every sound chain
 	public MidiChannel openChannel(int channelId) throws MidiPlayerException{
 		TGSynthChannel tgChannel = new TGSynthChannel(this, channelId);
 		if( channelId == DRUMS ) {
@@ -77,12 +77,11 @@ public class TGSynthModel implements MidiSynthesizer, MidiSampleClock{
 	}
 
 	private static TGProgram drums() {
-		TGProgramElement kit = new TGProgramElement();
-		kit.setId("drums");
-		kit.setType(GervillProcessorFactory.TYPE);
-		kit.setParameter("gervil.program", "128:0");
+		TGProgramElement click = new TGProgramElement();
+		click.setId("drums");
+		click.setType(ClickProcessorFactory.TYPE);
 		TGProgram drums = new TGProgram();
-		drums.setReceiver(kit);
+		drums.setReceiver(click);
 		return drums;
 	}
 
