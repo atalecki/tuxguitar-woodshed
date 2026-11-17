@@ -9,18 +9,22 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import app.tuxguitar.util.log.TGLog;
 
 /**
  * A plugin open in the VST3 host process: it processes blocks of up to the maximum block agreed when it opened, keeps
- * the latency and tail it last reported, and hands what it tells its host (edits from its own editor, restarts) to its
- * listener. Its parameters are set and read by plain value.
+ * the latency and tail it last reported, and whether it restores its state in the background, and hands what it tells
+ * its host (edits from its own editor, restarts) to its listener. Its parameters are set and read by plain value.
  */
 public final class TGVst3Instance implements AutoCloseable {
 
 	// a tail that never ends (a drone, say)
 	public static final int INFINITE_TAIL = -1;
+	// how long a state restoration in the background is waited for at most, in milliseconds from when it was first
+	// heard: a plugin that never says it has finished is not waited for forever
+	public static final long RESTORING_WAIT = 5000;
 	// the flag of a parameter that chooses the plugin's presets (Vst::ParameterInfo::kIsProgramChange)
 	private static final int PROGRAM_CHANGE = 1 << 15;
 
@@ -41,6 +45,8 @@ public final class TGVst3Instance implements AutoCloseable {
 	// set by the reader thread of the host when a late reply comes
 	private volatile int latency;
 	private volatile int tail;
+	// when it was first heard restoring its state in the background (System.nanoTime), null while it is not
+	private volatile Long restoringSince;
 	private TGVst3Listener listener;
 	// the state and the parameters set since that the song and the plugin last agreed on (the song gave them, or took the
 	// state), null before any
@@ -76,7 +82,13 @@ public final class TGVst3Instance implements AutoCloseable {
 	private Void readTiming(DataInputStream in) throws IOException {
 		this.latency = in.readInt();
 		this.tail = in.readInt();
+		this.heardRestoring(in.readInt() == 1);
 		return null;
+	}
+
+	private void heardRestoring(boolean restoring) {
+		Long since = this.restoringSince;
+		this.restoringSince = (!restoring ? null : (since != null ? since : Long.valueOf(System.nanoTime())));
 	}
 
 	private TGVst3Request request(int operation) {
@@ -124,6 +136,28 @@ public final class TGVst3Instance implements AutoCloseable {
 	// in samples, or INFINITE_TAIL, as last reported
 	public int getTail() {
 		return this.tail;
+	}
+
+	// whether it restores its state in the background (a capture loading on a thread of its own: it does not play as its
+	// state says yet), as it told its host (IProgress), for RESTORING_WAIT at most. Its host is asked only while it was
+	// last heard restoring; a host that stopped has nothing to wait for. Any thread may ask
+	public boolean isRestoring() {
+		return this.isRestoring(RESTORING_WAIT);
+	}
+
+	// for the milliseconds at most
+	boolean isRestoring(long wait) {
+		Long since = this.restoringSince;
+		if (since == null || System.nanoTime() - since >= TimeUnit.MILLISECONDS.toNanos(wait)) {
+			return false;
+		}
+		try {
+			this.host.call(this.request(TGVst3Protocol.TIMING), this::readTiming);
+		} catch (TGVst3Exception e) {
+			LOG.debug(this.label + ": not asked whether it still restores its state, its host is gone: " + e.getMessage());
+			return false;
+		}
+		return (this.restoringSince != null);
 	}
 
 	// live: the first frames of the block's two sides go through the plugin, in place, with the events on their samples;

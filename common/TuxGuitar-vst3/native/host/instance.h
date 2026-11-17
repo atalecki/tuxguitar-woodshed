@@ -16,6 +16,7 @@
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -137,6 +138,12 @@ public:
 
 	// what the controller's component handler hears
 	void notify(int32 kind, int32 id, double normalized);
+	// work the plugin does in the background (IProgress), begun (its id) and finished: whether it restores the
+	// plugin's state (a capture loaded on a thread of its own, say)
+	Vst::IProgress::ID beginProgress(bool restoration);
+	void endProgress(Vst::IProgress::ID id);
+	// whether a state restoration the plugin began is under way: it does not play as its state says yet
+	bool restoring() const { return !restorations.empty(); }
 
 private:
 	Instance(VST3::Hosting::Module::Ptr module, int32 maxBlock, const std::string& shared);
@@ -172,6 +179,9 @@ private:
 	Vst::ParameterChanges changes;
 	Vst::ParameterChanges outputChanges;
 	std::vector<Notification> notifications;
+	// the state restorations under way, by progress id, and the id the next progress takes
+	std::set<Vst::IProgress::ID> restorations;
+	Vst::IProgress::ID nextProgress = 1;
 	bool active = false;
 };
 

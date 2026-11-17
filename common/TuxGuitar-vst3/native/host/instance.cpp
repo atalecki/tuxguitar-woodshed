@@ -22,9 +22,10 @@ using namespace Steinberg::Vst;
 
 namespace {
 
-// what the controller tells the host goes to the instance: its edits, restarts, and that its state changed outside an
-// edit (dirty); it has no editor TuxGuitar opens on request, and group edits are heard as their edits
-class Handler : public U::Implements<U::Directly<IComponentHandler, IComponentHandler2>> {
+// what the controller tells the host goes to the instance: its edits, restarts, that its state changed outside an
+// edit (dirty), and the work it does in the background (IProgress: a state restored on a thread of its own, say); it has
+// no editor TuxGuitar opens on request, and group edits are heard as their edits
+class Handler : public U::Implements<U::Directly<IComponentHandler, IComponentHandler2, IProgress>> {
 public:
 	explicit Handler(Instance* instance) : instance(instance) {}
 
@@ -37,6 +38,16 @@ public:
 	tresult PLUGIN_API requestOpenEditor(FIDString) override { return kNotImplemented; }
 	tresult PLUGIN_API startGroupEdit() override { return kResultOk; }
 	tresult PLUGIN_API finishGroupEdit() override { return kResultOk; }
+
+	tresult PLUGIN_API start(ProgressType type, const tchar*, ID& outID) override {
+		outID = instance->beginProgress(type == AsyncStateRestoration);
+		return kResultOk;
+	}
+	tresult PLUGIN_API update(ID, ParamValue) override { return kResultOk; }
+	tresult PLUGIN_API finish(ID id) override {
+		instance->endProgress(id);
+		return kResultOk;
+	}
 
 private:
 	tresult tell(int32 kind, int32 id, double normalized) {
@@ -763,6 +774,18 @@ void Instance::notify(int32 kind, int32 id, double normalized) {
 			queue->addPoint(0, normalized, index);
 		}
 	}
+}
+
+IProgress::ID Instance::beginProgress(bool restoration) {
+	IProgress::ID id = nextProgress++;
+	if (restoration) {
+		restorations.insert(id);
+	}
+	return id;
+}
+
+void Instance::endProgress(IProgress::ID id) {
+	restorations.erase(id);
 }
 
 std::vector<Notification> Instance::takeNotifications() {

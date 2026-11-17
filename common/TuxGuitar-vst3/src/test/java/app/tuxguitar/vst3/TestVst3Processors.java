@@ -488,6 +488,18 @@ public class TestVst3Processors {
 		return ProcessHandle.current().children().filter(process -> process.info().command().orElse("").contains("tuxguitar-vst3-host")).count();
 	}
 
+	// a processor is busy while its plugin restores its state in the background (Play waits for it)
+	@Test
+	public void aProcessorIsBusyWhileItsPluginRestoresItsStateInTheBackground() throws TGVst3Exception {
+		TGAudioProcessor processor = effect(element("Test Gain"));
+		TGVst3Instance plugin = ((TGVst3PluginProcessor) processor).getInstance();
+		boolean before = processor.isBusy();
+		plugin.message("TG.restoring", Collections.singletonMap("underway", 1L), Collections.<String, byte[]>emptyMap());
+		boolean during = processor.isBusy();
+		plugin.message("TG.restoring", Collections.singletonMap("underway", 0L), Collections.<String, byte[]>emptyMap());
+		assertEquals("false true false", before + " " + during + " " + processor.isBusy());
+	}
+
 	@Test
 	public void anElementWithoutAPluginSoundsNothing() {
 		TGProgramElement empty = new TGProgramElement();

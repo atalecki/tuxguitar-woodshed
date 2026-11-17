@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 6;
+const int32_t kProtocolVersion = 7;
 
 enum Operation {
 	kHello = 1,
@@ -43,6 +43,7 @@ enum Operation {
 	kCloseEditor = 13,
 	kMessage = 14,
 	kEditorWindow = 15,
+	kTiming = 16,
 };
 
 struct Failure {
@@ -175,26 +176,26 @@ private:
 		writeNotifications();
 	}
 
+	// each operation reads its fields and writes its reply's
 	void dispatch(int32_t operation) {
-		switch (operation) {
-			case kHello: return hello();
-			case kScan: return scan();
-			case kOpen: return open();
-			case kClose: return close();
-			case kProcess: return process();
-			case kSetParameter: return setParameter();
-			case kGetParameter: return getParameter();
-			case kGetState: return getState();
-			case kSetState: return setState();
-			case kReset: return instance().reset();
-			case kListeners: return wire.writeInt(networkListeners(wire.readLong()));
-			case kOpenEditor: return openEditor();
-			case kCloseEditor: return closeEditor();
-			case kMessage: return message();
-			case kEditorWindow: return editorWindow();
-			default: throw Failure{"unknown operation " + std::to_string(operation)};
+		static const std::map<int32_t, void (Host::*)()> operations = {
+			{kHello, &Host::hello}, {kScan, &Host::scan}, {kOpen, &Host::open}, {kClose, &Host::close}, {kProcess, &Host::process},
+			{kSetParameter, &Host::setParameter}, {kGetParameter, &Host::getParameter}, {kGetState, &Host::getState},
+			{kSetState, &Host::setState}, {kReset, &Host::reset}, {kListeners, &Host::listeners}, {kOpenEditor, &Host::openEditor},
+			{kCloseEditor, &Host::closeEditor}, {kMessage, &Host::message}, {kEditorWindow, &Host::editorWindow}, {kTiming, &Host::timing},
+		};
+		auto found = operations.find(operation);
+		if (found == operations.end()) {
+			throw Failure{"unknown operation " + std::to_string(operation)};
 		}
+		(this->*(found->second))();
 	}
+
+	void reset() { instance().reset(); }
+
+	void listeners() { wire.writeInt(networkListeners(wire.readLong())); }
+
+	void timing() { writeTiming(instance()); }
 
 	void hello() {
 		wire.writeInt(kProtocolVersion);
@@ -271,9 +272,11 @@ private:
 		}
 	}
 
+	// its latency, its tail, and whether it restores its state in the background (1, else 0)
 	void writeTiming(Instance& timed) {
 		wire.writeInt(timed.latency());
 		wire.writeInt(timed.tail());
+		wire.writeInt(timed.restoring() ? 1 : 0);
 	}
 
 	Instance& instance() { return instance(wire.readInt()); }

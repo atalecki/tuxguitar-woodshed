@@ -272,8 +272,10 @@ public class GuitarSteps {
 		assertEquals(notice, status(running(track))[2]);
 	}
 
+	// once it has loaded what it was given (a capture it is given back is read on a thread of its own)
 	@Then("Woodshed Guitar of track {int} refuses it, saying something starting {string}")
 	public void refusesIt(int track, String refusal) throws TGVst3Exception {
+		awaitLoaded(running(track));
 		String said = status(running(track))[1];
 		assertTrue(said.startsWith(refusal), said);
 	}

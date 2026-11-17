@@ -81,6 +81,8 @@ private:
 	tresult editorMessage(FIDString id, IAttributeList* attributes);
 	void applyChanges(IParameterChanges* changes);
 	void post(Job job);
+	void beginRestoring();
+	void endRestoring();
 	void finish();
 	void apply(const Loaded& loaded);
 	void applyLoad(const Loaded& loaded);
@@ -108,6 +110,10 @@ private:
 	// the capture being loaded, and the number of its job
 	std::string loadingName;
 	uint64_t loadingNumber = 0;
+	// while a profile loads, the host is told a state restoration is under way (IProgress), by this id: the plugin does
+	// not play as its state says until it has loaded, which a host may wait for (TuxGuitar's Play does)
+	bool restoring = false;
+	IProgress::ID restoration = 0;
 	uint32 reportedLatency = 0;
 	GuitarView* view = nullptr;
 };

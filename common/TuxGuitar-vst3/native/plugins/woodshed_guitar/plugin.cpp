@@ -210,11 +210,28 @@ void GuitarPlugin::play(const Event& event) {
 	}
 }
 
-// the job's capture is being loaded, the editor says so
+// the job's capture is being loaded, the editor says so, and the host is told
 void GuitarPlugin::post(Job job) {
 	loadingName = (job.path.empty() ? std::string() : fileName(job.path));
 	loadingNumber = loader->post(std::move(job));
+	beginRestoring();
 	refreshEditor();
+}
+
+// once for all the loads under way: a host that hears no progress is not told
+void GuitarPlugin::beginRestoring() {
+	FUnknownPtr<IProgress> progress(componentHandler);
+	if (!restoring && progress) {
+		restoring = (progress->start(IProgress::AsyncStateRestoration, nullptr, restoration) == kResultOk);
+	}
+}
+
+void GuitarPlugin::endRestoring() {
+	FUnknownPtr<IProgress> progress(componentHandler);
+	if (restoring && progress) {
+		progress->finish(restoration);
+	}
+	restoring = false;
 }
 
 void GuitarPlugin::loadProfile(const std::string& path) {
@@ -230,6 +247,7 @@ void GuitarPlugin::finish() {
 	while (loader && loader->take(loaded)) {
 		if (loaded.job.number == loadingNumber) {
 			loadingName.clear();
+			endRestoring();
 		}
 		apply(loaded);
 		refreshEditor();

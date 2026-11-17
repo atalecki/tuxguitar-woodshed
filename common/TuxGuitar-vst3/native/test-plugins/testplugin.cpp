@@ -396,7 +396,7 @@ tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
 }
 
 // "TG.resize": the view asks its host for that "width" and "height"; "TG.drag-to": the user drags the window's border
-// until its inside is that "width" and "height" (kNotImplemented for others)
+// until its inside is that "width" and "height"; else restoringMessage
 tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 	int64 width = 0;
 	int64 height = 0;
@@ -410,7 +410,34 @@ tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 		dragTo(view.window, width, height);
 		return kResultOk;
 	}
-	return kNotImplemented;
+	return restoringMessage(id, attributes);
+}
+
+// "TG.restoring": with "underway" 1 the plugin tells its host it restores its state in the background (IProgress), as a
+// plugin loading a file on a thread of its own does, and with 0 that it has finished; "TG.background" the same of a task
+// its editor started that restores nothing; refused by a host that hears no progress (kNotImplemented for other
+// messages)
+tresult TestPlugin::restoringMessage(FIDString id, IAttributeList* attributes) {
+	bool restoring = (std::strcmp(id, "TG.restoring") == 0);
+	if (!restoring && std::strcmp(id, "TG.background") != 0) {
+		return kNotImplemented;
+	}
+	int64 underway = 0;
+	attributes->getInt("underway", underway);
+	FUnknownPtr<IProgress> progress(componentHandler);
+	return (progress ? tellProgress(progress, restoring, underway == 1) : kResultFalse);
+}
+
+// the restoration or the editor's task begun, or finished, once
+tresult TestPlugin::tellProgress(IProgress* progress, bool restoring, bool underway) {
+	IProgress::ID& task = (restoring ? restoration : background);
+	if (underway && task == 0) {
+		progress->start(restoring ? IProgress::AsyncStateRestoration : IProgress::UIBackgroundTask, nullptr, task);
+	} else if (!underway && task != 0) {
+		progress->finish(task);
+		task = 0;
+	}
+	return kResultOk;
 }
 
 // the test messages play the plugin's own editor: "TG.gesture" moves a parameter through values in one gesture,

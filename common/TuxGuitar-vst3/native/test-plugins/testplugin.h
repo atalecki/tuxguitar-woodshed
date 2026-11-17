@@ -108,6 +108,8 @@ private:
 	static std::vector<double> doubles(IAttributeList* attributes);
 	tresult viewMessage(FIDString id, IAttributeList* attributes);
 	tresult sizeMessage(FIDString id, IAttributeList* attributes);
+	tresult restoringMessage(FIDString id, IAttributeList* attributes);
+	tresult tellProgress(IProgress* progress, bool restoring, bool underway);
 	void choosePreset(int32 preset);
 	void edit(ParamID id, double plain);
 	void load(int64 capture, bool dirty);
@@ -123,6 +125,9 @@ private:
 	std::vector<double> later;
 	// its editor's view, as the test messages read and play it
 	ViewState view;
+	// the state restoration and the editor's task it told its host of (IProgress) and has not finished, 0 for none
+	IProgress::ID restoration = 0;
+	IProgress::ID background = 0;
 };
 
 }  // namespace TuxGuitar
