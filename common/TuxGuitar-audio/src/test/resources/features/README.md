@@ -108,7 +108,7 @@ startup and drains gestures every 50 ms;
 Tools > Record and Audio Track Settings... grey when they cannot apply (a core enabled check on custom tools). Its
 parameter window (a slider per parameter, for a plugin without its own editor) follows that editor: it shows the
 values again after an undo or redo, and closes once the plugin no longer runs. Count In
-and the Metronome click the built-in click outside every sound chain (planned: until then General MIDI drums):
+and the Metronome click the built-in click outside every sound chain (synth-core's `ClickProcessor`):
 offline (`TGMetronome`, `TGDrumTap`), and live on the TuxGuitar Synthesizer's own drums (the channel
 `MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by plugin delay compensation like the
 tracks), whether or not the song has a percussion channel; with another MIDI Port the Metronome is still the

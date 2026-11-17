@@ -222,7 +222,6 @@ Feature: Recording line-in audio
 
   # on the TuxGuitar Synthesizer the click sound's drum note is not heard (another MIDI Port plays it): its velocity
   # sets the built-in click's level
-  @planned
   Scenario: Count In sounds the built-in click at the velocity of the click sound I have set
     Given I have set the click sound to drum note 42 at velocity 127
     And I have turned Count In on

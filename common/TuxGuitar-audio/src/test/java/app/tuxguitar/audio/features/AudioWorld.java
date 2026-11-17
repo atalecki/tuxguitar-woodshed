@@ -318,12 +318,12 @@ public class AudioWorld {
 		this.device.setChainDelay(this.chainDelay());
 	}
 
-	// plugin delay compensation as the README defines it: the slowest sound chain, the General MIDI drums' (Gervill's
-	// latency) at least, a muted track's too. Of the test plugins, Test Latency and Test Click delay by their one
-	// parameter, Latency; a disabled effect does not count
+	// plugin delay compensation as the README defines it: the slowest sound chain (a General MIDI source's is Gervill's
+	// latency), a muted track's too; the built-in click (Count In, the Metronome) adds none. Of the test plugins, Test
+	// Latency and Test Click delay by their one parameter, Latency; a disabled effect does not count
 	int chainDelay() {
 		int gervill = GervillProcessor.latency(this.device.getSampleRate());
-		int delay = gervill;
+		int delay = 0;
 		Iterator<TGTrack> tracks = song().getTracks();
 		while (tracks.hasNext()) {
 			TGProgram chain = TGSoundChain.get(channel(tracks.next()));

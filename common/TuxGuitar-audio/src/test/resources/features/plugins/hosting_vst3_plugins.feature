@@ -43,7 +43,6 @@ Feature: Hosting VST3 plugins
     Then "Test Gain" runs in a process other than TuxGuitar's
     And neither TuxGuitar nor the plugin process listens on a network port
 
-  @planned
   Scenario: a VST3 effect that hangs goes silent while the other tracks keep playing on their beats
     Given track 1 has a quarter note on every beat
     And I have chosen the VST3 instrument "Test Click" for track 1

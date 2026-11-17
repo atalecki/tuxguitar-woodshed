@@ -83,7 +83,6 @@ Feature: Keeping audio in sync
 
   # the built-in click delays nothing: without a delaying plugin, the tracks are not delayed for the Count In or the
   # Metronome
-  @planned
   Scenario: the Count In and the Metronome add no latency
     Given I have turned Count In on
     And I have turned the Metronome on
@@ -247,12 +246,24 @@ Feature: Keeping audio in sync
     And on every beat the left and right clicks reach the output within 1 sample of each other
 
   # live, each pass starts on the sample the last one ends on: the notes keep the beat across each jump back, and the
-  # take with them
+  # take with them. 600 samples of plugin delay compensation here, as the General MIDI drums gave before the built-in
+  # click (with none, see the pinned scenario below)
   Scenario: live, with Play looped on, the passes join on the sample
     Given I have turned Play looped on over measures 2 to 3
+    And I have added the VST3 effect "Test Latency" to track 1
+    And I have set "Latency" of VST3 effect 1 of track 1 to 600
     When I play the song live from measure 2 beat 1 for 3 passes
     Then the output's left side holds 24 clicks, one every 22050 samples within 1 sample
     And the output's right side holds 24 clicks, each within 1 samples of a click on its left side
+
+  # Pinned, odd (reported, not fixed): live, the take sounds on past the end of the last pass to the end of the block
+  # the song stops in, unless plugin delay compensation (none here) holds it back, so the right side holds the take's
+  # click of the beat after the last pass (at sample 529200); the notes on the left stop with the song
+  Scenario: live, with Play looped on and nothing delaying, the take sounds the beat after the last pass (pinned)
+    Given I have turned Play looped on over measures 2 to 3
+    When I play the song live from measure 2 beat 1 for 3 passes
+    Then the output's left side holds 24 clicks, one every 22050 samples within 1 sample
+    And the output's right side holds 25 clicks, one every 22050 samples within 1 sample
 
   # live, as offline, nothing drops out at the jump back, though the takes play late by the plugin delay compensation
   # (track 1's 600 samples here): the audio before the jump fades out over 256 samples (the second half of the fade
