@@ -390,8 +390,8 @@
 						<phase>package</phase>
 						<configuration>
 							<target name="copy-files">
-								<!-- the native audio backend (PortAudio with ASIO: GPLv3, see AUDIO-NOTICE.txt) and the VST3 host
-									process, built with MSVC (native/build.cmd finds Visual Studio) and copied next to the other
+								<!-- the native audio backend (PortAudio with ASIO: GPLv3, see AUDIO-NOTICE.txt), the VST3 host
+									process and TuxGuitar's own VST3 plugins, built with MSVC (native/build.cmd finds Visual Studio) and copied next to the other
 									native libraries; their build folders stay out of git -->
 								<exec executable="cmd" failonerror="true">
 									<arg value="/c" />
@@ -405,6 +405,15 @@
 									<fileset file="${project.rootPath}/../common/TuxGuitar-audio-device/native-build/lib/tuxguitar-audio-device.dll" />
 									<fileset file="${project.rootPath}/../common/TuxGuitar-vst3/native-build/bin/tuxguitar-vst3-host.exe" />
 								</copy>
+								<!-- TuxGuitar's own VST3 plugins (Woodshed Guitar), in its own plugins folder vst3, which it scans after the
+									system's VST3 folders; with the licence of Eigen (MPL 2.0) that the plugin is built with, see
+									WOODSHED-GUITAR-NOTICE.txt -->
+								<copy todir="${project.build.directory}/${project.finalName}/vst3" overwrite="true">
+									<fileset dir="${project.rootPath}/../common/TuxGuitar-vst3/native-build/plugins/VST3">
+										<include name="Woodshed Guitar.vst3/**" />
+									</fileset>
+								</copy>
+								<copy file="${project.rootPath}/../common/TuxGuitar-vst3/native-build/nam/eigen/COPYING.MPL2" tofile="${project.build.directory}/${project.finalName}/MPL-2.0.txt" overwrite="true" />
 								<copy todir="${project.build.directory}/${project.finalName}/share" overwrite="true">
 									<fileset dir="${project.rootPath}/TuxGuitar/share/" />
 								</copy>

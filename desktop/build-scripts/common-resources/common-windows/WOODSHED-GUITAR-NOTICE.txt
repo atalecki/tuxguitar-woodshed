@@ -1,0 +1,57 @@
+Woodshed Guitar: third-party licence notice
+===========================================
+
+Woodshed Guitar (vst3/Woodshed Guitar.vst3) is the VST3 instrument TuxGuitar ships: plucked strings played through a
+NAM capture. It is built from common/TuxGuitar-vst3/native/plugins/woodshed_guitar in the TuxGuitar sources, whose
+native build downloads the following from their official sources, pinned by SHA-256 (native/cmake/nam.cmake):
+
+- NeuralAmpModelerCore v0.6.0 (https://github.com/sdatkinson/NeuralAmpModelerCore,
+  commit 0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842), under the MIT License below.
+- nlohmann/json 3.12.0 (https://github.com/nlohmann/json), as NeuralAmpModelerCore holds it, under the MIT License
+  below.
+- Eigen 5.0.1 (https://gitlab.com/libeigen/eigen, commit bc3b39870ecb690a623a3f49149a358b95c5781d), under the Mozilla
+  Public License 2.0, whose full text is MPL-2.0.txt next to this notice. Its source code form is available at that
+  address and commit; the plugin uses it unmodified.
+- The Steinberg VST3 SDK, under its MIT licence (see AUDIO-NOTICE.txt).
+
+
+NeuralAmpModelerCore
+--------------------
+
+MIT License
+
+Copyright (c) 2023 Steven Atkinson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+nlohmann/json
+-------------
+
+MIT License
+
+Copyright (c) 2013-2025 Niels Lohmann
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

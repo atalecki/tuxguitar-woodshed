@@ -21,3 +21,6 @@ Redistributors who want an LGPL-only build: configure the native library without
 and ship that library and this notice without the ASIO paragraphs.
 
 The VST3 host process (tuxguitar-vst3-host.exe, lib folder) is built with the Steinberg VST3 SDK under its MIT licence.
+
+Woodshed Guitar, the VST3 instrument in the vst3 folder, is built with NeuralAmpModelerCore and nlohmann/json (MIT)
+and Eigen (MPL 2.0): see WOODSHED-GUITAR-NOTICE.txt and MPL-2.0.txt.
