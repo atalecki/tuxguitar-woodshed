@@ -4,10 +4,10 @@
 include(../../cmake/nam.cmake)
 
 # the plugin's sound, apart from VST3: the strings, the resampling, the profile, the state, the loading in the background
-# and the crossfade, and NeuralAmpModelerCore
+# and the crossfade, its texts, and NeuralAmpModelerCore
 # an object library: each NAM architecture registers itself from an object nothing else refers to, which a static
 # library would leave out of the link
-add_library(tg_woodshed_core OBJECT voice.cpp resampler.cpp capture.cpp state.cpp stage.cpp loader.cpp ${TG_NAM_CORE_SOURCES})
+add_library(tg_woodshed_core OBJECT voice.cpp resampler.cpp capture.cpp state.cpp stage.cpp loader.cpp text.cpp ${TG_NAM_CORE_SOURCES})
 target_include_directories(tg_woodshed_core PUBLIC . "${TG_NAM_CORE_DIR}" SYSTEM PUBLIC "${TG_NAM_CORE_DIR}/Dependencies/nlohmann" "${TG_EIGEN_DIR}")
 target_compile_features(tg_woodshed_core PUBLIC cxx_std_20)
 target_compile_definitions(tg_woodshed_core PUBLIC NAM_ENABLE_A2_FAST)
@@ -29,3 +29,8 @@ endif()
 add_executable(woodshed-guitar-time time.cpp)
 target_link_libraries(woodshed-guitar-time PRIVATE tg_woodshed_core)
 set_target_properties(woodshed-guitar-time PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+# checks how the plugin chooses its texts (text.h): bin/woodshed-guitar-text-test, run by TuxGuitar-vst3's TestWoodshedText
+add_executable(woodshed-guitar-text-test text_test.cpp text.cpp)
+target_compile_features(woodshed-guitar-text-test PRIVATE cxx_std_20)
+set_target_properties(woodshed-guitar-text-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

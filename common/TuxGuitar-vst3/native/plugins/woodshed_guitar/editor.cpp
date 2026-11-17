@@ -1,6 +1,7 @@
 #include "editor.h"
 
 #include "plugin.h"
+#include "text.h"
 
 #include <cstdio>
 #include <cstring>
@@ -23,15 +24,15 @@ const int kHeight = 230;
 
 // what the editor says of the profile and of the last refusal
 std::string profileText(const ProfileStatus& status) {
-	return (status.name.empty() ? std::string("No profile: the dry guitar is heard") : "Profile: " + status.name);
+	return (status.name.empty() ? say("profile.none") : say("profile.name", {status.name}));
 }
 
 // a capture being loaded is told in place of the last refusal
 std::string refusalText(const ProfileStatus& status) {
 	if (!status.loading.empty()) {
-		return "Loading " + status.loading + "...";
+		return say("profile.loading", {status.loading});
 	}
-	return (status.refusal.empty() ? std::string() : "Not loaded: " + status.refusal);
+	return (status.refusal.empty() ? std::string() : say("profile.refused", {status.refusal}));
 }
 
 std::string decibels(double value) {
@@ -155,10 +156,10 @@ tresult PLUGIN_API GuitarView::isPlatformTypeSupported(FIDString type) {
 	return (std::strcmp(type, kPlatformTypeHWND) == 0 ? kResultTrue : kResultFalse);
 }
 
-// a row: the parameter's name, its slider over its range (tenths of a dB), its value
-void GuitarView::addSlider(int row, ParamID id, const wchar_t* name, double minimum, double maximum) {
+// a row: the parameter's name (its text's key), its slider over its range (tenths of a dB), its value
+void GuitarView::addSlider(int row, ParamID id, const char* name, double minimum, double maximum) {
 	int y = 118 + row * 34;
-	child((HWND) window, L"STATIC", name, SS_LEFT, 12, y + 4, 90, 20, 0);
+	child((HWND) window, L"STATIC", wide(say(name)).c_str(), SS_LEFT, 12, y + 4, 90, 20, 0);
 	HWND bar = child((HWND) window, TRACKBAR_CLASSW, L"", TBS_HORZ | TBS_NOTICKS | WS_TABSTOP, 104, y, 260, 28, (int) (10 + id));
 	SendMessageW(bar, TBM_SETRANGEMIN, FALSE, (LPARAM) (minimum * kStep));
 	SendMessageW(bar, TBM_SETRANGEMAX, TRUE, (LPARAM) (maximum * kStep));
@@ -170,17 +171,17 @@ tresult PLUGIN_API GuitarView::attached(void* parent, FIDString type) {
 	registerClass();
 	HWND editor = CreateWindowExW(WS_EX_CONTROLPARENT, kClass, L"Woodshed Guitar", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, kWidth, kHeight, (HWND) parent, nullptr, module(), nullptr);
 	window = editor;
-	child(editor, L"BUTTON", L"Load profile...", BS_PUSHBUTTON | WS_TABSTOP, 12, 12, 120, 28, kLoad);
+	child(editor, L"BUTTON", wide(say("editor.load")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, 12, 12, 120, 28, kLoad);
 	profile = child(editor, L"STATIC", L"", SS_LEFT | SS_ENDELLIPSIS, 144, 18, kWidth - 156, 20, 0);
 	refusal = child(editor, L"STATIC", L"", SS_LEFT, 12, 46, kWidth - 24, 34, 0);
 	notice = child(editor, L"STATIC", L"", SS_LEFT, 12, 86, kWidth - 156, 28, 0);
-	update = child(editor, L"BUTTON", L"Update from file", BS_PUSHBUTTON | WS_TABSTOP, kWidth - 132, 82, 120, 28, kUpdate);
-	addSlider(0, kInputGain, L"Input gain", -24.0, 24.0);
-	addSlider(1, kOutputLevel, L"Output level", -40.0, 12.0);
-	child(editor, L"STATIC", L"Quality", SS_LEFT, 12, 190, 90, 20, 0);
+	update = child(editor, L"BUTTON", wide(say("editor.update")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, kWidth - 132, 82, 120, 28, kUpdate);
+	addSlider(0, kInputGain, "editor.input-gain", -24.0, 24.0);
+	addSlider(1, kOutputLevel, "editor.output-level", -40.0, 12.0);
+	child(editor, L"STATIC", wide(say("editor.quality")).c_str(), SS_LEFT, 12, 190, 90, 20, 0);
 	quality = child(editor, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 104, 186, 120, 80, kQualityBox);
-	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) L"Full");
-	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) L"Light");
+	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.full")).c_str());
+	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.light")).c_str());
 	SetWindowLongPtrW(editor, GWLP_USERDATA, (LONG_PTR) this);
 	plugin->editorOpened(this);
 	refresh();
@@ -278,11 +279,11 @@ void GuitarView::updateFromFile() {
 // as the controls read: "Input gain 0.0 dB, Output level 0.0 dB, Quality Full"
 std::string GuitarView::controls() const {
 	std::string text;
-	const char* names[] = {"Input gain ", "Output level "};
+	const char* names[] = {"editor.input-gain", "editor.output-level"};
 	for (size_t i = 0; i < sliders.size(); i++) {
-		text += names[i] + decibels((double) SendMessageW((HWND) sliders[i].bar, TBM_GETPOS, 0, 0) / kStep) + ", ";
+		text += say(names[i]) + " " + decibels((double) SendMessageW((HWND) sliders[i].bar, TBM_GETPOS, 0, 0) / kStep) + ", ";
 	}
-	return text + "Quality " + (SendMessageW((HWND) quality, CB_GETCURSEL, 0, 0) == 1 ? "Light" : "Full");
+	return text + say("editor.quality") + " " + say(SendMessageW((HWND) quality, CB_GETCURSEL, 0, 0) == 1 ? "editor.quality.light" : "editor.quality.full");
 }
 
 void GuitarView::chooseProfile() {
@@ -290,10 +291,13 @@ void GuitarView::chooseProfile() {
 	OPENFILENAMEW dialog = {};
 	dialog.lStructSize = sizeof(dialog);
 	dialog.hwndOwner = GetAncestor((HWND) window, GA_ROOT);
-	dialog.lpstrFilter = L"NAM captures (*.nam)\0*.nam\0All files (*.*)\0*.*\0";
+	// pairs of a name and its pattern, each ending in a null, the last pair followed by another
+	std::wstring filter = wide(say("dialog.captures")) + std::wstring(L"\0*.nam\0", 7) + wide(say("dialog.all")) + std::wstring(L"\0*.*\0\0", 6);
+	std::wstring title = wide(say("dialog.title"));
+	dialog.lpstrFilter = filter.c_str();
 	dialog.lpstrFile = file;
 	dialog.nMaxFile = (DWORD) (sizeof(file) / sizeof(file[0]));
-	dialog.lpstrTitle = L"Load profile";
+	dialog.lpstrTitle = title.c_str();
 	dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER;
 	if (GetOpenFileNameW(&dialog)) {
 		plugin->loadProfile(utf8(file));
@@ -319,7 +323,7 @@ tresult PLUGIN_API GuitarView::removed() {
 	return CPluginView::removed();
 }
 
-void GuitarView::addSlider(int, ParamID, const wchar_t*, double, double) {}
+void GuitarView::addSlider(int, ParamID, const char*, double, double) {}
 
 void GuitarView::refresh() {}
 

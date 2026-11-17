@@ -1,5 +1,7 @@
 #include "capture.h"
 
+#include "text.h"
+
 #include "NAM/get_dsp.h"
 #include "NAM/nam_file.h"
 #include "NAM/slimmable.h"
@@ -43,11 +45,11 @@ Capture fromJson(const std::string& name, const nlohmann::json& json) {
 		capture.model = nam::get_dsp(json, data, options);
 		capture.rate = (data.expected_sample_rate > 0.0 ? data.expected_sample_rate : kUnknownRate);
 		if (capture.model->NumInputChannels() != 1) {
-			return refused(name + " could not be loaded: it has " + std::to_string(capture.model->NumInputChannels()) + " inputs, and Woodshed Guitar plays captures of one");
+			return refused(say("refusal.inputs", {name, std::to_string(capture.model->NumInputChannels())}));
 		}
 		return capture;
 	} catch (const std::exception& e) {
-		return refused(name + " could not be loaded: " + e.what());
+		return refused(say("refusal.error", {name, e.what()}));
 	}
 }
 
@@ -75,7 +77,7 @@ bool differs(const std::string& path, const std::string& contents) {
 Capture readCapture(const std::string& name, const std::string& contents) {
 	nlohmann::json json = nlohmann::json::parse(contents, nullptr, false);
 	if (json.is_discarded()) {
-		return refused(name + " could not be loaded: it is not the JSON of a .nam file");
+		return refused(say("refusal.not-json", {name}));
 	}
 	return fromJson(name, json);
 }
@@ -84,15 +86,15 @@ Capture readCapture(const std::string& name, const std::string& contents) {
 Capture loadCapture(const std::string& path, std::string& contents) {
 	std::string name = fileName(path);
 	if (lower(toPath(path).extension().string()) != ".nam") {
-		return refused(name + " is not a NAM capture: Woodshed Guitar plays .nam files");
+		return refused(say("refusal.not-nam", {name}));
 	}
 	if (!readFile(path, contents)) {
-		return refused(name + " could not be read");
+		return refused(say("refusal.unreadable", {name}));
 	}
 	try {
 		return fromJson(name, nam::validate_nam_file(toPath(path)));
 	} catch (const std::exception& e) {
-		return refused(name + " could not be loaded: " + e.what());
+		return refused(say("refusal.error", {name, e.what()}));
 	}
 }
 
