@@ -1,6 +1,5 @@
 package app.tuxguitar.audio;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -55,11 +54,11 @@ public final class TGCountIn {
 		return this.length;
 	}
 
-	// its clicks, from the sample it starts on: a beat apart, each held a beat; those after where it stopped left out
+	// its clicks, from the sample it starts on: a beat apart; those after where it stopped left out
 	public TGClicks clicks(long start) {
 		List<Long> positions = LongStream.range(0, this.clicks).map(click -> Math.round(click * this.beat)).filter(position -> position < this.length)
 			.mapToObj(position -> start + position).collect(Collectors.toList());
-		return new TGClicks(positions, Collections.nCopies(positions.size(), Math.round(this.beat)));
+		return new TGClicks(positions);
 	}
 
 	// stopped at the sample
