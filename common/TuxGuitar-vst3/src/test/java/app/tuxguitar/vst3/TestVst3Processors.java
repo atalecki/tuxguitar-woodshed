@@ -101,10 +101,7 @@ public class TestVst3Processors {
 	// background (it is busy meanwhile); the element sent again (each Play) loads it no more, another profile is loaded
 	@Test
 	public void woodshedGuitarLoadsTheProfileItsElementNamesOnce(@TempDir File folder) throws Exception {
-		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder(), new File(TestPlugins.nativeBuild(), "plugins/VST3")));
-		this.hosting.scan();
-		TGProgramElement element = TGVst3Element.create("default-guitar", this.hosting.find("Woodshed Guitar"));
-		TGVst3Element.setProfile(element, TestPlugins.gain3(folder).getPath());
+		TGProgramElement element = this.woodshedDefault(folder);
 		TGVst3Processor woodshed = (TGVst3Processor) open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
 		boolean loading = woodshed.isBusy();
 		TestPlugins.untilRestored(woodshed.getInstance());
@@ -116,6 +113,36 @@ public class TestVst3Processors {
 		woodshed.restoreParameters(element.getParameters());
 		TestPlugins.untilRestored(woodshed.getInstance());
 		assertEquals("true false Other.nam", loading + " " + again + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+	}
+
+	// a default instrument's element given again after an element's state (the default kept in the song, its plugin going
+	// on as the song's source, then the keep undone): the plugin goes back to how it opened and loads the profile again,
+	// in the background, as a default opened afresh; what the state held is gone
+	@Test
+	public void woodshedGuitarGivenItsDefaultAgainAfterAStateGoesBackToItAndLoadsTheProfileAgain(@TempDir File folder) throws Exception {
+		TGProgramElement element = this.woodshedDefault(folder);
+		TGVst3Processor woodshed = (TGVst3Processor) open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
+		TestPlugins.untilRestored(woodshed.getInstance());
+		int level = woodshed.getInstance().findParameter("Output level");
+		double opened = woodshed.getInstance().getParameter(level);
+		woodshed.getInstance().setParameter(level, -6.0);
+		TGProgramElement kept = TGVst3Element.create("source", this.hosting.find("Woodshed Guitar"));
+		TGVst3Element.setState(kept, woodshed.getInstance().getState());
+		woodshed.restoreParameters(kept.getParameters());
+		woodshed.restoreParameters(element.getParameters());
+		boolean loading = woodshed.isBusy();
+		TestPlugins.untilRestored(woodshed.getInstance());
+		assertEquals("true " + opened + " Gain 3.nam", loading + " " + woodshed.getInstance().getParameter(level) + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+	}
+
+	// the default instrument for guitar tracks as Woodshed Guitar, with TuxGuitar's own plugins scanned: its element names
+	// the profile (a capture multiplying by 3), it holds no state of its own
+	private TGProgramElement woodshedDefault(File folder) throws Exception {
+		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder(), new File(TestPlugins.nativeBuild(), "plugins/VST3")));
+		this.hosting.scan();
+		TGProgramElement element = TGVst3Element.create("default-guitar", this.hosting.find("Woodshed Guitar"));
+		TGVst3Element.setProfile(element, TestPlugins.gain3(folder).getPath());
+		return element;
 	}
 
 	// whether the folders were scanned yet: a scan that found nothing is a scan, unlike none at all (a plugin not found
