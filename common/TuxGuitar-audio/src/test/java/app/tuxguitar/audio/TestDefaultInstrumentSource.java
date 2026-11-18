@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgramElement;
+import app.tuxguitar.util.TGContext;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
@@ -64,5 +65,14 @@ class TestDefaultInstrumentSource {
 		assertEquals("none none default-bass", describe(TGDefaultInstrumentSource.source(TGInstrumentKind.OTHER, defaults, SCANNED)) + " "
 			+ describe(TGDefaultInstrumentSource.source(TGInstrumentKind.GUITAR, defaults, SCANNED)) + " "
 			+ TGDefaultInstrumentSource.source(TGInstrumentKind.BASS, defaults, SCANNED).getId());
+	}
+
+	// before the first scan no plugin is known, installed or not: General MIDI plays, and nothing is said
+	@Test
+	void beforeTheFirstScanADefaultNotFoundIsNotTold() {
+		TGContext context = new TGContext();
+		TGDefaultInstrumentSource source = TGDefaultInstrumentSource.install(context);
+		source.use(TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, instrument(SINE, "Test Sine")));
+		assertEquals("none null", describe(source.sourceFor(0, 25)) + " " + source.getNotice());
 	}
 }

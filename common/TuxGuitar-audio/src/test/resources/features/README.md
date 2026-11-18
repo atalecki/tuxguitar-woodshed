@@ -351,7 +351,14 @@ These features change how TuxGuitar works today. They are requirements, not side
   asks the context's `TGDefaultSource` (audio's `TGDefaultInstrumentSource`, installed by `TGLiveAudio.install`) once
   it has a program (until then a chain's General MIDI source plays), and again when its kind changes; a chain's
   effects stay. The song keeps saying General MIDI (nothing in it changes); a kind without a default plays General
-  MIDI, offline as live through the programs the synthesizer's settings keep (`TGSynthSettings`).
+  MIDI, offline as live through the programs the synthesizer's settings keep (`TGSynthSettings`). A default the scan
+  did not find (once there was a scan: `TGVst3Hosting.hasScanned`), or one that does not open (the channel's source is
+  not open after its parameters: `TGDefaultSource.notOpened`), plays General MIDI too, never silence (an instrument the
+  track chose itself that does not open stays silent, as before); the status line says so quietly
+  (`TGStatusHint`, after a Record refusal, before the loading hint: `TGFallbackNotice`, messages
+  `audio.default-instrument.not-installed`/`.not-loaded`/`.kind.*`), once per song opened or change of the defaults,
+  for 5 seconds or until its cause no longer holds, and the log keeps the reason in English
+  (`TGVst3PluginProcessor.getLoggedProblem`).
 - **File format 3.0** for a song with an audio track. A reader of format 2.0 opening it as a `.tg` file refuses it with
   its "please upgrade" message (the step compares the message of the innermost cause). This version still opens format 2.0 files, and saves
   a song without audio tracks as format 2.0. A VST3 sound chain is saved under channel parameter keys outside the

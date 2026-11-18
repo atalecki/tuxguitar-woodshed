@@ -22,6 +22,7 @@ Feature: Default instruments by track kind
     When I play the song from measure 1 beat 1
     Then track 1 sounds a 440 Hz tone peaking at 0.5 within 0.01 in measure 1
     And track 1 sounds a 440 Hz tone and no 880 Hz tone above -60 dBFS in measures 1
+    And the status line reads nothing
 
     Examples:
       | program                       | kind   |
@@ -67,3 +68,60 @@ Feature: Default instruments by track kind
     When I play the song from measure 1 beat 1
     Then the song is not modified
     And track 1's sound chain reads "Steel String Acoustic Guitar"
+
+  # falling back to General MIDI: a default the scan did not find on this computer, or one it found that could not be
+  # loaded, plays General MIDI instead (never silence), and the status line under the fretboard says so quietly, once
+  # per song opened or change of the defaults, for 5 seconds or until its cause no longer holds; the log keeps the
+  # reason in English. A kind without a default plays General MIDI with nothing said
+  Scenario: a default instrument not installed on this computer plays General MIDI, and the status line says so
+    Given the default instrument for guitar tracks is "Missing Piano", which is not installed on this computer
+    And TuxGuitar's log is recorded
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
+    And the status line reads "Missing Piano is not installed: guitar tracks play General MIDI."
+    And the log has a warning starting "the default instrument for guitar tracks, Missing Piano (0123456789ABCDEF0123456789ABCDEF) plays General MIDI instead: it is not installed"
+
+  Scenario: a default instrument that cannot be loaded plays General MIDI, and the status line says so
+    Given the default instrument for drums tracks is "Test Sine"
+    And I make track 1's channel a percussion channel
+    And the VST3 host cannot start
+    And TuxGuitar's log is recorded
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
+    And the status line reads "Test Sine could not be loaded: drum tracks play General MIDI."
+    And the log has a warning starting "the default instrument for drums tracks, Test Sine (7A1C0008544753494E45000000000008) plays General MIDI instead: it could not be loaded: the VST3 host did not start: "
+
+  Scenario: a kind without a default instrument plays General MIDI with nothing said
+    Given the default instrument for bass tracks is "Test Sine"
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
+    And the status line reads nothing
+
+  # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
+  Scenario: an instrument of the track's own that cannot be loaded stays silent
+    Given I have chosen the VST3 instrument "Test Sine" for track 1
+    And the VST3 host cannot start
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds nothing above -60 dBFS from measure 1 beat 1 to measure 2 beat 1
+    And the status line reads nothing
+
+  # every text TuxGuitar shows goes through its translations ("{0}" the instrument, "{1}" the kind's tracks)
+  Scenario: the status line says a default instrument fell back as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} ist nicht installiert: {1} spielen General MIDI." for the message "audio.default-instrument.not-installed"
+    And TuxGuitar's language says "Gitarrenspuren" for the message "audio.default-instrument.kind.guitar"
+    And the default instrument for guitar tracks is "Missing Piano", which is not installed on this computer
+    When I play the song from measure 1 beat 1
+    Then the status line reads "Missing Piano ist nicht installiert: Gitarrenspuren spielen General MIDI."
+
+  # the log keeps the reason in English, whatever the language
+  Scenario: a default instrument that could not be loaded is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} ließ sich nicht laden: {1} spielen General MIDI." for the message "audio.default-instrument.not-loaded"
+    And TuxGuitar's language says "Schlagzeugspuren" for the message "audio.default-instrument.kind.drums"
+    And TuxGuitar's language says "der VST3-Host startete nicht: {0}" for the message "audio.vst3-host.not-started"
+    And the default instrument for drums tracks is "Test Sine"
+    And I make track 1's channel a percussion channel
+    And the VST3 host cannot start
+    And TuxGuitar's log is recorded
+    When I play the song from measure 1 beat 1
+    Then the status line reads "Test Sine ließ sich nicht laden: Schlagzeugspuren spielen General MIDI."
+    And the log has a warning starting "the default instrument for drums tracks, Test Sine (7A1C0008544753494E45000000000008) plays General MIDI instead: it could not be loaded: the VST3 host did not start: "

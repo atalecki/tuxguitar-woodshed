@@ -154,6 +154,10 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		return (this.problem != null ? this.problem.getLocalizedMessage() : null);
 	}
 
+	public String getLoggedProblem() {
+		return (this.problem != null ? this.problem.getMessage() : null);
+	}
+
 	public int getLatency() {
 		return (this.instance != null ? this.instance.getLatency() : 0);
 	}

@@ -111,6 +111,10 @@ final class ReportingEffects {
 			return this.effect.getProblem();
 		}
 
+		public String getLoggedProblem() {
+			return this.effect.getLoggedProblem();
+		}
+
 		public void restoreParameters(Map<String, String> parameters) {
 			this.plugin = parameters.get("vst3.name");
 			this.effect.restoreParameters(parameters);

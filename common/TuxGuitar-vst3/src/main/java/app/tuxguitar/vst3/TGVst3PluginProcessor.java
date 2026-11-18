@@ -10,4 +10,7 @@ public interface TGVst3PluginProcessor {
 
 	// why no plugin is open: the host's refusal, or its stop; null while one is open
 	String getProblem();
+
+	// the same, as the log keeps it: in English
+	String getLoggedProblem();
 }

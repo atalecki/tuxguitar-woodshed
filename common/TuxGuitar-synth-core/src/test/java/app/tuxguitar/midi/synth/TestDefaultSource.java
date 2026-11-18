@@ -34,14 +34,7 @@ public class TestDefaultSource {
 	private static final float GUITAR = 0.125f;
 	private static final float DRUMS = 0.375f;
 	private static final float OWN = 0.03125f;
-	
-	// the type of each kind's default; the other kinds have none
-	private static final Map<TGInstrumentKind, String> DEFAULTS = new EnumMap<TGInstrumentKind, String>(TGInstrumentKind.class);
-
-	static {
-		DEFAULTS.put(TGInstrumentKind.GUITAR, "guitar");
-		DEFAULTS.put(TGInstrumentKind.DRUMS, "drums");
-	}
+	private static final float BROKEN = 0.75f;
 
 	private final TGContext context = new TGContext();
 	private final TGSynthModel model = new TGSynthModel(this.context);
@@ -50,16 +43,19 @@ public class TestDefaultSource {
 	private final FakeProcessors.SourceFactory guitar = new FakeProcessors.SourceFactory("guitar", GUITAR);
 	private final FakeProcessors.SourceFactory drums = new FakeProcessors.SourceFactory("drums", DRUMS);
 	private final FakeProcessors.SourceFactory own = new FakeProcessors.SourceFactory("own", OWN);
+	// a source that closes once it is given its parameters, as a VST3 plugin that cannot be opened
+	private final FakeProcessors.SourceFactory broken = new FakeProcessors.SourceFactory("broken", BROKEN, Broken::new);
+	private final Defaults defaults = new Defaults();
 	private TGSynthChannel channel;
 
 	@BeforeEach
 	public void setUp() throws MidiPlayerException {
 		TGSynthManager manager = TGSynthManager.getInstance(this.context);
-		for (FakeProcessors.SourceFactory source : new FakeProcessors.SourceFactory[] {this.gervill, this.table, this.guitar, this.drums, this.own}) {
+		for (FakeProcessors.SourceFactory source : new FakeProcessors.SourceFactory[] {this.gervill, this.table, this.guitar, this.drums, this.own, this.broken}) {
 			manager.addExtension(TGMidiProcessorFactory.class, source);
 		}
 		manager.addExtension(TGAudioProcessorFactory.class, new FakeProcessors.EffectFactory("lift", sample -> sample + 0.1));
-		manager.addExtension(TGDefaultSource.class, TestDefaultSource::byKind);
+		manager.addExtension(TGDefaultSource.class, this.defaults);
 		this.fillTable();
 		this.channel = (TGSynthChannel) this.model.openChannel(3);
 		this.channel.sendControlChange(MidiControllers.BALANCE, 0);
@@ -72,10 +68,37 @@ public class TestDefaultSource {
 		}
 	}
 
-	// the guitars' default and the drums', each an element of its own id
-	private static TGProgramElement byKind(int bank, int program) {
-		String type = DEFAULTS.get(TGInstrumentKind.of(bank, program));
-		return (type != null ? element("default-" + type, type) : null);
+	// the guitars' default and the drums' (each an element of its own id), unless a test sets others; it notes each that
+	// did not open
+	private static final class Defaults implements TGDefaultSource {
+		private final Map<TGInstrumentKind, String> types = new EnumMap<TGInstrumentKind, String>(TGInstrumentKind.class);
+		private final List<String> notOpened = new ArrayList<String>();
+
+		Defaults() {
+			this.types.put(TGInstrumentKind.GUITAR, "guitar");
+			this.types.put(TGInstrumentKind.DRUMS, "drums");
+		}
+
+		public TGProgramElement sourceFor(int bank, int program) {
+			String type = this.types.get(TGInstrumentKind.of(bank, program));
+			return (type != null ? element("default-" + type, type) : null);
+		}
+
+		public void notOpened(TGProgramElement source, TGMidiProcessor processor) {
+			this.notOpened.add(source.getId() + (processor != null ? " open " + processor.isOpen() : " none"));
+		}
+	}
+
+	private static final class Broken extends FakeProcessors.TimedSource {
+
+		Broken(float level) {
+			super(level);
+		}
+
+		public void restoreParameters(Map<String, String> parameters) {
+			super.restoreParameters(parameters);
+			this.close();
+		}
 	}
 
 	// the first sample of the chain, before Volume and Balance, to a thousandth (the 16-bit samples between processors
@@ -190,5 +213,37 @@ public class TestDefaultSource {
 		sendChain(GervillProcessorFactory.TYPE, "lift");
 
 		assertEquals(level(GUITAR + 0.1f), sounds());
+	}
+
+	// a default that does not open (a plugin that cannot be opened) is told its source, and General MIDI plays: without a
+	// chain the program of its bank and program, with one its General MIDI source, the effects kept
+	@Test
+	public void aDefaultThatDoesNotOpenPlaysGeneralMidiItsSourceTold() throws MidiPlayerException {
+		this.defaults.types.put(TGInstrumentKind.GUITAR, "broken");
+		sendChain(null);
+		sendBankAndProgram(0, 25);
+		String without = sounds();
+		sendChain(GervillProcessorFactory.TYPE, "lift");
+
+		assertEquals(level(TABLE) + " " + level(GERVILL + 0.1f) + " [default-broken open false, default-broken open false]", without + " " + sounds() + " " + this.defaults.notOpened);
+	}
+
+	// no processor of its type: the plugin's host is not there
+	@Test
+	public void aDefaultOfATypeNoFactoryMakesPlaysGeneralMidi() throws MidiPlayerException {
+		this.defaults.types.put(TGInstrumentKind.GUITAR, "missing");
+		sendChain(GervillProcessorFactory.TYPE);
+		sendBankAndProgram(0, 25);
+
+		assertEquals(level(GERVILL) + " [default-missing none]", sounds() + " " + this.defaults.notOpened);
+	}
+
+	// an instrument of the track's own that does not open stays silent, as before: only a default falls back
+	@Test
+	public void anInstrumentOfItsOwnThatDoesNotOpenIsSilent() throws MidiPlayerException {
+		sendChain("broken");
+		sendBankAndProgram(0, 25);
+
+		assertEquals(level(0f) + " []", sounds() + " " + this.defaults.notOpened);
 	}
 }

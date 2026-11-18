@@ -208,7 +208,7 @@ public class TGSynthChannel implements MidiChannel {
 				if( this.chain != null ) {
 					this.playChain();
 				} else {
-					this.loadProgram(this.withoutChain());
+					this.play(this.generalMidi());
 				}
 			}
 		}catch(Throwable throwable){
@@ -221,44 +221,59 @@ public class TGSynthChannel implements MidiChannel {
 	private void playChain() throws MidiPlayerException {
 		TGProgram playing = this.withDefault(this.chain);
 		if(!playing.getReceiver().equals(this.program.getReceiver())) {
-			this.loadProgram(playing);
+			this.play(playing, this.chain);
 		}
 		this.followProgram();
 	}
 
-	// the chain, a General MIDI source replaced by the default instrument of the channel's kind, when it has a program
-	// and its kind has one
-	private TGProgram withDefault(TGProgram chain) {
-		TGProgramElement source = chain.getReceiver();
-		TGProgramElement byDefault = (source != null && GervillProcessorFactory.TYPE.equals(source.getType()) ? this.defaultSource() : null);
+	// what the channel plays as General MIDI: its chain, else the program of its Bank and Program
+	private TGProgram generalMidi() {
+		return (this.chain != null ? this.chain : this.synthesizer.getProgram(this.midiBank, this.midiProgram));
+	}
+
+	private void play(TGProgram generalMidi) throws MidiPlayerException {
+		this.play(this.withDefault(generalMidi), generalMidi);
+	}
+
+	// the program, or General MIDI's when the default instrument in its place did not open (its source told)
+	private void play(TGProgram playing, TGProgram generalMidi) throws MidiPlayerException {
+		this.loadProgram(playing);
+		if( playing != generalMidi && !this.isSourceOpen() ) {
+			TGMidiProcessor source = (this.processor != null ? this.processor.getProcessor() : null);
+			this.defaults().notOpened(playing.getReceiver(), source);
+			this.loadProgram(generalMidi);
+		}
+	}
+
+	private boolean isSourceOpen() {
+		TGMidiProcessor source = (this.processor != null ? this.processor.getProcessor() : null);
+		return (source != null && source.isOpen());
+	}
+
+	// General MIDI with its source replaced by the default instrument of the channel's kind, when the channel has a
+	// program and its kind has one: a chain's source only when it is General MIDI
+	private TGProgram withDefault(TGProgram generalMidi) {
+		boolean takesDefault = (this.chain == null || GervillProcessorFactory.TYPE.equals(this.chain.getReceiver().getType()));
+		TGProgramElement byDefault = (takesDefault ? this.defaultSource() : null);
 		if( byDefault == null ) {
-			return chain;
+			return generalMidi;
 		}
 		TGProgram playing = new TGProgram();
-		playing.copyFrom(chain);
+		playing.copyFrom(generalMidi);
 		playing.setReceiver(byDefault);
 		return playing;
 	}
 
-	// without a chain: the default instrument of the channel's kind, else the program of its Bank and Program
-	private TGProgram withoutChain() {
-		TGProgramElement byDefault = this.defaultSource();
-		if( byDefault == null ) {
-			return this.synthesizer.getProgram(this.midiBank, this.midiProgram);
-		}
-		TGProgram playing = new TGProgram();
-		playing.setReceiver(byDefault);
-		return playing;
-	}
-
-	// the default instrument of the channel's Bank and Program (TGDefaultSource); none before a program change, or
-	// without a default source
+	// the default instrument of the channel's Bank and Program; none before a program change, or without a default source
 	private TGProgramElement defaultSource() {
-		if( this.midiProgram < 0 ) {
-			return null;
-		}
+		TGDefaultSource defaults = this.defaults();
+		return (this.midiProgram >= 0 && defaults != null ? defaults.sourceFor(this.midiBank, this.midiProgram) : null);
+	}
+
+	// the context's default source (TGDefaultSource), or null
+	private TGDefaultSource defaults() {
 		List<TGDefaultSource> sources = TGSynthManager.getInstance(this.synthesizer.getContext()).getExtensions(TGDefaultSource.class);
-		return (sources.isEmpty() ? null : sources.get(0).sourceFor(this.midiBank, this.midiProgram));
+		return (sources.isEmpty() ? null : sources.get(0));
 	}
 
 	// the source of a custom program plays the channel's Bank and Program, once a program change gave one
@@ -279,10 +294,10 @@ public class TGSynthChannel implements MidiChannel {
 			} else {
 				this.chain = this.customProgram();
 				if( this.chain != null ) {
-					this.loadProgram(this.withDefault(this.chain));
+					this.play(this.chain);
 					this.followProgram();
 				} else if(this.midiProgram >= 0){
-					this.loadProgram(this.withoutChain());
+					this.play(this.generalMidi());
 				} else {
 					this.closeProcessor();
 				}

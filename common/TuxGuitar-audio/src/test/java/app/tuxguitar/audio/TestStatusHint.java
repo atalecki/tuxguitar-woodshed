@@ -12,8 +12,8 @@ import app.tuxguitar.editor.TuxGuitarMessages;
 
 /**
  * The quiet hint an app shows on its status line: why Record was just refused, for 5 seconds after it was pressed or
- * until its cause no longer holds, whichever comes first, else the loading hint ("Woodshed Guitar is still loading
- * Clean.nam" here); read with TuxGuitar's English messages, on a clock the test moves, with what Record needs as the
+ * until its cause no longer holds, whichever comes first, else that a default instrument did not play, else the loading
+ * hint ("Woodshed Guitar is still loading Clean.nam" here); read with TuxGuitar's English messages, on a clock the test moves, with what Record needs as the
  * test sets it (at first: interleaved practice under way, nothing armed, another MIDI Port, no device; every refusal
  * holds).
  */
@@ -24,7 +24,9 @@ class TestStatusHint {
 
 	private long now = 1000;
 	private TGRecordConditions conditions = NOTHING;
-	private final TGStatusHint hint = new TGStatusHint(() -> "Woodshed Guitar is still loading Clean.nam", () -> this.conditions, () -> this.now);
+	// that a default instrument did not play (TGFallbackNotice), none at first
+	private String fallback;
+	private final TGStatusHint hint = new TGStatusHint(() -> "Woodshed Guitar is still loading Clean.nam", () -> this.fallback, () -> this.conditions, () -> this.now);
 
 	// what the hint reads at each of the times, in milliseconds after the start
 	private String readAt(long... times) {
@@ -91,5 +93,13 @@ class TestStatusHint {
 	void aRefusalWhoseCauseHoldsIsToldOn() {
 		assertEquals("Choose the TuxGuitar Synthesizer as the MIDI Port to record | Choose the TuxGuitar Synthesizer as the MIDI Port to record",
 			this.refusedThen(TGRecordRefusal.MIDI_PORT, new TGRecordConditions(null, true, false, true)));
+	}
+
+	// a default instrument that did not play is told before the loading hint, a refusal before both
+	@Test
+	void aDefaultInstrumentsFallbackIsToldAfterARefusalBeforeTheLoadingHint() {
+		this.fallback = "Test Drums is not installed: drum tracks play General MIDI.";
+		assertEquals("Arm a track to record | Test Drums is not installed: drum tracks play General MIDI.",
+			this.english(hint -> hint.recordPressed(TGRecordRefusal.NO_ARMED_TRACK), 0, 5000));
 	}
 }
