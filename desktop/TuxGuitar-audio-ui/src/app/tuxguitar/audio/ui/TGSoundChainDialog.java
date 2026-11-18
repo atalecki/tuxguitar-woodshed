@@ -1,7 +1,6 @@
 package app.tuxguitar.audio.ui;
 
 import java.util.List;
-import java.util.Optional;
 
 import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.ui.TGApplication;
@@ -9,21 +8,10 @@ import app.tuxguitar.app.view.main.TGWindow;
 import app.tuxguitar.app.view.util.TGDialogUtil;
 import app.tuxguitar.audio.TGDefaultInstrumentSource;
 import app.tuxguitar.audio.TGLiveAudio;
-import app.tuxguitar.audio.TGLivePlugins;
+import app.tuxguitar.audio.TGSoundChainCommands;
 import app.tuxguitar.audio.TGSoundChainRows;
 import app.tuxguitar.audio.TGSoundChainRows.Control;
-import app.tuxguitar.audio.action.TGAddVst3EffectAction;
-import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
-import app.tuxguitar.audio.action.TGChooseVst3InstrumentAction;
-import app.tuxguitar.audio.action.TGEffectAction;
-import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
-import app.tuxguitar.audio.action.TGMoveEffectUpAction;
-import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
-import app.tuxguitar.audio.action.TGRemoveEffectAction;
-import app.tuxguitar.audio.action.TGSetEffectEnabledAction;
-import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.document.TGDocumentManager;
-import app.tuxguitar.editor.action.TGActionProcessor;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.ui.UIFactory;
@@ -63,6 +51,9 @@ public class TGSoundChainDialog {
 	private UIDropDownSelect<TGVst3Plugin> effects;
 	private UIDropDownSelect<TGVst3Plugin> instruments;
 	private final TGSoundChainButtons buttons = new TGSoundChainButtons();
+	// each change runs on the action's thread; the rows are read again on the UI thread once it is done (the dialog still
+	// open)
+	private final TGSoundChainCommands commands;
 	private UIButton scan;
 	// what the last scan found, skipped and why (TGPluginScan)
 	private UIReadOnlyTextBox status;
@@ -71,6 +62,7 @@ public class TGSoundChainDialog {
 		this.context = context;
 		this.track = track;
 		this.factory = TGApplication.getInstance(context).getFactory();
+		this.commands = new TGSoundChainCommands(context, () -> track, () -> this.later(this::refresh));
 	}
 
 	public void open() {
@@ -81,14 +73,14 @@ public class TGSoundChainDialog {
 		this.rows.addSelectionListener(event -> this.updateButtons());
 		this.layout().set(this.rows, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, true, 1, 4, 360f, 160f, null);
 		this.effects = this.plugins(2, "audio.sound-chain.effect");
-		this.buttons.put(Control.ADD_EFFECT, this.button(2, 4, "audio.sound-chain.add-effect", this::addEffect));
+		this.buttons.put(Control.ADD_EFFECT, this.button(2, 4, "audio.sound-chain.add-effect", () -> this.commands.addEffect(this.effects.getSelectedValue())));
 		this.instruments = this.plugins(3, "audio.sound-chain.instrument");
-		this.buttons.put(Control.USE_AS_SOURCE, this.button(3, 4, "audio.sound-chain.choose-instrument", this::chooseInstrument));
-		this.buttons.put(Control.KEEP, this.button(4, 3, "audio.sound-chain.keep", () -> this.change(new TGActionProcessor(this.context, TGKeepDefaultInstrumentAction.NAME))));
-		this.buttons.put(Control.DEFAULT_INSTRUMENT, this.button(4, 4, "audio.sound-chain.default-instrument", () -> this.change(new TGActionProcessor(this.context, TGChooseGeneralMidiAction.NAME))));
-		this.buttons.put(Control.MOVE_UP, this.button(5, 1, "audio.sound-chain.up", () -> this.changeEffect(TGMoveEffectUpAction.NAME)));
-		this.buttons.put(Control.REMOVE, this.button(5, 2, "audio.sound-chain.remove", () -> this.changeEffect(TGRemoveEffectAction.NAME)));
-		this.buttons.put(Control.TOGGLE, this.button(5, 3, "audio.sound-chain.disable", this::toggleEnabled));
+		this.buttons.put(Control.USE_AS_SOURCE, this.button(3, 4, "audio.sound-chain.choose-instrument", () -> this.commands.useAsSource(this.instruments.getSelectedValue())));
+		this.buttons.put(Control.KEEP, this.button(4, 3, "audio.sound-chain.keep", this.commands::keep));
+		this.buttons.put(Control.DEFAULT_INSTRUMENT, this.button(4, 4, "audio.sound-chain.default-instrument", this.commands::useDefault));
+		this.buttons.put(Control.MOVE_UP, this.button(5, 1, "audio.sound-chain.up", () -> this.commands.moveUp(this.picked())));
+		this.buttons.put(Control.REMOVE, this.button(5, 2, "audio.sound-chain.remove", () -> this.commands.remove(this.picked())));
+		this.buttons.put(Control.TOGGLE, this.button(5, 3, "audio.sound-chain.disable", () -> this.commands.toggle(this.picked())));
 		this.buttons.put(Control.EDIT, this.button(5, 4, "audio.sound-chain.edit", this::openEditor));
 		this.status = this.factory.createReadOnlyTextBox(this.dialog, true, false);
 		this.layout().set(this.status, 6, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 4, 360f, 120f, null);
@@ -187,66 +179,17 @@ public class TGSoundChainDialog {
 	}
 
 	private void updateButtons() {
-		this.buttons.apply(this.chain(), TGSoundChainRows.row(this.rows.getSelectedValue()), this.effects.getSelectedValue(), this.instruments.getSelectedValue());
+		this.buttons.apply(this.chain(), this.picked(), this.effects.getSelectedValue(), this.instruments.getSelectedValue());
 	}
 
-	// the change runs on the action's thread; the rows are read again on the UI thread once it is done (the dialog still
-	// open)
-	private void change(TGActionProcessor processor) {
-		this.change(processor, this::refresh);
-	}
-
-	private void change(TGActionProcessor processor, Runnable done) {
-		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, this.channel());
-		processor.setOnFinish(() -> this.later(done));
-		processor.process();
-	}
-
-	private void addEffect() {
-		this.usePlugin(TGAddVst3EffectAction.NAME, this.effects);
-	}
-
-	private void chooseInstrument() {
-		this.usePlugin(TGChooseVst3InstrumentAction.NAME, this.instruments);
-	}
-
-	// the action with the plugin picked in the drop-down
-	private void usePlugin(String action, UIDropDownSelect<TGVst3Plugin> picked) {
-		TGActionProcessor processor = new TGActionProcessor(this.context, action);
-		processor.setAttribute(TGAddVst3EffectAction.ATTRIBUTE_PLUGIN, picked.getSelectedValue());
-		this.change(processor);
-	}
-
-	// an action on the picked row's effect (the source: none)
-	private TGActionProcessor onPicked(String action) {
-		TGActionProcessor processor = new TGActionProcessor(this.context, action);
-		processor.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, TGSoundChainRows.effect(TGSoundChainRows.row(this.rows.getSelectedValue())));
-		return processor;
-	}
-
-	private void changeEffect(String action) {
-		this.change(this.onPicked(action));
-	}
-
-	private void toggleEnabled() {
-		TGActionProcessor processor = this.onPicked(TGSetEffectEnabledAction.NAME);
-		processor.setAttribute(TGSetEffectEnabledAction.ATTRIBUTE_ENABLED, !TGSoundChainRows.of(this.channel()).isEnabled(TGSoundChainRows.row(this.rows.getSelectedValue())));
-		this.change(processor);
+	private int picked() {
+		return TGSoundChainRows.row(this.rows.getSelectedValue());
 	}
 
 	// the picked plugin's own editor opens (a window of its host process titled with the plugin and this track, owned
 	// by TuxGuitar's main window: it stays in front of it), or else TuxGuitar's parameter editor here
 	private void openEditor() {
-		Integer effect = TGSoundChainRows.effect(TGSoundChainRows.row(this.rows.getSelectedValue()));
-		TGActionProcessor processor = this.onPicked(TGOpenPluginEditorAction.NAME);
-		processor.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER, TGNativeWindow.handle(TGWindow.getInstance(this.context).getWindow()));
-		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, this.track);
-		this.change(processor, () -> this.showParameters(effect));
-	}
-
-	private void showParameters(Integer effect) {
-		this.refresh();
-		Optional.ofNullable(TGLivePlugins.getInstance(this.context).parameterEditor(this.channel(), effect))
-			.ifPresent(editor -> new TGPluginParametersDialog(this.context, this.track, effect, editor).open(this.dialog));
+		Integer effect = TGSoundChainRows.effect(this.picked());
+		this.commands.edit(this.picked(), TGNativeWindow.floating(this.context), editor -> this.later(() -> new TGPluginParametersDialog(this.context, this.track, effect, editor).open(this.dialog)));
 	}
 }
