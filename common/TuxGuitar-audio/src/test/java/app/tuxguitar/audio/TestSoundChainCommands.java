@@ -127,21 +127,29 @@ class TestSoundChainCommands {
 	}
 
 	// Edit asks the action to open the picked effect's editor, placed as the editor says (floating: owned by the window
-	// given), titled with the track
+	// given; embedded: inside the area given, at most the height given, the window given kept as its owner), titled with
+	// the track
 	@Test
 	void editOpensThePickedPluginsEditorWhereThePlacementSays() {
 		List<String> asked = new ArrayList<String>();
 		this.fixture.map(new TGActionBase(this.fixture.context, TGOpenPluginEditorAction.NAME) {
 			protected void processAction(TGActionContext context) {
-				asked.add("effect " + context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT) + " owner " + context.getAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER)
+				asked.add("effect " + context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT) + " " + TGOpenPluginEditorAction.target(context)
 					+ " track " + context.<TGTrack>getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK).getName()
 					+ " channel " + context.<TGChannel>getAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL).getChannelId());
 			}
 		});
 		this.commands.edit(2, TGEditorPlacement.floating(() -> 42L), editor -> asked.add("parameters"));
-		this.commands.edit(0, TGEditorPlacement.floating(() -> 7L), editor -> asked.add("parameters"));
-		assertEquals("[effect 2 owner 42 track " + this.track.getName() + " channel " + this.track.getChannelId() + ", effect null owner 7 track " + this.track.getName() + " channel "
-			+ this.track.getChannelId() + "] [done, done]", asked + " " + this.told);
+		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L, () -> 300), editor -> asked.add("parameters"));
+		String track = " track " + this.track.getName() + " channel " + this.track.getChannelId();
+		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 300 px high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
+	}
+
+	// an action given no placement opens the editor in a window of its own, owned by none
+	@Test
+	void anEditorGivenNoPlacementFloatsOwnedByNone() {
+		assertEquals("floating, owned by 0", TGOpenPluginEditorAction.target(new TGActionContext() {
+		}).toString());
 	}
 
 	// a plugin without an editor of its own is edited in TuxGuitar's parameter editor, handed to the editor once open;

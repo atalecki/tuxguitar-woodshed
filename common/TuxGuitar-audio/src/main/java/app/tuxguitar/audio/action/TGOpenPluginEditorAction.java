@@ -12,6 +12,7 @@ import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGMessagesManager;
+import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 
@@ -20,16 +21,16 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * (TGEffectAction.ATTRIBUTE_EFFECT), or, without one, the VST3 instrument that is the source, or the default instrument
  * the channel plays as its source (TGDefaultInstrumentSource.edited: the first change made there keeps it in the song,
  * see TGLivePlugins). It changes nothing in the song. Refused, saying why in TuxGuitar's language (a TGActionException, whose message an app shows), when that is no
- * VST3 plugin (NO_EDITOR), or the plugin or its editor cannot be opened (TGLivePlugins): the message names it. The plugin's own editor is in a window the window given
- * (ATTRIBUTE_OWNER: TuxGuitar's main window) owns, or, without one, in a window of its own; its caption names the
- * plugin and the context's track (TGDocumentContextAttributes.ATTRIBUTE_TRACK), when there is one.
+ * VST3 plugin (NO_EDITOR), or the plugin or its editor cannot be opened (TGLivePlugins): the message names it. The plugin's own editor goes where the
+ * target given says (ATTRIBUTE_TARGET: floating in a window TuxGuitar's main window owns, or inside an area of that
+ * window), or, without one, in a window of its own; its caption names the plugin and the context's track
+ * (TGDocumentContextAttributes.ATTRIBUTE_TRACK), when there is one.
  */
 public class TGOpenPluginEditorAction extends TGActionBase {
 
 	public static final String NAME = "action.audio.sound-chain.open-plugin-editor";
-	// the window that owns the plugin's own editor (a Long, its native handle: TuxGuitar's main window), so the editor
-	// stays in front of it; without one, the editor is in a window of its own
-	public static final String ATTRIBUTE_OWNER = "ownerWindow";
+	// where the plugin's own editor goes (a TGEditorTarget); without one, in a window of its own that no window owns
+	public static final String ATTRIBUTE_TARGET = "editorTarget";
 	// the refusal of what is no VST3 plugin: {0} its name
 	private static final String NO_EDITOR = "audio.plugin.refusal.no-editor";
 
@@ -44,14 +45,19 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 		if (plugin == null) {
 			throw new TGActionException(TGMessagesManager.getProperty(NO_EDITOR, new Object[] {TGSoundChain.name(TGSoundChain.get(channel), effect, channel)}));
 		}
-		Long owner = context.getAttribute(ATTRIBUTE_OWNER);
 		String title = title(plugin, context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK));
 		try {
-			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), (owner != null ? owner : 0), title);
+			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), target(context), title);
 			context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
 		}
+	}
+
+	// where the context says the plugin's own editor goes; floating, owned by none, when it says nothing
+	public static TGEditorTarget target(TGActionContext context) {
+		TGEditorTarget target = context.getAttribute(ATTRIBUTE_TARGET);
+		return (target != null ? target : TGEditorTarget.floating(0));
 	}
 
 	// the caption of the editor's window: the plugin's name, and the track's when the editor is opened for one

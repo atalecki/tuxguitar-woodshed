@@ -29,6 +29,7 @@ import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
+import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Gestures;
@@ -324,21 +325,22 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		}
 	}
 
-	// the plugin's own editor, shown in front in a window the owner window owns (a native window handle, TuxGuitar's
-	// window; 0: none) with the title as its caption, or TuxGuitar's parameter editor for a plugin without one
-	public synchronized TGPluginEditor openEditor(int channel, String element, long owner, String title) throws TGVst3Exception {
-		return this.openEditor(channel, element, owner, title, LOAD_WAIT);
+	// the plugin's own editor where the target says (floating: shown in front in a window the owner window owns, a
+	// native window handle, TuxGuitar's window; 0: none) with the title as its caption, or TuxGuitar's parameter editor
+	// for a plugin without one
+	public synchronized TGPluginEditor openEditor(int channel, String element, TGEditorTarget target, String title) throws TGVst3Exception {
+		return this.openEditor(channel, element, target, title, LOAD_WAIT);
 	}
 
 	// waiting at most the milliseconds while the live synthesizer runs the channel but not the element yet (one just
 	// added: the app sends the synthesizer the chain a moment later), so the editor is the running plugin's
-	synchronized TGPluginEditor openEditor(int channel, String element, long owner, String title, long wait) throws TGVst3Exception {
+	synchronized TGPluginEditor openEditor(int channel, String element, TGEditorTarget target, String title, long wait) throws TGVst3Exception {
 		long end = System.currentTimeMillis() + wait;
 		while (this.played.contains(channel) && !this.running.containsKey(key(channel, element)) && System.currentTimeMillis() < end) {
 			this.await(end - System.currentTimeMillis());
 		}
 		TGVst3Instance instance = this.get(channel, element);
-		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, owner, title), () -> rows(instance));
+		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, target.getOwner(), title), () -> rows(instance));
 		this.editors.put(key(channel, element), new Editor(editor, instance, this.edited(channel, element, instance)));
 		return editor;
 	}

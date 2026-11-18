@@ -24,6 +24,7 @@ import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGTrack;
+import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3EditorWindow;
 import app.tuxguitar.vst3.TGVst3EffectProcessor;
 import app.tuxguitar.vst3.TGVst3Element;
@@ -120,7 +121,7 @@ public class EditorSteps {
 
 	@When("I open the editor of VST3 effect {int} of track {int} from TuxGuitar's window")
 	public void openTheEditorFromTuxGuitarsWindow(int effect, int track) throws TGVst3Exception {
-		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER, tuxGuitarsWindow());
+		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_TARGET, TGEditorTarget.floating(tuxGuitarsWindow()));
 		openTheEditor(effect, track);
 	}
 
