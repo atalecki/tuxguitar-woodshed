@@ -58,3 +58,22 @@ folder `desktop/build-scripts/tuxguitar-windows-swt-x86_64/target/tuxguitar-9.99
   the file loaded by hand, the missing profile and its hint (also in made-up German), Play waiting for a 40 MB
   profile live, and the song staying unmodified. Check what is heard and seen.
 - A profile set in the configuration is read when TuxGuitar starts; slice 2e applies a change from Settings at once.
+
+## Measurements: many Woodshed Guitar instances (slice 2g)
+
+Measured 2026-11-18 on this machine (Intel Core Ultra 7 265, 20 cores), with `woodshed-guitar-time` (the plugin's own
+voice and NeuralAmpModelerCore v0.6.0 as the plugin builds them) playing each shipped profile at the app's rate,
+44.1 kHz (the profiles are 48 kHz, so the resampler runs too), blocks of 512, 30 s of audio, N copies started at once.
+"Per instance" is the time each copy took as a share of one core; "total" adds them up (20 cores = 2000%). It leaves out
+what a real instance adds around that: its own host process and the per-block exchange with TuxGuitar.
+
+| Profile | Quality | 1 | 4 | 8 | 16 instances |
+| --- | --- | --- | --- | --- | --- |
+| RiffSmith Clean | Full | 5.3% | 5.4% each, 22% total | 5.7% each, 45% total | 7.4% each, 118% total |
+| RiffSmith Clean | Light | 2.9% | 3.0% each, 12% total | 3.0% each, 24% total | 3.7% each, 59% total |
+| RiffSmith Bass Clean | Full | 5.2% | 5.4% each, 22% total | 5.9% each, 48% total | 8.8% each, 141% total |
+| RiffSmith Bass Clean | Light | 2.9% | 3.0% each, 12% total | 3.2% each, 26% total | 4.5% each, 71% total |
+
+So sixteen guitar or bass tracks at Full use about 1.2 to 1.4 of the 20 cores (6 to 7% of the machine); Light halves
+that. Per-instance cost grows from 8 to 16 instances (the cores share caches and clocks), but nothing approaches the
+machine's limit. No automatic behaviour was added: the product owner decides after seeing these numbers.
