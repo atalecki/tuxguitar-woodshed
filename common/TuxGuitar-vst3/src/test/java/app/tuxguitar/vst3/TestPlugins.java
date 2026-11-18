@@ -1,6 +1,12 @@
 package app.tuxguitar.vst3;
 
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Duration;
+import java.util.Collections;
 
 /**
  * Where the native build (native/build.cmd or build.sh, run by Maven before the tests) put the host process and the test
@@ -53,5 +59,27 @@ public final class TestPlugins {
 	// the folder holding Old Amp, a VST 2 plugin
 	public static File vst2Folder() {
 		return new File(nativeBuild(), "vst2");
+	}
+
+	// a NAM capture "Gain 3.nam" in the folder, multiplying the signal by 3
+	public static File gain3(File folder) throws Exception {
+		File capture = new File(folder, "Gain 3.nam");
+		Files.write(capture.toPath(), ("{\"version\": \"0.7.0\", \"architecture\": \"Linear\", \"config\": {\"receptive_field\": 1, \"bias\": false, "
+			+ "\"in_channels\": 1, \"out_channels\": 1}, \"weights\": [3.0], \"sample_rate\": 44100}").getBytes(StandardCharsets.UTF_8));
+		return capture;
+	}
+
+	// its status: the profile, the refusal, the notice and the capture being loaded, a line break between
+	public static String profile(TGVst3Instance woodshed) throws TGVst3Exception {
+		return new String(woodshed.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()), StandardCharsets.UTF_8);
+	}
+
+	// waits, 10 seconds at most, until it says it restores its state no more (its host asked meanwhile)
+	public static void untilRestored(TGVst3Instance instance) {
+		assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+			while (instance.isRestoring(Duration.ofMinutes(1).toMillis())) {
+				Thread.onSpinWait();
+			}
+		});
 	}
 }
