@@ -41,4 +41,11 @@ public class TestParameterColumns {
 			+ " " + TGParameterColumns.height(20, 30, 801) + " " + TGParameterColumns.height(0, 30, 800);
 		assertEquals("120 390 400 400 0", heights);
 	}
+
+	// beyond that height the rows scroll (the scroll bar shows), not before: 13 rows fit, 14 do not
+	@Test
+	public void theRowsScrollOnlyWhenTheyNeedMoreThanTheArea() {
+		String scrolls = TGParameterColumns.scrolls(13, 30, 800) + " " + TGParameterColumns.scrolls(14, 30, 800) + " " + TGParameterColumns.scrolls(20, 20, 800) + " " + TGParameterColumns.scrolls(0, 30, 800);
+		assertEquals("false true false false", scrolls);
+	}
 }

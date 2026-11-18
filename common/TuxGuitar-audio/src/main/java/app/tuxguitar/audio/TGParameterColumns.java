@@ -36,4 +36,9 @@ public final class TGParameterColumns {
 	public static int height(int rows, int rowHeight, int windowHeight) {
 		return Math.min(rows * rowHeight, (int) (windowHeight * TGEditorArea.MAX_SHARE));
 	}
+
+	// whether the rows scroll inside the area: they need more than its height (its scroll bar shows only then)
+	public static boolean scrolls(int rows, int rowHeight, int windowHeight) {
+		return (rows * rowHeight > height(rows, rowHeight, windowHeight));
+	}
 }

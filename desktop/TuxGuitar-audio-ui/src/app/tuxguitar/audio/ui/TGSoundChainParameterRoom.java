@@ -95,8 +95,10 @@ final class TGSoundChainParameterRoom {
 		this.columns = this.columns();
 		this.rows.ifPresent(shown -> shown.columns(this.columns));
 		int window = Math.round(TGWindow.getInstance(this.context).getWindow().getBounds().getHeight());
-		int height = TGParameterColumns.height(TGParameterColumns.rows(this.count(), this.columns), this.rowHeight, window);
+		int rows = TGParameterColumns.rows(this.count(), this.columns);
+		int height = TGParameterColumns.height(rows, this.rowHeight, window);
 		this.room.setVisible(height > 0);
+		this.room.getVScroll().setVisible(TGParameterColumns.scrolls(rows, this.rowHeight, window));
 		((UITableLayout) this.parent.getLayout()).set(this.room, UITableLayout.PACKED_HEIGHT, (float) height);
 		this.room.layout();
 		TGBottomDock.getInstance(this.context).layout();
