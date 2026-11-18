@@ -687,9 +687,11 @@ const PassedKeys* passingFor(HWND window) {
 	return nullptr;
 }
 
-// the keys a standard text box keeps while it has the focus, though its frame passes them: copy, cut, paste, select all
-// and undo, Ctrl alone held
-const std::set<int32> kTextBoxKeys = {'C' | 2 << 8, 'X' | 2 << 8, 'V' | 2 << 8, 'A' | 2 << 8, 'Z' | 2 << 8};
+// the keys a standard text box keeps while it has the focus, though its frame passes them, Ctrl held (2 << 8): copy,
+// cut, paste, select all, undo, redo (Ctrl+Y, Ctrl+Shift+Z), a word left or right, selected with Shift too, a word
+// deleted before or after the caret
+const std::set<int32> kTextBoxKeys = {'C' | 2 << 8, 'X' | 2 << 8, 'V' | 2 << 8, 'A' | 2 << 8, 'Z' | 2 << 8, 'Y' | 2 << 8, 'Z' | 3 << 8,
+                                      VK_LEFT | 2 << 8, VK_RIGHT | 2 << 8, VK_LEFT | 3 << 8, VK_RIGHT | 3 << 8, VK_BACK | 2 << 8, VK_DELETE | 2 << 8};
 
 // one of Windows' standard text boxes: its class Edit (as Windows names it), or RichEdit... in any case (RichEdit20W,
 // RICHEDIT50W)
