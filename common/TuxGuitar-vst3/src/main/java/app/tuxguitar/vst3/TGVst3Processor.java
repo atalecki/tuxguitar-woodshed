@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGAudioProcessor;
@@ -37,6 +38,8 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	// again is left silent until it is given its element again)
 	private Map<String, String> parameters;
 	private boolean restarted;
+	// the last restart of its plugin, under way or done (see stopped): an offline clock waits for it
+	private volatile CompletableFuture<Void> restarting = CompletableFuture.completedFuture(null);
 	// why no plugin is open (null while one is, and before the first)
 	private TGVst3Exception problem;
 	// the state the plugin opened with
@@ -93,7 +96,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	// thread that found it, once until it is given its element again
 	private void stopped(TGVst3Instance gone) {
 		if (this.hosting.isRestarting()) {
-			this.hosting.restartLater(() -> this.restart(gone));
+			this.restarting = this.hosting.restartLater(() -> this.restart(gone));
 		}
 	}
 
@@ -175,6 +178,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 
 	// the block in parts, one per span of the transport, each told its span, with the notes on its frames
 	public void process(float[][] samples) {
+		this.awaitRestart();
 		TGVst3Instance playing = this.instance;
 		try {
 			if (playing != null) {
@@ -192,6 +196,15 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		}
 		for (float[] side : samples) {
 			java.util.Arrays.fill(side, 0f);
+		}
+	}
+
+	// an offline clock waits for each block, so for a restart under way too: the plugin started again plays from the block
+	// after the one its host stopped in, not from wherever the render has got to when the new host is up (live, the
+	// track is silent meanwhile: the audio thread cannot wait)
+	private void awaitRestart() {
+		if (this.transport.isOffline()) {
+			this.restarting.join();
 		}
 	}
 

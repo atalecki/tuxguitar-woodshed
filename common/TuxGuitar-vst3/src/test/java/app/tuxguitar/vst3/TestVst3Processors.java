@@ -82,6 +82,13 @@ public class TestVst3Processors {
 		return TestPlugins.block(FRAMES, value, value);
 	}
 
+	// a clock that waits for each block (an export, a song played in the tests)
+	private static MidiTransport offline() {
+		MidiTransport offline = new MidiTransport();
+		offline.setOffline(true);
+		return offline;
+	}
+
 	private int parameter(String plugin, String title) throws TGVst3Exception {
 		TGVst3Instance instance = this.hosting.open(this.hosting.find(plugin), 44100f, FRAMES);
 		int id = instance.findParameter(title);
@@ -510,9 +517,7 @@ public class TestVst3Processors {
 		TGVst3Processor silent = (TGVst3Processor) effect(element("Test Hang"));
 		silent.getInstance().setParameter(silent.getInstance().findParameter("Hang at"), 0);
 		silent.getInstance().setParameter(silent.getInstance().findParameter("Hang for"), 1e9);
-		MidiTransport offline = new MidiTransport();
-		offline.setOffline(true);
-		silent.setTransport(offline);
+		silent.setTransport(offline());
 		silent.process(level(0.25f));
 		this.hosting.configure(missing, Arrays.asList(TestPlugins.folder()));
 		return Arrays.asList(crashed, silent, (TGVst3PluginProcessor) effect(element("Test Gain")));
@@ -563,6 +568,42 @@ public class TestVst3Processors {
 		assertEquals("0.0 0.5 true 0.5", stopped[0][0] + " " + again[0][0] + " " + silent + " " + given[0][0]);
 		assertEquals("[started again false true the VST3 host stopped (exit code 1), left silent false false the VST3 host stopped (exit code 1)]",
 			this.restarts.toString());
+	}
+
+	// offline the clock waits for each block, so it waits for the restart too: the plugin started again plays from the
+	// block after the one its host stopped in, wherever the render is when the new host is up
+	@Test
+	public void offlineAPluginWhoseHostStoppedPlaysAgainFromTheNextBlock() throws Exception {
+		TGVst3Processor gain = (TGVst3Processor) effect(element("Test Gain"));
+		TGVst3Instance first = gain.getInstance();
+		restartStopped(first);
+		gain.setTransport(offline());
+		TestPlugins.kill(first.getHost().getPid());
+		float[][] stopped = level(0.25f);
+		gain.process(stopped);
+		float[][] next = level(0.25f);
+		gain.process(next);
+		assertEquals("0.0 0.5", stopped[0][0] + " " + next[0][0]);
+	}
+
+	// live the audio thread cannot wait: while the plugin starts again (here held up behind another restart) the track is
+	// silent at once
+	@Test
+	public void liveABlockDoesNotWaitForAPluginStartingAgain() throws Exception {
+		TGVst3Processor gain = (TGVst3Processor) effect(element("Test Gain"));
+		TGVst3Instance first = gain.getInstance();
+		restartStopped(first);
+		java.util.concurrent.Semaphore busy = new java.util.concurrent.Semaphore(0);
+		this.hosting.restartLater(busy::acquireUninterruptibly);
+		TestPlugins.kill(first.getHost().getPid());
+		gain.process(level(0.25f));
+		float[][] next = level(0.25f);
+		try {
+			assertTimeoutPreemptively(java.time.Duration.ofSeconds(1), () -> gain.process(next));
+		} finally {
+			busy.release();
+		}
+		assertEquals(0f, next[0][0]);
 	}
 
 	// a plugin that cannot be started again (its host's program gone meanwhile) is left silent, saying why
@@ -631,9 +672,7 @@ public class TestVst3Processors {
 		TGVst3Processor hang = (TGVst3Processor) effect(element("Test Hang"));
 		hang.getInstance().setParameter(hang.getInstance().findParameter("Hang at"), 0);
 		hang.getInstance().setParameter(hang.getInstance().findParameter("Hang for"), 300);
-		MidiTransport transport = new MidiTransport();
-		transport.setOffline(true);
-		hang.setTransport(transport);
+		hang.setTransport(offline());
 		float[][] block = level(0.25f);
 		hang.process(block);
 		assertEquals(0.25f, block[1][FRAMES - 1]);

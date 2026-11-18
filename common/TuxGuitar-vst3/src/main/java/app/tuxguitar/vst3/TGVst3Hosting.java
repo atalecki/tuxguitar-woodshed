@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -206,8 +207,9 @@ public final class TGVst3Hosting {
 		return !this.restartListeners.isEmpty();
 	}
 
-	void restartLater(Runnable restart) {
-		this.restarts.execute(restart);
+	// done when it has run (an offline clock waits for it)
+	CompletableFuture<Void> restartLater(Runnable restart) {
+		return CompletableFuture.runAsync(restart, this.restarts);
 	}
 
 	// the listeners told how the plugin whose host stopped went on
