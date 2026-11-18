@@ -79,6 +79,7 @@
 	<shortcut keys="Ctrl Shift Down" action="action.track.go-next"/>
 	<shortcut keys="Ctrl Shift Del" action="action.track.remove"/>
 	<shortcut keys="F9" action="action.gui.open-transport-mode-dialog"/>
+	<shortcut keys="F8" action="action.audio.toggle-sound-chain-panel"/>
 	<shortcut keys="Space" action="action.transport.play"/>
 	<shortcut keys="Ctrl t" action="action.gui.toggle-transport-dialog"/>
 </shortcuts>

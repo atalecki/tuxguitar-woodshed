@@ -1,6 +1,10 @@
 package app.tuxguitar.app.view.menu.impl;
 
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.action.impl.layout.TGSetChordDiagramEnabledAction;
 import app.tuxguitar.app.action.impl.layout.TGSetChordNameEnabledAction;
@@ -28,6 +32,7 @@ import app.tuxguitar.app.view.component.tab.TablatureEditor;
 import app.tuxguitar.app.view.component.table.TGTableViewer;
 import app.tuxguitar.app.view.dialog.transport.TGTransportDialog;
 import app.tuxguitar.app.view.menu.TGMenuItem;
+import app.tuxguitar.app.view.menu.TGViewMenuExtensions;
 import app.tuxguitar.app.view.toolbar.edit.TGEditToolBar;
 import app.tuxguitar.app.view.toolbar.main.TGMainToolBar;
 import app.tuxguitar.graphics.control.TGLayout;
@@ -46,6 +51,7 @@ public class ViewMenuItem extends TGMenuItem {
 	private UIMenuCheckableItem showEditToolbar;
 	private UIMenuCheckableItem showTableViewer;
 	private UIMenuCheckableItem showFretBoard;
+	private List<Extension> extensions = new ArrayList<Extension>();
 	private UIMenuCheckableItem showInstruments;
 	private UIMenuCheckableItem showTransport;
 	private UIMenuCheckableItem showPiano;
@@ -82,6 +88,9 @@ public class ViewMenuItem extends TGMenuItem {
 
 		//--FRETBOARD--
 		this.showFretBoard = this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), "view.show-fretboard", TGToggleFretBoardEditorAction.NAME, TGIconManager.FRETBOARD);
+
+		//--PLUGINS' DOCKED VIEWS (the Sound Chain panel)--
+		this.extensions = TGViewMenuExtensions.getInstance(this.findContext()).getItems().stream().map(this::extension).collect(Collectors.toList());
 
 		this.layoutMenuItem.getMenu().createSeparator();
 
@@ -148,6 +157,7 @@ public class ViewMenuItem extends TGMenuItem {
 		this.showEditToolbar.setChecked(TGEditToolBar.getInstance(this.findContext()).isVisible());
 		this.showTableViewer.setChecked(TGTableViewer.getInstance(this.findContext()).isVisible());
 		this.showFretBoard.setChecked(TuxGuitar.getInstance().getFretBoardEditor().isVisible());
+		this.extensions.forEach(Extension::update);
 		this.showInstruments.setChecked(!TuxGuitar.getInstance().getChannelManager().isDisposed());
 		this.showTransport.setChecked(!TGTransportDialog.getInstance(this.findContext()).isDisposed());
 		this.showPiano.setChecked(!TuxGuitar.getInstance().getPianoEditor().isDisposed());
@@ -157,11 +167,20 @@ public class ViewMenuItem extends TGMenuItem {
 		this.multitrack.setChecked( (style & TGLayout.DISPLAY_MULTITRACK) != 0 );
 		this.scoreEnabled.setChecked( (style & TGLayout.DISPLAY_SCORE) != 0 );
 		this.tablatureEnabled.setChecked( (style & TGLayout.DISPLAY_TABLATURE) != 0 );
-		this.compact.setEnabled((style & TGLayout.DISPLAY_MULTITRACK) == 0 || tablature.getViewLayout().getSong().countTracks() == 1);
-		this.compact.setChecked( this.compact.isEnabled() && ((style & TGLayout.DISPLAY_COMPACT) != 0) );
+		this.updateCompact(tablature, style);
 		this.chordName.setChecked( (style & TGLayout.DISPLAY_CHORD_NAME) != 0 );
 		this.chordDiagram.setChecked( (style & TGLayout.DISPLAY_CHORD_DIAGRAM) != 0 );
 		this.zoomReset.setEnabled(!Tablature.DEFAULT_SCALE.equals(tablature.getScale()));
+	}
+
+	// compact view: only for one track shown at a time
+	private void updateCompact(Tablature tablature, int style) {
+		this.compact.setEnabled(compactable(tablature, style));
+		this.compact.setChecked( this.compact.isEnabled() && ((style & TGLayout.DISPLAY_COMPACT) != 0) );
+	}
+
+	private static boolean compactable(Tablature tablature, int style) {
+		return (style & TGLayout.DISPLAY_MULTITRACK) == 0 || tablature.getViewLayout().getSong().countTracks() == 1;
 	}
 
 	public void loadProperties(){
@@ -171,5 +190,26 @@ public class ViewMenuItem extends TGMenuItem {
 	public void loadIcons(){
 		this.loadImages();
 		this.showMainToolbar.setImage(TuxGuitar.getInstance().getIconManager().getToolbarMain());
+	}
+
+	// a plugin's check item (TGViewMenuExtensions), named and run as the app's own
+	private Extension extension(TGViewMenuExtensions.Item item) {
+		return new Extension(this.actionItem(this.layoutMenuItem.getMenu().createCheckItem(), item.getKey(), item.getAction(), null), item);
+	}
+
+	private static final class Extension {
+
+		private final UIMenuCheckableItem menuItem;
+		private final TGViewMenuExtensions.Item item;
+
+		Extension(UIMenuCheckableItem menuItem, TGViewMenuExtensions.Item item) {
+			this.menuItem = menuItem;
+			this.item = item;
+		}
+
+		void update() {
+			this.menuItem.setChecked(this.item.isChecked());
+			this.menuItem.setEnabled(this.item.isEnabled());
+		}
 	}
 }

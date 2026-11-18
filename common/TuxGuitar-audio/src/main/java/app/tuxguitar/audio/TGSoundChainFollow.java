@@ -4,10 +4,12 @@ import java.util.Arrays;
 import java.util.Objects;
 
 import app.tuxguitar.document.TGDocumentManager;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.TGMessagesManager;
 
 /**
  * A sound chain editor that follows the caret's track (the Sound Chain panel): it reads the rows again (which asks what
@@ -19,6 +21,9 @@ import app.tuxguitar.util.TGContext;
  * it.
  */
 public final class TGSoundChainFollow {
+
+	// sound chains are heard only with the TuxGuitar Synthesizer as the MIDI Port
+	private static final String SYNTHESIZER_ONLY = "audio.sound-chain.synthesizer-only";
 
 	private TGSoundChainFollow() {
 	}
@@ -37,6 +42,11 @@ public final class TGSoundChainFollow {
 			this.track = track;
 			this.channel = channel;
 			this.shown = shown;
+		}
+
+		// the track shown (null: none), as the song had it when read
+		public TGTrack getTrack() {
+			return this.track;
 		}
 
 		// the track's name; none's for no track
@@ -103,5 +113,15 @@ public final class TGSoundChainFollow {
 		public int hashCode() {
 			return Objects.hashCode(System.identityHashCode(this.object));
 		}
+	}
+
+	// the quiet line an editor shows while the MIDI Port is not the TuxGuitar Synthesizer, the only one sound chains are
+	// heard on; "" while it is
+	public static String note(TGContext context) {
+		return note(MidiPlayer.getInstance(context).isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY));
+	}
+
+	public static String note(boolean heard) {
+		return (heard ? "" : TGMessagesManager.getProperty(SYNTHESIZER_ONLY));
 	}
 }

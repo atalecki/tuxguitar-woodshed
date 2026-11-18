@@ -21,7 +21,8 @@ public final class TGSoundChainRows {
 
 	// what an app's sound chain editor can be asked to do, each enabled or greyed for the row picked (the one place that
 	// decides it): add the VST3 effect picked, make the VST3 instrument picked or the default instrument the source, keep
-	// the default instrument in the song, move the picked effect up, remove it, enable or disable it, open its editor
+	// the default instrument in the song, move the picked effect up, remove it, enable or disable it, open its editor;
+	// the Sound Chain panel opens the full dialog on its track
 	public enum Control {
 		ADD_EFFECT((rows, row, effect, instrument) -> rows.canAdd(effect)),
 		USE_AS_SOURCE((rows, row, effect, instrument) -> rows.canChoose(instrument)),
@@ -30,7 +31,8 @@ public final class TGSoundChainRows {
 		MOVE_UP((rows, row, effect, instrument) -> rows.canMoveUp(row)),
 		REMOVE((rows, row, effect, instrument) -> rows.isEffect(row)),
 		TOGGLE((rows, row, effect, instrument) -> rows.isEffect(row)),
-		EDIT((rows, row, effect, instrument) -> rows.canEdit(row));
+		EDIT((rows, row, effect, instrument) -> rows.canEdit(row)),
+		OPEN_DIALOG((rows, row, effect, instrument) -> true);
 
 		private final Rule rule;
 

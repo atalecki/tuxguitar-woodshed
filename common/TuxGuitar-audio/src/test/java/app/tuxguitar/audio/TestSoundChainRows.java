@@ -102,26 +102,27 @@ class TestSoundChainRows {
 	}
 
 	// each control enabled exactly as the dialog's buttons were: what can be added or chosen whatever the row, what the
-	// row allows, an audio channel's source chosen by no control, and nothing at all without a track
+	// row allows, an audio channel's source chosen by no control, and nothing at all without a track; the panel's button
+	// opening the dialog, whenever there is a track
 	@TestFactory
 	Stream<DynamicTest> theControlsEnabledForEachKindOfRowPicked() {
 		TGChannel audio = this.fixture.songManager.getChannel(this.fixture.song, this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1)).getChannelId());
 		TGSoundChainRows guitar = TGSoundChainRows.of(this.guitar);
 		return Stream.of(
-			reads("none picked", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT", () -> enabled(guitar, -1, GAIN, SINE)),
-			reads("the source", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT", () -> enabled(guitar, 0, GAIN, SINE)),
-			reads("the first effect", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT REMOVE TOGGLE EDIT", () -> enabled(guitar, 1, GAIN, SINE)),
-			reads("a later effect, disabled", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT MOVE_UP REMOVE TOGGLE", () -> enabled(guitar, 2, GAIN, SINE)),
-			reads("plugins picked of the other kind", "DEFAULT_INSTRUMENT", () -> enabled(guitar, 0, SINE, GAIN)),
-			reads("no plugins to pick", "DEFAULT_INSTRUMENT", () -> enabled(guitar, 0, null, null)),
-			reads("an audio channel's takes", "ADD_EFFECT", () -> enabled(TGSoundChainRows.of(audio), 0, GAIN, SINE)),
+			reads("none picked", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, -1, GAIN, SINE)),
+			reads("the source", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, GAIN, SINE)),
+			reads("the first effect", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT REMOVE TOGGLE EDIT OPEN_DIALOG", () -> enabled(guitar, 1, GAIN, SINE)),
+			reads("a later effect, disabled", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT MOVE_UP REMOVE TOGGLE OPEN_DIALOG", () -> enabled(guitar, 2, GAIN, SINE)),
+			reads("plugins picked of the other kind", "DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, SINE, GAIN)),
+			reads("no plugins to pick", "DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, null, null)),
+			reads("an audio channel's takes", "ADD_EFFECT OPEN_DIALOG", () -> enabled(TGSoundChainRows.of(audio), 0, GAIN, SINE)),
 			reads("no track", "", () -> enabled(TGSoundChainRows.NONE, 0, GAIN, SINE)));
 	}
 
 	// a default source that plays an instrument can be kept in the song, whatever row is picked
 	@Test
 	void keepIsEnabledWhileTheDefaultInstrumentPlays() {
-		assertEquals("DEFAULT_INSTRUMENT KEEP", enabled(TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine()), -1, null, null));
+		assertEquals("DEFAULT_INSTRUMENT KEEP OPEN_DIALOG", enabled(TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine()), -1, null, null));
 	}
 
 	// the guitar's source made the default instrument (stored as General MIDI), which plays Test Sine

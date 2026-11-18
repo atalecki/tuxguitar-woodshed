@@ -14,8 +14,28 @@ import org.junit.jupiter.api.TestFactory;
  */
 class TestSoundChainStrip {
 
-	private static String lines(int available, int... widths) {
+	private static String lines(int available, float... widths) {
 		return TGSoundChainStrip.lines(widths, available, 10).toString();
+	}
+
+	// each item's place "x,y", then the size the items take "<width>x<height>"
+	private static String place(float available, float[] widths, float[] heights) {
+		TGSoundChainStrip.Placement placed = TGSoundChainStrip.place(widths, heights, available, 4);
+		StringBuilder read = new StringBuilder();
+		for (int item = 0; item < widths.length; item++) {
+			read.append(placed.getX(item)).append(",").append(placed.getY(item)).append(" ");
+		}
+		return read.append("| ").append(placed.getWidth()).append("x").append(placed.getHeight()).toString();
+	}
+
+	// the panel's lines laid out: a line as high as its highest item, each item centred on it (a label next to a
+	// button), the gap between lines too; the items take the widest line's width
+	@TestFactory
+	Stream<DynamicTest> eachItemIsPlacedOnItsLine() {
+		return Stream.of(
+			reads("two lines", "0.0,2.5 104.0,0.0 0.0,34.0 | 184.0x54.0", () -> place(200, new float[] {100, 80, 60}, new float[] {25, 30, 20})),
+			reads("one line", "0.0,2.5 104.0,0.0 | 184.0x30.0", () -> place(500, new float[] {100, 80}, new float[] {25, 30})),
+			reads("nothing", "| 0.0x0.0", () -> place(500, new float[0], new float[0])));
 	}
 
 	@TestFactory

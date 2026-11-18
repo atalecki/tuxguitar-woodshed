@@ -23,7 +23,6 @@ import app.tuxguitar.ui.widget.UIReadOnlyTextBox;
 import app.tuxguitar.ui.widget.UISelectItem;
 import app.tuxguitar.ui.widget.UIWindow;
 import app.tuxguitar.util.TGContext;
-import app.tuxguitar.util.TGSynchronizer;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
@@ -107,15 +106,9 @@ public class TGSoundChainDialog {
 	// the drop-downs offer the plugins the last scan found, each its first picked; the status says what it found
 	private void showPlugins() {
 		List<TGVst3Plugin> plugins = TGVst3Hosting.getInstance(this.context).getPlugins();
-		offer(this.effects, TGSoundChainRows.effects(plugins));
-		offer(this.instruments, TGSoundChainRows.instruments(plugins));
+		TGSoundChainButtons.offer(this.effects, TGSoundChainRows.effects(plugins));
+		TGSoundChainButtons.offer(this.instruments, TGSoundChainRows.instruments(plugins));
 		this.status.setText(TGLiveAudio.getInstance(this.context).getPluginScan().toString());
-	}
-
-	private static void offer(UIDropDownSelect<TGVst3Plugin> select, List<TGVst3Plugin> plugins) {
-		select.removeItems();
-		plugins.forEach(plugin -> select.addItem(new UISelectItem<TGVst3Plugin>(plugin.getName(), plugin)));
-		plugins.stream().findFirst().ifPresent(select::setSelectedValue);
 	}
 
 	// the VST3 folders scanned again off the UI thread (a plugin installed while TuxGuitar runs), then offered here; the
@@ -136,14 +129,8 @@ public class TGSoundChainDialog {
 		this.updateButtons();
 	}
 
-	// done on the UI thread once it gets there, unless the dialog was closed meanwhile (a scan, or a plugin loading
-	// or opening its editor, can take longer than the dialog stays open)
 	private void later(Runnable done) {
-		TGSynchronizer.getInstance(this.context).executeLater(() -> {
-			if (!this.dialog.isDisposed()) {
-				done.run();
-			}
-		});
+		TGSoundChainButtons.later(this.context, this.dialog, done);
 	}
 
 	private UIButton button(int row, int column, String key, Runnable action) {
@@ -189,7 +176,6 @@ public class TGSoundChainDialog {
 	// the picked plugin's own editor opens (a window of its host process titled with the plugin and this track, owned
 	// by TuxGuitar's main window: it stays in front of it), or else TuxGuitar's parameter editor here
 	private void openEditor() {
-		Integer effect = TGSoundChainRows.effect(this.picked());
-		this.commands.edit(this.picked(), TGNativeWindow.floating(this.context), editor -> this.later(() -> new TGPluginParametersDialog(this.context, this.track, effect, editor).open(this.dialog)));
+		TGSoundChainButtons.edit(this.context, this.commands, this.track, this.picked(), this::later, this.dialog);
 	}
 }

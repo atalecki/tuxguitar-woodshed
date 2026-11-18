@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import static app.tuxguitar.editor.action.SongActionFixture.reads;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 
 import app.tuxguitar.audio.TGSoundChainFollow.Key;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.song.models.TGChannel;
@@ -108,7 +110,7 @@ class TestSoundChainFollow {
 		TGTrack track = drone(document);
 		Key shown = TGSoundChainFollow.key(document.context, track);
 		Key none = TGSoundChainFollow.key(document.context, null);
-		assertEquals(track.getName() + " [Source: drone] | No track [] true", shown.title("No track") + " " + shown.rows(document.context).getRows("Source") + " | " + none.title("No track") + " "
+		assertEquals(track.getName() + " " + track.getName() + " [Source: drone] | No track null [] true", shown.title("No track") + " " + shown.getTrack().getName() + " " + shown.rows(document.context).getRows("Source") + " | " + none.title("No track") + " " + none.getTrack() + " "
 			+ none.rows(document.context).getRows("Source") + " " + (none.rows(document.context) == TGSoundChainRows.NONE));
 	}
 
@@ -120,5 +122,15 @@ class TestSoundChainFollow {
 		Key before = TGSoundChainFollow.key(document.context, track);
 		TGDefaultInstrumentSource.install(document.context).use(TGDefaultInstruments.NONE);
 		assertEquals("true", String.valueOf(TGSoundChainFollow.changed(before, TGSoundChainFollow.key(document.context, track))));
+	}
+
+	// with another MIDI Port than the TuxGuitar Synthesizer (here none is open) the chain is still edited, saved in the
+	// song, but not heard: the editor says so in one quiet line, in the user's language; with it, nothing is said
+	@Test
+	void anEditorSaysSoundChainsAreHeardOnlyWithTheTuxGuitarSynthesizer() {
+		Map<String, String> madeUp = Map.of("audio.sound-chain.synthesizer-only", "Klangketten nur mit dem Synthesizer");
+		assertEquals("Sound chains are heard only with the TuxGuitar Synthesizer as MIDI Port | Klangketten nur mit dem Synthesizer | []",
+			TuxGuitarMessages.english(() -> TGSoundChainFollow.note(this.fixture.context)) + " | " + TuxGuitarMessages.said(madeUp, () -> TGSoundChainFollow.note(false)) + " | ["
+				+ TuxGuitarMessages.said(madeUp, () -> TGSoundChainFollow.note(true)) + "]");
 	}
 }
