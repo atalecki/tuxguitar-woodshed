@@ -40,6 +40,8 @@ public:
 
 	// shows the plugin's profile and refusal as they are now
 	void refresh();
+	// its texts said again (the language changed) and laid out for them
+	void relabel();
 	// as the user does it: the file dialog, then the file chosen loaded
 	void chooseProfile();
 	// Update from file clicked: the file at the profile's path loaded

@@ -1,5 +1,6 @@
 #include "text.h"
 
+#include <atomic>
 #include <cstring>
 #include <iterator>
 #include <vector>
@@ -36,8 +37,41 @@ const Phrase kEnglishTexts[] = {
 	{"refusal.unreadable", "{0} could not be read"},
 };
 
+// German
+const Phrase kGermanTexts[] = {
+	{"profile.none", "Kein Profil: die trockene Gitarre ist zu hören"},
+	{"profile.name", "Profil: {0}"},
+	{"profile.loading", "{0} wird geladen..."},
+	{"profile.refused", "Nicht geladen: {0}"},
+	{"profile.changed", "Die Profildatei hat sich seit dem Laden geändert."},
+	{"editor.load", "Profil laden..."},
+	{"editor.update", "Aus Datei aktualisieren"},
+	{"editor.input-gain", "Eingangspegel"},
+	{"editor.output-level", "Ausgangspegel"},
+	{"editor.quality", "Qualität"},
+	{"editor.quality.full", "Voll"},
+	{"editor.quality.light", "Leicht"},
+	{"dialog.title", "Profil laden"},
+	{"dialog.captures", "NAM-Captures (*.nam)"},
+	{"dialog.all", "Alle Dateien (*.*)"},
+	{"refusal.inputs", "{0} ließ sich nicht laden: es hat {1} Eingänge, und Woodshed Guitar spielt Captures mit einem"},
+	{"refusal.error", "{0} ließ sich nicht laden: {1}"},
+	{"refusal.not-json", "{0} ließ sich nicht laden: es ist nicht das JSON einer .nam-Datei"},
+	{"refusal.not-nam", "{0} ist kein NAM-Capture: Woodshed Guitar spielt .nam-Dateien"},
+	{"refusal.unreadable", "{0} ließ sich nicht lesen"},
+};
+
 // a language is added here with a table of its own, after English
-const Language kLanguages[] = {{kEnglish, kEnglishTexts, std::size(kEnglishTexts)}};
+const Language kLanguages[] = {{kEnglish, kEnglishTexts, std::size(kEnglishTexts)}, {kGerman, kGermanTexts, std::size(kGermanTexts)}};
+
+// the language TuxGuitar told, -1 while it told none
+std::atomic<int> told(-1);
+
+// the languages by the part of TuxGuitar's tag before "_" (TuxGuitar's root language is English)
+const struct {
+	const char* tag;
+	unsigned short id;
+} kTags[] = {{"", kEnglish}, {"en", kEnglish}, {"de", kGerman}};
 
 // the language's text of the key; null when it has none
 const char* find(const Language& language, const char* key) {
@@ -84,6 +118,20 @@ unsigned short systemLanguage() {
 
 }  // namespace
 
+unsigned short languageOf(const std::string& tag) {
+	std::string language = tag.substr(0, tag.find_first_of("_-"));
+	for (const auto& known : kTags) {
+		if (language == known.tag) {
+			return known.id;
+		}
+	}
+	return 0;
+}
+
+void tell(const std::string& tag) {
+	told = languageOf(tag);
+}
+
 const char* phrase(const Language* languages, size_t count, unsigned short language, const char* key) {
 	const Language* chosen = table(languages, count, language);
 	const char* text = (chosen ? find(*chosen, key) : nullptr);
@@ -111,7 +159,8 @@ std::string fill(const std::string& pattern, std::initializer_list<std::string> 
 }
 
 std::string say(const char* key, std::initializer_list<std::string> arguments) {
-	return fill(phrase(kLanguages, std::size(kLanguages), systemLanguage(), key), arguments);
+	int language = told;
+	return fill(phrase(kLanguages, std::size(kLanguages), (unsigned short) (language >= 0 ? language : systemLanguage()), key), arguments);
 }
 
 }  // namespace Woodshed

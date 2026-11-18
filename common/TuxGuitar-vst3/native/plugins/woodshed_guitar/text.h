@@ -1,8 +1,9 @@
 // Woodshed Guitar's texts, those its editor shows and the reasons it gives: a table of its own, as TuxGuitar's
 // translation files are out of a plugin's reach. Each text has a key, so a language can be added beside English as a
-// table of its own (kLanguages in text.cpp); only English ships now. The language is the system's UI language
-// (GetUserDefaultUILanguage on Windows; English elsewhere), English for a language it lacks and for a text a language
-// lacks. Plain names and units ("dB") are not texts.
+// table of its own (kLanguages in text.cpp): English and German ship. The language is the one TuxGuitar shows, once
+// TuxGuitar told it (tell: "Woodshed.language"), else the system's UI language (GetUserDefaultUILanguage on Windows;
+// English elsewhere); English for a language it lacks and for a text a language lacks. Plain names and units ("dB")
+// are not texts.
 #pragma once
 
 #include <cstddef>
@@ -25,6 +26,14 @@ struct Language {
 };
 
 const unsigned short kEnglish = 0x09;
+const unsigned short kGerman = 0x07;
+
+// the primary language id of a language tag as TuxGuitar names its languages ("de", "de_DE", "pt_BR"; "" for its
+// root language, English), among the languages Woodshed Guitar has texts in; 0 for another
+unsigned short languageOf(const std::string& tag);
+
+// the language TuxGuitar shows, from now on (a tag, see languageOf), for every Woodshed Guitar of the process
+void tell(const std::string& tag);
 
 // the key's text in the language among those given, the first given (English) when the language or its text is
 // missing, the key itself when the first lacks it too

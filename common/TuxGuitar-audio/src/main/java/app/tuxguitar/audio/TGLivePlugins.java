@@ -1,6 +1,8 @@
 package app.tuxguitar.audio;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -74,6 +76,9 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	static final long LOAD_WAIT = 5000;
 
 	private static final TGLog LOG = TGLog.get(TGLivePlugins.class);
+	// TuxGuitar's own plugin, and the message telling it TuxGuitar's language
+	private static final String WOODSHED = "Woodshed Guitar";
+	private static final String LANGUAGE = "Woodshed.language";
 	// the refusal to open a plugin's editor, in TuxGuitar's language: {0} the plugin, {1} the host's reason (the
 	// plugin's own: TGPluginStates.opened)
 	private static final String EDITOR_NOT_OPENED = "audio.plugin.refusal.editor-not-opened";
@@ -160,8 +165,9 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		this.notifyAll();
 	}
 
-	// its gestures heard, and what it tells of its editor queued for the drain
+	// its gestures heard, what it tells of its editor queued for the drain; Woodshed Guitar told TuxGuitar's language
 	private TGVst3Instance listened(int channel, String element, TGVst3Instance instance) {
+		tellLanguage(instance);
 		TGVst3Gestures gestures = new TGVst3Gestures(() -> this.ended.add(new Gesture(channel, element, instance)));
 		instance.setListener(notice -> {
 			gestures.notice(notice);
@@ -172,6 +178,26 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 
 	private static boolean aboutItsEditor(TGVst3Notice notice) {
 		return EDITOR_NOTICES.contains(notice.getKind());
+	}
+
+	// Woodshed Guitar (TuxGuitar's own plugin) says its texts in the language TuxGuitar shows: it is told it (its tag,
+	// "de", "pt_BR", empty for English); other plugins have no way to be told
+	private static void tellLanguage(TGVst3Instance instance) {
+		try {
+			if (WOODSHED.equals(instance.getName())) {
+				String language = Optional.ofNullable(TGMessagesManager.getInstance().getLanguage()).orElse("");
+				instance.message(LANGUAGE, Collections.<String, Long>emptyMap(), Collections.singletonMap("language", language.getBytes(StandardCharsets.UTF_8)));
+			}
+		} catch (TGVst3Exception e) {
+			LOG.debug("Woodshed Guitar was not told TuxGuitar's language: " + e.getMessage());
+		}
+	}
+
+	// TuxGuitar shows another language: every Woodshed Guitar running or kept open is told it (an editor open says its
+	// texts in it at once)
+	public synchronized void languageChanged() {
+		this.running.values().forEach(TGLivePlugins::tellLanguage);
+		this.kept.values().forEach(kept -> tellLanguage(kept.instance));
 	}
 
 	// where each plugin's editor window of its own opens, as an app keeps it (in memory until one is given)
