@@ -190,13 +190,13 @@ public class TestMidiPlayerOnTheClock {
 		assertEquals("690 | 960 false [2]", playedToTheEnd());
 	}
 
-	// where playing ends, each on a player of its own. The song ends once the output sounds past the end of the
-	// sequence: 1024 frames late, after block 692, its last notes heard; at 48000 Hz (the sequence's 15360 ticks last
-	// 384000 frames, 750 blocks) and 512 frames late, the end of block 751 sounds exactly the end, which the song ends
-	// past, after block 752
+	// where playing ends, each on a player of its own. The song ends after the block the output sounds the end of the
+	// sequence in: 1024 frames late, after block 692, its last notes heard; at 48000 Hz (the sequence's 15360 ticks last
+	// 384000 frames, 750 blocks) and 512 frames late, the end of block 751 sounds exactly the end, and the song ends
+	// there, not a block later
 	@Test
 	public void theSongEndsWhereItsEndIsHeard() throws MidiPlayerException {
-		assertEquals("692 | 960 false [2] / 752 | 960 false [2]", fresh().playedToTheEnd(44100, 1024) + " / " + fresh().playedToTheEnd(48000, 512));
+		assertEquals("692 | 960 false [2] / 751 | 960 false [2]", fresh().playedToTheEnd(44100, 1024) + " / " + fresh().playedToTheEnd(48000, 512));
 	}
 
 	private static TestMidiPlayerOnTheClock fresh() {

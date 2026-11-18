@@ -167,6 +167,11 @@ public class TimedLiveSteps {
 		live.assertStoppedAfter(within, seconds * (long) SAMPLE_RATE, "turn " + turn);
 	}
 
+	@Then("the player stopped by itself at the end of the block turn {int}'s end is heard in, {int} seconds after Play")
+	public void stoppedAsTurnEndIsHeard(int turn, int seconds) {
+		live.assertStoppedAsHeard(seconds * (long) SAMPLE_RATE, "turn " + turn);
+	}
+
 	// as heard: silence up to Play, then the first click within the samples; turn 2's note not before its Count In's
 	// beats are over (a click leaves a little at its pitch), then on every beat of its first measure
 	@Then("after Play, turn {int}'s Count In of {int} beats starts within {int} samples")

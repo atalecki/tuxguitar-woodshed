@@ -472,11 +472,13 @@ public class TestMidiSequencerClock {
 		return blocks + " " + sequencer.isRunning();
 	}
 
-	// the last note is on tick 30: the sequencer stops once the output sounds past it, two blocks (1024 frames) later
-	// than it would without the delay
+	// each on a sequencer of its own. The last note on tick 30 (frame 689): the sequencer stops once the output sounds it,
+	// two blocks (1024 frames) later than it would without the delay. The last note on tick 22 (frame 505, a tick lasting
+	// 22.97 frames), no delay: the output has sounded it by the end of the first block (frame 512, less than a tick past
+	// it), so the sequencer stops after that block, not a block later
 	@Test
-	public void theSequencerStopsOnceTheOutputSoundsPastTheLastEvent() throws MidiPlayerException {
-		assertEquals("4 false", stoppedAfter(1024, 30));
+	public void theSequencerStopsAfterTheBlockTheOutputSoundsItsLastEventIn() throws MidiPlayerException {
+		assertEquals("4 false | 1 false", stoppedAfter(1024, 30) + " | " + new TestMidiSequencerClock().stoppedAfter(0, 22));
 	}
 
 	// the last note is on tick 30 (frame 689: frame 177 of the second block): the transport is told the song stops on that

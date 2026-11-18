@@ -128,7 +128,7 @@ public class MidiSequencerImpl implements MidiSequencer {
 				}
 				this.stopped = false;
 				step.run();
-				if (this.getScheduledTickPosition() > this.getTickLength() && this.getTickPosition() > this.getTickLength()) {
+				if (this.hasSounded(this.getTickLength())) {
 					this.stop();
 				}
 			} else if (!this.stopped) {
@@ -138,6 +138,13 @@ public class MidiSequencerImpl implements MidiSequencer {
 			}
 			return running;
 		}
+	}
+
+	// whether the sequence has played up to the tick and the output has sounded it: on the clock the position is the tick
+	// of the first frame the output has not sounded yet, so once it reaches the tick; on the timer, once it is past it
+	private boolean hasSounded(long tick) {
+		long heard = (this.playingClock != null ? tick : tick + 1);
+		return (this.getScheduledTickPosition() >= heard && this.getTickPosition() >= heard);
 	}
 
 	public void setRunning(boolean running) throws MidiPlayerException {

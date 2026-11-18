@@ -173,7 +173,7 @@ transport a span from that frame; the takes' live timeline starts each pass ther
 it (the takes and a monitored input sound late by plugin delay compensation, so that pass's end still sounds after
 the jump) and always the next one, so the jump back crossfades as offline with nothing dropping out (a monitored
 input going on across it does not even fade), and a live
-recording's take of each pass starts on its first sample. Live, a take played at another tempo than it was recorded
+recording's take of each pass starts on its first sample. Where the song stops, on any frame of a block, the sequencer tells the transport so from that frame (and "not playing" over the blocks after it while the output still sounds the end): the takes sound up to the very sample the song stopped on, late by plugin delay compensation as every track is, and nothing after it; a live recording follows only what plays. On the clock the sequencer stops after the block the output sounds the sequence's end in (its heard position has reached the last tick), so the player stops where the end of a song or a session is heard, not a block later. Live, a take played at another tempo than it was recorded
 at is time-stretched ahead of the blocks by a worker of the takes, and a stretch once made is kept (`TGStretches`:
 the last tap's, no more): a loop's passes at one speed are stretched once, a Training Mode pass at its new speed while
 the pass before it plays, and nothing is stretched again at a jump back or when the same passage plays again at the
