@@ -17,6 +17,8 @@ public class TGReadSongAction extends TGSongPersistenceActionBase {
 
 	public static final String NAME = "action.song.read";
 	public static final String IS_NEWER_FILE_FORMAT = "action.song.read.newerFileFormat";
+	// what the reader warns about the song read (a part of it left out), in TuxGuitar's language: a List of String
+	public static final String WARNINGS = "action.song.read.warnings";
 
 	public static final String ATTRIBUTE_INPUT_STREAM = InputStream.class.getName();
 
@@ -43,6 +45,7 @@ public class TGReadSongAction extends TGSongPersistenceActionBase {
 				tgSongManager.updatePreciseStart(tgSongLoaderHandle.getSong());
 			}
 			context.setAttribute(IS_NEWER_FILE_FORMAT, tgSongLoaderHandle.isNewerFileFormatDetected());
+			context.setAttribute(WARNINGS, tgSongLoaderHandle.getWarnings());
 			context.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG, tgSongLoaderHandle.getSong());
 			context.setAttribute(ATTRIBUTE_FORMAT, tgSongLoaderHandle.getFormat());
 

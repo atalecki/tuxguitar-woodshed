@@ -24,11 +24,12 @@ import app.tuxguitar.song.models.TGSong;
 
 /**
  * Pins TGReadSongAction: the song read from the input stream, its format found from the content, becomes the song of
- * the action context and, through the load song action, of the document; the context also learns the format and
- * whether the file came from a newer version. The beats read are aligned one after the other (a rest then fills the
- * measure). A stream that is not a song fails the action.
+ * the action context and, through the load song action, of the document; the context also learns the format, whether
+ * the file came from a newer version, and what the reader warns about the song (nothing here; a take left out is
+ * warned about in the audio module's saving feature). The beats read are aligned one after the other (a rest then
+ * fills the measure). A stream that is not a song fails the action.
  *
- * It reads back as "document song / context song / format / newer file format".
+ * It reads back as "document song / context song / format / newer file format / warnings".
  */
 public class TestReadSongAction {
 
@@ -49,8 +50,9 @@ public class TestReadSongAction {
 
 		TGSong song = fixture.actionContext.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG);
 		TGFileFormat format = fixture.actionContext.getAttribute(TGReadSongAction.ATTRIBUTE_FORMAT);
-		assertEquals("Blues / Blues / TuxGuitar 2.0 / false", TGDocumentManager.getInstance(fixture.context).getSong().getName() + " / " + song.getName()
-				+ " / " + format.getName() + " / " + fixture.actionContext.getAttribute(TGReadSongAction.IS_NEWER_FILE_FORMAT));
+		assertEquals("Blues / Blues / TuxGuitar 2.0 / false / []", TGDocumentManager.getInstance(fixture.context).getSong().getName() + " / " + song.getName()
+				+ " / " + format.getName() + " / " + fixture.actionContext.getAttribute(TGReadSongAction.IS_NEWER_FILE_FORMAT)
+				+ " / " + fixture.actionContext.getAttribute(TGReadSongAction.WARNINGS));
 	}
 
 	@Test
