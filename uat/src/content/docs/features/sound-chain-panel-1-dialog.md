@@ -7,7 +7,7 @@ sidebar:
 
 ## What it tests
 
-Commits `fd36d3214` and `c977e0242` on `feature/sound-chain-panel`. Nothing new is visible: the Sound Chain dialog now
+Commits `fd36d3214` and `c977e0242` on `feature/sound-chain-panel`; step 7 changed with `92b40ca90`. Nothing new is visible: the Sound Chain dialog now
 decides which buttons are enabled, and runs its changes, through the code the docked Sound Chain panel (next pages)
 shares with it. This page checks that the dialog behaves exactly as it did.
 
@@ -32,7 +32,7 @@ later on the branch. The install folder is
 | 4 | Pick row 2 and press **Up**. | The two effects swap. | not run |
 | 5 | Pick row 1 and press **Disable**. | The row reads in brackets, "1. [..]", and the button now says **Enable**. Press it: the brackets go. | not run |
 | 6 | Pick row 2 and press **Remove**. | Row 2 goes. Nothing is picked now. | not run |
-| 7 | Pick the source row. | Up, Remove and Disable are greyed. Edit... is greyed too: the source is the default instrument, which the track does not own yet. | not run |
+| 7 | Pick the source row. | Up, Remove and Disable are greyed. Edit... is enabled (since `92b40ca90`): pressing it opens Woodshed Guitar's own window, the default instrument's, in front of the main window. Close it with its close box without changing anything: the source row still reads "(default for guitar tracks)", and Edit > Undo has nothing new to undo. | not run |
 | 8 | Add the effect without an editor of its own (Test Clip), pick its row and press **Edit...**. | TuxGuitar's Parameters window opens, one row per parameter. | not run |
 | 9 | Pick the row of the effect with its own editor (TONE3000 or Test Gain) and press **Edit...**. | The plugin's own window opens in front of the main window, titled "<plugin> – <track name>". | not run |
 | 10 | Press **Keep in song**, then pick the source row. | The source row now reads "Source: Woodshed Guitar" (no "default for ..."): the track has its own instrument. Keep in song is greyed now, Edit... is enabled; pressing it opens Woodshed Guitar's window in front of the main window. | not run |
@@ -46,3 +46,5 @@ later on the branch. The install folder is
 - TestSoundChainRows checks which control is enabled for every kind of row; TestSoundChainCommands checks each change
   against the real VST3 host. This page checks the dialog in the running app.
 - Known, pinned: after removing the picked effect, nothing is picked (as before this change).
+- Since `92b40ca90`, Edit... on a default source opens the default instrument's editor; what its first change does is
+  checked on the panel's page (steps 22-26), and the dialog shares the same decision.
