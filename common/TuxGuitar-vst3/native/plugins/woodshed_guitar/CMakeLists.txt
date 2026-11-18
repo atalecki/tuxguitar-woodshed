@@ -25,6 +25,18 @@ if(SMTG_WIN)
 	target_link_libraries(tg_woodshed_guitar PRIVATE comctl32 comdlg32 user32 gdi32)
 endif()
 
+# the profile Woodshed Guitar plays as TuxGuitar's default guitar and bass instrument when the user chose none: "RiffSmith
+# Clean", an A2 capture by Matt Hartman under the MIT License (profiles/RiffSmith-LICENSE.txt), kept in these sources
+# unmodified and pinned by its SHA256; it goes to <build>/plugins/profiles, next to TuxGuitar's own plugins folder, with
+# its licence (the install puts both in profiles next to vst3)
+set(TG_WOODSHED_PROFILE "${CMAKE_CURRENT_LIST_DIR}/profiles/RiffSmith Clean.nam")
+file(SHA256 "${TG_WOODSHED_PROFILE}" TG_WOODSHED_PROFILE_SHA256)
+if(NOT TG_WOODSHED_PROFILE_SHA256 STREQUAL "433f93c73abfc86b1ab46adc8ec7e0eaa46a7286727708880c285c10a1642741")
+	message(FATAL_ERROR "${TG_WOODSHED_PROFILE} is not the pinned capture (SHA256 ${TG_WOODSHED_PROFILE_SHA256})")
+endif()
+configure_file("${TG_WOODSHED_PROFILE}" "${CMAKE_BINARY_DIR}/plugins/profiles/RiffSmith Clean.nam" COPYONLY)
+configure_file("${CMAKE_CURRENT_LIST_DIR}/profiles/RiffSmith-LICENSE.txt" "${CMAKE_BINARY_DIR}/plugins/profiles/RiffSmith-LICENSE.txt" COPYONLY)
+
 # times captures played as the plugin plays them (the CPU cost a hand check cannot measure): bin/woodshed-guitar-time
 add_executable(woodshed-guitar-time time.cpp)
 target_link_libraries(woodshed-guitar-time PRIVATE tg_woodshed_core)
