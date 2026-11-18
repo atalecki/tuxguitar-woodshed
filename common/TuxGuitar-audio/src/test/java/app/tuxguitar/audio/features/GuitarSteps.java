@@ -383,6 +383,18 @@ public class GuitarSteps {
 		TGLivePlugins.getInstance(world.fixture().context).drain();
 	}
 
+	// once it has loaded what it was given, the app drains what it told
+	@When("Woodshed Guitar of track {int} has loaded, the app taking what it told")
+	public void hasLoaded(int track) throws TGVst3Exception {
+		awaitLoaded(running(track));
+		TGLivePlugins.getInstance(world.fixture().context).drain();
+	}
+
+	@Then("Woodshed Guitar of track {int} as it runs has {string} at {double}")
+	public void runsWith(int track, String title, double value) throws TGVst3Exception {
+		assertEquals(value, parameter(running(track), title), 1e-9);
+	}
+
 	@Then("Woodshed Guitar of track {int} has {string} at {double}")
 	public void hasAt(int track, String title, double value) throws TGVst3Exception {
 		assertEquals(value, (double) ofTheSong(track, plugin -> parameter(plugin, title)), 1e-9);

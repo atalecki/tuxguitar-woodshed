@@ -53,7 +53,11 @@ import app.tuxguitar.vst3.TGVst3State;
  * The default instrument a channel plays as its source (TGDefaultInstrumentSource.edited) is edited too, though it is
  * no element of the song: the first change made in its editor keeps it in the song with that change (Keep in song,
  * TGKeepDefaultInstrumentAction, one undo step), its plugin and editor going on as the source's; opening and closing its
- * editor changes nothing, nor does what the plugin does once the default is another one (the settings changed).
+ * editor changes nothing, nor does what the plugin does once the default is another one (the settings changed). The
+ * synthesizer runs a plugin it hands over between the default and the chain's source as the other's (synth-core's
+ * TGSynthChannel): its editor goes on as that element's, so undoing the keep leaves the default's editor open, the plugin
+ * agreeing with the default as it was when the editor opened (its next change keeps it again), and Redo leaves it open
+ * as the source's; an editor that never edited the default closes instead.
  */
 public final class TGLivePlugins implements TGSynthChannelListener {
 
@@ -339,15 +343,17 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return editor;
 	}
 
-	// the default instrument the channel plays as its source, when the element is, its plugin's state once restored
+	// the default instrument the channel plays as its source, when the element is, with its plugin's state once restored,
 	// taken as what the song has (a change is what differs from it); else null
-	private TGProgramElement edited(int channel, String element, TGVst3Instance instance) throws TGVst3Exception {
+	private Default edited(int channel, String element, TGVst3Instance instance) throws TGVst3Exception {
 		TGProgramElement played = (TGSoundChain.element(this.chain(channel), element) == null ? this.byDefault(channel, element) : null);
-		if (played != null) {
-			TGPluginStates.restored(instance);
-			instance.agree(instance.getState());
+		if (played == null) {
+			return null;
 		}
-		return played;
+		TGPluginStates.restored(instance);
+		Default edited = new Default(played, instance.getState());
+		instance.agree(edited.state);
+		return edited;
 	}
 
 	// whether the plugin opened an editor of its own; refused naming the plugin and the reason
@@ -396,9 +402,28 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return (editor != null && !editor.isOwn() ? editor : null);
 	}
 
-	// the editors whose plugin is no longer the element's (it stopped running) close
+	// the editors whose plugin is no longer the element's: one whose plugin runs as another element of the channel now
+	// (handed over) goes on as that element's editor when it may (see goesOn); the others close
 	private void closeEditors() {
-		this.editors.entrySet().removeIf(editor -> editor.getValue().instance != this.current(editor.getKey()) && editor.getValue().close());
+		Map<String, Editor> moved = new HashMap<String, Editor>();
+		this.editors.entrySet().removeIf(editor -> editor.getValue().instance != this.current(editor.getKey()) && this.leaves(editor.getValue(), moved));
+		this.editors.putAll(moved);
+	}
+
+	// the editor leaves its element: for the one its plugin runs as now, when it goes on there, else closed
+	private boolean leaves(Editor editor, Map<String, Editor> moved) {
+		Optional<String> now = this.running.entrySet().stream().filter(running -> running.getValue() == editor.instance).map(Map.Entry::getKey).findFirst();
+		now.filter(key -> this.goesOn(editor, key)).ifPresentOrElse(key -> moved.put(key, editor), editor::close);
+		return true;
+	}
+
+	// an editor goes on as the editor of an element of the song's chain; as the default instrument's only when it was
+	// opened for that default as the channel plays it now (its plugin agreeing with that default as it was then)
+	private boolean goesOn(Editor editor, String key) {
+		int slash = key.indexOf('/');
+		int channel = Integer.parseInt(key.substring(0, slash));
+		String element = key.substring(slash + 1);
+		return (TGSoundChain.element(this.chain(channel), element) != null || editor.agrees(this.byDefault(channel, element)));
 	}
 
 	// the plugins kept open close (their editors with them)
@@ -428,21 +453,42 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		}
 	}
 
+	// the default instrument an editor was opened for, as it was then: its element's parameters, its plugin's state
+	private static final class Default {
+		private final Map<String, String> parameters;
+		private final TGVst3State state;
+
+		Default(TGProgramElement played, TGVst3State state) {
+			this.parameters = new HashMap<String, String>(played.getParameters());
+			this.state = state;
+		}
+	}
+
 	private static final class Editor {
 		private final TGPluginEditor editor;
 		private final TGVst3Instance instance;
-		// the default instrument it was opened for, as it was then (null: an element of the song)
-		private final Map<String, String> byDefault;
+		// the default instrument it was opened for (null: an element of the song)
+		private final Default byDefault;
 
-		Editor(TGPluginEditor editor, TGVst3Instance instance, TGProgramElement byDefault) {
+		Editor(TGPluginEditor editor, TGVst3Instance instance, Default byDefault) {
 			this.editor = editor;
 			this.instance = instance;
-			this.byDefault = (byDefault != null ? new HashMap<String, String>(byDefault.getParameters()) : null);
+			this.byDefault = byDefault;
 		}
 
 		// whether it edits the default instrument played now (it was opened for it, and the default is still that one)
 		boolean edits(TGProgramElement played) {
-			return (played != null && played.getParameters().equals(this.byDefault));
+			return (played != null && this.byDefault != null && played.getParameters().equals(this.byDefault.parameters));
+		}
+
+		// whether it edits the default played now, its plugin agreeing with that default as it was when it opened (what
+		// differs from it is a change)
+		boolean agrees(TGProgramElement played) {
+			boolean edits = this.edits(played);
+			if (edits) {
+				this.instance.agree(this.byDefault.state);
+			}
+			return edits;
 		}
 
 		// the plugin's own editor closes (a plugin that is gone has none left to close), TuxGuitar's with it

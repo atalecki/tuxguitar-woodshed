@@ -24,6 +24,7 @@ import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.log.TGLogRecorder;
@@ -109,6 +110,26 @@ public class DefaultInstrumentSteps {
 		TGActionManager.getInstance(world.fixture().context).addPreExecutionListener(running);
 		this.play.playLive(from, 1, TGLivePlugins.getInstance(world.fixture().context)::drain);
 		TGActionManager.getInstance(world.fixture().context).removePreExecutionListener(running);
+	}
+
+	// as in the app, where the TuxGuitar Synthesizer keeps the song's channels open: they are opened, each sent its
+	// parameters (its sound chain among them) and program, the synthesizer telling TGLivePlugins of each chain it runs; and
+	// after each action (a change of a chain, an undo, a redo) the channels are sent again (desktop's
+	// TGUpdateChannelsController)
+	@Given("the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it")
+	public void theSynthesizerRunsTheChains() throws MidiPlayerException {
+		world.synthesizer().addChannelListener(TGLivePlugins.getInstance(world.fixture().context));
+		MidiPlayer player = MidiPlayer.getInstance(world.fixture().context);
+		player.updateChannels();
+		TGActionManager.getInstance(world.fixture().context).addPostExecutionListener(event -> this.update(player));
+	}
+
+	private void update(MidiPlayer player) {
+		try {
+			player.updateChannels();
+		} catch (MidiPlayerException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	// as TuxGuitar starts: the scan done off its UI thread, then what follows it

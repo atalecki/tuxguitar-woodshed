@@ -314,6 +314,66 @@ Feature: Default instruments by track kind
     Then track 1's sound chain reads "Steel String Acoustic Guitar"
     And the song is not modified
 
+  # In the app the TuxGuitar Synthesizer keeps the song's sound chains running, so a default's editor is on the plugin
+  # that sounds. Undoing the keep its first change made leaves that editor open, in its window where it was, on the same
+  # plugin, which plays the default again as the settings have it (its changes gone), so the user can go on: the next
+  # change there keeps it again, one undo step; Redo keeps the first change again, the editor still open
+  Scenario: undoing the keep made by the first change in a default instrument's editor leaves the editor open where it was
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    And I have opened the editor of the source of track 1
+    And I have noted the window of the plugin's own editor of the default instrument of track 1
+    And the plugin has loaded the capture 7 into the default instrument of track 1 saying so
+    When I undo
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the plugin's own editor of the default instrument of track 1 is open in the window noted, where it was
+    And the running plugin of the default instrument of track 1 plays the capture 0
+
+  Scenario: after the keep is undone, the next change in the default instrument's editor keeps it again, one undo step
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    And I have opened the editor of the source of track 1
+    And the plugin has loaded the capture 7 into the default instrument of track 1 saying so
+    And I undo
+    When the plugin loads the capture 9 into the default instrument of track 1 saying so
+    Then track 1's sound chain reads "Test Sine"
+    And the capture of the source of track 1 is 9
+    And the plugin's own editor of the source of track 1 is open
+    When I undo
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the plugin's own editor of the default instrument of track 1 is open
+
+  Scenario: Redo after undoing the keep keeps the first change again, the default instrument's editor still open where it was
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    And I have opened the editor of the source of track 1
+    And I have noted the window of the plugin's own editor of the default instrument of track 1
+    And the plugin has loaded the capture 7 into the default instrument of track 1 saying so
+    And I undo
+    When I redo
+    Then track 1's sound chain reads "Test Sine"
+    And the capture of the source of track 1 is 7
+    And the plugin's own editor of the source of track 1 is open in the window noted, where it was
+    And the running plugin of the source of track 1 plays the capture 7
+
+  # Woodshed Guitar goes back to the profile the settings choose, loading it again in the background: what it tells once
+  # loaded is no change of the song
+  Scenario: undoing the keep made by a control moved in Woodshed Guitar's editor brings the default's profile and controls back
+    Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is a NAM capture "Gain 3.nam" that multiplies the signal by 3.0
+    And the default instrument for guitar tracks is "Woodshed Guitar"
+    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    And I have opened the editor of the source of track 1
+    And I have noted the window of the plugin's own editor of the default instrument of track 1
+    And I set "Output level" to -6.0 in Woodshed Guitar's editor of track 1
+    When I undo
+    And Woodshed Guitar of track 1 has loaded, the app taking what it told
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the plugin's own editor of the default instrument of track 1 is open in the window noted, where it was
+    And Woodshed Guitar of track 1 as it runs has "Output level" at 0.0
+    And Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and ""
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1

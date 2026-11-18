@@ -375,7 +375,13 @@ These features change how TuxGuitar works today. They are requirements, not side
   profile loaded) keeps it in the song with that state, as Keep in song does (`ATTRIBUTE_STATE`), one undo step; the
   same plugin goes on as the song's source with its editor open (synth-core hands the default's processor over to the
   kept source, `TGSynthChannelProcessor.handOver`). Opening and closing it without a change keeps nothing, and what the
-  plugin does once the default is another one (the settings changed) keeps nothing either.
+  plugin does once the default is another one (the settings changed) keeps nothing either. Undoing that keep hands the
+  processor back to the default (synth-core hands it over whichever way the source changes between the default and the
+  track's own of the same type), which then goes back to how its plugin opened and loads the profile the settings
+  choose (`TGVst3Processor`); its editor stays open where it was, agreeing with the default as it was when it opened, so
+  its next change keeps it again, and Redo leaves it open too (`TGLivePlugins`: an editor follows its plugin to the
+  element it runs as; one never opened for the default closes). These scenarios keep the synthesizer's channels open
+  and send them after each action, as the app does ("the TuxGuitar Synthesizer runs the song's sound chains").
   Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`
