@@ -21,6 +21,16 @@ public class TestParameterColumns {
 		assertEquals("3 3 2 2 1 1", columns);
 	}
 
+	// width, columns, a column's width with the narrowest slider (240) -> the slider: one row in a wide area 400, not
+	// stretched across it; what a column spares widens it (240 + 110); never narrower than 240 when nothing is spared; in
+	// three columns each spares a third (240 + 10), up to 400 again
+	@Test
+	public void eachSliderTakesWhatItsColumnSparesFromTheNarrowestUpToTheWidest() {
+		String sliders = TGParameterColumns.slider(1800, 1, 490) + " " + TGParameterColumns.slider(600, 1, 490) + " " + TGParameterColumns.slider(400, 1, 490)
+			+ " " + TGParameterColumns.slider(1500, 3, 490) + " " + TGParameterColumns.slider(3000, 3, 490);
+		assertEquals("400 350 240 250 400", sliders);
+	}
+
 	@Test
 	public void eachColumnHoldsItsShareOfTheRowsTheLastOneFewer() {
 		String rows = TGParameterColumns.rows(10, 3) + " " + TGParameterColumns.rows(9, 3) + " " + TGParameterColumns.rows(1, 1) + " " + TGParameterColumns.rows(0, 1);
