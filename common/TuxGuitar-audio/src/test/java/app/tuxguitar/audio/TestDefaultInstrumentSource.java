@@ -16,6 +16,7 @@ import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
@@ -160,5 +161,30 @@ class TestDefaultInstrumentSource {
 		TGDefaultInstruments sine = TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, instrument(SINE, "Test Sine")).withProfile(TGInstrumentKind.GUITAR, clean.getPath());
 		TGDefaultInstruments woodshed = sine.with(TGInstrumentKind.GUITAR, TGDefaultInstruments.WOODSHED_GUITAR);
 		assertEquals("- " + clean, profile(TGInstrumentKind.GUITAR, sine, SCANNED.get(0)) + " " + profile(TGInstrumentKind.GUITAR, woodshed, woodshed(folder)));
+	}
+
+	// a sound chain editor reads the source's row again only when the stamp says what the defaults play may have changed
+	// (TGSoundChainFollow): other defaults used, another scan of the VST3 folders, a default told to play General MIDI;
+	// asking again, nothing changed, leaves it
+	@Test
+	void theStampGoesUpWhenWhatTheDefaultsPlayMayHaveChanged() throws Exception {
+		TGContext context = new TGContext();
+		TGVst3Hosting hosting = TestPluginHosting.host(context);
+		try {
+			TGDefaultInstrumentSource source = TGDefaultInstrumentSource.install(context);
+			long first = source.getStamp();
+			long same = source.getStamp();
+			source.use(TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, instrument("0123456789ABCDEF0123456789ABCDEF", "Missing Piano")));
+			long used = source.getStamp();
+			hosting.scan();
+			long scanned = source.getStamp();
+			source.sourceFor(0, 25);
+			long told = source.getStamp();
+			source.sourceFor(0, 25);
+			assertEquals("same, used, scanned, told, told once: 0 1 1 1 0", "same, used, scanned, told, told once: " + (same - first) + " " + (used - same) + " " + (scanned - used) + " "
+				+ (told - scanned) + " " + (source.getStamp() - told));
+		} finally {
+			hosting.close();
+		}
 	}
 }

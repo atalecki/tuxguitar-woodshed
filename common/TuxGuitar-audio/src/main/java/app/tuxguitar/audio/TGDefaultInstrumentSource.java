@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.midi.synth.TGDefaultSource;
@@ -49,6 +50,8 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	private final TGFallbackNotice notice = new TGFallbackNotice();
 	// the plugins of the scan the defaults were last tried with (a scan's list stays the same object until the next scan)
 	private List<TGVst3Plugin> scan;
+	// see getStamp: written by the threads that use defaults, scan or play them
+	private final AtomicLong stamp = new AtomicLong();
 
 	private TGDefaultInstrumentSource(TGContext context) {
 		this.context = context;
@@ -70,6 +73,7 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	public void use(TGDefaultInstruments defaults) {
 		this.defaults = defaults;
 		this.notice.tryAgain();
+		this.stamp.incrementAndGet();
 	}
 
 	// the defaults heard at once on the open song, as after a change of a sound chain: with the TuxGuitar Synthesizer as
@@ -111,6 +115,14 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		this.use(defaults);
 		this.applyNow();
 		return true;
+	}
+
+	// goes up each time what the defaults play may have changed: other defaults used, another scan of the VST3 folders
+	// (seen here, without a channel asking), a default told to play General MIDI instead; so an editor showing what a
+	// channel plays (TGSoundChainFollow) asks again only then
+	public long getStamp() {
+		this.scanned(TGVst3Hosting.getInstance(this.context).getPlugins());
+		return this.stamp.get();
 	}
 
 	public TGDefaultInstruments getDefaults() {
@@ -176,6 +188,7 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		if (plugins != this.scan) {
 			this.scan = plugins;
 			this.notice.tryAgain();
+			this.stamp.incrementAndGet();
 		}
 		return plugins;
 	}
@@ -217,6 +230,7 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	private void fellBack(TGFallback fallback, String logged) {
 		if (this.notice.fellBack(fallback, TGDocumentManager.getInstance(this.context).getSong(), now())) {
 			LOG.warn(logged);
+			this.stamp.incrementAndGet();
 		}
 	}
 
