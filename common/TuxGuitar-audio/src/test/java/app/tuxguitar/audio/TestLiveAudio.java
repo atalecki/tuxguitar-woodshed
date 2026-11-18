@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -364,20 +365,35 @@ class TestLiveAudio {
 
 	@Test
 	void aRefusedRecordingIsLoggedWithWhy() {
+		assertEquals("[WARN recording refused: no track is armed] | [WARN recording refused: the MIDI port is not the TuxGuitar Synthesizer]"
+			+ " | [WARN recording refused: no live audio device] | null", this.refusedRecordings(record -> logged(record).toString()));
+	}
+
+	// Record refused three times (no armed track, then no MIDI port, then no device), what each press tells (told:
+	// pressing it, given how), then whether the action succeeded
+	private String refusedRecordings(Function<Runnable, String> told) {
 		this.audio.load(new File("target/no-native-library"));
 		this.audio.open(settings("", "", 2, 0));
 		TGTrack track = this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1));
 		this.fixture.actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 960L);
 		Runnable record = () -> this.fixture.execute(new TGRecordAction(this.fixture.context));
-		List<String> unarmed = logged(record);
+		String unarmed = told.apply(record);
 		this.session.arm(track);
-		List<String> portless = logged(record);
+		String portless = told.apply(record);
 		openPort();
-		List<String> deviceless = logged(record);
+		String deviceless = told.apply(record);
+		return String.join(" | ", unarmed, portless, deviceless, String.valueOf(this.fixture.actionContext.<Boolean>getAttribute(TGRecordAction.ATTRIBUTE_SUCCESS)));
+	}
 
-		assertEquals(Arrays.asList("WARN recording refused: no track is armed"), unarmed);
-		assertEquals(Arrays.asList("WARN recording refused: the MIDI port is not the TuxGuitar Synthesizer"), portless);
-		assertEquals(Arrays.asList("WARN recording refused: no live audio device"), deviceless);
+	// what the user is told each time Record is refused: today, nothing. The hint an app shows on its status line reads
+	// none after each, and the action does not fail (no error message)
+	@Test
+	void aRefusedRecordingTellsTheUserNothing() {
+		TGLoadingHint loading = TGLoadingHint.install(this.fixture.context);
+		assertEquals("null | null | null | null", TuxGuitarMessages.english(() -> this.refusedRecordings(record -> {
+			record.run();
+			return String.valueOf(loading.getText());
+		})));
 	}
 
 	@Test
