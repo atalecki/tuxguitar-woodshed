@@ -1097,9 +1097,10 @@ public class TestVst3Host {
 	private static final int[] SHORTCUTS = {'Z' | CTRL, 0x77, 0x25 | ALT};
 	// the keys a text box edits with, as TuxGuitar's shortcuts too: copy, cut, paste, select all, undo, redo (Ctrl+Y,
 	// Ctrl+Shift+Z), a word left or right (Ctrl+Left, Ctrl+Right), selected (with Shift too), deleted (Ctrl+Backspace,
-	// Ctrl+Delete)
-	private static final int[] EDITING = {'C' | CTRL, 'X' | CTRL, 'V' | CTRL, 'A' | CTRL, 'Z' | CTRL, 'Y' | CTRL, 'Z' | CTRL | SHIFT, 0x25 | CTRL, 0x27 | CTRL,
-		0x25 | CTRL | SHIFT, 0x27 | CTRL | SHIFT, 0x08 | CTRL, 0x2E | CTRL};
+	// Ctrl+Delete), and Ctrl+Shift+Delete (TuxGuitar's Remove Track, kept so a slip while typing removes no track; typed
+	// before the paste, while the box is empty, as a text box may cut with it)
+	private static final int[] EDITING = {'C' | CTRL, 'X' | CTRL, 0x2E | CTRL | SHIFT, 'V' | CTRL, 'A' | CTRL, 'Z' | CTRL, 'Y' | CTRL, 'Z' | CTRL | SHIFT,
+		0x25 | CTRL, 0x27 | CTRL, 0x25 | CTRL | SHIFT, 0x27 | CTRL | SHIFT, 0x08 | CTRL, 0x2E | CTRL};
 	// TuxGuitar's shortcuts, those a text box edits with, and two it does not (Ctrl+Shift+C, Ctrl+Up)
 	private static final int[] WITH_EDITING = IntStream.concat(IntStream.concat(IntStream.of(SHORTCUTS), IntStream.of(EDITING)), IntStream.of('C' | CTRL | SHIFT, 0x26 | CTRL))
 		.toArray();
@@ -1171,10 +1172,10 @@ public class TestVst3Host {
 			TGVst3Instance gain = passing(app, WITH_EDITING);
 			String edit = typedAll(gain, app, in(IN_EDIT, EDITING)) + ", " + typedAll(gain, app, in(IN_EDIT, 0x77, 0x25 | ALT, 'C' | CTRL | SHIFT, 0x26 | CTRL));
 			String rich = typedAll(gain, app, in(IN_RICH_EDIT, 'V' | CTRL, 'Y' | CTRL, 0x08 | CTRL, 0x77));
-			assertEquals("view C+ctrl, view X+ctrl, view V+ctrl, view A+ctrl, view Z+ctrl, view Y+ctrl, view Z+ctrl+shift, view #37+ctrl, view #39+ctrl,"
+			assertEquals("view C+ctrl, view X+ctrl, view #46+ctrl+shift, view V+ctrl, view A+ctrl, view Z+ctrl, view Y+ctrl, view Z+ctrl+shift, view #37+ctrl, view #39+ctrl,"
 				+ " view #37+ctrl+shift, view #39+ctrl+shift, view #8+ctrl, view #46+ctrl, window F8, window #37+alt, window C+ctrl+shift, window #38+ctrl"
-				+ " | view V+ctrl, view Y+ctrl, view #8+ctrl, window F8 | window C+ctrl, window Z+ctrl, window #37+ctrl, window #8+ctrl",
-				edit + " | " + rich + " | " + typedAll(gain, app, 'C' | CTRL, 'Z' | CTRL, 0x25 | CTRL, 0x08 | CTRL));
+				+ " | view V+ctrl, view Y+ctrl, view #8+ctrl, window F8 | window C+ctrl, window Z+ctrl, window #37+ctrl, window #8+ctrl, window #46+ctrl+shift",
+				edit + " | " + rich + " | " + typedAll(gain, app, 'C' | CTRL, 'Z' | CTRL, 0x25 | CTRL, 0x08 | CTRL, 0x2E | CTRL | SHIFT));
 		}
 	}
 

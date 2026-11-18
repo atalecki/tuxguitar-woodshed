@@ -688,9 +688,11 @@ const PassedKeys* passingFor(HWND window) {
 
 // the keys a standard text box keeps while it has the focus, though its frame passes them, Ctrl held (2 << 8): copy,
 // cut, paste, select all, undo, redo (Ctrl+Y, Ctrl+Shift+Z), a word left or right, selected with Shift too, a word
-// deleted before or after the caret
+// deleted before or after the caret; and Ctrl+Shift+Delete, TuxGuitar's Remove Track, so a slip while typing removes no
+// track
 const std::set<int32> kTextBoxKeys = {'C' | 2 << 8, 'X' | 2 << 8, 'V' | 2 << 8, 'A' | 2 << 8, 'Z' | 2 << 8, 'Y' | 2 << 8, 'Z' | 3 << 8,
-                                      VK_LEFT | 2 << 8, VK_RIGHT | 2 << 8, VK_LEFT | 3 << 8, VK_RIGHT | 3 << 8, VK_BACK | 2 << 8, VK_DELETE | 2 << 8};
+                                      VK_LEFT | 2 << 8, VK_RIGHT | 2 << 8, VK_LEFT | 3 << 8, VK_RIGHT | 3 << 8, VK_BACK | 2 << 8, VK_DELETE | 2 << 8,
+                                      VK_DELETE | 3 << 8};
 
 // one of Windows' standard text boxes, an Edit or a RichEdit, under whatever class name it was given (Delphi's TEdit,
 // WinForms' WindowsForms10.EDIT..., a plugin's own superclass or subclass): asked what keys it wants, as the dialog
