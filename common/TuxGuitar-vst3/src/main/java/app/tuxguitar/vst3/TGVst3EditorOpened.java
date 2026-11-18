@@ -34,6 +34,11 @@ public final class TGVst3EditorOpened {
 		this.areaWidth = areaWidth;
 	}
 
+	// what the host did, as it says it
+	public static TGVst3EditorOpened of(Kind kind, int width, int height, boolean resizable, int areaWidth) {
+		return new TGVst3EditorOpened(kind, width, height, resizable, areaWidth);
+	}
+
 	// the reply to an embed or fit request: kind, width, height, resizable (1 or 0), the width of the window's inside
 	static TGVst3EditorOpened read(DataInputStream in) throws IOException {
 		return new TGVst3EditorOpened(Kind.values()[in.readInt()], in.readInt(), in.readInt(), in.readInt() == 1, in.readInt());

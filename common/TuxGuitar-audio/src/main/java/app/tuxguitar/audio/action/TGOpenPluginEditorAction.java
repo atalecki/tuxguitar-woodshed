@@ -3,7 +3,11 @@ package app.tuxguitar.audio.action;
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGDefaultInstrumentSource;
+import java.util.Optional;
+import java.util.function.Consumer;
+
 import app.tuxguitar.audio.TGLivePlugins;
+import app.tuxguitar.audio.TGPluginEditor;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.TGActionBase;
@@ -31,6 +35,8 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 	public static final String NAME = "action.audio.sound-chain.open-plugin-editor";
 	// where the plugin's own editor goes (a TGEditorTarget); without one, in a window of its own that no window owns
 	public static final String ATTRIBUTE_TARGET = "editorTarget";
+	// what is handed the editor once open (a Consumer of TGPluginEditor: a sound chain editor), on the action's thread
+	public static final String ATTRIBUTE_OPENED = "editorOpened";
 	// the refusal of what is no VST3 plugin: {0} its name
 	private static final String NO_EDITOR = "audio.plugin.refusal.no-editor";
 
@@ -47,8 +53,9 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 		}
 		String title = title(plugin, context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK));
 		try {
-			TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), target(context), title);
+			TGPluginEditor editor = TGLivePlugins.getInstance(getContext()).openEditor(channel.getChannelId(), plugin.getId(), target(context), title);
 			context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
+			Optional.ofNullable(context.<Consumer<TGPluginEditor>>getAttribute(ATTRIBUTE_OPENED)).ifPresent(opened -> opened.accept(editor));
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
 		}

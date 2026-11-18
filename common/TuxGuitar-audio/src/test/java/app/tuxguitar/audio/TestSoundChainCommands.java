@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionContext;
+import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
@@ -143,6 +144,49 @@ class TestSoundChainCommands {
 		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L), editor -> asked.add("parameters"));
 		String track = " track " + this.track.getName() + " channel " + this.track.getChannelId();
 		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
+	}
+
+	// the app runs the action later on its UI thread (its interceptor), after the command returned: the editor is handed
+	// once the action has opened it, not before
+	@Test
+	void theEditorIsHandedOnceTheActionRanLater() throws Exception {
+		List<Runnable> later = new ArrayList<Runnable>();
+		boolean[] deferring = {true};
+		TGActionManager actions = TGActionManager.getInstance(this.fixture.context);
+		actions.addInterceptor((id, context) -> {
+			boolean deferred = (deferring[0] && id.equals(TGOpenPluginEditorAction.NAME));
+			if (deferred) {
+				later.add(() -> this.runLater(actions, deferring, id, context));
+			}
+			return deferred;
+		});
+		this.commands.addEffect(this.hosting.find("Test Clip 0.5"));
+		List<String> opened = new ArrayList<String>();
+		this.commands.edit(1, TGEditorPlacement.floating(() -> 0L), editor -> opened.add("clip " + editor.getParameters()));
+		String before = opened.toString();
+		later.forEach(Runnable::run);
+		assertEquals("[] [clip [Ceiling]]", before + " " + opened);
+	}
+
+	private void runLater(TGActionManager actions, boolean[] deferring, String id, TGActionContext context) {
+		deferring[0] = false;
+		try {
+			actions.execute(id, context);
+		} catch (TGActionException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	// a row's plugin as the editor area knows it: its channel, element, plugin, name and row; a row without a VST3 plugin
+	// (General MIDI, no default instrument) is none
+	@Test
+	void aRowsPluginIsTheElementTheEditorAreaKnows() {
+		this.commands.addEffect(this.hosting.find("Test Gain"));
+		TGEditorDock.Element gain = this.commands.element(1);
+		String element = gain.getChannel() + " " + gain.getId().equals(TGSoundChain.get(this.channel(this.track)).getOutput(0).getId()) + " "
+			+ gain.getClassId().equals(this.hosting.find("Test Gain").getClassId()) + " " + gain.getName() + " " + gain.getRow();
+		TGSoundChainCommands none = new TGSoundChainCommands(this.fixture.context, () -> null, () -> { });
+		assertEquals(this.track.getChannelId() + " true true Test Gain 1 null null null", element + " " + this.commands.element(0) + " " + this.commands.element(-1) + " " + none.element(0));
 	}
 
 	// an action given no placement opens the editor in a window of its own, owned by none

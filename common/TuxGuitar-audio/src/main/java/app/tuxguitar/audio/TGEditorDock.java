@@ -8,8 +8,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3EditorOpened.Kind;
 
 /**
@@ -57,6 +60,29 @@ public final class TGEditorDock {
 		OPENED.put(Kind.TOO_LARGE, Shows.TOO_LARGE);
 	}
 
+	// what the button beside the line does: Open in window, Put back in the panel, Show (a window too large), Show editor
+	// (after a stop)
+	private static final Map<Shows, Function<TGEditorDock, Step>> PRESSED = new EnumMap<Shows, Function<TGEditorDock, Step>>(Shows.class);
+	static {
+		PRESSED.put(Shows.OWN_EDITOR, TGEditorDock::popOut);
+		PRESSED.put(Shows.OWN_WINDOW, TGEditorDock::putBack);
+		PRESSED.put(Shows.TOO_LARGE, TGEditorDock::showWindow);
+		PRESSED.put(Shows.STOPPED, TGEditorDock::again);
+	}
+
+	// what becomes of an editor the area opened: still open (its plugin may have asked another size), moved elsewhere,
+	// closed
+	private interface Follow {
+		Step follow(TGEditorDock dock, Element element, TGVst3EditorOpened opened);
+	}
+
+	private static final Map<TGPluginEditor.State, Follow> FOLLOWED = new EnumMap<TGPluginEditor.State, Follow>(TGPluginEditor.State.class);
+	static {
+		FOLLOWED.put(TGPluginEditor.State.OPEN, TGEditorDock::fitted);
+		FOLLOWED.put(TGPluginEditor.State.MOVED, (dock, element, opened) -> dock.moved(element));
+		FOLLOWED.put(TGPluginEditor.State.CLOSED, (dock, element, opened) -> dock.closed(element));
+	}
+
 	// the plugins (by class id) remembered in a window of their own
 	private final Set<String> pinned;
 	// Hide editor chosen (remembered by the panel)
@@ -65,6 +91,9 @@ public final class TGEditorDock {
 	private Element element;
 	private Shows shows = Shows.NOTHING;
 	private Line line;
+	// the size of the editor inside, as the host said it last, and the area's width in units when last asked
+	private TGVst3EditorOpened size = TGVst3EditorOpened.NONE;
+	private int unitWidth;
 
 	public TGEditorDock(Collection<String> pinned, boolean hidden) {
 		this.pinned = new TreeSet<String>(pinned);
@@ -92,6 +121,32 @@ public final class TGEditorDock {
 
 	public boolean isHidden() {
 		return this.hidden;
+	}
+
+	// the key of the text of the panel's Edit button: Hide editor, or Show editor once hidden
+	public String editKey() {
+		return (this.hidden ? "audio.sound-chain.show-editor" : "audio.sound-chain.hide-editor");
+	}
+
+	// the area's height in the toolkit's units, the area being that wide: the editor inside's, else none
+	public int height(int unitWidth) {
+		return (this.shows == Shows.OWN_EDITOR ? TGEditorArea.height(this.size.getHeight(), this.size.getAreaWidth(), unitWidth) : 0);
+	}
+
+	// whether the editor inside is to be fitted again: the area's width changed (a change of its height alone does not)
+	public boolean refits(int unitWidth) {
+		boolean changed = (unitWidth != this.unitWidth);
+		this.unitWidth = unitWidth;
+		return (changed && this.shows == Shows.OWN_EDITOR);
+	}
+
+	// the plugins remembered in a window of their own, as text (class ids, a comma between) and back
+	public static Set<String> pinned(String text) {
+		return Arrays.stream(text.split(",")).filter(id -> !id.isEmpty()).collect(Collectors.toCollection(TreeSet::new));
+	}
+
+	public static String pinned(Set<String> pinned) {
+		return String.join(",", pinned);
 	}
 
 	// a chip picked, or the track switched (its source picked); null: no VST3 plugin there. The same plugin again changes
@@ -151,13 +206,39 @@ public final class TGEditorDock {
 	// what the host did for the element: shown where it was wanted, or else, when no longer wanted there, a view inside
 	// the area (or TuxGuitar's parameters) closes; too large, it opens in a window of its own; a window opening for one
 	// too large keeps the line
-	public Step opened(Element opened, Kind kind) {
-		return (this.awaits(opened) ? this.shown(opened, kind) : unwanted(opened, kind));
+	public Step opened(Element element, TGVst3EditorOpened opened) {
+		return (this.awaits(element) ? this.shown(element, opened) : unwanted(element, opened.getKind()));
 	}
 
-	private Step shown(Element opened, Kind kind) {
-		this.into(this.shows == Shows.TOO_LARGE ? Shows.TOO_LARGE : OPENED.get(kind));
-		return (kind == Kind.TOO_LARGE ? new Step(null, opened, How.IN_A_WINDOW) : Step.NONE);
+	// the editor inside the area took another size (fitted to its width, or as its plugin asked)
+	public Step fitted(Element element, TGVst3EditorOpened fitted) {
+		if (this.shows == Shows.OWN_EDITOR && element.equals(this.element)) {
+			this.size = fitted;
+		}
+		return Step.NONE;
+	}
+
+	// the button beside the line pressed
+	public Step press() {
+		return PRESSED.getOrDefault(this.shows, dock -> Step.NONE).apply(this);
+	}
+
+	// what became of the editor the area opened for the element (current: the one it follows now)
+	public Step followed(Element element, TGPluginEditor.State state, TGVst3EditorOpened opened, boolean current) {
+		return (current ? FOLLOWED.get(state).follow(this, element, opened) : Step.NONE);
+	}
+
+	// the editor the area showed closed without the area closing it (its plugin ran again: an undo, a change of the
+	// chain): it opens again where it goes
+	private Step closed(Element element) {
+		boolean shown = (this.inArea() != null || this.shows == Shows.OWN_WINDOW);
+		return (shown && element.equals(this.element) ? this.show(element) : Step.NONE);
+	}
+
+	private Step shown(Element element, TGVst3EditorOpened opened) {
+		this.size = opened;
+		this.into(this.shows == Shows.TOO_LARGE ? Shows.TOO_LARGE : OPENED.get(opened.getKind()));
+		return (opened.getKind() == Kind.TOO_LARGE ? new Step(null, element, How.IN_A_WINDOW) : Step.NONE);
 	}
 
 	private static Step unwanted(Element opened, Kind kind) {
@@ -234,8 +315,8 @@ public final class TGEditorDock {
 	}
 
 	/**
-	 * A plugin of a sound chain as the area knows it: its channel, its element of the chain, its plugin (class id), and
-	 * its name as the area says it. Equal by channel, element and plugin.
+	 * A plugin of a sound chain as the area knows it: its channel, its element of the chain, its plugin (class id), its
+	 * name as the area says it, and its row. Equal by channel, element and plugin.
 	 */
 	public static final class Element {
 
@@ -243,12 +324,19 @@ public final class TGEditorDock {
 		private final String id;
 		private final String classId;
 		private final String name;
+		private final int row;
 
-		public Element(int channel, String id, String classId, String name) {
+		public Element(int channel, String id, String classId, String name, int row) {
 			this.channel = channel;
 			this.id = id;
 			this.classId = classId;
 			this.name = name;
+			this.row = row;
+		}
+
+		// its row in the sound chain editors (0 the source, then each effect)
+		public int getRow() {
+			return this.row;
 		}
 
 		public int getChannel() {
@@ -331,6 +419,8 @@ public final class TGEditorDock {
 		// the line of each state that says one, and its button
 		private static final Map<Shows, String[]> SAID = new EnumMap<Shows, String[]>(Shows.class);
 		static {
+			SAID.put(Shows.OWN_EDITOR, new String[] {"audio.sound-chain.editor.inside", "audio.sound-chain.editor.open-in-window"});
+			SAID.put(Shows.PARAMETERS, new String[] {"audio.sound-chain.editor.parameters", null});
 			SAID.put(Shows.OWN_WINDOW, new String[] {"audio.sound-chain.editor.in-window", "audio.sound-chain.editor.put-back"});
 			SAID.put(Shows.TOO_LARGE, new String[] {"audio.sound-chain.editor.too-large", "audio.sound-chain.editor.show"});
 		}
@@ -359,6 +449,13 @@ public final class TGEditorDock {
 
 		private static String key(boolean hung, String end) {
 			return "audio.sound-chain.editor." + (hung ? "hung" : "stopped") + end;
+		}
+
+		// the text: the key said in TuxGuitar's language with the arguments (translated: key, arguments -> text), or the
+		// text it holds
+		public String text(BiFunction<String, String[], String> translated) {
+			String[] arguments = Arrays.stream(this.arguments).map(String::valueOf).toArray(String[]::new);
+			return (this.key != null ? translated.apply(this.key, arguments) : arguments[0]);
 		}
 
 		// null: the first argument is the text

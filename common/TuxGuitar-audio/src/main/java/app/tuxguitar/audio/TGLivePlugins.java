@@ -420,17 +420,11 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return (editor != null ? editor.editor : null);
 	}
 
-	// the editor open for the channel's effect (by its number; none: the VST3 instrument that is the source, or the
-	// default instrument played there), its own or TuxGuitar's parameter editor, or null when none is open
-	public synchronized TGPluginEditor editor(TGChannel channel, Integer effect) {
-		TGProgramElement plugin = TGDefaultInstrumentSource.install(this.context).edited(channel, effect);
-		return (plugin != null ? this.getEditor(channel.getChannelId(), plugin.getId()) : null);
-	}
-
-	// TuxGuitar's parameter editor open for the channel's effect, or null when that plugin's editor is its own or none is
-	// open
+	// TuxGuitar's parameter editor open for the channel's effect (by its number; none: the VST3 instrument that is the
+	// source, or the default instrument played there), or null when that plugin's editor is its own or none is open
 	public synchronized TGPluginEditor parameterEditor(TGChannel channel, Integer effect) {
-		TGPluginEditor editor = this.editor(channel, effect);
+		TGProgramElement plugin = TGDefaultInstrumentSource.install(this.context).edited(channel, effect);
+		TGPluginEditor editor = (plugin != null ? this.getEditor(channel.getChannelId(), plugin.getId()) : null);
 		return (editor != null && !editor.isOwn() ? editor : null);
 	}
 

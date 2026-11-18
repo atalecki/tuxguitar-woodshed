@@ -9,7 +9,6 @@ import app.tuxguitar.app.system.keybindings.KeyBindingActionManager;
 import app.tuxguitar.app.system.language.TGLanguageEvent;
 import app.tuxguitar.app.ui.TGApplication;
 import app.tuxguitar.app.view.main.TGBottomDock;
-import app.tuxguitar.app.view.main.TGWindow;
 import app.tuxguitar.audio.TGSoundChainCommands;
 import app.tuxguitar.audio.TGSoundChainFollow;
 import app.tuxguitar.audio.TGSoundChainFollow.Key;
@@ -65,6 +64,8 @@ final class TGSoundChainPanel implements TGEventListener {
 	private UILabel note;
 	private UIDropDownSelect<TGVst3Plugin> effects;
 	private UIDropDownSelect<TGVst3Plugin> instruments;
+	private UIButton edit;
+	private TGSoundChainEditorArea area;
 	// the plugins offered: the last scan's
 	private List<TGVst3Plugin> offered;
 	private Key shown = Key.NONE;
@@ -87,8 +88,11 @@ final class TGSoundChainPanel implements TGEventListener {
 		this.chain = this.line(1);
 		this.title = this.factory.createLabel(this.chain);
 		this.actions(this.line(2));
+		boolean visible = (audio && this.config.getBooleanValue(VISIBLE, true));
+		this.panel.setVisible(visible);
+		this.area = new TGSoundChainEditorArea(this.context, this.factory, this.panel, 3, this.commands, this.config);
+		this.area.panel(visible);
 		this.texts.forEach(Runnable::run);
-		this.panel.setVisible(audio && this.config.getBooleanValue(VISIBLE, true));
 		TGEditorManager.getInstance(this.context).addUpdateListener(this);
 		TuxGuitar.getInstance().getLanguageManager().addLoader(this);
 		this.onUpdate();
@@ -104,7 +108,9 @@ final class TGSoundChainPanel implements TGEventListener {
 	// the groups of the action line: on the picked one, the effects, the instruments, the dialog (and the quiet line)
 	private void actions(UIPanel line) {
 		UIPanel picked = this.group(line);
-		this.buttons.put(Control.EDIT, this.button(picked, "audio.sound-chain.edit", () -> TGSoundChainButtons.edit(this.context, this.commands, this.shown.getTrack(), this.picked, this::later, TGWindow.getInstance(this.context).getWindow())));
+		this.edit = this.buttons.put(Control.EDIT, this.place(picked, this.factory.createButton(picked)));
+		this.edit.addSelectionListener(event -> this.toggleEditor());
+		this.texts.add(() -> this.edit.setText(TuxGuitar.getProperty(this.area.editKey())));
 		this.buttons.put(Control.TOGGLE, this.button(picked, "audio.sound-chain.disable", () -> this.commands.toggle(this.picked)));
 		this.buttons.put(Control.MOVE_UP, this.button(picked, "audio.sound-chain.move-left", () -> this.commands.moveUp(this.picked)));
 		this.buttons.put(Control.REMOVE, this.button(picked, "audio.sound-chain.remove", () -> this.commands.remove(this.picked)));
@@ -161,17 +167,25 @@ final class TGSoundChainPanel implements TGEventListener {
 		return this.panel.isVisible();
 	}
 
-	// View > Sound Chain, F8: shown or hidden, the choice kept at once (a crash keeps it)
+	// View > Sound Chain, F8: shown or hidden, the choice kept at once (a crash keeps it); the editor area follows
 	void toggle() {
 		boolean visible = !this.panel.isVisible();
 		this.panel.setVisible(visible);
 		this.config.setValue(VISIBLE, visible);
 		this.config.save();
+		this.area.panel(visible);
 		this.onUpdate();
 		TGBottomDock.getInstance(this.context).layout();
 	}
 
+	// Hide editor / Show editor
+	private void toggleEditor() {
+		this.area.toggle(this.panel.isVisible());
+		this.edit.setText(TuxGuitar.getProperty(this.area.editKey()));
+	}
+
 	void dispose() {
+		this.area.dispose();
 		TGEditorManager.getInstance(this.context).removeUpdateListener(this);
 		TuxGuitar.getInstance().getLanguageManager().removeLoader(this);
 		this.panel.dispose();
@@ -187,6 +201,7 @@ final class TGSoundChainPanel implements TGEventListener {
 	// the texts in the language chosen, the rows too (the default source says what plays in it)
 	private void retell() {
 		this.texts.forEach(Runnable::run);
+		this.area.retell();
 		this.show(TGSoundChainFollow.key(this.context, TGAudioToolPlugin.caretTrack()));
 	}
 
@@ -255,10 +270,12 @@ final class TGSoundChainPanel implements TGEventListener {
 		}
 	}
 
+	// the row picked; its plugin's editor shows in the editor area
 	private void pick(int row) {
 		this.picked = row;
 		IntStream.range(0, this.chips.size()).forEach(chip -> this.chips.get(chip).setSelected(chip == row));
 		this.apply();
+		this.area.picked(this.commands.element(row));
 	}
 
 	private void apply() {
