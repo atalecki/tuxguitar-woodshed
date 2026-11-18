@@ -130,6 +130,12 @@ public final class TGEditorDock {
 		return (this.hidden ? "audio.sound-chain.show-editor" : "audio.sound-chain.hide-editor");
 	}
 
+	// whether the area shows TuxGuitar's parameter rows of the element (a plugin without an editor of its own, or any
+	// where the host embeds none: Linux, macOS), once its editor opened
+	public boolean parameters(Element element) {
+		return (this.shows == Shows.PARAMETERS && element.equals(this.element));
+	}
+
 	// the area's height in the toolkit's units, the area being that wide: the editor inside's, else none
 	public int height(int unitWidth) {
 		return (this.shows == Shows.OWN_EDITOR ? TGEditorArea.height(this.size.getHeight(), this.size.getAreaWidth(), unitWidth) : 0);

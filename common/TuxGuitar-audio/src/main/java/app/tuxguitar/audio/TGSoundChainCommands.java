@@ -13,6 +13,7 @@ import app.tuxguitar.audio.action.TGMoveEffectUpAction;
 import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
 import app.tuxguitar.audio.action.TGRemoveEffectAction;
 import app.tuxguitar.audio.action.TGSetEffectEnabledAction;
+import app.tuxguitar.audio.action.TGSetPluginParameterAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.TGActionProcessor;
@@ -84,6 +85,16 @@ public final class TGSoundChainCommands {
 		placement.place(processor);
 		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, this.track.get());
 		processor.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OPENED, opened);
+		this.run(processor);
+	}
+
+	// the row's plugin's parameter set to the plain value, one undoable change of the song: TuxGuitar's parameter rows
+	// (the panel's, the Parameters window's); a default instrument played as the source, its parameter editor open, is
+	// kept in the song by the first value it does not hold
+	public void set(int row, int parameter, double plain) {
+		TGActionProcessor processor = this.onRow(TGSetPluginParameterAction.NAME, row);
+		processor.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, parameter);
+		processor.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_VALUE, plain);
 		this.run(processor);
 	}
 
