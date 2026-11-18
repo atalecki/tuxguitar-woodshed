@@ -1,8 +1,10 @@
 #include "editor.h"
 
+#include "layout.h"
 #include "plugin.h"
 #include "text.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -140,10 +142,36 @@ void registerClass() {
 	RegisterClassW(&type);
 }
 
-HWND child(HWND parent, const wchar_t* type, const wchar_t* text, DWORD style, int x, int y, int width, int height, int id) {
-	HWND control = CreateWindowExW(0, type, text, WS_CHILD | WS_VISIBLE | style, x, y, width, height, parent, (HMENU) (INT_PTR) id, module(), nullptr);
+// a control, put in place by the layout (place)
+HWND child(HWND parent, const wchar_t* type, const wchar_t* text, DWORD style, int id) {
+	HWND control = CreateWindowExW(0, type, text, WS_CHILD | WS_VISIBLE | style, 0, 0, 0, 0, parent, (HMENU) (INT_PTR) id, module(), nullptr);
 	SendMessageW(control, WM_SETFONT, (WPARAM) GetStockObject(DEFAULT_GUI_FONT), TRUE);
 	return control;
+}
+
+int textWidth(HDC dc, const std::string& text) {
+	std::wstring line = wide(text);
+	SIZE size = {};
+	GetTextExtentPoint32W(dc, line.c_str(), (int) line.size(), &size);
+	return size.cx;
+}
+
+// the editor's texts in the language shown, measured with the font of its controls
+Measures measure(HGDIOBJ font) {
+	HDC dc = GetDC(nullptr);
+	HGDIOBJ before = SelectObject(dc, font);
+	TEXTMETRICW metrics = {};
+	GetTextMetricsW(dc, &metrics);
+	Measures measured = {textWidth(dc, say("editor.load")), textWidth(dc, say("editor.update")), textWidth(dc, say("editor.input-gain")),
+		textWidth(dc, say("editor.output-level")), textWidth(dc, say("editor.quality")),
+		std::max(textWidth(dc, say("editor.quality.full")), textWidth(dc, say("editor.quality.light"))), textWidth(dc, decibels(-40.0)), (int) metrics.tmHeight};
+	SelectObject(dc, before);
+	ReleaseDC(nullptr, dc);
+	return measured;
+}
+
+void put(HDWP& moves, void* control, const Box& box) {
+	moves = DeferWindowPos(moves, (HWND) control, nullptr, box.x, box.y, box.width, box.height, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 }  // namespace
@@ -158,30 +186,50 @@ tresult PLUGIN_API GuitarView::isPlatformTypeSupported(FIDString type) {
 
 // a row: the parameter's name (its text's key), its slider over its range (tenths of a dB), its value
 void GuitarView::addSlider(int row, ParamID id, const char* name, double minimum, double maximum) {
-	int y = 118 + row * 34;
-	child((HWND) window, L"STATIC", wide(say(name)).c_str(), SS_LEFT, 12, y + 4, 90, 20, 0);
-	HWND bar = child((HWND) window, TRACKBAR_CLASSW, L"", TBS_HORZ | TBS_NOTICKS | WS_TABSTOP, 104, y, 260, 28, (int) (10 + id));
+	labels[row] = child((HWND) window, L"STATIC", wide(say(name)).c_str(), SS_LEFT, 0);
+	HWND bar = child((HWND) window, TRACKBAR_CLASSW, L"", TBS_HORZ | TBS_NOTICKS | WS_TABSTOP, (int) (10 + id));
 	SendMessageW(bar, TBM_SETRANGEMIN, FALSE, (LPARAM) (minimum * kStep));
 	SendMessageW(bar, TBM_SETRANGEMAX, TRUE, (LPARAM) (maximum * kStep));
 	SendMessageW(bar, TBM_SETPAGESIZE, 0, (LPARAM) kStep);
-	sliders.push_back(Slider{id, bar, child((HWND) window, L"STATIC", L"", SS_LEFT, 372, y + 4, 76, 20, 0)});
+	sliders.push_back(Slider{id, bar, child((HWND) window, L"STATIC", L"", SS_LEFT, 0)});
+}
+
+// each control where the layout puts it, all at once, the editor's window its size
+void GuitarView::place(const Layout& layout) {
+	HDWP moves = BeginDeferWindowPos(16);
+	put(moves, load, layout.load);
+	put(moves, profile, layout.profile);
+	put(moves, refusal, layout.refusal);
+	put(moves, notice, layout.notice);
+	put(moves, update, layout.update);
+	put(moves, quality, layout.quality);
+	for (int row = 0; row < 3; row++) {
+		put(moves, labels[row], layout.labels[row]);
+	}
+	for (size_t row = 0; row < sliders.size(); row++) {
+		put(moves, sliders[row].bar, layout.sliders[row]);
+		put(moves, sliders[row].value, layout.values[row]);
+	}
+	EndDeferWindowPos(moves);
+	SetWindowPos((HWND) window, nullptr, 0, 0, layout.width, layout.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 tresult PLUGIN_API GuitarView::attached(void* parent, FIDString type) {
 	registerClass();
 	HWND editor = CreateWindowExW(WS_EX_CONTROLPARENT, kClass, L"Woodshed Guitar", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, kWidth, kHeight, (HWND) parent, nullptr, module(), nullptr);
 	window = editor;
-	child(editor, L"BUTTON", wide(say("editor.load")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, 12, 12, 120, 28, kLoad);
-	profile = child(editor, L"STATIC", L"", SS_LEFT | SS_ENDELLIPSIS, 144, 18, kWidth - 156, 20, 0);
-	refusal = child(editor, L"STATIC", L"", SS_LEFT, 12, 46, kWidth - 24, 34, 0);
-	notice = child(editor, L"STATIC", L"", SS_LEFT, 12, 86, kWidth - 156, 28, 0);
-	update = child(editor, L"BUTTON", wide(say("editor.update")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, kWidth - 132, 82, 120, 28, kUpdate);
+	load = child(editor, L"BUTTON", wide(say("editor.load")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, kLoad);
+	profile = child(editor, L"STATIC", L"", SS_LEFT | SS_ENDELLIPSIS, 0);
+	refusal = child(editor, L"STATIC", L"", SS_LEFT, 0);
+	notice = child(editor, L"STATIC", L"", SS_LEFT, 0);
+	update = child(editor, L"BUTTON", wide(say("editor.update")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, kUpdate);
 	addSlider(0, kInputGain, "editor.input-gain", -24.0, 24.0);
 	addSlider(1, kOutputLevel, "editor.output-level", -40.0, 12.0);
-	child(editor, L"STATIC", wide(say("editor.quality")).c_str(), SS_LEFT, 12, 190, 90, 20, 0);
-	quality = child(editor, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 104, 186, 120, 80, kQualityBox);
+	labels[2] = child(editor, L"STATIC", wide(say("editor.quality")).c_str(), SS_LEFT, 0);
+	quality = child(editor, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST | WS_TABSTOP, kQualityBox);
 	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.full")).c_str());
 	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.light")).c_str());
+	place(layOut(measure(GetStockObject(DEFAULT_GUI_FONT)), kWidth, 1.0));
 	SetWindowLongPtrW(editor, GWLP_USERDATA, (LONG_PTR) this);
 	plugin->editorOpened(this);
 	refresh();
@@ -193,7 +241,8 @@ tresult PLUGIN_API GuitarView::removed() {
 	if (window) {
 		DestroyWindow((HWND) window);
 	}
-	window = profile = refusal = notice = update = quality = nullptr;
+	window = load = profile = refusal = notice = update = quality = nullptr;
+	labels[0] = labels[1] = labels[2] = nullptr;
 	sliders.clear();
 	return CPluginView::removed();
 }
@@ -324,6 +373,8 @@ tresult PLUGIN_API GuitarView::removed() {
 }
 
 void GuitarView::addSlider(int, ParamID, const char*, double, double) {}
+
+void GuitarView::place(const Layout&) {}
 
 void GuitarView::refresh() {}
 

@@ -13,6 +13,7 @@
 namespace Woodshed {
 
 class GuitarPlugin;
+struct Layout;
 
 class GuitarView : public Steinberg::CPluginView {
 public:
@@ -52,15 +53,20 @@ private:
 
 	// name: the key of its text (text.h)
 	void addSlider(int row, Steinberg::Vst::ParamID id, const char* name, double minimum, double maximum);
+	// each control where the layout (layout.h) puts it
+	void place(const Layout& layout);
 
 	GuitarPlugin* plugin;
 	void* window = nullptr;
+	void* load = nullptr;
 	void* profile = nullptr;
 	void* refusal = nullptr;
 	void* notice = nullptr;
 	// Update from file, shown with a notice
 	void* update = nullptr;
 	void* quality = nullptr;
+	// Input gain, Output level, Quality
+	void* labels[3] = {nullptr, nullptr, nullptr};
 	std::vector<Slider> sliders;
 	// the parameter a slider's gesture is editing, kNoEdit between gestures
 	Steinberg::Vst::ParamID editing = kNoEdit;

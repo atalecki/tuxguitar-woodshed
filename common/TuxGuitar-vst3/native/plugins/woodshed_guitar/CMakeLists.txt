@@ -4,10 +4,10 @@
 include(../../cmake/nam.cmake)
 
 # the plugin's sound, apart from VST3: the strings, the resampling, the profile, the state, the loading in the background
-# and the crossfade, its texts, and NeuralAmpModelerCore
+# and the crossfade, its texts, its editor's layout, and NeuralAmpModelerCore
 # an object library: each NAM architecture registers itself from an object nothing else refers to, which a static
 # library would leave out of the link
-add_library(tg_woodshed_core OBJECT voice.cpp resampler.cpp capture.cpp state.cpp stage.cpp loader.cpp text.cpp ${TG_NAM_CORE_SOURCES})
+add_library(tg_woodshed_core OBJECT voice.cpp resampler.cpp capture.cpp state.cpp stage.cpp loader.cpp text.cpp layout.cpp ${TG_NAM_CORE_SOURCES})
 target_include_directories(tg_woodshed_core PUBLIC . "${TG_NAM_CORE_DIR}" SYSTEM PUBLIC "${TG_NAM_CORE_DIR}/Dependencies/nlohmann" "${TG_EIGEN_DIR}")
 target_compile_features(tg_woodshed_core PUBLIC cxx_std_20)
 target_compile_definitions(tg_woodshed_core PUBLIC NAM_ENABLE_A2_FAST)
@@ -56,3 +56,8 @@ set_target_properties(woodshed-guitar-text-test PROPERTIES RUNTIME_OUTPUT_DIRECT
 add_executable(woodshed-guitar-level-test level_test.cpp)
 target_link_libraries(woodshed-guitar-level-test PRIVATE tg_woodshed_core)
 set_target_properties(woodshed-guitar-level-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+# checks where the editor puts its controls (layout.h): bin/woodshed-guitar-layout-test, run by TestWoodshedChecks
+add_executable(woodshed-guitar-layout-test layout_test.cpp layout.cpp)
+target_compile_features(woodshed-guitar-layout-test PRIVATE cxx_std_20)
+set_target_properties(woodshed-guitar-layout-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
