@@ -2,6 +2,8 @@ package app.tuxguitar.audio.features;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.function.Consumer;
+
 import app.tuxguitar.audio.LivePlay;
 import app.tuxguitar.audio.TGRender;
 import app.tuxguitar.audio.action.TGPlayAction;
@@ -20,6 +22,8 @@ public class PlaySteps {
 	private final AudioWorld world;
 	// where playing under way started (the When that happens while it plays plays it, see playUnderWay)
 	private SongPosition playingFrom;
+	// the sample of a change made while the song played live (see playLiveChanging)
+	private long change;
 
 	public PlaySteps(AudioWorld world) {
 		this.world = world;
@@ -94,6 +98,44 @@ public class PlaySteps {
 			throw new IllegalStateException(e);
 		}
 		return player.runPlayLoopProcess();
+	}
+
+	@When("I play the song live from {position} and press Stop {int} second(s) in")
+	public void playLiveStopping(SongPosition from, int seconds) throws MidiPlayerException, TGAudioDeviceException {
+		playLiveChanging(from, seconds, MidiPlayer::stop);
+	}
+
+	// as the app moves it while the song plays (TGTransport: the song's tick, here with no repeats)
+	@When("I play the song live from {position}, moving the position to {position} {int} second(s) in")
+	public void playLiveMoving(SongPosition from, SongPosition to, int seconds) throws MidiPlayerException, TGAudioDeviceException {
+		playLiveChanging(from, seconds, player -> player.setTickPosition(to.tick(world.song())));
+	}
+
+	// live, the change made between two blocks (as the app's other threads act) once the device has played the block of
+	// the second's sample: its sample, the first of the next block; the device then runs on for another second, the play
+	// loop taking its turns, whether or not playing goes on
+	private void playLiveChanging(SongPosition from, int seconds, Consumer<MidiPlayer> changing) throws MidiPlayerException, TGAudioDeviceException {
+		MidiPlayer player = MidiPlayer.getInstance(world.fixture().context);
+		player.loadSequencer(new MidiSequencerImpl(world.fixture().context));
+		player.setTickPosition(from.tick(world.song()));
+		player.play();
+		world.threads().runStartHere();
+		int at = seconds * TestInterface.SAMPLE_RATE / LivePractisingSteps.BLOCK;
+		int last = at + TestInterface.SAMPLE_RATE / LivePractisingSteps.BLOCK;
+		this.change = (at + 1L) * LivePractisingSteps.BLOCK;
+		world.setLive(LivePlay.run(world.fixture().context, world.synthesizer(), world.backend(), () -> { }, block -> {
+			if (block == at) {
+				changing.accept(player);
+			}
+			player.runPlayLoopProcess();
+			return block < last;
+		}));
+		player.stop();
+		player.closeChannels();
+	}
+
+	long change() {
+		return this.change;
 	}
 
 	// live, TuxGuitar stopped while the audio device runs (see LivePlay); then the synthesizer's channels close

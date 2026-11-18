@@ -297,6 +297,26 @@ Feature: Hosting VST3 plugins
     When I play the song from measure 1 beat 1
     Then track 1 ends measure 1 sounding a 493.9 Hz tone and a 440 Hz tone, each peaking above 0.1
 
+  # VST3 has no All Notes Off: TuxGuitar ends each note it started when the player stops or moves (Test Sine stops a
+  # note at once)
+  Scenario: a note a VST3 instrument holds ends when I press Stop
+    Given track 1 has a note on every beat, MIDI note 60 plus the measure's number
+    And track 1 has these notes in measures 1 and 4 instead of one on every beat:
+      | position | MIDI note | length       |
+      | m1b1     | 69        | a whole note |
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1 and press Stop 1 second in
+    Then the output's left side is silent from the change on, as heard, and sounds right before
+
+  Scenario: a note a VST3 instrument holds ends when I move the position while the song plays
+    Given track 1 has a note on every beat, MIDI note 60 plus the measure's number
+    And track 1 has these notes in measures 1 and 4 instead of one on every beat:
+      | position | MIDI note | length       |
+      | m1b1     | 69        | a whole note |
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1, moving the position to measure 3 beat 1 1 second in
+    Then the output's left side is silent from the change on, as heard, and sounds right before
+
   Scenario: the Metronome does not go through a percussion track's VST3 instrument
     Given I have added a percussion track
     And I have chosen the VST3 instrument "Test Sine" for track 2

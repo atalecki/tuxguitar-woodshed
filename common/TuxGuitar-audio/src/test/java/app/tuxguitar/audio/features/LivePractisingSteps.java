@@ -291,15 +291,15 @@ public class LivePractisingSteps {
 
 	// after the change (Play, as heard), part by part, a part a Count In or a measure (as many beats): the turn's Count
 	// In, its measure, the next turn's Count In, its measure. How each part sounds the turn's note and the next turn's:
-	// SOUNDS, QUIET (below SOUNDS: the other note sounds, and a little of it is read at this pitch), SILENT, or not read
-	// (a VST3 instrument ignores All Notes Off, so the note held at the pause rings on until it is played again)
+	// SOUNDS, QUIET (below SOUNDS: the other note sounds, and a little of it is read at this pitch) or SILENT: the note
+	// held at the pause is over, so the Count In sounds neither (it rang on through it while a VST3 instrument ignored
+	// All Notes Off)
 	private static final double QUIET = -SOUNDS;
-	private static final double UNREAD = 0;
-	private static final double[][] PARTS = {{UNREAD, UNREAD}, {SOUNDS, QUIET}, {SILENT, SILENT}, {QUIET, SOUNDS}};
+	private static final double[][] PARTS = {{SILENT, SILENT}, {SOUNDS, QUIET}, {SILENT, SILENT}, {QUIET, SOUNDS}};
 
 	// whether the level is as the part expects
 	private static boolean as(double expected, double level) {
-		return (expected == SOUNDS ? level > SOUNDS : expected == UNREAD || level < Math.abs(expected));
+		return (expected == SOUNDS ? level > SOUNDS : level < Math.abs(expected));
 	}
 
 	@Then("after Play, turn {int}'s measure sounds again after a Count In of {int} beats, then turn {int}'s after another")
@@ -388,21 +388,23 @@ public class LivePractisingSteps {
 
 	// the player moves at the block after the change: from there each beat of the position's measure sounds its note and
 	// not the next measure's, then each beat of the next measure its own and not the one before (each beat read clear of
-	// its edges). By level, not by the nearest note: a VST3 instrument ignores All Notes Off, so the note held when the
-	// player moved rings on (a defect of ordinary playback, left as it is in this slice)
+	// its edges), and the note held when the player moved no longer sounds (it rang on while a VST3 instrument ignored
+	// All Notes Off)
 	@Then("the player plays on from {position}")
 	public void playsOnFrom(SongPosition from) {
 		TGMeasureHeader header = world.song().getMeasureHeader(from.measure() - 1);
 		int beats = header.getTimeSignature().getNumerator();
 		long beat = Math.round(TestInterface.SAMPLE_RATE * 60.0 / header.getTempo().getQuarterValue());
 		long start = change + world.chainDelay();
+		int held = noteOver(start - 2 * EDGE, start - EDGE / 2);
 		for (int at = 0; at < 2 * beats; at++) {
 			int note = BASE + from.measure() + (at < beats ? 0 : 1);
 			int other = BASE + from.measure() + (at < beats ? 1 : 0);
 			long beatFrom = start + at * beat + EDGE;
 			long beatTo = start + (at + 1) * beat - EDGE;
-			assertTrue(levelOf(note, beatFrom, beatTo) > SOUNDS && levelOf(other, beatFrom, beatTo) < SILENT,
-				"beat " + (at + 1) + " from the move: note " + note + " at " + levelOf(note, beatFrom, beatTo) + ", note " + other + " at " + levelOf(other, beatFrom, beatTo));
+			assertTrue(levelOf(note, beatFrom, beatTo) > SOUNDS && levelOf(other, beatFrom, beatTo) < SILENT && levelOf(held, beatFrom, beatTo) < SILENT,
+				"beat " + (at + 1) + " from the move: note " + note + " at " + levelOf(note, beatFrom, beatTo) + ", note " + other + " at " + levelOf(other, beatFrom, beatTo)
+					+ ", held note " + held + " at " + levelOf(held, beatFrom, beatTo));
 		}
 	}
 

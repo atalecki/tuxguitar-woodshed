@@ -33,9 +33,8 @@ import io.cucumber.java.en.When;
  * stand as planned, the one played again starts at the change's sample, and each after it where the one before ends.
  * Read as heard: the output sounds what the player sends the plugin delay compensation later. Track 1 sounds MIDI note
  * 35 plus the measure's number on every beat (the Background), from phase 0 (Test Sine): a beat's note is read by its
- * level, or, exact, where its sine starts. A step played again is read by level only: a VST3 instrument ignores All
- * Notes Off, so the note sounding when the player started the step again rings on until it is played again (as after
- * a pause; a defect of playback, left as it is).
+ * level, or, exact, where its sine starts. The note sounding when the player started a step again is over there (it
+ * rang on while a VST3 instrument ignored All Notes Off), so the step played again after a pause is read exact too.
  */
 public class ClickUpLiveSteps {
 
@@ -184,7 +183,7 @@ public class ClickUpLiveSteps {
 		Heard played = playedAgain();
 		assertEquals(step, played.step);
 		assertCountIn(played, beats, apart);
-		assertSounds(played, false);
+		assertSounds(played, true);
 	}
 
 	@Then("then steps {int} and {int} sound, each after its Count In")
@@ -192,7 +191,7 @@ public class ClickUpLiveSteps {
 		List<Heard> heard = heard();
 		List<Heard> after = heard.subList(startedBefore() + 1, heard.size());
 		assertEquals(one + " " + other, after.stream().map(step -> String.valueOf(step.step)).collect(Collectors.joining(" ")));
-		after.forEach(step -> assertSounds(step, false));
+		after.forEach(step -> assertSounds(step, true));
 	}
 
 	// the player stops by itself at the end of the block the output sounds the end of the click-up's last step in
@@ -215,7 +214,7 @@ public class ClickUpLiveSteps {
 		assertEquals(IntStream.rangeClosed(1, before).boxed().collect(Collectors.toList()), steps.subList(0, before), "the steps started before the change");
 		played = steps;
 		again = steps.get(before);
-		heard().forEach(step -> assertSounds(step, false));
+		heard().forEach(step -> assertSounds(step, true));
 	}
 
 	@Then("step {int}'s second time starts with its Count In within {int} samples of choosing it")
@@ -293,11 +292,12 @@ public class ClickUpLiveSteps {
 		}
 	}
 
-	// the Count In clicks heard from the step's start to its first measure (see LivePractisingSteps.countInHeard)
+	// the Count In clicks heard from the step's start to its first measure (see LivePractisingSteps.countInHeard): read
+	// from the sample after its start, where the note sounding before is cut (a jump too), as before each turn
 	private long[] countIn(Heard step) {
 		TGTimeline planned = live.planned();
 		int turn = step.step - 1;
-		return live.countInHeard(step.start - FIT_FROM, step.start + planned.start(planned.firstOf(turn)) - planned.turnStart(turn));
+		return live.countInHeard(step.start + 1, step.start + planned.start(planned.firstOf(turn)) - planned.turnStart(turn));
 	}
 
 	// so many Count In clicks heard before the step's first measure, so many samples apart, within 1 sample
