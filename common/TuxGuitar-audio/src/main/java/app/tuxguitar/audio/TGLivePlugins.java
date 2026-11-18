@@ -300,7 +300,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			return instance.openEditor(owner, title);
 		} catch (TGVst3Exception e) {
 			String plugin = TGVst3Element.getName(TGSoundChain.element(this.chain(channel), element));
-			throw new TGVst3Exception(TGMessagesManager.getProperty(EDITOR_NOT_OPENED, new Object[] {plugin, e.getMessage()}), e);
+			throw new TGVst3Exception(TGMessagesManager.getProperty(EDITOR_NOT_OPENED, new Object[] {plugin, e.getLocalizedMessage()}), e);
 		}
 	}
 

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.log.TGLogRecorder;
@@ -137,6 +138,21 @@ public class TestVst3Log {
 
 		assertEquals(Arrays.asList("INFO VST3 host pid " + pid + ": Test plugin: crashing as asked"), awaitLogged("crashing as asked"));
 		assertEquals(Arrays.asList("WARN VST3 host pid " + pid + ": the VST3 host stopped (exit code 70)"), logged("WARN VST3 host"));
+	}
+
+	// the user is told why in TuxGuitar's language; the log keeps it in English
+	@Test
+	public void aHostThatFailsIsLoggedInEnglishWhateverLanguageTuxGuitarShows() throws TGVst3Exception {
+		File missing = new File("target/no-such-vst3-host.exe");
+		TGVst3Instance gain = open("Test Gain");
+		TuxGuitarMessages.said(TestVst3Processors.GERMAN, () -> {
+			assertThrows(TGVst3Exception.class, () -> TGVst3Host.start(missing));
+			return assertThrows(TGVst3Exception.class, () -> gain.message("TG.crash", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap())).getMessage();
+		});
+		List<String> logged = logged("WARN");
+		assertEquals(2, logged.size(), logged.toString());
+		assertTrue(logged.get(0).startsWith("WARN the VST3 host did not start: " + missing + " (java.io.IOException: "), logged.get(0));
+		assertEquals("WARN VST3 host pid " + this.host.getPid() + ": the VST3 host stopped (exit code 70)", logged.get(1));
 	}
 
 	@Test

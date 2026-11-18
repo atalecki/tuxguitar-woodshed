@@ -175,6 +175,21 @@ class TestLiveAudio {
 
 	// what the scans say: before the first, the first lines of one that finds the plugins and the captures in the
 	// folders, then the start of one that fails (as long as the failure expected)
+	// why the scan failed, as the language TuxGuitar shows says it (a made-up German): the host did not start
+	@Test
+	void aScanWhoseHostDidNotStartSaysWhyInTuxGuitarsLanguage() {
+		File missing = new File("target/no-vst3-host.exe");
+		File plugins = new File(new File(System.getProperty("tg.vst3.native"), "VST3"), "Release");
+		TGVst3Hosting.getInstance(this.fixture.context).configure(missing, Arrays.asList(plugins));
+		Map<String, String> german = Map.of("audio.scan.failed", "Die VST3-Ordner ließen sich nicht durchsuchen: {0}",
+			"audio.vst3-host.not-started", "der VST3-Host ließ sich nicht starten: {0}");
+		assertEquals("Die VST3-Ordner ließen sich nicht durchsuchen: der VST3-Host ließ sich nicht starten: " + missing,
+			TuxGuitarMessages.said(german, () -> {
+				this.audio.scanPlugins();
+				return this.audio.getPluginScan().toString();
+			}));
+	}
+
 	private String scanned(TGVst3Hosting hosting, List<File> folders, int failed) {
 		String before = this.audio.getPluginScan().toString();
 		hosting.configure(hosting.getExecutable(), folders);

@@ -47,8 +47,16 @@ public final class TGVst3Host implements AutoCloseable {
 	// how long a request other than a block's waits for its reply
 	static final long CALL_MILLIS = 30000;
 
+	// why the host failed, as the log reads it, in English
 	private static final String STOPPED = "the VST3 host stopped";
 	private static final String SILENT = "the VST3 host did not answer for " + (SILENT_MILLIS / 1000) + " s";
+	private static final String NOT_STARTED = "the VST3 host did not start: ";
+	// and as the user is told it, in TuxGuitar's language: it stopped (with its exit code, {0}, once it ended), it did not
+	// answer for {0} seconds, it did not start ({0} its program)
+	private static final String SAY_STOPPED = "audio.vst3-host.stopped";
+	private static final String SAY_STOPPED_CODE = "audio.vst3-host.stopped.exit-code";
+	private static final String SAY_SILENT = "audio.vst3-host.silent";
+	private static final String SAY_NOT_STARTED = "audio.vst3-host.not-started";
 
 	private static final TGLog LOG = TGLog.get(TGVst3Host.class);
 
@@ -71,7 +79,8 @@ public final class TGVst3Host implements AutoCloseable {
 	private long owedSince;
 	private final List<String> opened = new ArrayList<String>();
 	private long pid;
-	private String exitReport;
+	// why it stopped, or null while it runs
+	private TGVst3Exception stop;
 	// ended by TuxGuitar while it ran
 	private boolean closed;
 	// it runs one plugin and ends when that plugin closes
@@ -97,8 +106,8 @@ public final class TGVst3Host implements AutoCloseable {
 			LOG.info("VST3 host started: pid " + process.pid() + ", " + executable.getAbsolutePath());
 			return host;
 		} catch (IOException e) {
-			LOG.warn("the VST3 host did not start: " + executable, e);
-			throw new TGVst3Exception("the VST3 host did not start: " + executable, e);
+			LOG.warn(NOT_STARTED + executable, e);
+			throw new TGVst3Exception(NOT_STARTED + executable, e, SAY_NOT_STARTED, executable);
 		}
 	}
 
@@ -131,7 +140,7 @@ public final class TGVst3Host implements AutoCloseable {
 	}
 
 	public synchronized boolean isRunning() {
-		return (this.getExitReport() == null);
+		return (this.stop() == null);
 	}
 
 	// whether TuxGuitar ended it while it ran (rather than it stopping)
@@ -144,13 +153,18 @@ public final class TGVst3Host implements AutoCloseable {
 		this.dedicated = true;
 	}
 
-	// why the host stopped, or null while it runs
+	// why the host stopped, as the log reads it, or null while it runs
 	public synchronized String getExitReport() {
-		if (this.exitReport == null && !this.process.isAlive()) {
-			String report = STOPPED + this.exitCode();
-			this.exitReport = (this.closed ? report : this.stoppedFor(report));
+		TGVst3Exception stop = this.stop();
+		return (stop != null ? stop.getMessage() : null);
+	}
+
+	// why it stopped, or null while it runs; a stop TuxGuitar did not ask for is logged
+	private TGVst3Exception stop() {
+		if (this.stop == null && !this.process.isAlive()) {
+			this.stop = this.stopped(null, !this.closed);
 		}
-		return this.exitReport;
+		return this.stop;
 	}
 
 	// " (exit code n)" once the process ended, else nothing
@@ -158,10 +172,14 @@ public final class TGVst3Host implements AutoCloseable {
 		return (this.process.isAlive() ? "" : " (exit code " + this.process.exitValue() + ")");
 	}
 
-	// a stop TuxGuitar did not ask for, logged
-	private String stoppedFor(String report) {
-		LOG.warn(this.label + ": " + report);
-		return report;
+	// it stopped, with its exit code once it ended; logged when TuxGuitar did not ask for it
+	private TGVst3Exception stopped(Throwable cause, boolean logged) {
+		String code = this.exitCode();
+		TGVst3Exception stop = (code.isEmpty() ? new TGVst3Exception(STOPPED, cause, SAY_STOPPED) : new TGVst3Exception(STOPPED + code, cause, SAY_STOPPED_CODE, this.process.exitValue()));
+		if (logged) {
+			LOG.warn(this.label + ": " + stop.getMessage());
+		}
+		return stop;
 	}
 
 	// the effects and instruments of a module (a .vst3 bundle or file); refused when it is not a VST3 module
@@ -278,13 +296,13 @@ public final class TGVst3Host implements AutoCloseable {
 
 	private <T> Future<Answer<T>> send(TGVst3Request request, TGVst3Request.Reply<T> reply) throws TGVst3Exception {
 		if (!this.isRunning()) {
-			throw new TGVst3Exception(this.exitReport);
+			throw this.stop.again();
 		}
 		try {
 			request.writeTo(this.requests);
 			this.requests.flush();
 		} catch (IOException e) {
-			throw this.stopped(e);
+			throw this.broke(e);
 		}
 		return this.reader.submit(() -> this.answer(reply));
 	}
@@ -302,7 +320,7 @@ public final class TGVst3Host implements AutoCloseable {
 
 	// a reply that could not be read: refused as the host said, or the pipe broke
 	private TGVst3Exception failed(Throwable cause) {
-		return (cause instanceof TGVst3Exception ? (TGVst3Exception) cause : this.stopped(cause));
+		return (cause instanceof TGVst3Exception ? (TGVst3Exception) cause : this.broke(cause));
 	}
 
 	// on the reader thread; a refusal's reason on one line (a system message may hold line breaks)
@@ -329,18 +347,18 @@ public final class TGVst3Host implements AutoCloseable {
 	}
 
 	// the pipe broke: the process is gone (or going: it is ended)
-	private TGVst3Exception stopped(Throwable cause) {
+	private TGVst3Exception broke(Throwable cause) {
 		this.end();
-		this.exitReport = this.stoppedFor(STOPPED + this.exitCode());
-		return new TGVst3Exception(this.exitReport, cause);
+		this.stop = this.stopped(cause, true);
+		return this.stop;
 	}
 
 	// a reply owed too long: the host is taken for stopped
 	private TGVst3Exception silent() {
 		this.end();
-		this.exitReport = SILENT;
+		this.stop = new TGVst3Exception(SILENT, null, SAY_SILENT, SILENT_MILLIS / 1000);
 		LOG.warn(this.label + ": " + SILENT + ", ended");
-		return new TGVst3Exception(SILENT);
+		return this.stop;
 	}
 
 	// the process and every process it started end; waits up to 5 seconds for it

@@ -153,7 +153,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 			List<TGVst3Plugin> plugins = hosting.scan();
 			return TGPluginScan.of(hosting.getFolders(), plugins, hosting.getSkipped(), TGVst3Folders.find(hosting.getFolders(), TGPluginScan.CAPTURE));
 		} catch (TGVst3Exception e) {
-			return TGPluginScan.failed(e.getMessage());
+			return TGPluginScan.failed(e.getLocalizedMessage());
 		}
 	}
 

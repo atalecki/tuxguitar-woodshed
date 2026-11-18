@@ -470,6 +470,19 @@ public class TestVst3Processors {
 			TuxGuitarMessages.english(() -> problems(failed)));
 	}
 
+	// a made-up German: why the host failed, as the language TuxGuitar shows says it
+	static final Map<String, String> GERMAN = Map.of("audio.vst3-host.stopped.exit-code", "der VST3-Host hat sich beendet (Exit-Code {0})",
+		"audio.vst3-host.silent", "der VST3-Host hat {0} s lang nicht geantwortet", "audio.vst3-host.not-started", "der VST3-Host ließ sich nicht starten: {0}");
+
+	// told when it is read, in the language TuxGuitar shows then
+	@Test
+	public void anEffectWhoseHostFailedTellsWhyInTuxGuitarsLanguage(@TempDir File folder) throws TGVst3Exception {
+		File missing = new File(folder, "tuxguitar-vst3-host.exe");
+		List<TGVst3PluginProcessor> failed = failedHosts(missing);
+		assertEquals("der VST3-Host hat sich beendet (Exit-Code 70) | der VST3-Host hat 2 s lang nicht geantwortet | der VST3-Host ließ sich nicht starten: " + missing,
+			TuxGuitarMessages.said(GERMAN, () -> problems(failed)));
+	}
+
 	// told by an offline transport, an effect waits for a block its plugin answers late, so the block is not silent
 	@Test
 	public void anEffectToldItsClockIsOfflineWaitsForALateBlock() throws TGVst3Exception {
