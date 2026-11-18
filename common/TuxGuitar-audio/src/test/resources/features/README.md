@@ -86,7 +86,7 @@ language's messages with "TuxGuitar's language says ..."). Every text shown to t
 files: the refusals to open a plugin or its editor (`audio.plugin.refusal.*`), the lines of the VST3 scan
 (`audio.scan.*`, the capture players' names `audio.capture-player.*`), an audio track's source (`audio.source.takes`),
 a take file's refusals (`audio.take.refusal.*`) and the audio device's description (`audio.device.*`) too, and the
-reasons TuxGuitar gives that the VST3 host failed (`audio.vst3-host.*`: it stopped, did not answer, did not start), which
+reasons TuxGuitar gives that the VST3 host failed (`audio.vst3-host.*`: it stopped, did not answer, did not start, or none is configured), which
 the log keeps in English (TGVst3Exception: its message logged, its localized message shown); what to do when Record is refused
 (`audio.record.refusal.*`, said on the app's status line for 5 seconds, TGStatusHint; logged in English); the reasons they quote
 from a plugin's host process, the audio library or the device stay as those gave them. Logs stay English, but for a

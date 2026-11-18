@@ -23,6 +23,9 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
 public final class TGVst3Hosting {
 
 	private static final TGLog LOG = TGLog.get(TGVst3Hosting.class);
+	// why there is no host process: logged in English, told the user in TuxGuitar's language
+	private static final String NOT_CONFIGURED = "no VST3 host is configured";
+	private static final String SAY_NOT_CONFIGURED = "audio.vst3-host.not-configured";
 
 	private File executable;
 	private List<File> folders = Collections.emptyList();
@@ -62,7 +65,7 @@ public final class TGVst3Hosting {
 	// a new host process
 	private TGVst3Host start() throws TGVst3Exception {
 		if (this.executable == null) {
-			throw new TGVst3Exception("no VST3 host is configured");
+			throw new TGVst3Exception(NOT_CONFIGURED, null, SAY_NOT_CONFIGURED);
 		}
 		return TGVst3Host.start(this.executable);
 	}
