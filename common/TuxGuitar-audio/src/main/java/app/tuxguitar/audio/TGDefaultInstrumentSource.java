@@ -43,6 +43,8 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	private final TGContext context;
 	private volatile TGDefaultInstruments defaults = TGDefaultInstruments.NONE;
 	private final TGFallbackNotice notice = new TGFallbackNotice();
+	// the plugins of the scan the defaults were last tried with (a scan's list stays the same object until the next scan)
+	private List<TGVst3Plugin> scan;
 
 	private TGDefaultInstrumentSource(TGContext context) {
 		this.context = context;
@@ -63,28 +65,57 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	// play is told again
 	public void use(TGDefaultInstruments defaults) {
 		this.defaults = defaults;
-		this.notice.defaultsChanged();
+		this.notice.tryAgain();
 	}
 
 	public TGDefaultInstruments getDefaults() {
 		return this.defaults;
 	}
 
-	// a default the scan did not find (once there was a scan) plays General MIDI, the user told
+	// a default the scan did not find (once there was a scan) plays General MIDI, the user told; so does one that could
+	// not be loaded, without being tried again, until the defaults change, the VST3 folders are scanned again or another
+	// song is played
 	public TGProgramElement sourceFor(int bank, int program) {
 		TGInstrumentKind kind = TGInstrumentKind.of(bank, program);
 		TGVst3Hosting hosting = TGVst3Hosting.getInstance(this.context);
-		TGProgramElement source = source(kind, this.defaults, hosting.getPlugins());
-		if (source == null && hosting.hasScanned()) {
-			this.defaults.get(kind).ifPresent(instrument -> this.fellBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_INSTALLED),
-				"the default instrument " + described(kind, instrument) + " plays General MIDI instead: it is not installed"));
-		}
-		if (source != null && isWoodshed(source)) {
-			missingProfile(kind, this.defaults).ifPresent(profile -> this.fellBack(TGFallback.profileMissing(kind, profile, shipped(kind)),
-				"the default instrument for " + tracks(kind) + ", Woodshed Guitar, plays the profile TuxGuitar ships, " + shipped(kind)
-					+ ", instead of the one chosen, which was not found: " + profile));
+		TGDefaultInstruments defaults = this.defaults;
+		TGProgramElement source = source(kind, defaults, this.scanned(hosting.getPlugins()));
+		if (source == null) {
+			this.notFound(kind, defaults, hosting.hasScanned());
+		} else if (this.notLoaded(kind, defaults)) {
+			return null;
+		} else if (isWoodshed(source)) {
+			this.checkProfile(kind, defaults);
 		}
 		return source;
+	}
+
+	// the plugins of a scan: once it is another scan than the defaults were last tried with, they are tried again
+	private synchronized List<TGVst3Plugin> scanned(List<TGVst3Plugin> plugins) {
+		if (plugins != this.scan) {
+			this.scan = plugins;
+			this.notice.tryAgain();
+		}
+		return plugins;
+	}
+
+	private void notFound(TGInstrumentKind kind, TGDefaultInstruments defaults, boolean scanned) {
+		if (scanned) {
+			defaults.get(kind).ifPresent(instrument -> this.fellBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_INSTALLED),
+				"the default instrument " + described(kind, instrument) + " plays General MIDI instead: it is not installed"));
+		}
+	}
+
+	// whether the kind's default could not be loaded playing this song since it was last tried
+	private boolean notLoaded(TGInstrumentKind kind, TGDefaultInstruments defaults) {
+		Object song = TGDocumentManager.getInstance(this.context).getSong();
+		return defaults.get(kind).filter(instrument -> this.notice.hasFallenBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_LOADED), song)).isPresent();
+	}
+
+	private void checkProfile(TGInstrumentKind kind, TGDefaultInstruments defaults) {
+		missingProfile(kind, defaults).ifPresent(profile -> this.fellBack(TGFallback.profileMissing(kind, profile, shipped(kind)),
+			"the default instrument for " + tracks(kind) + ", Woodshed Guitar, plays the profile TuxGuitar ships, " + shipped(kind)
+				+ ", instead of the one chosen, which was not found: " + profile));
 	}
 
 	// a default that could not be loaded plays General MIDI, the user told (the log says why)

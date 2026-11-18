@@ -86,9 +86,23 @@ class TestFallbackNotice {
 		}, "another song"));
 	}
 
+	// the defaults changed, or the VST3 folders scanned again
 	@Test
-	void theDefaultsChangedTellItAgain() {
-		assertEquals("true Test Drums is not installed: drum tracks play General MIDI.", toldAgain(this.notice::defaultsChanged, SONG));
+	void triedAgainItIsToldAgain() {
+		assertEquals("true Test Drums is not installed: drum tracks play General MIDI.", toldAgain(this.notice::tryAgain, SONG));
+	}
+
+	// a default that did not load is not tried again (General MIDI plays) while the song is the same, until it is tried
+	// again (the defaults changed, the VST3 folders scanned again)
+	@Test
+	void whatFellBackIsRememberedForTheSongUntilTriedAgain() {
+		boolean before = this.notice.hasFallenBack(NOT_LOADED, SONG);
+		this.notice.fellBack(NOT_LOADED, SONG, 0);
+		boolean remembered = this.notice.hasFallenBack(NOT_LOADED, SONG);
+		boolean anotherSong = this.notice.hasFallenBack(NOT_LOADED, "another song");
+		boolean anotherReason = this.notice.hasFallenBack(NOT_INSTALLED, SONG);
+		this.notice.tryAgain();
+		assertEquals("false true false false false", before + " " + remembered + " " + anotherSong + " " + anotherReason + " " + this.notice.hasFallenBack(NOT_LOADED, SONG));
 	}
 
 	// another fallback of the same song is told as it happens

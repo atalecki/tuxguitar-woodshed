@@ -85,6 +85,12 @@ public class DefaultInstrumentSteps {
 		hosting().configure(new File(PluginSteps.nativeBuild(), "no-host.exe"), hosting().getFolders());
 	}
 
+	// as the host process is again once installed, with no new scan
+	@Given("the VST3 host can start again")
+	public void theVst3HostCanStartAgain() {
+		hosting().configure(PluginSteps.host(), hosting().getFolders());
+	}
+
 	// as the app does every 50 ms on its UI thread, here at each turn of the play loop, while the plugins still run; the
 	// actions it runs meanwhile are kept (the desktop marks the song modified for each change of a sound chain it runs,
 	// whether or not the change is refused)

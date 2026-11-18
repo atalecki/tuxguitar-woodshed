@@ -358,7 +358,10 @@ These features change how TuxGuitar works today. They are requirements, not side
   (`TGStatusHint`, after a Record refusal, before the loading hint: `TGFallbackNotice`, messages
   `audio.default-instrument.not-installed`/`.not-loaded`/`.kind.*`), once per song opened or change of the defaults,
   for 5 seconds or until its cause no longer holds, and the log keeps the reason in English
-  (`TGVst3PluginProcessor.getLoggedProblem`). Woodshed Guitar is the guitar and bass default until another (or General
+  (`TGVst3PluginProcessor.getLoggedProblem`). A default that could not be loaded is remembered for the song
+  (`TGFallbackNotice.hasFallenBack`): later Plays play General MIDI at once without trying it again, until the defaults
+  change, the VST3 folders are scanned again (a scan's plugin list is a new object) or another song is played.
+  Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`
   for guitar, `RiffSmith Bass Clean.nam` for bass: A2 captures of a clean amp and of a clean bass rig, amp and cabinet,

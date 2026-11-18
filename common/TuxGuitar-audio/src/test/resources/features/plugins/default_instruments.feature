@@ -97,6 +97,34 @@ Feature: Default instruments by track kind
     Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
     And the status line reads nothing
 
+  # a default instrument that could not be loaded is remembered: each later Play plays General MIDI at once, without
+  # trying it again, until the defaults change, the VST3 folders are scanned again or the song is opened again (General
+  # MIDI's distortion guitar sounds harmonics; Test Sine none)
+  Scenario: a default instrument that could not be loaded is not tried again on the next Play
+    Given I have set the General MIDI program of track 1's channel to "Distortion Electric Guitar"
+    And the default instrument for guitar tracks is "Test Sine"
+    And the VST3 host cannot start
+    And I have played the song from measure 1 beat 1 and stopped at measure 2 beat 1
+    And the VST3 host can start again
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds a 880 Hz tone above -60 dBFS in measure 1
+
+  Scenario Outline: a default instrument that could not be loaded is tried again once <what>
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have saved the song as a TuxGuitar file
+    And the VST3 host cannot start
+    And I have played the song from measure 1 beat 1 and stopped at measure 2 beat 1
+    And the VST3 host can start again
+    When <change>
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds a 440 Hz tone and no 880 Hz tone above -60 dBFS in measures 1
+
+    Examples:
+      | what                               | change                                                  |
+      | the defaults change                | the default instrument for guitar tracks is "Test Sine" |
+      | the VST3 folders are scanned again | I scan the VST3 folders                                 |
+      | the song is opened again           | I open it again                                         |
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1

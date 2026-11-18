@@ -38,10 +38,15 @@ final class TGFallbackNotice {
 		return true;
 	}
 
-	// the defaults changed: each fallback is told again when it happens
-	synchronized void defaultsChanged() {
+	// the defaults changed, or the VST3 folders were scanned again: each fallback is told again when it happens
+	synchronized void tryAgain() {
 		this.told.clear();
 		this.latest = null;
+	}
+
+	// whether the fallback happened playing the song since it was last tried
+	synchronized boolean hasFallenBack(TGFallback fallback, Object song) {
+		return (song == this.song && this.told.contains(fallback));
 	}
 
 	// the last fallback told, said, at the time with these defaults and this scan; null for none
