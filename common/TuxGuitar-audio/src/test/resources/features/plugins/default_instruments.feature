@@ -125,6 +125,29 @@ Feature: Default instruments by track kind
       | the VST3 folders are scanned again | I scan the VST3 folders                                 |
       | the song is opened again           | I open it again                                         |
 
+  # the defaults are applied at once, as after a change of a sound chain: with the TuxGuitar Synthesizer as the MIDI
+  # Port, playing stops and the song's channels are sent their parameters again, so they play the defaults before the
+  # next Play (a note entered sounds them). Once the VST3 scan TuxGuitar starts with is done, the defaults are applied so
+  Scenario: once the VST3 scan at startup is done, the song's channels play the defaults without Play
+    Given the default instrument for guitar tracks is "Test Sine"
+    When TuxGuitar's VST3 scan at startup is done
+    Then track 1's channel plays "Test Sine" before any Play
+
+  Scenario: applying the defaults stops playing
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the song has started playing
+    When TuxGuitar's VST3 scan at startup is done
+    Then the song is not playing
+    And track 1's channel plays "Test Sine" before any Play
+
+  # another MIDI Port plays General MIDI: nothing to apply
+  Scenario: with another MIDI Port, applying the defaults leaves the song playing
+    Given I have set the MIDI Port to "Test MIDI Out"
+    And the default instrument for guitar tracks is "Test Sine"
+    And the song has started playing
+    When TuxGuitar's VST3 scan at startup is done
+    Then the song is still playing
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1

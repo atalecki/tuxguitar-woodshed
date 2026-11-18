@@ -12,6 +12,8 @@ import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGMidiProcessor;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGSynthManager;
+import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
@@ -66,6 +68,28 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	public void use(TGDefaultInstruments defaults) {
 		this.defaults = defaults;
 		this.notice.tryAgain();
+	}
+
+	// the defaults heard at once on the open song, as after a change of a sound chain: with the TuxGuitar Synthesizer as
+	// the MIDI Port, playing stops (as when the MIDI Port changes) and the song's channels are sent their parameters
+	// again, so they play the defaults from now on; another MIDI Port plays General MIDI: nothing changes
+	public void applyNow() {
+		MidiPlayer player = MidiPlayer.getInstance(this.context);
+		if (player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY)) {
+			stop(player);
+			try {
+				player.updateChannels();
+			} catch (MidiPlayerException e) {
+				LOG.warn("the default instruments could not be applied to the song's channels: " + e.getMessage(), e);
+			}
+		}
+	}
+
+	// as when the MIDI Port changes: a paused session stays paused
+	private static void stop(MidiPlayer player) {
+		if (player.isRunning()) {
+			player.stop();
+		}
 	}
 
 	public TGDefaultInstruments getDefaults() {

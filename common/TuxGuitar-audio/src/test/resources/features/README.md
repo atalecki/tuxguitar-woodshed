@@ -361,6 +361,9 @@ These features change how TuxGuitar works today. They are requirements, not side
   (`TGVst3PluginProcessor.getLoggedProblem`). A default that could not be loaded is remembered for the song
   (`TGFallbackNotice.hasFallenBack`): later Plays play General MIDI at once without trying it again, until the defaults
   change, the VST3 folders are scanned again (a scan's plugin list is a new object) or another song is played.
+  Defaults are applied at once (`TGDefaultInstrumentSource.applyNow`): with the TuxGuitar Synthesizer as the MIDI Port,
+  playing stops and the song's channels are sent their parameters again; the app does so once the VST3 scan it starts
+  with is done (`TGLiveAudio.startPlugins`).
   Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`

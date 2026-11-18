@@ -1,6 +1,7 @@
 package app.tuxguitar.audio.features;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,17 +10,22 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import app.tuxguitar.action.TGActionEvent;
 import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.TGDefaultInstrument;
 import app.tuxguitar.audio.TGDefaultInstrumentSource;
+import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
+import app.tuxguitar.midi.synth.TGSynthChannel;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.log.TGLogRecorder;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
 import io.cucumber.java.After;
@@ -101,6 +107,41 @@ public class DefaultInstrumentSteps {
 		TGActionManager.getInstance(world.fixture().context).addPreExecutionListener(running);
 		this.play.playLive(from, 1, TGLivePlugins.getInstance(world.fixture().context)::drain);
 		TGActionManager.getInstance(world.fixture().context).removePreExecutionListener(running);
+	}
+
+	// as TuxGuitar starts: the scan done off its UI thread, then what follows it
+	@When("TuxGuitar's VST3 scan at startup is done")
+	public void theScanAtStartupIsDone() {
+		TGLiveAudio.getInstance(world.fixture().context).startPlugins();
+	}
+
+	// as the player is while it plays (its sequencer is not started: what a step checks is only whether it plays)
+	@Given("the song has started playing")
+	public void theSongIsPlaying() {
+		MidiPlayer.getInstance(world.fixture().context).setRunning(true);
+	}
+
+	@Then("the song is still playing")
+	public void theSongPlays() {
+		assertTrue(MidiPlayer.getInstance(world.fixture().context).isRunning());
+	}
+
+	@Then("the song is not playing")
+	public void theSongDoesNotPlay() {
+		assertFalse(MidiPlayer.getInstance(world.fixture().context).isRunning());
+	}
+
+	// the source of the track's channel as the TuxGuitar Synthesizer has it now: its plugin's name, "(not open)" when it
+	// did not open; "nothing" when the synthesizer has not opened the channel
+	@Then("track {int}'s channel plays {string} before any Play")
+	public void theChannelPlays(int track, String name) {
+		TGSynthChannel channel = world.synthesizer().getChannelById(world.channel(world.track(track)).getChannelId());
+		assertEquals(name, Optional.ofNullable(channel).map(DefaultInstrumentSteps::playing).orElse("nothing"));
+	}
+
+	private static String playing(TGSynthChannel channel) {
+		boolean open = channel.getProcessor().getProcessor().isOpen();
+		return TGVst3Element.getName(channel.getProgram().getReceiver()) + (open ? "" : " (not open)");
 	}
 
 	@Then("the app ran no action to take it")

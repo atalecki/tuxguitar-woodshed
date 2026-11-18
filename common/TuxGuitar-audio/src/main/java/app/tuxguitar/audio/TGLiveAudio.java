@@ -151,6 +151,14 @@ public final class TGLiveAudio implements TGSynthOutput {
 		return "TuxGuitar audio: " + this.pluginScan;
 	}
 
+	// as an app starts: the scan, then the default instruments applied at once (TGDefaultInstrumentSource.applyNow), so
+	// the song's channels play them before the first Play
+	public String startPlugins() {
+		String scanned = this.scanPlugins();
+		TGDefaultInstrumentSource.install(this.context).applyNow();
+		return scanned;
+	}
+
 	private static TGPluginScan scan(TGVst3Hosting hosting) {
 		try {
 			List<TGVst3Plugin> plugins = hosting.scan();
