@@ -1090,6 +1090,10 @@ public class TestVst3Host {
 	// for the test: the key is typed in a standard text box of the plugin's view, which has the focus: an Edit, a RichEdit
 	private static final int IN_EDIT = 1 << 17;
 	private static final int IN_RICH_EDIT = 2 << 17;
+	// the same under class names of the plugin's own (superclassed), or in a list box of the view (no text box)
+	private static final int IN_RENAMED_EDIT = 3 << 17;
+	private static final int IN_RENAMED_RICH_EDIT = 4 << 17;
+	private static final int IN_LIST_BOX = 5 << 17;
 	private static final int[] SHORTCUTS = {'Z' | CTRL, 0x77, 0x25 | ALT};
 	// the keys a text box edits with, as TuxGuitar's shortcuts too: copy, cut, paste, select all, undo, redo (Ctrl+Y,
 	// Ctrl+Shift+Z), a word left or right (Ctrl+Left, Ctrl+Right), selected (with Shift too), deleted (Ctrl+Backspace,
@@ -1152,7 +1156,7 @@ public class TestVst3Host {
 		return gain;
 	}
 
-	// the keys, typed in the plugin's text box of that kind (IN_EDIT, IN_RICH_EDIT)
+	// the keys, typed in the plugin's control of that kind (IN_EDIT, IN_RICH_EDIT, ...)
 	private static int[] in(int box, int... keys) {
 		return Arrays.stream(keys).map(key -> key | box).toArray();
 	}
@@ -1171,6 +1175,21 @@ public class TestVst3Host {
 				+ " view #37+ctrl+shift, view #39+ctrl+shift, view #8+ctrl, view #46+ctrl, window F8, window #37+alt, window C+ctrl+shift, window #38+ctrl"
 				+ " | view V+ctrl, view Y+ctrl, view #8+ctrl, window F8 | window C+ctrl, window Z+ctrl, window #37+ctrl, window #8+ctrl",
 				edit + " | " + rich + " | " + typedAll(gain, app, 'C' | CTRL, 'Z' | CTRL, 0x25 | CTRL, 0x08 | CTRL));
+		}
+	}
+
+	// a standard text box under a class name of the plugin's own (an Edit or a RichEdit superclassed, as Delphi's TEdit and
+	// WinForms' WindowsForms10.EDIT... are) keeps the keys it edits with too; a standard control that edits no text (a
+	// list box) does not
+	@Test
+	public void aTextBoxUnderAnotherClassNameKeepsTheEditingKeysAListBoxDoesNot() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passing(app, WITH_EDITING);
+			String edit = typedAll(gain, app, in(IN_RENAMED_EDIT, 'A' | CTRL, 'Z' | CTRL, 0x25 | CTRL, 0x77));
+			String rich = typedAll(gain, app, in(IN_RENAMED_RICH_EDIT, 'Y' | CTRL, 0x27 | CTRL, 0x77));
+			assertEquals("view A+ctrl, view Z+ctrl, view #37+ctrl, window F8 | view Y+ctrl, view #39+ctrl, window F8 | window A+ctrl, window Z+ctrl, window #37+ctrl",
+				edit + " | " + rich + " | " + typedAll(gain, app, in(IN_LIST_BOX, 'A' | CTRL, 'Z' | CTRL, 0x25 | CTRL)));
 		}
 	}
 

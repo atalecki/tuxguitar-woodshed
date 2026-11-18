@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <cwchar>
 #include <functional>
 #include <map>
 
@@ -693,16 +692,16 @@ const PassedKeys* passingFor(HWND window) {
 const std::set<int32> kTextBoxKeys = {'C' | 2 << 8, 'X' | 2 << 8, 'V' | 2 << 8, 'A' | 2 << 8, 'Z' | 2 << 8, 'Y' | 2 << 8, 'Z' | 3 << 8,
                                       VK_LEFT | 2 << 8, VK_RIGHT | 2 << 8, VK_LEFT | 3 << 8, VK_RIGHT | 3 << 8, VK_BACK | 2 << 8, VK_DELETE | 2 << 8};
 
-// one of Windows' standard text boxes: its class Edit (as Windows names it), or RichEdit... in any case (RichEdit20W,
-// RICHEDIT50W)
-bool isTextBox(HWND window) {
-	wchar_t name[32] = {};
-	GetClassNameW(window, name, 32);
-	return (std::wcscmp(name, L"Edit") == 0 || _wcsnicmp(name, L"RichEdit", 8) == 0);
-}
+// one of Windows' standard text boxes, an Edit or a RichEdit, under whatever class name it was given (Delphi's TEdit,
+// WinForms' WindowsForms10.EDIT..., a plugin's own superclass or subclass): asked what keys it wants, as the dialog
+// manager asks (WM_GETDLGCODE), it says it takes a selection (DLGC_HASSETSEL), which only text boxes say. Its class name
+// would miss the renamed ones, and RealGetWindowClass knows Edit but not RichEdit. The window is the thread's own (a key
+// comes in the queue of the thread that made the window it is for, and the hook sees this thread's queue only), so the
+// message is a direct call of its procedure: nothing waits on another thread
+bool isTextBox(HWND window) { return ((SendMessageW(window, WM_GETDLGCODE, 0, 0) & DLGC_HASSETSEL) != 0); }
 
-// whether the window the key came to (Windows sends keys to the window with the focus) keeps it: a standard text box,
-// and a key it edits with
+// whether the window the key came to (Windows sends keys to the window with the focus) keeps it: a key a text box edits
+// with (looked at first, so the window is asked for those keys only), and a standard text box
 bool keptByTextBox(HWND focused, int32 key) { return (kTextBoxKeys.count(key) > 0 && isTextBox(focused)); }
 
 // a key typed in an editor inside a window of TuxGuitar that its frame passes goes to that window instead, as if typed
