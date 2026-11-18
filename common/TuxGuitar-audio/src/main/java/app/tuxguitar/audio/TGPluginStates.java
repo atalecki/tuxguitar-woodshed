@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import java.util.Map;
 
 import app.tuxguitar.midi.synth.TGAudioProcessor;
@@ -16,10 +18,12 @@ import app.tuxguitar.song.factory.TGFactory;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Instance;
+import app.tuxguitar.vst3.TGVst3PluginProcessor;
 import app.tuxguitar.vst3.TGVst3State;
 
 /**
@@ -32,6 +36,8 @@ import app.tuxguitar.vst3.TGVst3State;
 final class TGPluginStates {
 
 	private static final TGLog LOG = TGLog.get(TGPluginStates.class);
+	// the refusal to open a plugin, in TuxGuitar's language: {0} the plugin, {1} the host's reason
+	private static final String NOT_OPENED = "audio.plugin.refusal.not-opened";
 
 	private TGPluginStates() {
 	}
@@ -97,6 +103,43 @@ final class TGPluginStates {
 		}
 		TGAudioProcessorFactory factory = manager.findAudioProcessorFactory(plugin.getType());
 		return factory.createProcessor();
+	}
+
+	// a new processor of the element as the TuxGuitar Synthesizer opens it, at the audio device's rate, its plugin open;
+	// refused naming the plugin and the host's reason (the processor closed)
+	static TGAudioProcessor opened(TGContext context, TGProgramElement element, TGProgram chain) throws TGVst3Exception {
+		TGAudioProcessor processor = processor(context, element, chain);
+		processor.setSampleRate(TGAudioSaving.sampleRate(context));
+		processor.restoreParameters(element.getParameters());
+		TGVst3PluginProcessor plugin = (TGVst3PluginProcessor) processor;
+		if (plugin.getInstance() == null) {
+			processor.close();
+			throw new TGVst3Exception(TGMessagesManager.getProperty(NOT_OPENED, new Object[] {TGVst3Element.getName(element), plugin.getProblem()}));
+		}
+		return processor;
+	}
+
+	// an instrument's element (one without a state of its own, say a default instrument's) as a song keeps it as a
+	// chain's source: opened in a helper of its own, its state once it has restored (a profile loading), then closed
+	static TGProgramElement kept(TGContext context, TGProgramElement element) throws TGVst3Exception {
+		TGProgram chain = new TGProgram();
+		chain.setReceiver(element);
+		TGAudioProcessor processor = opened(context, element, chain);
+		try {
+			restored(((TGVst3PluginProcessor) processor).getInstance());
+			TGProgramElement kept = TGSoundChain.source(element.getType());
+			processor.storeParameters(kept.getParameters());
+			return kept;
+		} finally {
+			processor.close();
+		}
+	}
+
+	// once the plugin no longer restores its state in the background (for a while at most, see TGVst3Instance)
+	private static void restored(TGVst3Instance instance) {
+		while (instance.isRestoring()) {
+			LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
+		}
 	}
 
 	private static void store(TGAudioProcessor processor, TGProgramElement plugin, float sampleRate) {

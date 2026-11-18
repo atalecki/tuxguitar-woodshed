@@ -363,7 +363,10 @@ These features change how TuxGuitar works today. They are requirements, not side
   change, the VST3 folders are scanned again (a scan's plugin list is a new object) or another song is played.
   Defaults are applied at once (`TGDefaultInstrumentSource.applyNow`): with the TuxGuitar Synthesizer as the MIDI Port,
   playing stops and the song's channels are sent their parameters again; the app does so once the VST3 scan it starts
-  with is done (`TGLiveAudio.startPlugins`).
+  with is done (`TGLiveAudio.startPlugins`). The Sound Chain dialog's source row says what a default source plays and
+  why (`TGDefaultPlay`, from the same decision as `sourceFor`: `TGDefaultInstrumentSource.play`); "Keep in song"
+  (`TGKeepDefaultInstrumentAction`, undoable) makes the default that plays the track's own instrument, its state taken
+  from a helper once restored (`TGPluginStates.kept`), so Woodshed Guitar's profile is in the song.
   Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`

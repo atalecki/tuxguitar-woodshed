@@ -60,6 +60,11 @@ public final class TGSoundChainRows {
 		return GervillProcessorFactory.TYPE.equals(this.chain.getReceiver().getType());
 	}
 
+	// whether the default instrument plays as the source, so it can be kept in the song (TGKeepDefaultInstrumentAction)
+	public boolean canKeep() {
+		return (this.isDefault() && this.play != null && this.play.getElement() != null);
+	}
+
 	// the row picked: its index, or -1 for none
 	public static int row(Integer picked) {
 		return (picked != null ? picked : -1);

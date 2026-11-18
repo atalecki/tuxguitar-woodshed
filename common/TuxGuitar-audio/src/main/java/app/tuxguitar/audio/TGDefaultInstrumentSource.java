@@ -19,6 +19,7 @@ import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Element;
+import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
 import app.tuxguitar.vst3.TGVst3PluginProcessor;
@@ -121,6 +122,12 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	// what a channel without an instrument of its own plays, and why (nothing is told): as the Sound Chain dialog says it
 	public TGDefaultPlay play(TGChannel channel) {
 		return this.play(channel.getBank(), channel.getProgram());
+	}
+
+	// the default instrument that plays (play.getElement()) as a song keeps it as a chain's source: with the state it
+	// has once opened and restored (Woodshed Guitar's holds the kind's profile); refused saying why when it does not open
+	public TGProgramElement kept(TGDefaultPlay play) throws TGVst3Exception {
+		return TGPluginStates.kept(this.context, play.getElement());
 	}
 
 	public TGDefaultPlay play(int bank, int program) {

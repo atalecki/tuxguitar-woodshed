@@ -15,6 +15,7 @@ import app.tuxguitar.audio.action.TGAddAudioTrackAction;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.audio.action.TGArmTrackAction;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
+import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
 import app.tuxguitar.audio.action.TGChooseVst3InstrumentAction;
 import app.tuxguitar.audio.action.TGDisarmTrackAction;
 import app.tuxguitar.audio.action.TGMoveEffectUpAction;
@@ -63,7 +64,7 @@ final class TGAudioActions {
 	}
 
 	private static void mapSoundChain(TGContext context, TGUndoableActionController channel) {
-		Arrays.asList(new TGAddVst3EffectAction(context), new TGChooseVst3InstrumentAction(context), new TGChooseGeneralMidiAction(context), new TGMoveEffectUpAction(context), new TGRemoveEffectAction(context), new TGSetEffectEnabledAction(context), new TGSetPluginParameterAction(context)).forEach(action -> map(context, action, new TGUpdateChannelsController(), channel));
+		Arrays.asList(new TGAddVst3EffectAction(context), new TGChooseVst3InstrumentAction(context), new TGChooseGeneralMidiAction(context), new TGKeepDefaultInstrumentAction(context), new TGMoveEffectUpAction(context), new TGRemoveEffectAction(context), new TGSetEffectEnabledAction(context), new TGSetPluginParameterAction(context)).forEach(action -> map(context, action, new TGUpdateChannelsController(), channel));
 		map(context, new TGOpenPluginEditorAction(context), new TGUpdateItemsController(), null);
 		TGActionAdapterManager.getInstance(context).getSyncThreadInterceptor().addActionId(TGOpenPluginEditorAction.NAME);
 	}

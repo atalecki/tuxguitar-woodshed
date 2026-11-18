@@ -10,7 +10,9 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.editor.action.SongActionFixture;
+import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgram;
+import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.song.models.TGAudioInput;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.vst3.TGVst3Element;
@@ -54,6 +56,22 @@ class TestSoundChainRows {
 	@Test
 	void whatCanBeDoneWithTheRowPicked() {
 		assertEquals("-1 - disable | 0 - disable | 1 effect 1 edit disable | 2 effect 2 up enable", can(TGSoundChainRows.of(this.guitar)));
+	}
+
+	// "Keep in song": only a default source that plays an instrument (known to: read with what the channel plays) can be
+	// kept; General MIDI playing, or an instrument of the track's own, cannot
+	@Test
+	void onlyADefaultSourcePlayingAnInstrumentCanBeKept() {
+		TGDefaultPlay plays = new TGDefaultPlay(TGInstrumentKind.GUITAR, TGDefaultInstrument.parse("7A1C0008544753494E45000000000008", "Test Sine").get(),
+			TGVst3Element.create("default-guitar", SINE), TGDefaultPlay.Is.PLAYED);
+		TGDefaultPlay generalMidi = new TGDefaultPlay(TGInstrumentKind.GUITAR, null, null, TGDefaultPlay.Is.NO_DEFAULT);
+		TGProgram chain = TGSoundChain.get(this.guitar);
+		chain.setReceiver(TGSoundChain.source(GervillProcessorFactory.TYPE));
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		String byDefault = TGSoundChainRows.of(this.guitar, plays).canKeep() + " " + TGSoundChainRows.of(this.guitar).canKeep() + " " + TGSoundChainRows.of(this.guitar, generalMidi).canKeep();
+		chain.setReceiver(TGVst3Element.create("source", SINE));
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		assertEquals("true false false false", byDefault + " " + TGSoundChainRows.of(this.guitar, plays).canKeep());
 	}
 
 	@Test

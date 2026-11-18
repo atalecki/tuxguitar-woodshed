@@ -178,6 +178,56 @@ Feature: Default instruments by track kind
     And the default instrument for guitar tracks is "Test Sine"
     Then the Sound Chain dialog's source row of track 1 reads "Source: Test Sine (Standard für Gitarrenspuren)"
 
+  # "Keep in song" (the Sound Chain dialog) makes the default instrument the track's own instrument, its state in the
+  # song (Woodshed Guitar's holds its profile, kept once per song): from then on the track no longer follows the
+  # settings, and sounds the same wherever the song opens
+  Scenario: kept in the song, the default instrument no longer follows the settings, its profile in the song
+    Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is a NAM capture "Gain 3.nam" that multiplies the signal by 3.0
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1 at dynamic fff
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 2 has loaded the NAM capture "Gain 3.nam"
+    And the default instrument for guitar tracks is "Woodshed Guitar"
+    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    When I keep the default instrument in the song for track 1
+    And the default instrument for guitar tracks is "Test Sine"
+    And the NAM capture "Gain 3.nam" has been moved away
+    And I play the song from measure 1 beat 1
+    Then track 1's sound chain reads "Woodshed Guitar"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Woodshed Guitar"
+    And track 1 sounds, every sample a number, peaking above 0.001 in measure 1
+    And track 1 sounds 1.0 times what track 2 sounds, sample for sample within 0.001
+
+  Scenario: "Keep in song" is undone like the other changes of a sound chain
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have kept the default instrument in the song for track 1
+    When I undo
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Test Sine (default for guitar tracks)"
+
+  # only a default instrument that plays can be kept: the dialog greys the button otherwise
+  Scenario Outline: "Keep in song" is refused when no default instrument plays
+    Given <setup>
+    When I keep the default instrument in the song for track 1
+    Then the action is refused
+    And track 1's sound chain reads "<chain>"
+
+    Examples:
+      | setup                                                                                                 | chain                        |
+      | the default instrument for bass tracks is "Test Sine"                                                 | Steel String Acoustic Guitar |
+      | the default instrument for guitar tracks is "Missing Piano", which is not installed on this computer | Steel String Acoustic Guitar |
+      | I have chosen the VST3 instrument "Test Click" for track 1                                            | Test Click                   |
+
+  Scenario: "Keep in song" of a default instrument that does not open is refused, saying why
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the VST3 host cannot start
+    When I keep the default instrument in the song for track 1
+    Then the action is refused
+    And the refusal starts with "The VST3 plugin Test Sine could not be opened: "
+    And track 1's sound chain reads "Steel String Acoustic Guitar"
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1

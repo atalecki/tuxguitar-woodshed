@@ -15,6 +15,7 @@ import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
 import app.tuxguitar.audio.action.TGChooseVst3InstrumentAction;
 import app.tuxguitar.audio.action.TGEffectAction;
+import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
 import app.tuxguitar.audio.action.TGMoveEffectUpAction;
 import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
 import app.tuxguitar.audio.action.TGRemoveEffectAction;
@@ -41,7 +42,8 @@ import app.tuxguitar.vst3.TGVst3Plugin;
 /**
  * A track's sound chain (its channel's): the source and the effects in processing order (TGSoundChainRows), and the
  * changes of it, each one undo step (the sound chain actions): add a VST3 effect, make a VST3 instrument or the default
- * instrument of the track's kind the source (its row saying what plays and why), move the picked effect up, remove it, enable or disable it, open the picked plugin's editor
+ * instrument of the track's kind the source (its row saying what plays and why), keep the default instrument that plays
+ * in the song as the track's own ("Keep in song", only while one plays), move the picked effect up, remove it, enable or disable it, open the picked plugin's editor
  * (its own, else TuxGuitar's parameter editor, TGPluginParametersDialog). The plugins offered are those the last scan of
  * the VST3 folders found, and the status under them says what that scan found and skipped, and why (TGPluginScan); Scan
  * again scans them off the UI thread, then offers what it found. What can be done with the row picked is decided there;
@@ -62,6 +64,7 @@ public class TGSoundChainDialog {
 	private UIButton addEffect;
 	private UIButton chooseInstrument;
 	private UIButton defaultInstrument;
+	private UIButton keep;
 	private UIButton up;
 	private UIButton remove;
 	private UIButton enable;
@@ -87,6 +90,7 @@ public class TGSoundChainDialog {
 		this.addEffect = this.button(2, 4, "audio.sound-chain.add-effect", this::addEffect);
 		this.instruments = this.plugins(3, "audio.sound-chain.instrument");
 		this.chooseInstrument = this.button(3, 4, "audio.sound-chain.choose-instrument", this::chooseInstrument);
+		this.keep = this.button(4, 3, "audio.sound-chain.keep", () -> this.change(new TGActionProcessor(this.context, TGKeepDefaultInstrumentAction.NAME)));
 		this.defaultInstrument = this.button(4, 4, "audio.sound-chain.default-instrument", () -> this.change(new TGActionProcessor(this.context, TGChooseGeneralMidiAction.NAME)));
 		this.up = this.button(5, 1, "audio.sound-chain.up", () -> this.changeEffect(TGMoveEffectUpAction.NAME));
 		this.remove = this.button(5, 2, "audio.sound-chain.remove", () -> this.changeEffect(TGRemoveEffectAction.NAME));
@@ -193,6 +197,7 @@ public class TGSoundChainDialog {
 		this.addEffect.setEnabled(chain.canAdd(this.effects.getSelectedValue()));
 		this.chooseInstrument.setEnabled(chain.canChoose(this.instruments.getSelectedValue()));
 		this.defaultInstrument.setEnabled(chain.canChooseSource());
+		this.keep.setEnabled(chain.canKeep());
 		this.up.setEnabled(chain.canMoveUp(row));
 		this.remove.setEnabled(chain.isEffect(row));
 		this.enable.setEnabled(chain.isEffect(row));

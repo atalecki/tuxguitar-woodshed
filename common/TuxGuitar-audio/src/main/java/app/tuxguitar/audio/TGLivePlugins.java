@@ -57,8 +57,8 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	static final long LOAD_WAIT = 5000;
 
 	private static final TGLog LOG = TGLog.get(TGLivePlugins.class);
-	// the refusals to open a plugin or its editor, in TuxGuitar's language: {0} the plugin, {1} the host's reason
-	private static final String NOT_OPENED = "audio.plugin.refusal.not-opened";
+	// the refusal to open a plugin's editor, in TuxGuitar's language: {0} the plugin, {1} the host's reason (the
+	// plugin's own: TGPluginStates.opened)
 	private static final String EDITOR_NOT_OPENED = "audio.plugin.refusal.editor-not-opened";
 
 	private final TGContext context;
@@ -175,15 +175,8 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 
 	// as the TuxGuitar Synthesizer opens it, at the audio device's rate; refused naming the plugin and the host's reason
 	private Kept open(int channel, TGProgram chain, TGProgramElement element) throws TGVst3Exception {
-		TGAudioProcessor processor = TGPluginStates.processor(this.context, element, chain);
-		processor.setSampleRate(TGAudioSaving.sampleRate(this.context));
-		processor.restoreParameters(element.getParameters());
-		TGVst3PluginProcessor plugin = (TGVst3PluginProcessor) processor;
-		TGVst3Instance instance = plugin.getInstance();
-		if (instance == null) {
-			processor.close();
-			throw new TGVst3Exception(TGMessagesManager.getProperty(NOT_OPENED, new Object[] {TGVst3Element.getName(element), plugin.getProblem()}));
-		}
+		TGAudioProcessor processor = TGPluginStates.opened(this.context, element, chain);
+		TGVst3Instance instance = ((TGVst3PluginProcessor) processor).getInstance();
 		return new Kept(processor, this.listened(channel, element.getId(), instance), element.getParameters());
 	}
 
