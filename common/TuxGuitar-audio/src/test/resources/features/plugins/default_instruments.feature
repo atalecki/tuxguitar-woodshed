@@ -374,6 +374,24 @@ Feature: Default instruments by track kind
     And Woodshed Guitar of track 1 as it runs has "Output level" at 0.0
     And Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and ""
 
+  # the profile file changed on disk since the editor opened: Undo has Woodshed Guitar load it again as it is now, which
+  # the user did not do, so it keeps nothing (it used to keep the default again, as if the user had changed it)
+  Scenario: undoing the keep after the profile file changed on disk does not keep the default again
+    Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is a NAM capture "Gain 3.nam" that multiplies the signal by 3.0
+    And the default instrument for guitar tracks is "Woodshed Guitar"
+    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    And I have opened the editor of the source of track 1
+    And I set "Output level" to -6.0 in Woodshed Guitar's editor of track 1
+    And the file "Gain 3.nam" has since been changed to a NAM capture that multiplies the signal by 2.0
+    When I undo
+    And Woodshed Guitar of track 1 has loaded, the app taking what it told
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Woodshed Guitar (default for guitar tracks)"
+    And Woodshed Guitar of track 1 as it runs has "Output level" at 0.0
+    And the plugin's own editor of the default instrument of track 1 is open
+
   # A default instrument without an editor of its own (Test Tone) is edited in TuxGuitar's parameter editor (the
   # Parameters window): its first change there keeps the default in the song with that value, as a change in a plugin's
   # own editor does, one undo step; opening and closing it, or setting a value it already has, keeps nothing
