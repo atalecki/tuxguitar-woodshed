@@ -12,6 +12,7 @@ import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.util.TGContext;
@@ -90,6 +91,15 @@ class TestDefaultInstrumentSource {
 		boolean changed = source.apply(sine);
 		boolean same = source.apply(TGDefaultInstruments.NONE.with(TGInstrumentKind.OTHER, instrument(SINE, "Test Sine")));
 		assertEquals("true false true", changed + " " + same + " " + (source.getDefaults() == sine));
+	}
+
+	// the Sound Chain dialog's source row: before the first scan, General MIDI plays a default not found yet
+	@Test
+	void beforeTheFirstScanGeneralMidiPlaysUntilTheScanIsDone() {
+		TGDefaultInstrumentSource source = TGDefaultInstrumentSource.install(new TGContext());
+		source.use(TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, instrument(SINE, "Test Sine")));
+		assertEquals("General MIDI, Steel String Acoustic Guitar (the VST3 plugins are not scanned yet)",
+			TuxGuitarMessages.english(() -> source.play(0, 25).say("Steel String Acoustic Guitar")));
 	}
 
 	// Woodshed Guitar where TuxGuitar installs it: its own plugins folder (vst3), the profiles it ships next to it

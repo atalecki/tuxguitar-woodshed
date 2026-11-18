@@ -14,6 +14,7 @@ import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGSynthManager;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
+import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
@@ -111,18 +112,48 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	// not be loaded, without being tried again, until the defaults change, the VST3 folders are scanned again or another
 	// song is played
 	public TGProgramElement sourceFor(int bank, int program) {
+		TGDefaultInstruments defaults = this.defaults;
+		TGDefaultPlay play = this.play(bank, program, defaults);
+		this.tell(play, defaults);
+		return play.getElement();
+	}
+
+	// what a channel without an instrument of its own plays, and why (nothing is told): as the Sound Chain dialog says it
+	public TGDefaultPlay play(TGChannel channel) {
+		return this.play(channel.getBank(), channel.getProgram());
+	}
+
+	public TGDefaultPlay play(int bank, int program) {
+		return this.play(bank, program, this.defaults);
+	}
+
+	private TGDefaultPlay play(int bank, int program, TGDefaultInstruments defaults) {
 		TGInstrumentKind kind = TGInstrumentKind.of(bank, program);
 		TGVst3Hosting hosting = TGVst3Hosting.getInstance(this.context);
-		TGDefaultInstruments defaults = this.defaults;
 		TGProgramElement source = source(kind, defaults, this.scanned(hosting.getPlugins()));
-		if (source == null) {
-			this.notFound(kind, defaults, hosting.hasScanned());
-		} else if (this.notLoaded(kind, defaults)) {
-			return null;
-		} else if (isWoodshed(source)) {
-			this.checkProfile(kind, defaults);
+		TGDefaultInstrument instrument = defaults.get(kind).orElse(null);
+		return new TGDefaultPlay(kind, instrument, source, this.is(kind, instrument, source, hosting.hasScanned()));
+	}
+
+	// the kind's default plays when the scan found it and it did not fail to load playing this song since it was last
+	// tried; else General MIDI, for that reason
+	private TGDefaultPlay.Is is(TGInstrumentKind kind, TGDefaultInstrument instrument, TGProgramElement source, boolean scanned) {
+		if (instrument == null) {
+			return TGDefaultPlay.Is.NO_DEFAULT;
 		}
-		return source;
+		if (source == null) {
+			return (scanned ? TGDefaultPlay.Is.NOT_INSTALLED : TGDefaultPlay.Is.NOT_SCANNED);
+		}
+		return (this.notLoaded(kind, instrument) ? TGDefaultPlay.Is.NOT_LOADED : TGDefaultPlay.Is.PLAYED);
+	}
+
+	// a default not installed is told; Woodshed Guitar playing without the profile chosen too
+	private void tell(TGDefaultPlay play, TGDefaultInstruments defaults) {
+		if (play.getIs() == TGDefaultPlay.Is.NOT_INSTALLED) {
+			this.notInstalled(play.getKind(), play.getInstrument());
+		} else if (play.getElement() != null && isWoodshed(play.getElement())) {
+			this.checkProfile(play.getKind(), defaults);
+		}
 	}
 
 	// the plugins of a scan: once it is another scan than the defaults were last tried with, they are tried again
@@ -134,17 +165,14 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		return plugins;
 	}
 
-	private void notFound(TGInstrumentKind kind, TGDefaultInstruments defaults, boolean scanned) {
-		if (scanned) {
-			defaults.get(kind).ifPresent(instrument -> this.fellBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_INSTALLED),
-				"the default instrument " + described(kind, instrument) + " plays General MIDI instead: it is not installed"));
-		}
+	private void notInstalled(TGInstrumentKind kind, TGDefaultInstrument instrument) {
+		this.fellBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_INSTALLED),
+			"the default instrument " + described(kind, instrument) + " plays General MIDI instead: it is not installed");
 	}
 
 	// whether the kind's default could not be loaded playing this song since it was last tried
-	private boolean notLoaded(TGInstrumentKind kind, TGDefaultInstruments defaults) {
-		Object song = TGDocumentManager.getInstance(this.context).getSong();
-		return defaults.get(kind).filter(instrument -> this.notice.hasFallenBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_LOADED), song)).isPresent();
+	private boolean notLoaded(TGInstrumentKind kind, TGDefaultInstrument instrument) {
+		return this.notice.hasFallenBack(new TGFallback(kind, instrument, TGFallback.Why.NOT_LOADED), TGDocumentManager.getInstance(this.context).getSong());
 	}
 
 	private void checkProfile(TGInstrumentKind kind, TGDefaultInstruments defaults) {

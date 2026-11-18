@@ -148,6 +148,36 @@ Feature: Default instruments by track kind
     When TuxGuitar's VST3 scan at startup is done
     Then the song is still playing
 
+  # the Sound Chain dialog's source row says what a track without an instrument of its own plays, and why: its kind's
+  # default, else General MIDI's program and the reason
+  Scenario Outline: the Sound Chain dialog's source row says what plays and why
+    Given I have set the General MIDI program of track 1's channel to "<program>"
+    And <default>
+    Then the Sound Chain dialog's source row of track 1 reads "<row>"
+
+    Examples:
+      | program                      | default                                                                                               | row                                                                                  |
+      | Steel String Acoustic Guitar | the default instrument for guitar tracks is "Test Sine"                                               | Source: Test Sine (default for guitar tracks)                                        |
+      | Acoustic Grand Piano         | the default instrument for guitar tracks is "Test Sine"                                               | Source: General MIDI, Acoustic Grand Piano (no default for other tracks)             |
+      | Steel String Acoustic Guitar | the default instrument for guitar tracks is "Missing Piano", which is not installed on this computer | Source: General MIDI, Steel String Acoustic Guitar (Missing Piano is not installed) |
+
+  Scenario: the source row says a default instrument could not be loaded
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the VST3 host cannot start
+    And I have played the song from measure 1 beat 1 and stopped at measure 2 beat 1
+    Then the Sound Chain dialog's source row of track 1 reads "Source: General MIDI, Steel String Acoustic Guitar (Test Sine could not be loaded)"
+
+  Scenario: the source row names an instrument the track chose itself, as before
+    Given I have chosen the VST3 instrument "Test Sine" for track 1
+    And the default instrument for guitar tracks is "Test Click"
+    Then the Sound Chain dialog's source row of track 1 reads "Source: Test Sine"
+
+  Scenario: the source row is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} (Standard für {1})" for the message "audio.default-instrument.source.played"
+    And TuxGuitar's language says "Gitarrenspuren" for the message "audio.default-instrument.kind.guitar"
+    And the default instrument for guitar tracks is "Test Sine"
+    Then the Sound Chain dialog's source row of track 1 reads "Source: Test Sine (Standard für Gitarrenspuren)"
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1

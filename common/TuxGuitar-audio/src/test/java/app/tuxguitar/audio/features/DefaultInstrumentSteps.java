@@ -17,12 +17,14 @@ import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.TGDefaultInstrument;
 import app.tuxguitar.audio.TGDefaultInstrumentSource;
 import app.tuxguitar.audio.TGLiveAudio;
+import app.tuxguitar.audio.TGSoundChainRows;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.player.base.MidiPlayer;
+import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.log.TGLogRecorder;
 import app.tuxguitar.vst3.TGVst3Element;
@@ -142,6 +144,13 @@ public class DefaultInstrumentSteps {
 	private static String playing(TGSynthChannel channel) {
 		boolean open = channel.getProcessor().getProcessor().isOpen();
 		return TGVst3Element.getName(channel.getProgram().getReceiver()) + (open ? "" : " (not open)");
+	}
+
+	// as the dialog reads it, the app calling the source "Source"
+	@Then("the Sound Chain dialog's source row of track {int} reads {string}")
+	public void theSourceRowReads(int track, String row) {
+		TGChannel channel = world.channel(world.track(track));
+		assertEquals(row, TGSoundChainRows.of(channel, source().play(channel)).getRows("Source").get(0));
 	}
 
 	@Then("the app ran no action to take it")
