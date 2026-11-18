@@ -590,6 +590,18 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     When I undo
     Then Woodshed Guitar of track 1 has "Quality" at 0.0
 
+  # Drawn at the scale of the screen its window is on, and stretched in width by the user: what the editor laid out is
+  # read from it (its layout itself is checked by woodshed-guitar-layout-test); how it looks is checked by hand (UAT)
+
+  Scenario: Woodshed Guitar's editor is drawn at its screen's scale
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    Then Woodshed Guitar's editor of track 1 is laid out at its window's scale
+    When Woodshed Guitar's editor of track 1 goes to a screen of 96 DPI
+    Then Woodshed Guitar's editor of track 1 is laid out at scale 1.0, about 460 by 230
+    When Woodshed Guitar's editor of track 1 goes to a screen of 144 DPI
+    Then Woodshed Guitar's editor of track 1 is laid out at scale 1.5, about 690 by 345
+
   Scenario: Woodshed Guitar's editor shows its parameters as they are
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And I have set "Output level" of the VST3 instrument of track 1 to -6.0

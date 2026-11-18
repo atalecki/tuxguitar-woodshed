@@ -179,7 +179,8 @@ public class GuitarSteps {
 	}
 
 	// the plugin of the track's source as it runs
-	private TGVst3Instance running(int track) throws TGVst3Exception {
+	// the plugin playing the track's source (its editor, when one is open)
+	TGVst3Instance running(int track) throws TGVst3Exception {
 		return TGLivePlugins.getInstance(world.fixture().context).get(world.channel(world.track(track)).getChannelId(), "source");
 	}
 

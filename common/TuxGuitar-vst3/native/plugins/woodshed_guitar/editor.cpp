@@ -1,10 +1,11 @@
 #include "editor.h"
 
-#include "layout.h"
 #include "plugin.h"
+#include "../common/window_test_hooks.h"
 #include "text.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -142,11 +143,35 @@ void registerClass() {
 	RegisterClassW(&type);
 }
 
-// a control, put in place by the layout (place)
+// a control, its font and place given by rescale
 HWND child(HWND parent, const wchar_t* type, const wchar_t* text, DWORD style, int id) {
-	HWND control = CreateWindowExW(0, type, text, WS_CHILD | WS_VISIBLE | style, 0, 0, 0, 0, parent, (HMENU) (INT_PTR) id, module(), nullptr);
-	SendMessageW(control, WM_SETFONT, (WPARAM) GetStockObject(DEFAULT_GUI_FONT), TRUE);
-	return control;
+	return CreateWindowExW(0, type, text, WS_CHILD | WS_VISIBLE | style, 0, 0, 0, 0, parent, (HMENU) (INT_PTR) id, module(), nullptr);
+}
+
+// the font Windows uses for messages, at the DPI
+HFONT messageFont(UINT dpi) {
+	NONCLIENTMETRICSW metrics = {};
+	metrics.cbSize = sizeof(metrics);
+	SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0, dpi);
+	return CreateFontIndirectW(&metrics.lfMessageFont);
+}
+
+BOOL CALLBACK giveFont(HWND control, LPARAM font) {
+	SendMessageW(control, WM_SETFONT, (WPARAM) font, TRUE);
+	return TRUE;
+}
+
+// the font's size: the height of its em, in pixels
+int emHeight(void* font) {
+	LOGFONTW described = {};
+	GetObjectW((HGDIOBJ) font, sizeof(described), &described);
+	return std::abs((int) described.lfHeight);
+}
+
+int widthOf(void* control) {
+	RECT box = {};
+	GetWindowRect((HWND) control, &box);
+	return box.right - box.left;
 }
 
 int textWidth(HDC dc, const std::string& text) {
@@ -229,7 +254,8 @@ tresult PLUGIN_API GuitarView::attached(void* parent, FIDString type) {
 	quality = child(editor, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST | WS_TABSTOP, kQualityBox);
 	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.full")).c_str());
 	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.light")).c_str());
-	place(layOut(measure(GetStockObject(DEFAULT_GUI_FONT)), kWidth, 1.0));
+	scale = (scale > 0 ? scale : GetDpiForWindow((HWND) parent) / 96.0);
+	rescale();
 	SetWindowLongPtrW(editor, GWLP_USERDATA, (LONG_PTR) this);
 	plugin->editorOpened(this);
 	refresh();
@@ -245,6 +271,58 @@ tresult PLUGIN_API GuitarView::removed() {
 	labels[0] = labels[1] = labels[2] = nullptr;
 	sliders.clear();
 	return CPluginView::removed();
+}
+
+tresult PLUGIN_API GuitarView::setContentScaleFactor(ScaleFactor factor) {
+	scale = factor;
+	rescale();
+	ViewRect size = getRect();
+	if (window && plugFrame) {
+		plugFrame->resizeView(this, &size);
+	}
+	return kResultOk;
+}
+
+// the size at the scale: the design's width, or more when the texts need it, and the design's height
+void GuitarView::rescale() {
+	HFONT made = messageFont((UINT) std::lround(USER_DEFAULT_SCREEN_DPI * scale));
+	measured = measure(made);
+	Layout natural = layOut(measured, (int) std::lround(kWidth * scale), scale);
+	ViewRect size(0, 0, natural.width, natural.height);
+	setRect(size);
+	if (window) {
+		EnumChildWindows((HWND) window, giveFont, (LPARAM) made);
+		place(natural);
+	}
+	dropFont();
+	font = made;
+}
+
+void GuitarView::dropFont() {
+	if (font) {
+		DeleteObject((HGDIOBJ) font);
+	}
+	font = nullptr;
+}
+
+bool GuitarView::labelsHold() const {
+	return widthOf(labels[0]) >= measured.inputLabel && widthOf(labels[1]) >= measured.outputLabel && widthOf(labels[2]) >= measured.qualityLabel;
+}
+
+std::string GuitarView::laidOut() const {
+	RECT inside = {};
+	GetClientRect((HWND) window, &inside);
+	return "scale=" + std::to_string(scale) + " dpi=" + std::to_string(GetDpiForWindow((HWND) window)) + " size=" + std::to_string(inside.right) + "x"
+		+ std::to_string(inside.bottom) + " text=" + std::to_string(emHeight((void*) SendMessageW((HWND) labels[0], WM_GETFONT, 0, 0))) + " sliders=" + std::to_string(widthOf(sliders[0].bar)) + ","
+		+ std::to_string(widthOf(sliders[1].bar)) + " labels-fit=" + (labelsHold() ? "true" : "false");
+}
+
+void GuitarView::changeDpi(int64 dpi) {
+	TuxGuitarTest::changeDpi(GetAncestor((HWND) window, GA_ROOT), dpi);
+}
+
+void GuitarView::dragTo(int64 width, int64 height) {
+	TuxGuitarTest::dragTo(GetAncestor((HWND) window, GA_ROOT), width, height);
 }
 
 void GuitarView::refresh() {
@@ -376,6 +454,27 @@ void GuitarView::addSlider(int, ParamID, const char*, double, double) {}
 
 void GuitarView::place(const Layout&) {}
 
+tresult PLUGIN_API GuitarView::setContentScaleFactor(ScaleFactor factor) {
+	scale = factor;
+	return kResultOk;
+}
+
+void GuitarView::rescale() {}
+
+void GuitarView::dropFont() {}
+
+bool GuitarView::labelsHold() const {
+	return false;
+}
+
+std::string GuitarView::laidOut() const {
+	return std::string();
+}
+
+void GuitarView::changeDpi(int64) {}
+
+void GuitarView::dragTo(int64, int64) {}
+
 void GuitarView::refresh() {}
 
 void GuitarView::slid(void*, bool) {}
@@ -407,6 +506,8 @@ GuitarView::GuitarView(GuitarPlugin* plugin) : CPluginView(nullptr), plugin(plug
 	setRect(size);
 }
 
-GuitarView::~GuitarView() = default;
+GuitarView::~GuitarView() {
+	dropFont();
+}
 
 }  // namespace Woodshed

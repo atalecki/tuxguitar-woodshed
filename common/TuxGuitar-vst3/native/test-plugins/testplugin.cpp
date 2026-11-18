@@ -1,5 +1,7 @@
 #include "testplugin.h"
 
+#include "../plugins/common/window_test_hooks.h"
+
 #include "pluginterfaces/base/ibstream.h"
 #include "public.sdk/source/common/pluginview.h"
 #include "public.sdk/source/main/pluginfactory.h"
@@ -68,29 +70,6 @@ void startModal(int64 millis, int64 window) {
 // as the user clicks the close box of the window the editor is in
 void closeWindow(void* window) { PostMessageW((HWND) window, WM_CLOSE, 0, 0); }
 
-// as Windows tells the window the editor is in that it went to a screen of that DPI: the frame it suggests is the
-// window's scaled from its DPI now, at the same top left corner (left, top, right, bottom)
-std::vector<double> changeDpi(void* parent, int64 dpi) {
-	HWND window = (HWND) parent;
-	RECT frame = {};
-	GetWindowRect(window, &frame);
-	int now = (int) GetDpiForWindow(window);
-	RECT suggested = {frame.left, frame.top, frame.left + MulDiv(frame.right - frame.left, (int) dpi, now), frame.top + MulDiv(frame.bottom - frame.top, (int) dpi, now)};
-	SendMessageW(window, WM_DPICHANGED, MAKEWPARAM(dpi, dpi), (LPARAM) &suggested);
-	return std::vector<double>{(double) suggested.left, (double) suggested.top, (double) suggested.right, (double) suggested.bottom};
-}
-
-// as the user drags the border of the window the editor is in until the inside is that size
-void dragTo(void* parent, int64 width, int64 height) {
-	HWND window = (HWND) parent;
-	RECT frame = {};
-	RECT inside = {};
-	GetWindowRect(window, &frame);
-	GetClientRect(window, &inside);
-	int extraWidth = (frame.right - frame.left) - inside.right;
-	int extraHeight = (frame.bottom - frame.top) - inside.bottom;
-	SetWindowPos(window, nullptr, 0, 0, (int) width + extraWidth, (int) height + extraHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-}
 #else
 const bool inModal = false;
 
@@ -98,9 +77,6 @@ void startModal(int64, int64) {}
 
 void closeWindow(void*) {}
 
-std::vector<double> changeDpi(void*, int64) { return std::vector<double>(); }
-
-void dragTo(void*, int64, int64) {}
 #endif
 
 tresult reportDoubles(IAttributeList* attributes, const std::vector<double>& values) {
@@ -387,7 +363,7 @@ tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "TG.dpi-changed") == 0) {
 		int64 dpi = 96;
 		attributes->getInt("dpi", dpi);
-		return reportDoubles(attributes, changeDpi(view.window, dpi));
+		return reportDoubles(attributes, TuxGuitarTest::changeDpi(view.window, dpi));
 	}
 	if (std::strcmp(id, "TG.resizable") == 0) {
 		view.resizable = true;
@@ -408,7 +384,7 @@ tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 		return kResultOk;
 	}
 	if (std::strcmp(id, "TG.drag-to") == 0) {
-		dragTo(view.window, width, height);
+		TuxGuitarTest::dragTo(view.window, width, height);
 		return kResultOk;
 	}
 	return restoringMessage(id, attributes);

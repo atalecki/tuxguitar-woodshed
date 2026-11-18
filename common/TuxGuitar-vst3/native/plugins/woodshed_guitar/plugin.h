@@ -79,6 +79,7 @@ private:
 	void scale(float by, int32 frames);
 	tresult profileMessage(FIDString id, IAttributeList* attributes);
 	tresult editorMessage(FIDString id, IAttributeList* attributes);
+	tresult windowMessage(FIDString id, IAttributeList* attributes);
 	void applyChanges(IParameterChanges* changes);
 	void post(Job job);
 	void beginRestoring();
