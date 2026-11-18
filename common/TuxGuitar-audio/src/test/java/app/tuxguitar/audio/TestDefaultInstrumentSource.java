@@ -99,17 +99,25 @@ class TestDefaultInstrumentSource {
 		return source.getParameters().getOrDefault("vst3.profile", "-");
 	}
 
-	// the one chosen for the kind; bass, until chosen, the guitar's
+	// the one chosen for the kind; bass, until chosen, the one TuxGuitar ships for bass, not the guitar's
 	@Test
 	void woodshedGuitarPlaysTheProfileChosenForItsKind(@TempDir File folder) throws IOException {
 		File clean = file(folder, "Clean.nam");
 		File bass = file(folder, "Bass.nam");
+		File shippedBass = file(new File(folder, "profiles"), "RiffSmith Bass Clean.nam");
 		TGDefaultInstruments defaults = TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, TGDefaultInstruments.WOODSHED_GUITAR)
 			.with(TGInstrumentKind.BASS, TGDefaultInstruments.WOODSHED_GUITAR).withProfile(TGInstrumentKind.GUITAR, clean.getPath());
 		String guitar = profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder));
-		String sameAsGuitar = profile(TGInstrumentKind.BASS, defaults, woodshed(folder));
-		assertEquals(clean + " " + clean + " " + bass, guitar + " " + sameAsGuitar + " "
+		String notChosen = profile(TGInstrumentKind.BASS, defaults, woodshed(folder));
+		assertEquals(clean + " " + shippedBass.getAbsoluteFile() + " " + bass, guitar + " " + notChosen + " "
 			+ profile(TGInstrumentKind.BASS, defaults.withProfile(TGInstrumentKind.BASS, bass.getPath()), woodshed(folder)));
+	}
+
+	// the profiles TuxGuitar ships: one for guitar tracks, one for bass tracks
+	@Test
+	void tuxGuitarShipsAProfileForGuitarAndOneForBass() {
+		assertEquals("RiffSmith Clean.nam RiffSmith Bass Clean.nam", TGDefaultInstrumentSource.shipped(TGInstrumentKind.GUITAR) + " "
+			+ TGDefaultInstrumentSource.shipped(TGInstrumentKind.BASS));
 	}
 
 	// none chosen, or the one chosen whose file is gone: the one TuxGuitar ships, when it is there (else none: its dry

@@ -34,8 +34,10 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 
 	// the id of a default instrument's element: "default-<kind>", apart from any id a sound chain gives
 	private static final String ID = "default-";
-	// the profile TuxGuitar ships, in profiles next to its own plugins folder: an A2 capture of a clean amp
-	static final String SHIPPED = "RiffSmith Clean.nam";
+	// the profiles TuxGuitar ships, in profiles next to its own plugins folder: A2 captures of a clean amp (guitar tracks)
+	// and of a clean bass rig (bass tracks)
+	private static final String SHIPPED = "RiffSmith Clean.nam";
+	private static final String SHIPPED_BASS = "RiffSmith Bass Clean.nam";
 	private static final TGLog LOG = TGLog.get(TGDefaultInstrumentSource.class);
 
 	private final TGContext context;
@@ -153,9 +155,9 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		return (shipped.isFile() ? Optional.of(shipped.getPath()) : Optional.<String>empty());
 	}
 
-	// the file name of the profile TuxGuitar ships for the kind
+	// the file name of the profile TuxGuitar ships for the kind: bass tracks have their own
 	static String shipped(TGInstrumentKind kind) {
-		return SHIPPED;
+		return (kind == TGInstrumentKind.BASS ? SHIPPED_BASS : SHIPPED);
 	}
 
 	// the profile chosen for the kind whose file is not there

@@ -11,9 +11,9 @@ import app.tuxguitar.util.configuration.TGConfigManager;
 /**
  * The default instrument of each kind of channel (TGInstrumentKind), which a channel without an instrument of its own
  * plays: a VST3 instrument, or none (General MIDI); and, for guitar and bass, Woodshed Guitar's profile (a NAM capture's
- * path), the bass one the guitar's until it is chosen. A machine setting, kept in TuxGuitar's audio configuration
- * (KEY.<kind>.class, .name, .profile), read once where it enters: a class id that is not one, or a blank profile, is
- * none; a kind never set plays its built-in default: Woodshed Guitar, TuxGuitar's own instrument, for guitar and bass,
+ * path), each kind its own (none: the one TuxGuitar ships for the kind). A machine setting, kept in TuxGuitar's audio
+ * configuration (KEY.<kind>.class, .name, .profile), read once where it enters: a class id that is not one, or a blank
+ * profile, is none; a kind never set plays its built-in default: Woodshed Guitar, TuxGuitar's own instrument, for guitar and bass,
  * General MIDI for drums and other tracks (General MIDI chosen is kept as an empty class id). Immutable.
  */
 public final class TGDefaultInstruments {
@@ -92,12 +92,8 @@ public final class TGDefaultInstruments {
 		return Optional.ofNullable(this.instruments.get(kind));
 	}
 
-	// the profile chosen for the kind; bass, until one is chosen for it, the guitar's
+	// the profile chosen for the kind; none until one is chosen for it
 	public Optional<String> getProfile(TGInstrumentKind kind) {
-		String profile = this.profiles.get(kind);
-		if (profile == null && kind == TGInstrumentKind.BASS) {
-			profile = this.profiles.get(TGInstrumentKind.GUITAR);
-		}
-		return Optional.ofNullable(profile);
+		return Optional.ofNullable(this.profiles.get(kind));
 	}
 }

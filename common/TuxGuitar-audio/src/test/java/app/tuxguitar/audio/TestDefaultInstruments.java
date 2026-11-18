@@ -82,10 +82,12 @@ class TestDefaultInstruments {
 		assertEquals("GUITAR=- -, BASS=- -, DRUMS=Test Click (" + CLICK + ") -, OTHER=- -", describe(TGDefaultInstruments.read(config)));
 	}
 
+	// the bass profile is its own: none (the one TuxGuitar ships for bass) until chosen, whatever the guitar's
 	@Test
-	void theBassProfileIsTheGuitarOneUntilChosen() {
+	void theBassProfileIsItsOwn() {
 		TGDefaultInstruments defaults = TGDefaultInstruments.NONE.withProfile(TGInstrumentKind.GUITAR, "Clean.nam");
-		assertEquals("Clean.nam Clean.nam", describe(defaults, TGInstrumentKind.GUITAR) + " " + describe(defaults, TGInstrumentKind.BASS));
+		assertEquals("Clean.nam - Bass.nam", describe(defaults, TGInstrumentKind.GUITAR) + " " + describe(defaults, TGInstrumentKind.BASS) + " "
+			+ describe(defaults.withProfile(TGInstrumentKind.BASS, "Bass.nam"), TGInstrumentKind.BASS));
 	}
 
 	// drums and other kinds play no profile

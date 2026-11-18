@@ -360,9 +360,10 @@ These features change how TuxGuitar works today. They are requirements, not side
   for 5 seconds or until its cause no longer holds, and the log keeps the reason in English
   (`TGVst3PluginProcessor.getLoggedProblem`). Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
-  (bass: the guitar's until one is set for it), else the one TuxGuitar ships in `profiles` next to its own plugins
-  folder (`RiffSmith Clean.nam`, an A2 capture of a clean amp and cabinet by Matt Hartman, MIT, kept in
-  `TuxGuitar-vst3/native/plugins/woodshed_guitar/profiles` and pinned by SHA-256 in its CMakeLists). The element names
+  for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`
+  for guitar, `RiffSmith Bass Clean.nam` for bass: A2 captures of a clean amp and of a clean bass rig, amp and cabinet,
+  by Matt Hartman, MIT, kept in `TuxGuitar-vst3/native/plugins/woodshed_guitar/profiles` and each pinned by SHA-256 in
+  its CMakeLists). The element names
   it (`vst3.profile`, an element without a state of its own) and the processor has the plugin load it once
   (`Woodshed.load`), so Play waits while it loads as for a profile loaded in the editor; the song is not changed. A
   profile set whose file is not there plays the shipped profile instead (never the dry voice), the status line saying so
@@ -459,7 +460,8 @@ These features change how TuxGuitar works today. They are requirements, not side
   (no chain, or a General MIDI source), a setting of the computer, not of the song. Woodshed Guitar for guitar and bass
   until another is set; none (General MIDI) for drums and other until one is set.
 - **Profile** (of a default Woodshed Guitar): the NAM capture it plays for guitar or bass tracks, set per kind in the
-  settings (bass: the guitar's until set); the **shipped profile** (RiffSmith Clean) when none is set.
+  settings, each kind its own; the **shipped profile** of the kind (RiffSmith Clean for guitar, RiffSmith Bass Clean for
+  bass) when none is set or the file set is not there.
 - **Fallback**: a default instrument not installed or not loaded plays General MIDI instead; the status line says so
   quietly.
 - **NAM capture**: a `.nam` file, a Neural Amp Modeler model of an amp or pedal, in the A1 format (JSON) that

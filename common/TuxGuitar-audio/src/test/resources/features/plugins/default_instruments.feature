@@ -127,8 +127,9 @@ Feature: Default instruments by track kind
     And the log has a warning starting "the default instrument for drums tracks, Test Sine (7A1C0008544753494E45000000000008) plays General MIDI instead: it could not be loaded: the VST3 host did not start: "
 
   # Woodshed Guitar, TuxGuitar's own instrument, is the guitar and bass default until another (or General MIDI) is
-  # chosen, playing the profile chosen for the kind in the settings (bass: the guitar's until one is chosen for it), else
-  # the profile TuxGuitar ships next to its own plugins folder ("RiffSmith Clean.nam", an A2 capture of a clean amp).
+  # chosen, playing the profile chosen for the kind in the settings, else the profile TuxGuitar ships for the kind next
+  # to its own plugins folder ("RiffSmith Clean.nam" for guitar, "RiffSmith Bass Clean.nam" for bass: A2 captures of a
+  # clean amp and of a clean bass rig).
   # Play waits while the profile loads, as for a profile loaded in its editor. A profile chosen whose file is not there
   # plays the profile TuxGuitar ships instead, and the status line says so. Track 2 plays Woodshed Guitar chosen as its own
   # instrument, to compare with
@@ -141,7 +142,7 @@ Feature: Default instruments by track kind
     And I have entered fret 5 on string 1 at dynamic fff
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
     And the default instrument for <kind> tracks is "Woodshed Guitar"
-    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    And the <kind> profile in the settings is the NAM capture "Gain 3.nam"
     When I play the song from measure 1 beat 1
     Then track 1 sounds 3.0 times what track 2 sounds, sample for sample within 0.001
 
@@ -150,18 +151,40 @@ Feature: Default instruments by track kind
       | Steel String Acoustic Guitar  | guitar |
       | Fingered Electric Bass        | bass   |
 
-  Scenario: with no profile chosen, Woodshed Guitar plays the profile TuxGuitar ships
+  Scenario Outline: with no profile chosen, Woodshed Guitar plays the profile TuxGuitar ships for the kind
     Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
-    And there is the NAM capture TuxGuitar ships, "RiffSmith Clean.nam"
+    And there is the NAM capture TuxGuitar ships, "<shipped>"
+    And I have set the General MIDI program of track 1's channel to "<program>"
     And I have added a guitar track on a channel of its own
     And I have moved the caret to track 2
     And I have entered fret 5 on string 1 at dynamic fff
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
-    And Woodshed Guitar of track 2 has loaded the NAM capture "RiffSmith Clean.nam"
-    And the default instrument for guitar tracks is "Woodshed Guitar"
+    And Woodshed Guitar of track 2 has loaded the NAM capture "<shipped>"
+    And the default instrument for <kind> tracks is "Woodshed Guitar"
     When I play the song from measure 1 beat 1
     Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
     And track 1 sounds 1.0 times what track 2 sounds, sample for sample within 0.001
+
+    Examples:
+      | program                       | kind   | shipped                  |
+      | Steel String Acoustic Guitar  | guitar | RiffSmith Clean.nam      |
+      | Fingered Electric Bass        | bass   | RiffSmith Bass Clean.nam |
+
+  # the bass profile is its own: one chosen for guitar tracks is not played by bass tracks
+  Scenario: a bass track plays the bass profile TuxGuitar ships, not the profile chosen for guitar tracks
+    Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is the NAM capture TuxGuitar ships, "RiffSmith Bass Clean.nam"
+    And there is a NAM capture "Gain 3.nam" that multiplies the signal by 3.0
+    And I have set the General MIDI program of track 1's channel to "Fingered Electric Bass"
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1 at dynamic fff
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 2 has loaded the NAM capture "RiffSmith Bass Clean.nam"
+    And the default instrument for bass tracks is "Woodshed Guitar"
+    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds 1.0 times what track 2 sounds, sample for sample within 0.001
 
   Scenario: a profile chosen whose file is not there plays the profile TuxGuitar ships instead, and the status line says so
     Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
@@ -187,7 +210,7 @@ Feature: Default instruments by track kind
     And the default instrument for bass tracks is "Woodshed Guitar"
     And the bass profile in the settings is "Gone.nam", whose file is not there
     When I play the song from measure 1 beat 1
-    Then the status line reads "Gone.nam wurde nicht gefunden: Bassspuren spielen RiffSmith Clean, das mitgelieferte Profil."
+    Then the status line reads "Gone.nam wurde nicht gefunden: Bassspuren spielen RiffSmith Bass Clean, das mitgelieferte Profil."
 
   # at a Volume of 32, so the profile's three times the fff note stays below full scale
   Scenario: played live, Play waits for the default instrument's profile to load and plays it from the first note
