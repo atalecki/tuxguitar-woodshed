@@ -107,6 +107,9 @@ public class AudioWorld {
 	private Heard exported;
 	// the TuxGuitar file saved last
 	private byte[] saved;
+	// the TuxGuitar file opened last, and what its reader warned opening it
+	private byte[] opened;
+	private List<String> warnings;
 	// what the last action run by attempt said when it refused (null: it did not say)
 	private String refusal;
 
@@ -203,9 +206,18 @@ public class AudioWorld {
 		this.saved = saved;
 	}
 
+	public byte[] opened() {
+		return this.opened;
+	}
+
+	public List<String> warnings() {
+		return this.warnings;
+	}
+
 	// opens the file as the app opens a .tg file (format code "tg"): the document's song is then the one read, and the
 	// actions the steps run act on it
 	public void open(byte[] file) {
+		this.opened = file;
 		TGActionContext context = new TGActionContext() {
 		};
 		context.setAttribute(TGReadSongAction.ATTRIBUTE_INPUT_STREAM, new java.io.ByteArrayInputStream(file));
@@ -214,6 +226,7 @@ public class AudioWorld {
 		TGSong before = song();
 		TGActionManager.getInstance(this.fixture.context).execute(TGReadSongAction.NAME, context);
 		org.junit.jupiter.api.Assertions.assertNotSame(before, song(), "the song read is the document's");
+		this.warnings = context.getAttribute(TGReadSongAction.WARNINGS);
 		this.fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG, song());
 	}
 

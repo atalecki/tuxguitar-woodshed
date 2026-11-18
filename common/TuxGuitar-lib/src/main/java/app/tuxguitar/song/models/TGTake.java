@@ -1,17 +1,26 @@
 package app.tuxguitar.song.models;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+
 /**
  * One recording on an audio track: its number, given in recording order and never changed, and its samples, as the
  * audio device delivered them (32-bit float, at the device's sample rate): one channel for a mono take, two (left,
  * then right) for a stereo one, all of the same length. A take made by pasting has no samples of its own: its clips
  * play the samples of the takes that played where it was copied. Immutable: the samples never change once recorded, so
- * a cloned track, a pasted measure or an undo snapshot shares the take instead of copying it.
+ * a cloned track, a pasted measure or an undo snapshot shares the take instead of copying it. A take whose entry in
+ * the file could not be read has no samples (it plays silence where it was) and keeps that entry's bytes as they were,
+ * so saving the song writes them back unchanged.
  */
 public final class TGTake {
+
+	private static final int UNREADABLE_RATE = 48000;
 
 	private final int number;
 	private final float[][] samples;
 	private final int sampleRate;
+	// the file entry of a take that could not be read, as it was; none for any other take
+	private final byte[] unread;
 
 	// a mono take
 	public TGTake(int number, float[] samples, int sampleRate) {
@@ -25,9 +34,14 @@ public final class TGTake {
 
 	// the samples become the take's
 	private TGTake(int sampleRate, int number, float[][] samples) {
+		this(sampleRate, number, samples, null);
+	}
+
+	private TGTake(int sampleRate, int number, float[][] samples, byte[] unread) {
 		this.number = number;
 		this.samples = samples;
 		this.sampleRate = sampleRate;
+		this.unread = unread;
 	}
 
 	private static float[][] copy(float[][] samples) {
@@ -44,9 +58,20 @@ public final class TGTake {
 		return new TGTake(sampleRate, number, samples);
 	}
 
-	// the same samples under another number: shared, as they never change
+	// a take whose file entry could not be read: no samples, the entry's bytes become the take's (a file reader keeps
+	// no other way to change them); the rate is any, as there is nothing to play at it
+	public static TGTake unreadable(byte[] entry) {
+		return new TGTake(UNREADABLE_RATE, 0, new float[][] {new float[0]}, entry);
+	}
+
+	// the same samples (or unread entry) under another number: shared, as they never change
 	public TGTake renumbered(int number) {
-		return new TGTake(this.sampleRate, number, this.samples);
+		return new TGTake(this.sampleRate, number, this.samples, this.unread);
+	}
+
+	// the file entry this take could not be read from, as it was; none for a take that was read or recorded
+	public InputStream getUnreadEntry() {
+		return (this.unread != null ? new ByteArrayInputStream(this.unread) : null);
 	}
 
 	// the audio device's sample rate it was recorded at

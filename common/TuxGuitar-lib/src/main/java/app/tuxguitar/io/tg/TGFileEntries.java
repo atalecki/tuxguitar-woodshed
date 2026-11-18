@@ -4,7 +4,11 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.compress.archivers.ArchiveEntry;
@@ -20,13 +24,15 @@ import app.tuxguitar.util.TGVersion;
  * The entries of a TuxGuitar file, read in one pass: version.txt read as soon as it comes (first, in the files TuxGuitar
  * writes) and refused there when the reader cannot read that version, content.xml kept as it is, each take's entry
  * decoded by the take codec as it streams by, once version.txt said format 3.0 (none without a codec), and whether any
- * other entry was there. A take the codec cannot read is refused saying so, in TuxGuitar's language, and why the codec
- * could not (UNREADABLE).
+ * other entry was there. A take the codec cannot read is left out: its entry's bytes are kept as they were (an unreadable
+ * take, which saving writes back), and why the codec could not read it, for the warning that says so.
  */
 final class TGFileEntries {
 
-	// "A take in this song could not be read: {0}", {0} the codec's reason
-	private static final String UNREADABLE = "audio.take.refusal.unreadable";
+	// "A take in this song could not be read and was left out: {0}", {0} the codec's reason
+	private static final String LEFT_OUT = "audio.take.warning.left-out";
+	// "{0} takes in this song could not be read and were left out: {1}", {0} how many, {1} each reason once
+	private static final String LEFT_OUT_SEVERAL = "audio.take.warning.left-out-several";
 
 	// the version of a file, or why the reader cannot read it
 	interface Versions {
@@ -36,6 +42,8 @@ final class TGFileEntries {
 	private TGVersion version;
 	private byte[] content;
 	private final Map<String, TGTake> takes = new HashMap<String, TGTake>();
+	// why the codec could not read each take left out, in the file's order
+	private final List<String> leftOut = new ArrayList<String>();
 	private boolean unknown;
 
 	static TGFileEntries read(InputStream inputStream, TGTakeCodec codec, Versions versions) throws IOException, TGFileFormatException {
@@ -54,19 +62,30 @@ final class TGFileEntries {
 		} else if (TGStream.CONTENT_FILE_NAME.equals(name)) {
 			this.content = IOUtils.toByteArray(entry);
 		} else if (this.isTake(name, codec)) {
-			this.takes.put(name, take(entry, codec));
+			this.takes.put(name, this.take(IOUtils.toByteArray(entry), codec));
 		} else {
 			this.unknown = true;
 		}
 	}
 
-	// the take of the entry, as the codec reads it
-	private static TGTake take(InputStream entry, TGTakeCodec codec) throws IOException {
+	// the take of the entry, as the codec reads it; an unreadable take keeping the entry when the codec cannot
+	private TGTake take(byte[] entry, TGTakeCodec codec) {
 		try {
-			return codec.read(entry);
+			return codec.read(new ByteArrayInputStream(entry));
 		} catch (IOException e) {
-			throw new IOException(TGMessagesManager.getProperty(UNREADABLE, new Object[] {e.getMessage()}), e);
+			this.leftOut.add(e.getMessage());
+			return TGTake.unreadable(entry);
 		}
+	}
+
+	// the warning that takes were left out, in TuxGuitar's language: none when every take was read
+	List<String> warnings() {
+		if (this.leftOut.isEmpty()) {
+			return Collections.emptyList();
+		}
+		String reasons = String.join("; ", new LinkedHashSet<String>(this.leftOut));
+		return Collections.singletonList(this.leftOut.size() == 1 ? TGMessagesManager.getProperty(LEFT_OUT, new Object[] {reasons})
+			: TGMessagesManager.getProperty(LEFT_OUT_SEVERAL, new Object[] {this.leftOut.size(), reasons}));
 	}
 
 	private boolean isTake(String name, TGTakeCodec codec) {

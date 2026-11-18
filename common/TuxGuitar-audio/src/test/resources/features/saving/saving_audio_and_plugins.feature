@@ -174,19 +174,50 @@ Feature: Saving audio tracks and plugins
       | MIDI   |
       | GP5    |
 
-  # a take that cannot be read: what the app's error message reads opening the song, the take's reason in context
-  Scenario: opening a song whose take is not a wave file is refused, saying a take could not be read and why
+  # Takes that cannot be read: the song opens without them, warning that they were left out and why (the warning the
+  # app shows once the song is open). Where such a take played, its track is silent; the rest of the song is as it was.
+  # The file's entry of such a take is kept as it was, so saving the song again loses nothing of the file.
+
+  Scenario: a song whose take is not a wave file opens without it, warning that it was left out and why
+    Given I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    And I have added an audio track recording input channel 1
+    And track 2 has a take of a 440 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
+    And I have added an audio track recording input channel 1
+    And track 3 has a take of a 880 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
+    And I have saved the song as a TuxGuitar file
+    And the first take in the saved file is not a wave file
+    And I have opened it again
+    When I play the song from measure 1 beat 1
+    Then opening it warned "A take in this song could not be read and was left out: Not a wave file"
+    And track 1 sounds a 440.0 Hz note within 1% in measure 1
+    And track 2 sounds nothing above -60 dBFS from measure 1 beat 1 to measure 2 beat 1
+    And track 3 sounds a 880 Hz tone peaking at 0.4 within 0.01 in measure 1
+
+  Scenario: several takes that cannot be read are left out with one warning, saying how many and each reason once
+    Given I have added an audio track recording input channel 1
+    And track 2 has a take of a 440 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
+    And track 2 has a take of clicks of -0.25 on every beat from measure 2 beat 1 to measure 4 beat 1
+    And I have saved the song as a TuxGuitar file
+    And the takes in the saved file are not wave files
+    When I open it again
+    Then opening it warned "2 takes in this song could not be read and were left out: Not a wave file"
+
+  Scenario: saving a song opened without a take writes that take's entry back as it was in the file
     Given I have added an audio track recording input channel 1
     And track 2 has a take of a 440 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
     And I have saved the song as a TuxGuitar file
     And the takes in the saved file are not wave files
-    Then opening it again is refused, the error message reading "A take in this song could not be read: Not a wave file"
+    And I have opened it again
+    When I save the song as a TuxGuitar file
+    Then the file's take entries are byte for byte those of the file opened
 
-  Scenario: a take that cannot be read is said as the language TuxGuitar shows says it
-    Given TuxGuitar's language says "Eine Aufnahme in diesem Lied ließ sich nicht lesen: {0}" for the message "audio.take.refusal.unreadable"
+  Scenario: a take left out is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "Eine Aufnahme in diesem Lied ließ sich nicht lesen und fehlt: {0}" for the message "audio.take.warning.left-out"
     And TuxGuitar's language says "Keine Wave-Datei" for the message "audio.take.refusal.not-wave"
     And I have added an audio track recording input channel 1
     And track 2 has a take of a 440 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
     And I have saved the song as a TuxGuitar file
     And the takes in the saved file are not wave files
-    Then opening it again is refused, the error message reading "Eine Aufnahme in diesem Lied ließ sich nicht lesen: Keine Wave-Datei"
+    When I open it again
+    Then opening it warned "Eine Aufnahme in diesem Lied ließ sich nicht lesen und fehlt: Keine Wave-Datei"

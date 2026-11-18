@@ -1,6 +1,7 @@
 package app.tuxguitar.io.tg;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -156,12 +157,22 @@ final class TGAudioPart {
 		return element;
 	}
 
-	// each take's entry, after content.xml, its samples streamed by the codec
+	// each take's entry, after content.xml, its samples streamed by the codec; a take that could not be read, its entry
+	// as it was
 	void writeTakes(ArchiveOutputStream<ZipArchiveEntry> zip, TGTakeCodec codec) throws IOException {
 		for (TGTake take : this.takes) {
 			zip.putArchiveEntry(new ZipArchiveEntry(entry(this.ids.get(take), codec)));
-			codec.write(take, unclosed(zip));
+			write(take, unclosed(zip), codec);
 			zip.closeArchiveEntry();
+		}
+	}
+
+	private static void write(TGTake take, OutputStream out, TGTakeCodec codec) throws IOException {
+		InputStream unread = take.getUnreadEntry();
+		if (unread != null) {
+			unread.transferTo(out);
+		} else {
+			codec.write(take, out);
 		}
 	}
 
