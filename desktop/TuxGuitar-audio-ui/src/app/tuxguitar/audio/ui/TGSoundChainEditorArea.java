@@ -32,7 +32,8 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * The Sound Chain panel's editor area, under its chain and action lines: the picked plugin's own editor inside it
  * (a window of the plugin's host process, a child of this area's native window), as wide as the area when it can be,
  * as high as it needs (Q3: no border to drag), with a line above naming it and offering Open in window; or a line saying
- * where the editor is instead (in a window of its own, too large for the panel, stopped). TGEditorDock decides all of
+ * where the editor is instead (in a window of its own, too large for the panel, stopped); for a plugin without an editor
+ * of its own, TuxGuitar's parameter rows under that line (TGSoundChainParameterRoom). TGEditorDock decides all of
  * it; this executes its steps (TGLivePlugins closes a view, TGSoundChainCommands opens an editor where the step says)
  * and shows what it shows, on the UI thread. What Hide editor and Open in window remember is kept in the panel's config
  * at once. Glue only.
@@ -57,6 +58,8 @@ final class TGSoundChainEditorArea {
 	private final UIButton button;
 	private final UIPanel area;
 	private final UIPanel parent;
+	// TuxGuitar's parameter rows of a plugin without an editor of its own
+	private final TGSoundChainParameterRoom room;
 
 	TGSoundChainEditorArea(TGContext context, UIFactory factory, UIPanel parent, int row, TGSoundChainCommands commands, TGConfigManager config) {
 		this.context = context;
@@ -78,6 +81,7 @@ final class TGSoundChainEditorArea {
 		((UITableLayout) parent.getLayout()).set(this.area, row + 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 1, null, null, 0f);
 		this.placements.put(How.INSIDE, TGEditorPlacement.embedded(() -> TGNativeWindow.handle(this.area), this::owner));
 		this.placements.put(How.IN_A_WINDOW, TGNativeWindow.floating(context));
+		this.room = new TGSoundChainParameterRoom(context, factory, parent, row + 2);
 		this.show();
 	}
 
@@ -121,12 +125,22 @@ final class TGSoundChainEditorArea {
 
 	// the step done (the view closed, the editor opened where it says), what the dock remembers kept, what it shows shown
 	private void run(Step step) {
-		Optional.ofNullable(step.getClose()).map(this.editors::remove).ifPresent(TGLivePlugins.getInstance(this.context)::close);
+		Optional.ofNullable(step.getClose()).ifPresent(this::close);
 		Optional.ofNullable(step.getOpen()).ifPresent(element -> this.open(element, step.getHow()));
 		this.config.setValue(HIDDEN, this.dock.isHidden());
 		this.config.setValue(POPPED_OUT, TGEditorDock.pinned(this.dock.getPinned()));
 		this.config.save();
 		this.show();
+	}
+
+	// the element's view in the area closes: its own editor, or TuxGuitar's parameter rows
+	private void close(Element element) {
+		Optional.ofNullable(this.editors.remove(element)).ifPresent(this::close);
+	}
+
+	private void close(TGPluginEditor editor) {
+		TGLivePlugins.getInstance(this.context).close(editor);
+		this.room.close(editor);
 	}
 
 	private void open(Element element, How how) {
@@ -137,10 +151,15 @@ final class TGSoundChainEditorArea {
 	private void opened(Element element, TGPluginEditor editor) {
 		this.editors.put(element, editor);
 		editor.watch(() -> this.later(() -> this.followed(element, editor)));
-		this.run(this.dock.opened(element, editor.getOpened()));
+		Step step = this.dock.opened(element, editor.getOpened());
+		if (this.dock.parameters(element)) {
+			this.room.show(editor, (parameter, plain) -> this.commands.set(element.getRow(), parameter, plain));
+		}
+		this.run(step);
 	}
 
 	private void followed(Element element, TGPluginEditor editor) {
+		this.room.follow(editor);
 		this.run(this.dock.followed(element, editor, this.editors.get(element) == editor));
 	}
 
