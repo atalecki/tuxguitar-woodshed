@@ -602,6 +602,20 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     When Woodshed Guitar's editor of track 1 goes to a screen of 144 DPI
     Then Woodshed Guitar's editor of track 1 is laid out at scale 1.5, about 690 by 345
 
+  Scenario: Woodshed Guitar's editor stretches its sliders to the width it is given
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    And Woodshed Guitar's editor of track 1 has gone to a screen of 96 DPI
+    When I drag the border of Woodshed Guitar's editor of track 1 until it is 900 wide
+    Then Woodshed Guitar's editor of track 1 is 900 wide, its sliders 700 wide, every label holding its text
+
+  Scenario: Woodshed Guitar's editor never cuts a label off
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    And Woodshed Guitar's editor of track 1 has gone to a screen of 96 DPI
+    When I drag the border of Woodshed Guitar's editor of track 1 until it is 200 wide
+    Then Woodshed Guitar's editor of track 1 is 320 wide, its sliders 120 wide, every label holding its text
+
   Scenario: Woodshed Guitar's editor shows its parameters as they are
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And I have set "Output level" of the VST3 instrument of track 1 to -6.0

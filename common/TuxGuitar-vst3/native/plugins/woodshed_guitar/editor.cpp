@@ -298,6 +298,23 @@ void GuitarView::rescale() {
 	font = made;
 }
 
+tresult PLUGIN_API GuitarView::canResize() {
+	return kResultTrue;
+}
+
+tresult PLUGIN_API GuitarView::checkSizeConstraint(ViewRect* rect) {
+	rect->right = rect->left + std::max(rect->getWidth(), minimumWidth(measured, scale));
+	rect->bottom = rect->top + naturalHeight(scale);
+	return kResultTrue;
+}
+
+tresult PLUGIN_API GuitarView::onSize(ViewRect* newSize) {
+	if (window) {
+		place(layOut(measured, newSize->getWidth(), scale));
+	}
+	return CPluginView::onSize(newSize);
+}
+
 void GuitarView::dropFont() {
 	if (font) {
 		DeleteObject((HGDIOBJ) font);
@@ -311,14 +328,14 @@ bool GuitarView::labelsHold() const {
 
 std::string GuitarView::laidOut() const {
 	RECT inside = {};
-	GetClientRect((HWND) window, &inside);
+	GetClientRect(GetParent((HWND) window), &inside);
 	return "scale=" + std::to_string(scale) + " dpi=" + std::to_string(GetDpiForWindow((HWND) window)) + " size=" + std::to_string(inside.right) + "x"
 		+ std::to_string(inside.bottom) + " text=" + std::to_string(emHeight((void*) SendMessageW((HWND) labels[0], WM_GETFONT, 0, 0))) + " sliders=" + std::to_string(widthOf(sliders[0].bar)) + ","
 		+ std::to_string(widthOf(sliders[1].bar)) + " labels-fit=" + (labelsHold() ? "true" : "false");
 }
 
 void GuitarView::changeDpi(int64 dpi) {
-	TuxGuitarTest::changeDpi(GetAncestor((HWND) window, GA_ROOT), dpi);
+	TuxGuitarTest::changeDpi(GetAncestor((HWND) window, GA_ROOT), dpi, (int) std::lround(USER_DEFAULT_SCREEN_DPI * scale));
 }
 
 void GuitarView::dragTo(int64 width, int64 height) {
@@ -460,6 +477,18 @@ tresult PLUGIN_API GuitarView::setContentScaleFactor(ScaleFactor factor) {
 }
 
 void GuitarView::rescale() {}
+
+tresult PLUGIN_API GuitarView::canResize() {
+	return kResultFalse;
+}
+
+tresult PLUGIN_API GuitarView::checkSizeConstraint(ViewRect*) {
+	return kResultFalse;
+}
+
+tresult PLUGIN_API GuitarView::onSize(ViewRect* newSize) {
+	return CPluginView::onSize(newSize);
+}
 
 void GuitarView::dropFont() {}
 

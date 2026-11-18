@@ -64,8 +64,9 @@ public class WoodshedWindowSteps {
 		assertEquals(scale + " " + Math.round(230 * scale), Double.parseDouble(layout.get("scale")) + " " + layout.get("size").split("x")[1]);
 	}
 
-	// its size: the height exact (it never stretches), the width within 4 pixels (a window moved to another screen takes
-	// the frame Windows suggests); its text as tall as at 96 DPI times the scale, within a pixel, once read at 96 DPI
+	// its size: the height exact (it never stretches), the width within 2% (a window moved to another screen takes the
+	// frame Windows suggests: the whole window scaled, its border too); its text as tall as at 96 DPI times the scale,
+	// within a pixel, once read at 96 DPI
 	@Then("Woodshed Guitar's editor of track {int} is laid out at scale {double}, about {int} by {int}")
 	public void laidOutAt(int track, double scale, int width, int height) throws TGVst3Exception {
 		Map<String, String> layout = layout(track);
@@ -73,8 +74,8 @@ public class WoodshedWindowSteps {
 		int text = Integer.parseInt(layout.get("text"));
 		this.remember(text, scale);
 		assertEquals(scale + " " + height + " wide enough true text scaled true labels hold their texts true",
-			Double.parseDouble(layout.get("scale")) + " " + size[1] + " wide enough " + (Math.abs(Integer.parseInt(size[0]) - width) <= 4) + " text scaled " + this.isScaled(text, scale)
-				+ " labels hold their texts " + layout.get("labels-fit"), "text " + text + " at 96 DPI " + this.textAt96);
+			Double.parseDouble(layout.get("scale")) + " " + size[1] + " wide enough " + (Math.abs(Integer.parseInt(size[0]) - width) <= width / 50) + " text scaled " + this.isScaled(text, scale)
+				+ " labels hold their texts " + layout.get("labels-fit"), "text " + text + " at 96 DPI " + this.textAt96 + " size " + layout.get("size"));
 	}
 
 	// the text's height read at 96 DPI
