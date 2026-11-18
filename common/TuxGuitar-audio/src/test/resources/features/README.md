@@ -363,7 +363,10 @@ These features change how TuxGuitar works today. They are requirements, not side
   change, the VST3 folders are scanned again (a scan's plugin list is a new object) or another song is played.
   Defaults are applied at once (`TGDefaultInstrumentSource.applyNow`): with the TuxGuitar Synthesizer as the MIDI Port,
   playing stops and the song's channels are sent their parameters again; the app does so once the VST3 scan it starts
-  with is done (`TGLiveAudio.startPlugins`). The Sound Chain dialog's source row says what a default source plays and
+  with is done (`TGLiveAudio.startPlugins`), and after the Sound Chain dialog's Scan again when nothing plays
+  (`TGLiveAudio.scanAgain`, `TGDefaultInstrumentSource.applyWhenStopped`: while the song plays it plays on, and the
+  next Play picks the defaults up). Settings > Sound offers the defaults only while the MIDI Port chosen on the page is
+  the TuxGuitar Synthesizer, greyed with a line saying why otherwise (`TGDefaultInstrumentChoices.choosePort`). The Sound Chain dialog's source row says what a default source plays and
   why (`TGDefaultPlay`, from the same decision as `sourceFor`: `TGDefaultInstrumentSource.play`); "Keep in song"
   (`TGKeepDefaultInstrumentAction`, undoable) makes the default that plays the track's own instrument, its state taken
   from a helper once restored (`TGPluginStates.kept`), so Woodshed Guitar's profile is in the song.

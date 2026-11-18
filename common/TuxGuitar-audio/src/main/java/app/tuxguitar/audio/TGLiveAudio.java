@@ -159,6 +159,14 @@ public final class TGLiveAudio implements TGSynthOutput {
 		return scanned;
 	}
 
+	// Scan again (the Sound Chain dialog, off the UI thread): the scan, then the default instruments applied at once
+	// unless the song plays (TGDefaultInstrumentSource.applyWhenStopped), so a default installed meanwhile is heard
+	public String scanAgain() {
+		String scanned = this.scanPlugins();
+		TGDefaultInstrumentSource.install(this.context).applyWhenStopped();
+		return scanned;
+	}
+
 	private static TGPluginScan scan(TGVst3Hosting hosting) {
 		try {
 			List<TGVst3Plugin> plugins = hosting.scan();

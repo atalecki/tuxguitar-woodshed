@@ -87,6 +87,14 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		}
 	}
 
+	// after Scan again: heard at once when nothing plays (applyNow); while the song plays it plays on, uninterrupted, and
+	// the next Play picks the defaults up
+	public void applyWhenStopped() {
+		if (!MidiPlayer.getInstance(this.context).isRunning()) {
+			this.applyNow();
+		}
+	}
+
 	// as when the MIDI Port changes: a paused session stays paused
 	private static void stop(MidiPlayer player) {
 		if (player.isRunning()) {

@@ -117,6 +117,12 @@ public class DefaultInstrumentSteps {
 		TGLiveAudio.getInstance(world.fixture().context).startPlugins();
 	}
 
+	// as the Sound Chain dialog's Scan again does, off the UI thread
+	@When("I press Scan again in the Sound Chain dialog")
+	public void scanAgain() {
+		TGLiveAudio.getInstance(world.fixture().context).scanAgain();
+	}
+
 	// as the player is while it plays (its sequencer is not started: what a step checks is only whether it plays)
 	@Given("the song has started playing")
 	public void theSongIsPlaying() {
