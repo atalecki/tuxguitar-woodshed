@@ -1,6 +1,6 @@
 ---
 title: Texts through translations
-description: The "still loading" hint and the refusals of interleaved practice and click-up go through TuxGuitar's translation files and Woodshed Guitar's editor through a string table of its own; English reads as before, and other languages fall back to English until translated.
+description: The "still loading" hint, the refusals of interleaved practice and click-up, and the audio, VST3 and NAM texts go through TuxGuitar's translation files and Woodshed Guitar's editor through a string table of its own; English reads as before, and other languages fall back to English until translated.
 sidebar:
   order: 17
 ---
@@ -84,3 +84,52 @@ Sound: the TuxGuitar Sequencer. A song of at least 8 measures (a new song with m
   too) and Record's during a click-up. What they cannot check is the running app's error message.
 - Most click-up refusals cannot be reached from its dialog (its fields stop values out of range), and Tools > Record is
   greyed out during a session, so its refusal is not shown there either.
+
+## Audio, VST3 and NAM texts (feature/remaining-texts-i18n)
+
+### What it tests
+
+Commit `be6843271` on `feature/remaining-texts-i18n` (its English pinned first in `11c032929`). The texts of the audio
+features now come from the translation files: the Sound Chain window's scan lines (effects and instruments found,
+modules skipped, folders scanned, the NAM capture hint and the capture players it names), an audio track's source
+("takes"), the line at the top of the Audio Device window, the error when a VST3 plugin or its editor cannot be opened,
+and the error when a take inside a song file cannot be read. Only English is filled in: in English they read exactly
+as before; in another language they read in English, never as a raw key such as `audio.scan.found`. The reasons these
+texts quote from the plugin host, the audio library or the device (after a colon or in brackets) stay as those give
+them.
+
+### Setup
+
+Close any running TuxGuitar first. Build and launch with the VS Code task **app: build + run** at commit `be6843271` or
+later. Settings > Sound: MIDI Port "TuxGuitar Synthesizer", and an audio device chosen in Tools > Audio Device....
+
+- A `.nam` capture (any, such as **Lead.nam**) copied into one of the VST3 folders the scan lists, and no NAM capture
+  player (Gateway, the TONE3000 plugin or the Neural Amp Modeler plugin) installed. If one is installed, step 2 names it
+  instead.
+- A song with an audio track (Tools > Add Audio Track).
+
+### Steps
+
+| #   | Do | Expect | Result |
+| --- | --- | --- | --- |
+| 1 | Settings > Language: English. Select track 1, Tools > Sound Chain..., and press Scan again. | When the scan ends, the text under the lists reads "VST3 effects found: N. VST3 instruments found: M." (your counts), each module skipped as "Skipped [module]: [why]", and last "Folders scanned: " with the folders, as before. | not run |
+| 2 | Read the second line. | It reads "NAM captures found: 1. A .nam capture is a model of an amp or pedal, not a plugin: a NAM capture player plays it, and the scan recognised none. Install Gateway (the official Neural Amp Modeler plugin, free from the Neural Amp Modeler website) or the TONE3000 plugin (free from tone3000.com); A2 captures need one of these two. Add the player to the track as a VST3 effect after the instrument, then load the capture in its editor." (with a player installed: "... not a plugin: [player] plays it. Add [player] to the track ..."). | not run |
+| 3 | Close it. Select the audio track, Tools > Sound Chain.... | The first row reads "Source: takes". Close it. | not run |
+| 4 | Tools > Audio Device.... | The top line reads "TuxGuitar audio: [output device] at 44100 Hz, latency in [n] out [n] frames" (your device and latencies), as before. Cancel. | not run |
+| 5 | Settings > Language: Deutsch (or any language other than English), OK, restart TuxGuitar if asked. Repeat steps 1 to 4. | The windows' own labels are in that language as far as translated; every text checked in steps 1 to 4 reads in English exactly as there, none blank and none a key such as `audio.scan.found`, `audio.capture-player.gateway`, `audio.source.takes` or `audio.device.open`. | not run |
+| 6 | Settings > Language back to the one you use. | TuxGuitar reads as before. | not run |
+
+### Notes
+
+- The tests already cover: every one of these texts in English, unchanged (TestPluginScan, TestLiveAudio, TestTakeWave,
+  TestSoundChainActions and the plugin features); and a made-up German said through the translation files for the
+  scan's lines and capture hint (a scan made earlier is said in the language shown when it is read), the device's
+  description, a take file's three refusals, and the refusals to open the editor of an audio track's source, a plugin
+  that cannot be opened and the editor of a plugin whose host stopped. What they cannot check is the running app's
+  windows and error messages.
+- The errors when a plugin or its editor cannot be opened, and when a take cannot be read, are hard to bring about by
+  hand (a plugin uninstalled after a song was saved with it; a damaged song file); the tests cover them. The error
+  opening a damaged song shows Java class names before the reason ("...TGFileFormatException: java.io.IOException: Not
+  a wave file"): a known defect, not part of this change.
+- The Sound Chain window's Edit... is greyed out for a source that is no VST3 plugin, so its refusal ("takes is not a
+  VST3 plugin: it has no editor to open") is not shown there.
