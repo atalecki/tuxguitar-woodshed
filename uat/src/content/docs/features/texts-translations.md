@@ -1,6 +1,6 @@
 ---
 title: Texts through translations
-description: The "still loading" hint, the refusals of interleaved practice and click-up, and the audio, VST3 and NAM texts go through TuxGuitar's translation files and Woodshed Guitar's editor through a string table of its own; English reads as before, and other languages fall back to English until translated.
+description: The "still loading" hint, the refusals of interleaved practice and click-up, and the audio, VST3 and NAM texts (the VST3 host's failure reasons and the export dialog's format words too) go through TuxGuitar's translation files and Woodshed Guitar's editor through a string table of its own; English reads as before, and other languages fall back to English until translated.
 sidebar:
   order: 17
 ---
@@ -118,6 +118,29 @@ later. Settings > Sound: MIDI Port "TuxGuitar Synthesizer", and an audio device 
 | 4 | Tools > Audio Device.... | The top line reads "TuxGuitar audio: [output device] at 44100 Hz, latency in [n] out [n] frames" (your device and latencies), as before. Cancel. | not run |
 | 5 | Settings > Language: Deutsch (or any language other than English), OK, restart TuxGuitar if asked. Repeat steps 1 to 4. | The windows' own labels are in that language as far as translated; every text checked in steps 1 to 4 reads in English exactly as there, none blank and none a key such as `audio.scan.found`, `audio.capture-player.gateway`, `audio.source.takes` or `audio.device.open`. | not run |
 | 6 | Settings > Language back to the one you use. | TuxGuitar reads as before. | not run |
+
+### The VST3 host's failure reasons and the export formats
+
+Commits on `feature/remaining-texts-i18n`: `8038b63df` (the three reasons the VST3 host failed, said through the
+translation files and logged in English; their English pinned first in `be54bdb4e`), `79be324ad` and `a7812c9e7` (the
+export dialog shows each format by a label, chosen by its name; the words "16-bit", "24-bit" and "32-bit float" said
+through the translation files, the types WAVE, AIFF and AU as they are) and `faae7b847` (an unused message deleted).
+Build and launch with the VS Code task **app: build + run** at `faae7b847` or later, as in the setup above.
+
+| #   | Do | Expect | Result |
+| --- | --- | --- | --- |
+| 1 | Settings > Language: English. File > Export, choose the audio file export. | The Options dialog's Audio Format list reads "WAVE 16-bit", "WAVE 24-bit", "WAVE 32-bit float", "AIFF 16-bit", "AU 16-bit", the first chosen, as before. | not run |
+| 2 | Choose "WAVE 24-bit", OK, and save the file. | The file is written; a player or the file's properties show a 24-bit WAVE file at 44100 Hz. | not run |
+| 3 | Close TuxGuitar. In the folder TuxGuitar runs from, rename `tuxguitar-vst3-host.exe` (in the folder of the native libraries, next to the audio library) to `tuxguitar-vst3-host.off`. Launch TuxGuitar, select track 1, Tools > Sound Chain.... | The text under the lists reads "The VST3 folders could not be scanned: the VST3 host did not start: [the program's path]". | not run |
+| 4 | Open the log file (the WARN lines of today's log in TuxGuitar's log folder). | It holds "the VST3 host did not start: [the program's path]" in English, with the system's reason. | not run |
+| 5 | Settings > Language: Deutsch (or any language other than English), OK, restart TuxGuitar if asked. Repeat steps 1 and 3. | The dialog's and window's own labels are in that language as far as translated; the formats and the scan's line read in English exactly as in steps 1 and 3 (no translation yet), none blank and none a key such as `audio.export.format.pcm-16` or `audio.vst3-host.not-started`. Choosing a format and exporting works as in step 2. | not run |
+| 6 | Close TuxGuitar, rename `tuxguitar-vst3-host.off` back to `tuxguitar-vst3-host.exe`, Settings > Language back to the one you use. | The scan finds your plugins again; TuxGuitar reads as before. | not run |
+
+- The tests cover the three reasons in English and in a made-up German where the user reads them (an effect's
+  problem, a scan that failed, the editor refusal), the English log under another language, and the export labels in
+  English and German with the names unchanged. A host that stops or stops answering is hard to bring about by hand (a
+  plugin that crashes or hangs); the tests use test plugins that do.
+- The reasons the host process itself gives ("not a VST3 module: ...") and the audio library's stay as they give them.
 
 ### Notes
 
