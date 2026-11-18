@@ -19,9 +19,11 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import app.tuxguitar.audio.TGDefaultInstrumentSource;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.io.base.TGFileFormatException;
+import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.player.base.MidiPlayer;
@@ -128,6 +130,25 @@ public class GuitarSteps {
 		try (java.io.InputStream capture = GuitarSteps.class.getResourceAsStream("/captures/" + name)) {
 			Files.copy(capture, folder().resolve(name));
 		}
+	}
+
+	// the profile TuxGuitar ships, as the native build puts it next to its own plugins folder
+	@Given("there is the NAM capture TuxGuitar ships, {string}")
+	public void thereIsTheNamCaptureTuxGuitarShips(String name) throws IOException {
+		Files.copy(new File(PluginSteps.ownPlugins().getParentFile(), "profiles/" + name).toPath(), folder().resolve(name));
+	}
+
+	// as the settings set it (TGDefaultInstruments), on the default source the app installs
+	@Given("the {kind} profile in the settings is the NAM capture {string}")
+	public void theProfileInTheSettingsIs(TGInstrumentKind kind, String name) throws IOException {
+		TGDefaultInstrumentSource source = TGDefaultInstrumentSource.install(world.fixture().context);
+		source.use(source.getDefaults().withProfile(kind, folder().resolve(name).toString()));
+	}
+
+	@Given("the {kind} profile in the settings is {string}, whose file is not there")
+	public void theProfileInTheSettingsIsNotThere(TGInstrumentKind kind, String name) throws IOException {
+		assertTrue(!Files.exists(folder().resolve(name)), name);
+		theProfileInTheSettingsIs(kind, name);
 	}
 
 	@Given("the NAM capture {string} has been moved away")

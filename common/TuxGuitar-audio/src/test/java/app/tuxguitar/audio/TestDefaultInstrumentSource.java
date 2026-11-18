@@ -2,11 +2,15 @@ package app.tuxguitar.audio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TreeMap;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgramElement;
@@ -22,6 +26,7 @@ class TestDefaultInstrumentSource {
 
 	private static final String SINE = "7A1C0008544753494E45000000000008";
 	private static final String GAIN = "7A1C0001544747414E00000000000001";
+	private static final String WOODSHED = "57534847554954415200000000000001";
 
 	private static final List<TGVst3Plugin> SCANNED = Arrays.asList(new TGVst3Plugin("C:/VST3/Test Sine.vst3", SINE, "Test Sine", true),
 		new TGVst3Plugin("C:/VST3/Test Gain.vst3", GAIN, "Test Gain", false));
@@ -74,5 +79,55 @@ class TestDefaultInstrumentSource {
 		TGDefaultInstrumentSource source = TGDefaultInstrumentSource.install(context);
 		source.use(TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, instrument(SINE, "Test Sine")));
 		assertEquals("none null", describe(source.sourceFor(0, 25)) + " " + source.getNotice());
+	}
+
+	// Woodshed Guitar where TuxGuitar installs it: its own plugins folder (vst3), the profiles it ships next to it
+	private static TGVst3Plugin woodshed(File install) {
+		return new TGVst3Plugin(new File(new File(install, "vst3"), "Woodshed Guitar.vst3").getPath(), WOODSHED, "Woodshed Guitar", true);
+	}
+
+	private static File file(File folder, String name) throws IOException {
+		File file = new File(folder, name);
+		file.getParentFile().mkdirs();
+		Files.write(file.toPath(), new byte[] {'{', '}'});
+		return file;
+	}
+
+	// the profile of the kind's default Woodshed Guitar, "-" for none
+	private static String profile(TGInstrumentKind kind, TGDefaultInstruments defaults, TGVst3Plugin plugin) {
+		TGProgramElement source = TGDefaultInstrumentSource.source(kind, defaults, Arrays.asList(plugin));
+		return source.getParameters().getOrDefault("vst3.profile", "-");
+	}
+
+	// the one chosen for the kind; bass, until chosen, the guitar's
+	@Test
+	void woodshedGuitarPlaysTheProfileChosenForItsKind(@TempDir File folder) throws IOException {
+		File clean = file(folder, "Clean.nam");
+		File bass = file(folder, "Bass.nam");
+		TGDefaultInstruments defaults = TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, TGDefaultInstruments.WOODSHED_GUITAR)
+			.with(TGInstrumentKind.BASS, TGDefaultInstruments.WOODSHED_GUITAR).withProfile(TGInstrumentKind.GUITAR, clean.getPath());
+		String guitar = profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder));
+		String sameAsGuitar = profile(TGInstrumentKind.BASS, defaults, woodshed(folder));
+		assertEquals(clean + " " + clean + " " + bass, guitar + " " + sameAsGuitar + " "
+			+ profile(TGInstrumentKind.BASS, defaults.withProfile(TGInstrumentKind.BASS, bass.getPath()), woodshed(folder)));
+	}
+
+	// none chosen: the one TuxGuitar ships, when it is there; a profile chosen whose file is gone: none (its dry voice)
+	@Test
+	void withNoProfileChosenWoodshedGuitarPlaysTheOneTuxGuitarShips(@TempDir File folder) throws IOException {
+		TGDefaultInstruments defaults = TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, TGDefaultInstruments.WOODSHED_GUITAR);
+		String without = profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder));
+		File shipped = file(new File(folder, "profiles"), "RiffSmith Clean.nam");
+		String gone = profile(TGInstrumentKind.GUITAR, defaults.withProfile(TGInstrumentKind.GUITAR, new File(folder, "Gone.nam").getPath()), woodshed(folder));
+		assertEquals("- " + shipped.getAbsoluteFile() + " -", without + " " + profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder)) + " " + gone);
+	}
+
+	// a profile is Woodshed Guitar's: another instrument chosen as the guitars' default is not given one
+	@Test
+	void anotherInstrumentIsGivenNoProfile(@TempDir File folder) throws IOException {
+		File clean = file(folder, "Clean.nam");
+		TGDefaultInstruments sine = TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, instrument(SINE, "Test Sine")).withProfile(TGInstrumentKind.GUITAR, clean.getPath());
+		TGDefaultInstruments woodshed = sine.with(TGInstrumentKind.GUITAR, TGDefaultInstruments.WOODSHED_GUITAR);
+		assertEquals("- " + clean, profile(TGInstrumentKind.GUITAR, sine, SCANNED.get(0)) + " " + profile(TGInstrumentKind.GUITAR, woodshed, woodshed(folder)));
 	}
 }

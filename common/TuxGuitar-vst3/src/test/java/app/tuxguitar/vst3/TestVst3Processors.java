@@ -97,6 +97,27 @@ public class TestVst3Processors {
 		assertNull(this.hosting.find("Old Amp"));
 	}
 
+	// a default instrument's element (no state of its own) names the profile Woodshed Guitar loads once it opens, in the
+	// background (it is busy meanwhile); the element sent again (each Play) loads it no more, another profile is loaded
+	@Test
+	public void woodshedGuitarLoadsTheProfileItsElementNamesOnce(@TempDir File folder) throws Exception {
+		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder(), new File(TestPlugins.nativeBuild(), "plugins/VST3")));
+		this.hosting.scan();
+		TGProgramElement element = TGVst3Element.create("default-guitar", this.hosting.find("Woodshed Guitar"));
+		TGVst3Element.setProfile(element, TestPlugins.gain3(folder).getPath());
+		TGVst3Processor woodshed = (TGVst3Processor) open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
+		boolean loading = woodshed.isBusy();
+		TestPlugins.untilRestored(woodshed.getInstance());
+		woodshed.restoreParameters(element.getParameters());
+		boolean again = woodshed.isBusy();
+		File other = new File(folder, "Other.nam");
+		java.nio.file.Files.copy(TestPlugins.gain3(folder).toPath(), other.toPath());
+		TGVst3Element.setProfile(element, other.getPath());
+		woodshed.restoreParameters(element.getParameters());
+		TestPlugins.untilRestored(woodshed.getInstance());
+		assertEquals("true false Other.nam", loading + " " + again + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+	}
+
 	// whether the folders were scanned yet: a scan that found nothing is a scan, unlike none at all (a plugin not found
 	// before then may yet be installed)
 	@Test

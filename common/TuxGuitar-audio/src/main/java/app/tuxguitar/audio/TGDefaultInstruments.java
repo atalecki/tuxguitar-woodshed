@@ -13,11 +13,14 @@ import app.tuxguitar.util.configuration.TGConfigManager;
  * plays: a VST3 instrument, or none (General MIDI); and, for guitar and bass, Woodshed Guitar's profile (a NAM capture's
  * path), the bass one the guitar's until it is chosen. A machine setting, kept in TuxGuitar's audio configuration
  * (KEY.<kind>.class, .name, .profile), read once where it enters: a class id that is not one, or a blank profile, is
- * none. Immutable.
+ * none; a kind never set plays its built-in default: Woodshed Guitar, TuxGuitar's own instrument, for guitar and bass,
+ * General MIDI for drums and other tracks (General MIDI chosen is kept as an empty class id). Immutable.
  */
 public final class TGDefaultInstruments {
 
 	public static final String KEY = "audio.default-instrument.";
+	// Woodshed Guitar, the VST3 instrument TuxGuitar ships, by its class id
+	public static final TGDefaultInstrument WOODSHED_GUITAR = new TGDefaultInstrument("57534847554954415200000000000001", "Woodshed Guitar");
 	public static final TGDefaultInstruments NONE = new TGDefaultInstruments(new EnumMap<TGInstrumentKind, TGDefaultInstrument>(TGInstrumentKind.class),
 		new EnumMap<TGInstrumentKind, String>(TGInstrumentKind.class));
 
@@ -42,9 +45,15 @@ public final class TGDefaultInstruments {
 	}
 
 	private static TGDefaultInstruments read(TGConfigManager config, TGInstrumentKind kind, TGDefaultInstruments defaults) {
-		TGDefaultInstruments read = TGDefaultInstrument.parse(config.getStringValue(key(kind, "class")), config.getStringValue(key(kind, "name")))
-			.map(instrument -> defaults.with(kind, instrument)).orElse(defaults);
+		String classId = config.getStringValue(key(kind, "class"));
+		Optional<TGDefaultInstrument> instrument = (classId != null ? TGDefaultInstrument.parse(classId, config.getStringValue(key(kind, "name"))) : builtIn(kind));
+		TGDefaultInstruments read = instrument.map(chosen -> defaults.with(kind, chosen)).orElse(defaults);
 		return read.withProfile(kind, config.getStringValue(key(kind, "profile")));
+	}
+
+	// the kind's default when none was ever set: Woodshed Guitar for guitar and bass
+	private static Optional<TGDefaultInstrument> builtIn(TGInstrumentKind kind) {
+		return (hasProfile(kind) ? Optional.of(WOODSHED_GUITAR) : Optional.<TGDefaultInstrument>empty());
 	}
 
 	// every kind: none written as an empty class id

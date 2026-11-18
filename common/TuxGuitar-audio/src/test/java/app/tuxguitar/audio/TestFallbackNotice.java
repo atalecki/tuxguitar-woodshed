@@ -2,12 +2,16 @@ package app.tuxguitar.audio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
@@ -126,5 +130,19 @@ class TestFallbackNotice {
 	void fallbacksAreTheSameByKindInstrumentAndReason() {
 		TGFallback same = new TGFallback(TGInstrumentKind.DRUMS, TGDefaultInstrument.parse(DRUMS_ID, "named otherwise").get(), TGFallback.Why.NOT_INSTALLED);
 		assertEquals("true false false", NOT_INSTALLED.equals(same) + " " + NOT_INSTALLED.equals(NOT_LOADED) + " " + NOT_INSTALLED.equals(DRUMS));
+	}
+
+	// a profile chosen whose file is not there: told until the file is there, or another profile is chosen
+	@Test
+	void aProfileNotFoundIsToldUntilItsFileIsThereOrAnotherIsChosen(@TempDir File folder) throws IOException {
+		File gone = new File(folder, "Gone.nam");
+		this.defaults = this.defaults.withProfile(TGInstrumentKind.GUITAR, gone.getPath());
+		this.notice.fellBack(TGFallback.profileMissing(TGInstrumentKind.GUITAR, gone.getPath()), SONG, 0);
+		String missing = readAt(0);
+		this.defaults = DEFAULTS.withProfile(TGInstrumentKind.GUITAR, new File(folder, "Other.nam").getPath());
+		String another = readAt(1);
+		this.defaults = DEFAULTS.withProfile(TGInstrumentKind.GUITAR, gone.getPath());
+		Files.write(gone.toPath(), new byte[] {'{', '}'});
+		assertEquals("Gone.nam was not found: guitar tracks play Woodshed Guitar without an amp. | null | null", missing + " | " + another + " | " + readAt(2));
 	}
 }

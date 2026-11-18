@@ -239,8 +239,12 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	}
 
 	// the song's element keeps the plugin's state, one change of the song; none when the song holds that state already
-	// (an editor closed having changed nothing)
+	// (an editor closed having changed nothing), nor for a plugin that is no element of the song's chain (a default
+	// instrument, TGDefaultInstrumentSource, loading its profile: a setting of the computer, not of the song)
 	private void store(int channel, String element, TGVst3Instance instance) {
+		if (TGSoundChain.element(this.chain(channel), element) == null) {
+			return;
+		}
 		try {
 			TGVst3State state = instance.getState();
 			if (!instance.isAgreed(state)) {

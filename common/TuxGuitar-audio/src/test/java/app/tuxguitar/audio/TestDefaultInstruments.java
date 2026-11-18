@@ -21,6 +21,7 @@ class TestDefaultInstruments {
 
 	private static final String SINE = "7A1C0008544753494E45000000000008";
 	private static final String CLICK = "7A1C0009544743434C49434B00000009";
+	private static final String WOODSHED = "57534847554954415200000000000001";
 
 	private final TGContext context = new TGContext();
 
@@ -45,6 +46,21 @@ class TestDefaultInstruments {
 	// the kind's profile, "-" for none
 	private static String describe(TGDefaultInstruments defaults, TGInstrumentKind kind) {
 		return defaults.getProfile(kind).orElse("-");
+	}
+
+	// Woodshed Guitar is the guitar and bass default until another (or General MIDI) is chosen; drums and other tracks
+	// play General MIDI until one is chosen
+	@Test
+	void nothingSetIsWoodshedGuitarForGuitarAndBassAndGeneralMidiForTheOthers() {
+		assertEquals("GUITAR=Woodshed Guitar (" + WOODSHED + ") -, BASS=Woodshed Guitar (" + WOODSHED + ") -, DRUMS=- -, OTHER=- -",
+			describe(TGDefaultInstruments.read(config())));
+	}
+
+	@Test
+	void generalMidiChosenForGuitarAndBassIsReadBackAsGeneralMidi() {
+		TGConfigManager config = config();
+		TGDefaultInstruments.NONE.write(config);
+		assertEquals("GUITAR=- -, BASS=- -, DRUMS=- -, OTHER=- -", describe(TGDefaultInstruments.read(config)));
 	}
 
 	@Test
@@ -85,6 +101,7 @@ class TestDefaultInstruments {
 		config.setValue("audio.default-instrument.other.class", "not a class id");
 		config.setValue("audio.default-instrument.other.name", "Test Sine");
 		config.setValue("audio.default-instrument.drums.class", SINE + "0");
+		config.setValue("audio.default-instrument.guitar.class", "");
 		config.setValue("audio.default-instrument.guitar.profile", "  ");
 		config.setValue("audio.default-instrument.bass.class", CLICK);
 		config.setValue("audio.default-instrument.bass.name", "Test Click");
@@ -96,7 +113,9 @@ class TestDefaultInstruments {
 	@Test
 	void aClassIdInLowerCaseIsTakenAndAMissingNameIsTheClassId() {
 		TGConfigManager config = config();
+		TGDefaultInstruments.NONE.write(config);
 		config.setValue("audio.default-instrument.other.class", SINE.toLowerCase());
+		config.setValue("audio.default-instrument.other.name", "");
 		assertEquals("GUITAR=- -, BASS=- -, DRUMS=- -, OTHER=" + SINE + " (" + SINE + ") -", describe(TGDefaultInstruments.read(config)));
 	}
 }

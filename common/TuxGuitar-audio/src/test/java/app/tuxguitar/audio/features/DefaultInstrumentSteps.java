@@ -6,12 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import app.tuxguitar.action.TGActionEvent;
+import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.TGDefaultInstrument;
 import app.tuxguitar.audio.TGDefaultInstrumentSource;
+import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGStatusHint;
+import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.util.log.TGLogLevel;
 import app.tuxguitar.util.log.TGLogRecorder;
@@ -21,6 +26,7 @@ import io.cucumber.java.After;
 import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
+import io.cucumber.java.en.When;
 
 /**
  * Steps on the default instruments of the kinds of tracks: set as the settings set them, on the default source the app
@@ -32,11 +38,15 @@ public class DefaultInstrumentSteps {
 	private static final String NOT_INSTALLED = "0123456789ABCDEF0123456789ABCDEF";
 
 	private final AudioWorld world;
+	private final PlaySteps play;
 	// what TuxGuitar logged since a step started recording it, or null
 	private TGLogRecorder log;
+	// the actions the app ran taking what the plugins told it
+	private final List<String> ran = new ArrayList<String>();
 
-	public DefaultInstrumentSteps(AudioWorld world) {
+	public DefaultInstrumentSteps(AudioWorld world, PlaySteps play) {
 		this.world = world;
+		this.play = play;
 	}
 
 	@ParameterType("guitar|bass|drums|other")
@@ -73,6 +83,23 @@ public class DefaultInstrumentSteps {
 	@Given("the VST3 host cannot start")
 	public void theVst3HostCannotStart() {
 		hosting().configure(new File(PluginSteps.nativeBuild(), "no-host.exe"), hosting().getFolders());
+	}
+
+	// as the app does every 50 ms on its UI thread, here at each turn of the play loop, while the plugins still run; the
+	// actions it runs meanwhile are kept (the desktop marks the song modified for each change of a sound chain it runs,
+	// whether or not the change is refused)
+	@When("I play the song live from {position}, the app taking what the plugins tell it as it plays")
+	public void playLiveTakingWhatThePluginsTell(SongPosition from) throws Exception {
+		world.synthesizer().addChannelListener(TGLivePlugins.getInstance(world.fixture().context));
+		TGEventListener running = event -> this.ran.add(event.getAttribute(TGActionEvent.ATTRIBUTE_ACTION_ID));
+		TGActionManager.getInstance(world.fixture().context).addPreExecutionListener(running);
+		this.play.playLive(from, 1, TGLivePlugins.getInstance(world.fixture().context)::drain);
+		TGActionManager.getInstance(world.fixture().context).removePreExecutionListener(running);
+	}
+
+	@Then("the app ran no action to take it")
+	public void theAppRanNoAction() {
+		assertEquals("[]", this.ran.toString());
 	}
 
 	@Then("the status line reads {string}")

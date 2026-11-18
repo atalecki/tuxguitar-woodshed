@@ -5,7 +5,8 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
   Modeler model of an amp or pedal) loaded into it, the same signal on the left and the right. With no profile loaded
   it sounds its dry voice, never nothing. The profile is loaded in its own editor (Load profile...), kept in the song
   with the capture's contents (a reopened song plays that copy), and played at the capture's own sample rate. It runs in its helper process like every
-  VST3 plugin, and is offered in the Sound Chain like any VST3 instrument (it is not the default instrument).
+  VST3 plugin, and is offered in the Sound Chain like any VST3 instrument; it is also the default instrument of guitar and
+  bass tracks (see default_instruments).
 
   Background:
     Given a new song with one guitar track and 4 measures of 4/4 at 120 bpm

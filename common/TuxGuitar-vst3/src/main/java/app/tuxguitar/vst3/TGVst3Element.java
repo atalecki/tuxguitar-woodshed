@@ -25,6 +25,9 @@ public final class TGVst3Element {
 	// a resource of the state, by its name: a shared value, which a TuxGuitar file keeps once
 	static final String RESOURCE = "vst3.resource.";
 	static final String PARAMETER = "vst3.parameter.";
+	// the NAM capture Woodshed Guitar loads once it opens, for an element without a state of its own (a default
+	// instrument's profile)
+	static final String PROFILE = "vst3.profile";
 
 	private TGVst3Element() {
 	}
@@ -48,11 +51,21 @@ public final class TGVst3Element {
 		return element.getParameters().get(NAME);
 	}
 
+	// the plugin's class id, as a sound chain reads it
+	public static String getClassId(TGProgramElement element) {
+		return element.getParameters().get(CLASS_ID);
+	}
+
 	// the plugin the parameters name, or null
 	public static TGVst3Plugin plugin(Map<String, String> parameters, boolean instrument) {
 		String module = parameters.get(MODULE);
 		String classId = parameters.get(CLASS_ID);
 		return (module != null && classId != null ? new TGVst3Plugin(module, classId, parameters.get(NAME), instrument) : null);
+	}
+
+	// the profile Woodshed Guitar loads, by its file's path (see PROFILE)
+	public static void setProfile(TGProgramElement element, String path) {
+		element.setParameter(PROFILE, path);
 	}
 
 	// a parameter set to a plain value, after the saved state

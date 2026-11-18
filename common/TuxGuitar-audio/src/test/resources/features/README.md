@@ -358,7 +358,15 @@ These features change how TuxGuitar works today. They are requirements, not side
   (`TGStatusHint`, after a Record refusal, before the loading hint: `TGFallbackNotice`, messages
   `audio.default-instrument.not-installed`/`.not-loaded`/`.kind.*`), once per song opened or change of the defaults,
   for 5 seconds or until its cause no longer holds, and the log keeps the reason in English
-  (`TGVst3PluginProcessor.getLoggedProblem`).
+  (`TGVst3PluginProcessor.getLoggedProblem`). Woodshed Guitar is the guitar and bass default until another (or General
+  MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
+  (bass: the guitar's until one is set for it), else the one TuxGuitar ships in `profiles` next to its own plugins
+  folder (`RiffSmith Clean.nam`, an A2 capture of a clean amp and cabinet by Matt Hartman, MIT, kept in
+  `TuxGuitar-vst3/native/plugins/woodshed_guitar/profiles` and pinned by SHA-256 in its CMakeLists). The element names
+  it (`vst3.profile`, an element without a state of its own) and the processor has the plugin load it once
+  (`Woodshed.load`), so Play waits while it loads as for a profile loaded in the editor; the song is not changed. A
+  profile set whose file is not there leaves the dry voice, the status line saying so
+  (`audio.default-instrument.profile-missing`).
 - **File format 3.0** for a song with an audio track. A reader of format 2.0 opening it as a `.tg` file refuses it with
   its "please upgrade" message (the step compares the message of the innermost cause). This version still opens format 2.0 files, and saves
   a song without audio tracks as format 2.0. A VST3 sound chain is saved under channel parameter keys outside the
