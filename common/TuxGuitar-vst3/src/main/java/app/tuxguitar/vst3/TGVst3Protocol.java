@@ -10,7 +10,7 @@ package app.tuxguitar.vst3;
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 9;
+	static final int VERSION = 10;
 
 	// -> version, process id
 	static final int HELLO = 1;
@@ -59,7 +59,8 @@ final class TGVst3Protocol {
 	// instance -> timing
 	static final int TIMING = 16;
 	// instance, parent window (a native handle), maximum share (double: of the height of the inside of the parent's
-	// top-level window), title -> kind (0 none of its own, 3 inside the parent window, 4 too large: higher than that
+	// top-level window), title, the count of keys passed, then each (virtual key | modifiers << 8: typed in the editor,
+	// they go to the parent window instead, as if typed there) -> kind (0 none of its own, 3 inside the parent window, 4 too large: higher than that
 	// share, or wider than the parent's inside and unable to shrink to it; nothing is kept open), width, height (the size
 	// its view takes, or would), resizable (1 or 0), the width of the parent's inside (device pixels). Inside, the editor is a child of the parent window once the reply is sent, of the parent's DPI awareness, as
 	// wide as the parent's inside when it can be resized; an editor open elsewhere closes first (a new view)

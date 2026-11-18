@@ -11,6 +11,7 @@
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -93,10 +94,13 @@ DPI_AWARENESS_CONTEXT awarenessContext(int64 awareness) {
 	return contexts[std::max<int64>(0, std::min<int64>(3, awareness))];
 }
 
+// hears the keys that come to it (see heardKeys)
+LRESULT CALLBACK standInProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+
 const wchar_t* standInClass() {
 	static const wchar_t* name = [] {
 		WNDCLASSW type = {};
-		type.lpfnWndProc = DefWindowProcW;
+		type.lpfnWndProc = standInProcedure;
 		type.hInstance = GetModuleHandleW(nullptr);
 		type.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
 		type.lpszClassName = L"TuxGuitarTestStandIn";
@@ -133,6 +137,107 @@ char onScreen(void* window) { return (MonitorFromWindow((HWND) window, MONITOR_D
 // as the user drags the window the editor is in to that place on the screen
 void moveTo(void* window, int64 x, int64 y) { SetWindowPos((HWND) window, nullptr, (int) x, (int) y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE); }
 
+// the keys the windows of the tests heard (WM_KEYDOWN, WM_SYSKEYDOWN), as text, the stand-in's (kStandInHeard) and
+// the views' (kViewHeard): each key ("Z", "F8", "Space", else its virtual-key number) with the modifiers its window's
+// thread saw held then ("+ctrl", "+alt", "+shift"), as TuxGuitar's toolkit reads them
+const int kStandInHeard = 0;
+const int kViewHeard = 1;
+std::string heardKeys[2];
+
+bool isFunctionKey(WPARAM key) { return (key >= VK_F1 && key <= VK_F24); }
+
+std::string keyName(WPARAM key) {
+	if (isFunctionKey(key)) {
+		return "F" + std::to_string(key - VK_F1 + 1);
+	}
+	if (key == VK_SPACE) {
+		return "Space";
+	}
+	return (std::isalnum((int) key) ? std::string(1, (char) key) : "#" + std::to_string(key));
+}
+
+std::string held() {
+	std::string text;
+	text += (GetKeyState(VK_CONTROL) < 0 ? "+ctrl" : "");
+	text += (GetKeyState(VK_MENU) < 0 ? "+alt" : "");
+	text += (GetKeyState(VK_SHIFT) < 0 ? "+shift" : "");
+	return text;
+}
+
+void heard(int window, UINT message, WPARAM key) {
+	if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) {
+		heardKeys[window] += (heardKeys[window].empty() ? "" : " ") + keyName(key) + held();
+	}
+}
+
+LRESULT CALLBACK standInProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	heard(kStandInHeard, message, wParam);
+	return DefWindowProcW(window, message, wParam, lParam);
+}
+
+LRESULT CALLBACK viewProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	heard(kViewHeard, message, wParam);
+	return DefWindowProcW(window, message, wParam, lParam);
+}
+
+// what both heard, the stand-in's then the views' ("<stand-in> | <views>"), forgotten once told
+std::string takeHeardKeys() {
+	std::string told = heardKeys[kStandInHeard] + " | " + heardKeys[kViewHeard];
+	heardKeys[kStandInHeard].clear();
+	heardKeys[kViewHeard].clear();
+	return told;
+}
+
+const wchar_t* viewClass() {
+	static const wchar_t* name = [] {
+		WNDCLASSW type = {};
+		type.lpfnWndProc = viewProcedure;
+		type.hInstance = GetModuleHandleW(nullptr);
+		type.lpszClassName = L"TuxGuitarTestView";
+		RegisterClassW(&type);
+		return type.lpszClassName;
+	}();
+	return name;
+}
+
+// the view's own window inside the window it is in, as a plugin's editor has, that size
+void* viewWindow(void* parent, int32 width, int32 height) {
+	return CreateWindowExW(0, viewClass(), L"", WS_CHILD | WS_VISIBLE, 0, 0, width, height, (HWND) parent, nullptr, GetModuleHandleW(nullptr), nullptr);
+}
+
+void sizeViewWindow(void* own, int32 width, int32 height) { SetWindowPos((HWND) own, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE); }
+
+// gone with the view (it may have gone with the window it was in already)
+void endViewWindow(void* own) {
+	if (IsWindow((HWND) own)) {
+		DestroyWindow((HWND) own);
+	}
+}
+
+BYTE down(int64 held) { return (BYTE) (held ? 0x80 : 0); }
+
+// as the user types a key in the view, the modifiers asked held ("ctrl", "alt", "shift" 1): its thread's keyboard state
+// says they are held, as it does while the user holds them; then the key comes to the view's window, a system key with
+// Alt, as Windows sends it
+void typeKey(void* own, int64 key, int64 ctrl, int64 alt, int64 shift) {
+	BYTE state[256] = {};
+	GetKeyboardState(state);
+	state[VK_CONTROL] = down(ctrl);
+	state[VK_MENU] = down(alt);
+	state[VK_SHIFT] = down(shift);
+	SetKeyboardState(state);
+	LPARAM details = 1 | ((LPARAM) MapVirtualKeyW((UINT) key, MAPVK_VK_TO_VSC) << 16) | (alt ? (LPARAM) 1 << 29 : 0);
+	PostMessageW((HWND) own, (alt ? WM_SYSKEYDOWN : WM_KEYDOWN), (WPARAM) key, details);
+}
+
+// as a plugin's code looks at its thread's next message without taking it (PeekMessage, PM_NOREMOVE), when asked
+void peekQueue(int64 peek) {
+	MSG next;
+	if (peek) {
+		PeekMessageW(&next, nullptr, 0, 0, PM_NOREMOVE);
+	}
+}
+
 #else
 const bool inModal = false;
 
@@ -151,6 +256,18 @@ char isWindow(int64) { return 0; }
 char onScreen(void*) { return 0; }
 
 void moveTo(void*, int64, int64) {}
+
+std::string takeHeardKeys() { return " | "; }
+
+void* viewWindow(void*, int32, int32) { return nullptr; }
+
+void sizeViewWindow(void*, int32, int32) {}
+
+void endViewWindow(void*) {}
+
+void typeKey(void*, int64, int64, int64, int64) {}
+
+void peekQueue(int64) {}
 
 #endif
 
@@ -180,6 +297,7 @@ public:
 	tresult PLUGIN_API attached(void* parent, FIDString type) SMTG_OVERRIDE {
 		state->view = this;
 		state->window = parent;
+		state->own = viewWindow(parent, getRect().getWidth(), getRect().getHeight());
 		sized(getRect());
 		return CPluginView::attached(parent, type);
 	}
@@ -202,10 +320,13 @@ public:
 
 	tresult PLUGIN_API onSize(ViewRect* newSize) SMTG_OVERRIDE {
 		sized(*newSize);
+		sizeViewWindow(state->own, newSize->getWidth(), newSize->getHeight());
 		return CPluginView::onSize(newSize);
 	}
 
 	tresult PLUGIN_API removed() SMTG_OVERRIDE {
+		endViewWindow(state->own);
+		state->own = nullptr;
 		state->view = nullptr;
 		state->window = nullptr;
 		going();
@@ -491,7 +612,7 @@ tresult TestPlugin::windowMessage(FIDString id, IAttributeList* attributes, int6
 
 // "TG.on-screen": 1 byte, 1 while the window the editor is in is on a screen; "TG.move-to": that window goes to that
 // "width" (x) and "height" (y) on the screen; "TG.request-editor": the plugin asks its host to show its editor; else
-// restoringMessage
+// keyMessage
 tresult TestPlugin::placeMessage(FIDString id, IAttributeList* attributes, int64 x, int64 y) {
 	if (std::strcmp(id, "TG.on-screen") == 0) {
 		char answer = onScreen(view.window);
@@ -504,6 +625,27 @@ tresult TestPlugin::placeMessage(FIDString id, IAttributeList* attributes, int64
 	FUnknownPtr<IComponentHandler2> handler(componentHandler);
 	if (std::strcmp(id, "TG.request-editor") == 0 && handler) {
 		return handler->requestOpenEditor(ViewType::kEditor);
+	}
+	return keyMessage(id, attributes);
+}
+
+// "TG.type": as the user types the "key" (a virtual-key number) in the editor's view, with "ctrl", "alt" and "shift"
+// held when 1, the plugin then looking at the key without taking it when "peek" is 1; "TG.keys": what the windows of this process heard since last asked, the stand-in's then the views'
+// ("<stand-in> | <views>", UTF-8); else restoringMessage
+tresult TestPlugin::keyMessage(FIDString id, IAttributeList* attributes) {
+	if (std::strcmp(id, "TG.type") == 0) {
+		int64 typed[5] = {0, 0, 0, 0, 0};
+		const char* names[5] = {"key", "ctrl", "alt", "shift", "peek"};
+		for (int i = 0; i < 5; i++) {
+			attributes->getInt(names[i], typed[i]);
+		}
+		typeKey(view.own, typed[0], typed[1], typed[2], typed[3]);
+		peekQueue(typed[4]);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.keys") == 0) {
+		std::string told = takeHeardKeys();
+		return attributes->setBinary("report", told.data(), (uint32) told.size());
 	}
 	return restoringMessage(id, attributes);
 }

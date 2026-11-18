@@ -43,6 +43,8 @@ struct PluginSpec {
 struct ViewState {
 	void* view = nullptr;
 	void* window = nullptr;
+	// the view's own window, inside that one (Windows; it hears the keys typed in the view)
+	void* own = nullptr;
 	double scale = 0.0;
 	int32 width = 0;
 	int32 height = 0;
@@ -111,6 +113,7 @@ private:
 	tresult sizeMessage(FIDString id, IAttributeList* attributes);
 	tresult windowMessage(FIDString id, IAttributeList* attributes, int64 width, int64 height);
 	tresult placeMessage(FIDString id, IAttributeList* attributes, int64 x, int64 y);
+	tresult keyMessage(FIDString id, IAttributeList* attributes);
 	tresult restoringMessage(FIDString id, IAttributeList* attributes);
 	tresult tellProgress(IProgress* progress, bool restoring, bool underway, const char16_t* what);
 	void choosePreset(int32 preset);

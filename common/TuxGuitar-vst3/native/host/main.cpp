@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 9;
+const int32_t kProtocolVersion = 10;
 
 enum Operation {
 	kHello = 1,
@@ -417,15 +417,20 @@ private:
 
 	void writeFlag(bool flag) { wire.writeInt(flag ? 1 : 0); }
 
-	// the editor inside a window of TuxGuitar (see Instance::embedEditor): its kind, size and whether it can be resized
+	// the editor inside a window of TuxGuitar (see Instance::embedEditor), handing it the keys given (count, then each):
+	// its kind, size and whether it can be resized
 	void embedEditor() {
 		int32_t id = wire.readInt();
 		Instance& edited = instance(id);
 		int64_t parent = wire.readLong();
 		double share = wire.readDouble();
 		std::string title = wire.readString();
+		std::set<int32_t> keys;
+		for (int32_t count = wire.readInt(); count > 0; count--) {
+			keys.insert(wire.readInt());
+		}
 		editorsClosing.erase(id);
-		writeFit(edited.embedEditor(parent, share, title));
+		writeFit(edited.embedEditor(parent, share, title, keys));
 	}
 
 	void fitEditor() { writeFit(instance().fitEditor()); }

@@ -661,6 +661,59 @@ RECT onScreen(const RECT& frame) {
 // inside a window of TuxGuitar, or destroyed there
 std::vector<std::function<void()>> afterReply;
 
+// the keys each frame of an editor inside a window of TuxGuitar hands to that window (virtual key | modifiers << 8),
+// while the frame is there
+struct PassedKeys {
+	HWND parent;
+	std::set<int32> keys;
+};
+std::map<HWND, PassedKeys> passing;
+
+// the modifiers the thread sees held: 1 Shift, 2 Ctrl, 4 Alt
+int32 modifiersHeld() {
+	int32 shift = (GetKeyState(VK_SHIFT) < 0 ? 1 : 0);
+	int32 control = (GetKeyState(VK_CONTROL) < 0 ? 2 : 0);
+	return shift | control | (GetKeyState(VK_MENU) < 0 ? 4 : 0);
+}
+
+// the keys of the frame the window is, or is in; null in no frame passing keys
+const PassedKeys* passingFor(HWND window) {
+	for (const auto& entry : passing) {
+		if (entry.first == window || IsChild(entry.first, window)) {
+			return &entry.second;
+		}
+	}
+	return nullptr;
+}
+
+// a key typed in an editor inside a window of TuxGuitar that its frame passes goes to that window instead, as if typed
+// there, posted (nothing waits on TuxGuitar's thread); the view gets nothing
+void passOn(MSG* message) {
+	const PassedKeys* passed = passingFor(message->hwnd);
+	if (passed && passed->keys.count((int32) message->wParam | modifiersHeld() << 8)) {
+		PostMessageW(passed->parent, message->message, message->wParam, message->lParam);
+		message->message = WM_NULL;
+	}
+}
+
+bool isKeyDown(UINT kind) { return (kind == WM_KEYDOWN || kind == WM_SYSKEYDOWN); }
+
+// sees each message the thread takes from its queue before it is dispatched
+LRESULT CALLBACK keysHook(int code, WPARAM removal, LPARAM message) {
+	MSG* taken = reinterpret_cast<MSG*>(message);
+	if (code == HC_ACTION && removal == PM_REMOVE && isKeyDown(taken->message)) {
+		passOn(taken);
+	}
+	return CallNextHookEx(nullptr, code, removal, message);
+}
+
+// the frame inside the parent hands it those keys; the thread's hook set once (on its own thread only, no global hook)
+void passKeys(HWND frame, HWND parent, const std::set<int32>& keys) {
+	static HHOOK hook = SetWindowsHookExW(WH_GETMESSAGE, keysHook, nullptr, GetCurrentThreadId());
+	(void) hook;
+	passing[frame] = PassedKeys{parent, keys};
+}
+
 // the frame goes inside the window: a child of it at its top left, shown, never activated (the user gives it the focus
 // by clicking in it)
 void putInside(HWND frame, HWND parent, int32 width, int32 height) {
@@ -724,9 +777,11 @@ bool Instance::openEditor(int64 owner, const std::string& title) {
 	return true;
 }
 
-ViewFit Instance::embedEditor(int64 parentHandle, double share, const std::string& title) {
+ViewFit Instance::embedEditor(int64 parentHandle, double share, const std::string& title, const std::set<int32>& keys) {
 	HWND parent = (HWND) (intptr_t) parentHandle;
+	passed = keys;
 	if (window && embeddedIn == parent) {
+		passKeys((HWND) window, parent, keys);
 		return fitEditor();
 	}
 	closeEditor();
@@ -756,6 +811,7 @@ bool Instance::frameIn(void* parent, const ViewFit& fit, const std::string& titl
 	if (!attach(made)) {
 		return false;
 	}
+	passKeys(made, (HWND) parent, passed);
 	viewSized(fit.width, fit.height);
 	afterReply.push_back([made, parent, fit] { putInside(made, (HWND) parent, fit.width, fit.height); });
 	return true;
@@ -783,6 +839,7 @@ ViewFit Instance::fitEditor() {
 }
 
 void Instance::frameGone(void* gone) {
+	passing.erase((HWND) gone);
 	if (gone == window) {
 		removeView();
 		window = nullptr;
@@ -925,7 +982,7 @@ bool Instance::openEditor(int64, const std::string&) { return false; }
 
 void Instance::placeEditor(const std::vector<int32>& frame) { placed = frame; }
 
-ViewFit Instance::embedEditor(int64, double, const std::string&) { return ViewFit{kNoEditor, 0, 0, false, 0}; }
+ViewFit Instance::embedEditor(int64, double, const std::string&, const std::set<int32>&) { return ViewFit{kNoEditor, 0, 0, false, 0}; }
 
 ViewFit Instance::fitEditor() { return ViewFit{kNoEditor, 0, 0, false, 0}; }
 

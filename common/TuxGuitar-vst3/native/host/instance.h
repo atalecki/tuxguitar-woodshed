@@ -149,8 +149,10 @@ public:
 	// the plugin's own editor inside the parent window (a native handle), when its view is at most that share of the
 	// inside of the parent's top-level window high and, unable to shrink, no wider than the parent's inside; then a child of the parent once the reply is sent, of the
 	// parent's DPI awareness, at its top left, as wide as its inside when it can be resized. Too large, nothing is kept
-	// open. An editor open in another place closes first; one open inside that parent stays, fitted again
-	ViewFit embedEditor(int64 parent, double share, const std::string& title);
+	// open. An editor open in another place closes first; one open inside that parent stays, fitted again. The keys
+	// given (virtual key | modifiers << 8: 1 Shift, 2 Ctrl, 4 Alt), typed in it, go to the parent instead, as if typed
+	// there (TuxGuitar's shortcuts); the others stay with the view
+	ViewFit embedEditor(int64 parent, double share, const std::string& title, const std::set<int32>& keys);
 	// an editor inside a window takes the width of the window's inside now, when its view can be resized
 	ViewFit fitEditor();
 	// the frame of an editor inside a window was destroyed with that window (TuxGuitar's ended): the view goes
@@ -216,8 +218,9 @@ private:
 	// what the view asks of its window
 	IPtr<IPlugFrame> frame;
 	void* window = nullptr;
-	// the window of TuxGuitar the editor is inside, else nullptr
+	// the window of TuxGuitar the editor is inside, else nullptr, and the keys typed in it that go to that window
 	void* embeddedIn = nullptr;
+	std::set<int32> passed;
 	// where a window of its own opens (see placeEditor)
 	std::vector<int32> placed = std::vector<int32>(4, 0);
 	int32 inputChannels = 0;

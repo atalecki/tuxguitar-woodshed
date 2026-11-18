@@ -82,7 +82,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 10, not 9", refused.getMessage());
+		assertEquals("the VST3 host speaks version 11, not 10", refused.getMessage());
 	}
 
 	@Test
@@ -1077,6 +1077,99 @@ public class TestVst3Host {
 		TGVst3EditorWindow editor = once(plugin, TGVst3EditorWindow::isEmbedded);
 		double[] view = view(plugin);
 		return (editor.getParent() == app.window) + " " + editor.isShown() + " " + editor.getInside() + " " + (int) view[1] + "x" + (int) view[2];
+	}
+
+	// TuxGuitar's shortcuts (virtual key | modifiers << 8: 1 Shift, 2 Ctrl, 4 Alt) as the area passes them: Ctrl+Z, F8,
+	// Alt+Left
+	private static final int SHIFT = 1 << 8;
+	private static final int CTRL = 2 << 8;
+	private static final int ALT = 4 << 8;
+	// for the test: the plugin looks at the key typed without taking it (PeekMessage, PM_NOREMOVE)
+	private static final int PEEKED = 1 << 16;
+	private static final int[] SHORTCUTS = {'Z' | CTRL, 0x77, 0x25 | ALT};
+
+	// where a key typed in the plugin's view (with the modifiers held) went once it got there: "window <key>" when the
+	// stand-in heard it, as typed there with the modifiers its thread saw held, "view <key>" when the view did (both,
+	// joined by "and", when both did), or "nowhere" after 2 s
+	private static String typed(TGVst3Instance plugin, StandIn app, int key) throws TGVst3Exception {
+		Map<String, Long> typed = new java.util.HashMap<String, Long>();
+		typed.put("key", (long) (key & 0xFF));
+		typed.put("ctrl", (long) ((key & CTRL) != 0 ? 1 : 0));
+		typed.put("alt", (long) ((key & ALT) != 0 ? 1 : 0));
+		typed.put("shift", (long) ((key & SHIFT) != 0 ? 1 : 0));
+		typed.put("peek", (long) ((key & PEEKED) != 0 ? 1 : 0));
+		plugin.message("TG.type", typed, Collections.<String, byte[]>emptyMap());
+		long end = System.currentTimeMillis() + 2000;
+		String went = "";
+		while (went.isEmpty() && System.currentTimeMillis() < end) {
+			LockSupport.parkNanos(5000000);
+			went = went(heard(app.maker)[0], heard(plugin)[1]);
+		}
+		return (went.isEmpty() ? "nowhere" : went);
+	}
+
+	private static String went(String window, String view) {
+		String both = (!window.isEmpty() && !view.isEmpty() ? " and " : "");
+		return (window.isEmpty() ? "" : "window " + window) + both + (view.isEmpty() ? "" : "view " + view);
+	}
+
+	// what the windows of the plugin's host process heard since last asked: the stand-in's, the views'
+	private static String[] heard(TGVst3Instance plugin) throws TGVst3Exception {
+		byte[] report = plugin.message("TG.keys", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		return new String(report, StandardCharsets.UTF_8).split(" \\| ", -1);
+	}
+
+	private static String typedAll(TGVst3Instance plugin, StandIn app, int... keys) throws TGVst3Exception {
+		List<String> went = new ArrayList<String>();
+		for (int key : keys) {
+			went.add(typed(plugin, app, key));
+		}
+		return String.join(", ", went);
+	}
+
+	// Test Gain's editor inside the stand-in, passing the shortcuts (SHORTCUTS)
+	private TGVst3Instance passingShortcuts(StandIn app) throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(app.at(1.0).passing(SHORTCUTS), "");
+		once(gain, TGVst3EditorWindow::isEmbedded);
+		return gain;
+	}
+
+	// the shortcuts passed, typed in an editor inside a window of TuxGuitar (in another process), go to that window as if
+	// typed there, their modifiers held; other keys, and those keys with other modifiers, stay with the plugin's view
+	@Test
+	public void theKeysPassedGoToTheWindowTheEditorIsInTheOthersStayWithTheView() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passingShortcuts(app);
+			assertEquals("window Z+ctrl, view Z, window F8, view Space, window #37+alt, view A+ctrl, view #37, view Z+ctrl+shift",
+				typedAll(gain, app, 'Z' | CTRL, 'Z', 0x77, ' ', 0x25 | ALT, 'A' | CTRL, 0x25, 'Z' | CTRL | SHIFT));
+		}
+	}
+
+	// a key passed that the plugin's code looks at before its host takes it (a loop of its own peeking at its queue)
+	// still goes to the window once, when it is taken
+	@Test
+	public void aKeyPassedIsPassedOnceThoughThePluginPeeksAtIt() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passingShortcuts(app);
+			assertEquals("window F8, view Space", typedAll(gain, app, 0x77 | PEEKED, ' '));
+		}
+	}
+
+	// embedded again in the same window, an editor passes the keys given then; a window of its own passes none
+	@Test
+	public void anEditorPassesTheKeysGivenLastAndNoneInAWindowOfItsOwn() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passingShortcuts(app);
+			gain.openEditor(app.at(1.0).passing(new int[] {0x77}), "");
+			String again = typedAll(gain, app, 'Z' | CTRL, 0x77);
+			gain.openEditor(TGEditorTarget.floating(0).passing(SHORTCUTS), "");
+			once(gain, editor -> !editor.isEmbedded());
+			assertEquals("view Z+ctrl, window F8 | view F8", again + " | " + typed(gain, app, 0x77));
+		}
 	}
 
 	// an editor put inside a window of TuxGuitar is a child of that window, as wide as its inside when its view can be
