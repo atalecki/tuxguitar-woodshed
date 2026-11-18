@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cwchar>
 #include <functional>
 #include <map>
 
@@ -686,11 +687,29 @@ const PassedKeys* passingFor(HWND window) {
 	return nullptr;
 }
 
+// the keys a standard text box keeps while it has the focus, though its frame passes them: copy, cut, paste, select all
+// and undo, Ctrl alone held
+const std::set<int32> kTextBoxKeys = {'C' | 2 << 8, 'X' | 2 << 8, 'V' | 2 << 8, 'A' | 2 << 8, 'Z' | 2 << 8};
+
+// one of Windows' standard text boxes: its class Edit (as Windows names it), or RichEdit... in any case (RichEdit20W,
+// RICHEDIT50W)
+bool isTextBox(HWND window) {
+	wchar_t name[32] = {};
+	GetClassNameW(window, name, 32);
+	return (std::wcscmp(name, L"Edit") == 0 || _wcsnicmp(name, L"RichEdit", 8) == 0);
+}
+
+// whether the window the key came to (Windows sends keys to the window with the focus) keeps it: a standard text box,
+// and a key it edits with
+bool keptByTextBox(HWND focused, int32 key) { return (kTextBoxKeys.count(key) > 0 && isTextBox(focused)); }
+
 // a key typed in an editor inside a window of TuxGuitar that its frame passes goes to that window instead, as if typed
-// there, posted (nothing waits on TuxGuitar's thread); the view gets nothing
+// there, posted (nothing waits on TuxGuitar's thread); the view gets nothing. A standard text box with the focus keeps
+// the keys it edits with (a plugin drawing its own text boxes does not: those go to TuxGuitar)
 void passOn(MSG* message) {
 	const PassedKeys* passed = passingFor(message->hwnd);
-	if (passed && passed->keys.count((int32) message->wParam | modifiersHeld() << 8)) {
+	int32 key = (int32) message->wParam | modifiersHeld() << 8;
+	if (passed && passed->keys.count(key) && !keptByTextBox(message->hwnd, key)) {
 		PostMessageW(passed->parent, message->message, message->wParam, message->lParam);
 		message->message = WM_NULL;
 	}

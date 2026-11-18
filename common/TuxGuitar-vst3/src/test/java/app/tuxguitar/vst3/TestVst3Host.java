@@ -1086,7 +1086,13 @@ public class TestVst3Host {
 	private static final int ALT = 4 << 8;
 	// for the test: the plugin looks at the key typed without taking it (PeekMessage, PM_NOREMOVE)
 	private static final int PEEKED = 1 << 16;
+	// for the test: the key is typed in a standard text box of the plugin's view, which has the focus: an Edit, a RichEdit
+	private static final int IN_EDIT = 1 << 17;
+	private static final int IN_RICH_EDIT = 2 << 17;
 	private static final int[] SHORTCUTS = {'Z' | CTRL, 0x77, 0x25 | ALT};
+	// and TuxGuitar's shortcuts a text box has its own meaning for: copy, cut, paste, select all (Ctrl alone held; with
+	// Shift too, Ctrl+Shift+C stands for one that is not)
+	private static final int[] WITH_EDITING = {'Z' | CTRL, 0x77, 0x25 | ALT, 'C' | CTRL, 'X' | CTRL, 'V' | CTRL, 'A' | CTRL, 'C' | CTRL | SHIFT};
 
 	// where a key typed in the plugin's view (with the modifiers held) went once it got there: "window <key>" when the
 	// stand-in heard it, as typed there with the modifiers its thread saw held, "view <key>" when the view did (both,
@@ -1098,6 +1104,7 @@ public class TestVst3Host {
 		typed.put("alt", (long) ((key & ALT) != 0 ? 1 : 0));
 		typed.put("shift", (long) ((key & SHIFT) != 0 ? 1 : 0));
 		typed.put("peek", (long) ((key & PEEKED) != 0 ? 1 : 0));
+		typed.put("box", (long) (key >> 17));
 		plugin.message("TG.type", typed, Collections.<String, byte[]>emptyMap());
 		long end = System.currentTimeMillis() + 2000;
 		String went = "";
@@ -1129,10 +1136,30 @@ public class TestVst3Host {
 
 	// Test Gain's editor inside the stand-in, passing the shortcuts (SHORTCUTS)
 	private TGVst3Instance passingShortcuts(StandIn app) throws TGVst3Exception {
+		return passing(app, SHORTCUTS);
+	}
+
+	private TGVst3Instance passing(StandIn app, int[] keys) throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		gain.openEditor(app.at(1.0).passing(SHORTCUTS), "");
+		gain.openEditor(app.at(1.0).passing(keys), "");
 		once(gain, TGVst3EditorWindow::isEmbedded);
 		return gain;
+	}
+
+	// while a standard text box of the plugin's editor has the focus (an Edit, a RichEdit: a key comes to the window with
+	// the focus), the shortcuts passed that it edits with (Ctrl+C, X, V, A, Z) stay with it; the other shortcuts passed
+	// still go to the window, and so do those typed elsewhere in the editor (a plugin drawing its own text boxes)
+	@Test
+	public void aStandardTextBoxWithTheFocusKeepsTheEditingKeysOthersStillGoToTheWindow() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passing(app, WITH_EDITING);
+			String edit = typedAll(gain, app, 'C' | CTRL | IN_EDIT, 'X' | CTRL | IN_EDIT, 'V' | CTRL | IN_EDIT, 'A' | CTRL | IN_EDIT, 'Z' | CTRL | IN_EDIT,
+				0x77 | IN_EDIT, 0x25 | ALT | IN_EDIT, 'C' | CTRL | SHIFT | IN_EDIT);
+			String rich = typedAll(gain, app, 'V' | CTRL | IN_RICH_EDIT, 0x77 | IN_RICH_EDIT);
+			assertEquals("view C+ctrl, view X+ctrl, view V+ctrl, view A+ctrl, view Z+ctrl, window F8, window #37+alt, window C+ctrl+shift"
+				+ " | view V+ctrl, window F8 | window C+ctrl, window Z+ctrl", edit + " | " + rich + " | " + typedAll(gain, app, 'C' | CTRL, 'Z' | CTRL));
+		}
 	}
 
 	// the shortcuts passed, typed in an editor inside a window of TuxGuitar (in another process), go to that window as if

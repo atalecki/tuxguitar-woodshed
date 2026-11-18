@@ -230,6 +230,30 @@ void typeKey(void* own, int64 key, int64 ctrl, int64 alt, int64 shift) {
 	PostMessageW((HWND) own, (alt ? WM_SYSKEYDOWN : WM_KEYDOWN), (WPARAM) key, details);
 }
 
+// the plugin's standard text boxes inside its view's own window, by kind (1 an Edit, 2 a RichEdit), each made when first
+// typed in: the keys that come to one are the view's (kViewHeard), then the box does what it does with them
+const int kEdit = 1;
+WNDPROC boxProcedures[3] = {};
+
+LRESULT CALLBACK boxProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	heard(kViewHeard, message, wParam);
+	return CallWindowProcW(boxProcedures[GetWindowLongPtrW(window, GWLP_ID)], window, message, wParam, lParam);
+}
+
+HWND textBox(HWND own, int64 kind) {
+	HWND box = GetDlgItem(own, (int) kind);
+	if (!box) {
+		LoadLibraryW(L"Msftedit.dll");
+		box = CreateWindowExW(0, (kind == kEdit ? L"Edit" : L"RICHEDIT50W"), L"", WS_CHILD | WS_VISIBLE, 0, 0, 100, 20, own, (HMENU) (INT_PTR) kind,
+		                      GetModuleHandleW(nullptr), nullptr);
+		boxProcedures[kind] = (WNDPROC) SetWindowLongPtrW(box, GWLP_WNDPROC, (LONG_PTR) boxProcedure);
+	}
+	return box;
+}
+
+// where a key typed in the editor goes: its text box of that kind (it has the focus), or the view's own window (0)
+void* typedInto(void* own, int64 box) { return (box ? textBox((HWND) own, box) : own); }
+
 // as a plugin's code looks at its thread's next message without taking it (PeekMessage, PM_NOREMOVE), when asked
 void peekQueue(int64 peek) {
 	MSG next;
@@ -268,6 +292,8 @@ void endViewWindow(void*) {}
 void typeKey(void*, int64, int64, int64, int64) {}
 
 void peekQueue(int64) {}
+
+void* typedInto(void* own, int64) { return own; }
 
 #endif
 
@@ -630,16 +656,17 @@ tresult TestPlugin::placeMessage(FIDString id, IAttributeList* attributes, int64
 }
 
 // "TG.type": as the user types the "key" (a virtual-key number) in the editor's view, with "ctrl", "alt" and "shift"
-// held when 1, the plugin then looking at the key without taking it when "peek" is 1; "TG.keys": what the windows of this process heard since last asked, the stand-in's then the views'
+// held when 1, the plugin then looking at the key without taking it when "peek" is 1, typed in the view's text box of
+// the kind "box" says (1 an Edit, 2 a RichEdit; 0 none, the view itself); "TG.keys": what the windows of this process heard since last asked, the stand-in's then the views'
 // ("<stand-in> | <views>", UTF-8); else restoringMessage
 tresult TestPlugin::keyMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "TG.type") == 0) {
-		int64 typed[5] = {0, 0, 0, 0, 0};
-		const char* names[5] = {"key", "ctrl", "alt", "shift", "peek"};
-		for (int i = 0; i < 5; i++) {
+		int64 typed[6] = {0, 0, 0, 0, 0, 0};
+		const char* names[6] = {"key", "ctrl", "alt", "shift", "peek", "box"};
+		for (int i = 0; i < 6; i++) {
 			attributes->getInt(names[i], typed[i]);
 		}
-		typeKey(view.own, typed[0], typed[1], typed[2], typed[3]);
+		typeKey(typedInto(view.own, typed[5]), typed[0], typed[1], typed[2], typed[3]);
 		peekQueue(typed[4]);
 		return kResultOk;
 	}
