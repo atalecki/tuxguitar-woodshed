@@ -11,6 +11,7 @@ import app.tuxguitar.audio.TGDefaultInstrumentSource;
 import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChainRows;
+import app.tuxguitar.audio.TGSoundChainRows.Control;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
 import app.tuxguitar.audio.action.TGChooseVst3InstrumentAction;
@@ -61,14 +62,7 @@ public class TGSoundChainDialog {
 	private UIListBoxSelect<Integer> rows;
 	private UIDropDownSelect<TGVst3Plugin> effects;
 	private UIDropDownSelect<TGVst3Plugin> instruments;
-	private UIButton addEffect;
-	private UIButton chooseInstrument;
-	private UIButton defaultInstrument;
-	private UIButton keep;
-	private UIButton up;
-	private UIButton remove;
-	private UIButton enable;
-	private UIButton edit;
+	private final TGSoundChainButtons buttons = new TGSoundChainButtons();
 	private UIButton scan;
 	// what the last scan found, skipped and why (TGPluginScan)
 	private UIReadOnlyTextBox status;
@@ -87,15 +81,15 @@ public class TGSoundChainDialog {
 		this.rows.addSelectionListener(event -> this.updateButtons());
 		this.layout().set(this.rows, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, true, 1, 4, 360f, 160f, null);
 		this.effects = this.plugins(2, "audio.sound-chain.effect");
-		this.addEffect = this.button(2, 4, "audio.sound-chain.add-effect", this::addEffect);
+		this.buttons.put(Control.ADD_EFFECT, this.button(2, 4, "audio.sound-chain.add-effect", this::addEffect));
 		this.instruments = this.plugins(3, "audio.sound-chain.instrument");
-		this.chooseInstrument = this.button(3, 4, "audio.sound-chain.choose-instrument", this::chooseInstrument);
-		this.keep = this.button(4, 3, "audio.sound-chain.keep", () -> this.change(new TGActionProcessor(this.context, TGKeepDefaultInstrumentAction.NAME)));
-		this.defaultInstrument = this.button(4, 4, "audio.sound-chain.default-instrument", () -> this.change(new TGActionProcessor(this.context, TGChooseGeneralMidiAction.NAME)));
-		this.up = this.button(5, 1, "audio.sound-chain.up", () -> this.changeEffect(TGMoveEffectUpAction.NAME));
-		this.remove = this.button(5, 2, "audio.sound-chain.remove", () -> this.changeEffect(TGRemoveEffectAction.NAME));
-		this.enable = this.button(5, 3, "audio.sound-chain.disable", this::toggleEnabled);
-		this.edit = this.button(5, 4, "audio.sound-chain.edit", this::openEditor);
+		this.buttons.put(Control.USE_AS_SOURCE, this.button(3, 4, "audio.sound-chain.choose-instrument", this::chooseInstrument));
+		this.buttons.put(Control.KEEP, this.button(4, 3, "audio.sound-chain.keep", () -> this.change(new TGActionProcessor(this.context, TGKeepDefaultInstrumentAction.NAME))));
+		this.buttons.put(Control.DEFAULT_INSTRUMENT, this.button(4, 4, "audio.sound-chain.default-instrument", () -> this.change(new TGActionProcessor(this.context, TGChooseGeneralMidiAction.NAME))));
+		this.buttons.put(Control.MOVE_UP, this.button(5, 1, "audio.sound-chain.up", () -> this.changeEffect(TGMoveEffectUpAction.NAME)));
+		this.buttons.put(Control.REMOVE, this.button(5, 2, "audio.sound-chain.remove", () -> this.changeEffect(TGRemoveEffectAction.NAME)));
+		this.buttons.put(Control.TOGGLE, this.button(5, 3, "audio.sound-chain.disable", this::toggleEnabled));
+		this.buttons.put(Control.EDIT, this.button(5, 4, "audio.sound-chain.edit", this::openEditor));
 		this.status = this.factory.createReadOnlyTextBox(this.dialog, true, false);
 		this.layout().set(this.status, 6, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 4, 360f, 120f, null);
 		this.scan = this.button(7, 1, "audio.sound-chain.scan", this::scanAgain);
@@ -193,17 +187,7 @@ public class TGSoundChainDialog {
 	}
 
 	private void updateButtons() {
-		TGSoundChainRows chain = this.chain();
-		int row = TGSoundChainRows.row(this.rows.getSelectedValue());
-		this.addEffect.setEnabled(chain.canAdd(this.effects.getSelectedValue()));
-		this.chooseInstrument.setEnabled(chain.canChoose(this.instruments.getSelectedValue()));
-		this.defaultInstrument.setEnabled(chain.canChooseSource());
-		this.keep.setEnabled(chain.canKeep());
-		this.up.setEnabled(chain.canMoveUp(row));
-		this.remove.setEnabled(chain.isEffect(row));
-		this.enable.setEnabled(chain.isEffect(row));
-		this.enable.setText(TuxGuitar.getProperty(chain.toggleKey(row)));
-		this.edit.setEnabled(chain.canEdit(row));
+		this.buttons.apply(this.chain(), TGSoundChainRows.row(this.rows.getSelectedValue()), this.effects.getSelectedValue(), this.instruments.getSelectedValue());
 	}
 
 	// the change runs on the action's thread; the rows are read again on the UI thread once it is done (the dialog still

@@ -19,6 +19,39 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  */
 public final class TGSoundChainRows {
 
+	// what an app's sound chain editor can be asked to do, each enabled or greyed for the row picked (the one place that
+	// decides it): add the VST3 effect picked, make the VST3 instrument picked or the default instrument the source, keep
+	// the default instrument in the song, move the picked effect up, remove it, enable or disable it, open its editor
+	public enum Control {
+		ADD_EFFECT((rows, row, effect, instrument) -> rows.canAdd(effect)),
+		USE_AS_SOURCE((rows, row, effect, instrument) -> rows.canChoose(instrument)),
+		DEFAULT_INSTRUMENT((rows, row, effect, instrument) -> rows.canChooseSource()),
+		KEEP((rows, row, effect, instrument) -> rows.canKeep()),
+		MOVE_UP((rows, row, effect, instrument) -> rows.canMoveUp(row)),
+		REMOVE((rows, row, effect, instrument) -> rows.isEffect(row)),
+		TOGGLE((rows, row, effect, instrument) -> rows.isEffect(row)),
+		EDIT((rows, row, effect, instrument) -> rows.canEdit(row));
+
+		private final Rule rule;
+
+		Control(Rule rule) {
+			this.rule = rule;
+		}
+	}
+
+	private interface Rule {
+		boolean allows(TGSoundChainRows rows, int row, TGVst3Plugin effect, TGVst3Plugin instrument);
+	}
+
+	// no track (no song shown yet): no rows, every control greyed; nothing else is asked of it
+	public static final TGSoundChainRows NONE = new TGSoundChainRows(null, null, null);
+
+	// whether the control is enabled for the row picked (-1: none), the plugins picked in the app's drop-downs given
+	// (null: none)
+	public boolean isEnabled(Control control, int row, TGVst3Plugin effect, TGVst3Plugin instrument) {
+		return this.chain != null && control.rule.allows(this, row, effect, instrument);
+	}
+
 	private final TGChannel channel;
 	private final TGProgram chain;
 	// what the channel plays without an instrument of its own, or null when that is not known
@@ -42,6 +75,9 @@ public final class TGSoundChainRows {
 	// source: what the app calls the source
 	public List<String> getRows(String source) {
 		List<String> rows = new ArrayList<String>();
+		if (this.chain == null) {
+			return rows;
+		}
 		rows.add(source + ": " + this.source());
 		for (int i = 0; i < this.chain.countOutputs(); i++) {
 			rows.add((i + 1) + ". " + TGSoundChain.effect(this.chain.getOutput(i), this.channel));
