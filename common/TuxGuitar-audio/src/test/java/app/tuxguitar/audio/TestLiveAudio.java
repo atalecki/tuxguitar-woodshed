@@ -417,6 +417,16 @@ class TestLiveAudio {
 			TuxGuitarMessages.english(this::openThenFailed));
 	}
 
+	// as the language TuxGuitar shows says it (a made-up German); the reason there is none stays as it was given
+	@Test
+	void itDescribesTheDeviceOrWhyThereIsNoneInTuxGuitarsLanguage() {
+		this.open(settings("ASIO", "Interface", 2, 0));
+		Map<String, String> german = Map.of("audio.device.open", "TuxGuitar-Audio: {0} mit {1} Hz, Latenz {2} ein und {3} aus",
+			"audio.device.none", "TuxGuitar-Audio: kein Gerät ({0}), der TuxGuitar-Synthesizer spielt über Java Sound");
+		assertEquals("TuxGuitar-Audio: Interface (ASIO) mit 44100 Hz, Latenz 0 ein und 300 aus | TuxGuitar-Audio: kein Gerät (no library), der TuxGuitar-Synthesizer spielt über Java Sound",
+			TuxGuitarMessages.said(german, this::openThenFailed));
+	}
+
 	// the description of the device open, then of none for want of a library
 	private String openThenFailed() {
 		String open = this.audio.describe();

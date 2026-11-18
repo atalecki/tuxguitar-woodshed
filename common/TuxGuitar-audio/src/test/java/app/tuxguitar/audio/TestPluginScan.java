@@ -132,6 +132,40 @@ class TestPluginScan {
 			TGPluginScan.NONE + " | " + TGPluginScan.failed("no VST3 host is configured"));
 	}
 
+	// a made-up German: what a scan says, and the capture players' names, as the language TuxGuitar shows says them
+	private static final Map<String, String> GERMAN = Map.ofEntries(
+		Map.entry("audio.scan.found", "VST3-Effekte: {0}, VST3-Instrumente: {1}."),
+		Map.entry("audio.scan.skipped", "Übersprungen: {0} ({1})"),
+		Map.entry("audio.scan.folders", "Durchsuchte Ordner: {0}"),
+		Map.entry("audio.scan.not-yet", "Die VST3-Ordner sind noch nicht durchsucht."),
+		Map.entry("audio.scan.failed", "Die VST3-Ordner ließen sich nicht durchsuchen: {0}"),
+		Map.entry("audio.scan.captures", "NAM-Captures: {0}. {1} spielt sie."),
+		Map.entry("audio.scan.captures.no-player", "NAM-Captures: {0}. Installiere {1} oder {2}."),
+		Map.entry("audio.scan.players", "{0} oder {1}"),
+		Map.entry("audio.capture-player.gateway", "Gateway (NAM)"),
+		Map.entry("audio.capture-player.tone3000", "das TONE3000-Plugin"),
+		Map.entry("audio.capture-player.neural-amp-modeler", "das Neural-Amp-Modeler-Plugin"));
+
+	// the lines are said when they are read, in the language TuxGuitar shows then
+	@Test
+	void aScanIsSaidAsTheLanguageTuxGuitarShowsSaysIt() {
+		List<TGVst3Plugin> plugins = Arrays.asList(plugin("TONE3000", false), plugin("NAM Gateway", false), plugin("Piano", true));
+		List<TGVst3SkippedModule> skipped = Arrays.asList(new TGVst3SkippedModule(new File("common", "Broken.vst3"), "the VST3 host stopped"));
+		TGPluginScan scan = TGPluginScan.of(FOLDERS, plugins, skipped, captures(2));
+		TuxGuitarMessages.speak(GERMAN);
+		assertEquals(Arrays.asList("VST3-Effekte: 2, VST3-Instrumente: 1.", "NAM-Captures: 2. Gateway (NAM) oder das TONE3000-Plugin spielt sie.",
+			"Übersprungen: Broken.vst3 (the VST3 host stopped)", "Durchsuchte Ordner: " + FOLDERS.get(0) + ", " + FOLDERS.get(1)), scan.getLines());
+	}
+
+	@Test
+	void beforeTheFirstScanWhenItFailsAndWithoutAPlayerTheUserIsToldSoInTuxGuitarsLanguage() {
+		TuxGuitarMessages.speak(GERMAN);
+		assertEquals("Die VST3-Ordner sind noch nicht durchsucht. | Die VST3-Ordner ließen sich nicht durchsuchen: no VST3 host is configured"
+			+ " | NAM-Captures: 2. Installiere Gateway (NAM) oder das TONE3000-Plugin. | NAM-Captures: 2. das Neural-Amp-Modeler-Plugin spielt sie.",
+			TGPluginScan.NONE + " | " + TGPluginScan.failed("no VST3 host is configured") + " | " + captureLine(Collections.<TGVst3Plugin>emptyList())
+			+ " | " + captureLine(Arrays.asList(plugin("NeuralAmpModeler", false))));
+	}
+
 	@Test
 	void theScanReadsItsLinesOneUnderTheOther() {
 		assertEquals("VST3 effects found: 0. VST3 instruments found: 0.\nFolders scanned: " + FOLDERS.get(0) + ", " + FOLDERS.get(1),

@@ -24,6 +24,7 @@ import app.tuxguitar.midi.synth.TGSynthChannelListener;
 import app.tuxguitar.midi.synth.TGSynthChannelProcessor;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Element;
@@ -56,6 +57,9 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	static final long LOAD_WAIT = 5000;
 
 	private static final TGLog LOG = TGLog.get(TGLivePlugins.class);
+	// the refusals to open a plugin or its editor, in TuxGuitar's language: {0} the plugin, {1} the host's reason
+	private static final String NOT_OPENED = "audio.plugin.refusal.not-opened";
+	private static final String EDITOR_NOT_OPENED = "audio.plugin.refusal.editor-not-opened";
 
 	private final TGContext context;
 	private final boolean live;
@@ -178,7 +182,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		TGVst3Instance instance = plugin.getInstance();
 		if (instance == null) {
 			processor.close();
-			throw new TGVst3Exception("The VST3 plugin " + TGVst3Element.getName(element) + " could not be opened: " + plugin.getProblem());
+			throw new TGVst3Exception(TGMessagesManager.getProperty(NOT_OPENED, new Object[] {TGVst3Element.getName(element), plugin.getProblem()}));
 		}
 		return new Kept(processor, this.listened(channel, element.getId(), instance), element.getParameters());
 	}
@@ -296,7 +300,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			return instance.openEditor(owner, title);
 		} catch (TGVst3Exception e) {
 			String plugin = TGVst3Element.getName(TGSoundChain.element(this.chain(channel), element));
-			throw new TGVst3Exception("The editor of the VST3 plugin " + plugin + " could not be opened: " + e.getMessage(), e);
+			throw new TGVst3Exception(TGMessagesManager.getProperty(EDITOR_NOT_OPENED, new Object[] {plugin, e.getMessage()}), e);
 		}
 	}
 

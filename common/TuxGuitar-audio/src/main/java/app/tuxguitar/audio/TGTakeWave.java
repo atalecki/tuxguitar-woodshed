@@ -10,18 +10,24 @@ import java.nio.charset.StandardCharsets;
 
 import app.tuxguitar.io.tg.TGTakeCodec;
 import app.tuxguitar.song.models.TGTake;
+import app.tuxguitar.util.TGMessagesManager;
 
 /**
  * A take in a TuxGuitar file (format 3.0): an uncompressed WAVE file of 32-bit float samples (IEEE float, little
  * endian, the channels interleaved) at the sample rate the take was recorded at; it is resampled only to play or export.
  * The samples stream through a buffer of BLOCK frames both ways: writing does not copy a take, reading fills the take's
- * own arrays. Reading skips the chunks it does not need, and refuses what is not a 32-bit float wave file.
+ * own arrays. Reading skips the chunks it does not need, and refuses what is not a 32-bit float wave file, saying why in
+ * TuxGuitar's language (the messages NOT_WAVE, NOT_FLOAT, ENDS_EARLY).
  */
 public final class TGTakeWave implements TGTakeCodec {
 
 	private static final int BLOCK = 4096;
 	private static final int BYTES = 4;
 	private static final short IEEE_FLOAT = 3;
+	// why a file is refused: "Not a wave file", "... of 32-bit float samples", "The wave file ends early"
+	private static final String NOT_WAVE = "audio.take.refusal.not-wave";
+	private static final String NOT_FLOAT = "audio.take.refusal.not-float";
+	private static final String ENDS_EARLY = "audio.take.refusal.ends-early";
 
 	public String getExtension() {
 		return "wav";
@@ -56,11 +62,11 @@ public final class TGTakeWave implements TGTakeCodec {
 	public TGTake read(InputStream in) throws IOException {
 		ByteBuffer riff = bytes(in, 12);
 		if (!"RIFF".equals(ascii(riff, 0)) || !"WAVE".equals(ascii(riff, 8))) {
-			throw new IOException("Not a wave file");
+			throw new IOException(TGMessagesManager.getProperty(NOT_WAVE));
 		}
 		ByteBuffer format = chunk(in, "fmt ");
 		if (format.getShort(0) != IEEE_FLOAT || format.getShort(14) != BYTES * 8) {
-			throw new IOException("Not a wave file of 32-bit float samples");
+			throw new IOException(TGMessagesManager.getProperty(NOT_FLOAT));
 		}
 		float[][] samples = new float[format.getShort(2)][chunkSize(in, "data") / (format.getShort(2) * BYTES)];
 		read(in, samples);
@@ -83,7 +89,7 @@ public final class TGTakeWave implements TGTakeCodec {
 	private static void fill(InputStream in, ByteBuffer block, int count) throws IOException {
 		block.clear();
 		if (in.readNBytes(block.array(), 0, count) < count) {
-			throw new EOFException("The wave file ends early");
+			throw new EOFException(TGMessagesManager.getProperty(ENDS_EARLY));
 		}
 	}
 
