@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
@@ -74,17 +75,23 @@ public final class TGSoundChainRows {
 		return new TGSoundChainRows(channel, TGSoundChain.get(channel), play);
 	}
 
-	// source: what the app calls the source
+	// source: what the app calls the source; each effect by its number (the Sound Chain dialog's list)
 	public List<String> getRows(String source) {
-		List<String> rows = new ArrayList<String>();
+		List<String> elements = this.getElements(source);
+		return IntStream.range(0, elements.size()).mapToObj(row -> (row > 0 ? row + ". " : "") + elements.get(row)).collect(Collectors.toList());
+	}
+
+	// the same without the effects' numbers (the Sound Chain panel's buttons, arrows between them)
+	public List<String> getElements(String source) {
+		List<String> elements = new ArrayList<String>();
 		if (this.chain == null) {
-			return rows;
+			return elements;
 		}
-		rows.add(source + ": " + this.source());
+		elements.add(source + ": " + this.source());
 		for (int i = 0; i < this.chain.countOutputs(); i++) {
-			rows.add((i + 1) + ". " + TGSoundChain.effect(this.chain.getOutput(i), this.channel));
+			elements.add(TGSoundChain.effect(this.chain.getOutput(i), this.channel));
 		}
-		return rows;
+		return elements;
 	}
 
 	// the source as the row names it: a default source says what plays and why, when that is known

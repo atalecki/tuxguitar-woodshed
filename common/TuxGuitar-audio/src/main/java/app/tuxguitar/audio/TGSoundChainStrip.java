@@ -2,15 +2,49 @@ package app.tuxguitar.audio;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
- * The Sound Chain panel's action line wraps: its groups of buttons (as wide as the app measured them, in pixels) go on
- * as few lines as fit the width there is, in their order (never reordered), a gap between two groups on one line; a
- * group wider than the width goes alone on its line. The panel's lines are laid out from it (place).
+ * The Sound Chain panel's lines wrap: their groups of controls (as wide as the app measured them, in pixels) go on as
+ * few lines as fit the width there is, in their order (never reordered), a gap between two groups on one line; a group
+ * wider than the width goes alone on its line. The panel's lines are laid out from it (place). On the chain line, each
+ * element of the chain is a group (links): its button, an arrow leading into it from the one before, so the arrows wrap
+ * with the elements.
  */
 public final class TGSoundChainStrip {
 
 	private TGSoundChainStrip() {
+	}
+
+	// the chain line's links, one per element in the order the sound flows (TGSoundChainRows.getElements): an arrow
+	// leads into each after the first
+	public static List<Link> links(List<String> elements) {
+		return IntStream.range(0, elements.size()).mapToObj(row -> new Link(row, elements.get(row))).collect(Collectors.toList());
+	}
+
+	// an element of the chain line: its row (the panel picks it by it), its text, whether an arrow leads into it
+	public static final class Link {
+
+		private final int row;
+		private final String text;
+
+		Link(int row, String text) {
+			this.row = row;
+			this.text = text;
+		}
+
+		public int getRow() {
+			return this.row;
+		}
+
+		public String getText() {
+			return this.text;
+		}
+
+		public boolean isArrowed() {
+			return this.row > 0;
+		}
 	}
 
 	// the groups' indexes on each line

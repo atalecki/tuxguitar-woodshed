@@ -15,6 +15,7 @@ import app.tuxguitar.audio.TGSoundChainFollow;
 import app.tuxguitar.audio.TGSoundChainFollow.Key;
 import app.tuxguitar.audio.TGSoundChainRows;
 import app.tuxguitar.audio.TGSoundChainRows.Control;
+import app.tuxguitar.audio.TGSoundChainStrip;
 import app.tuxguitar.editor.TGEditorManager;
 import app.tuxguitar.event.TGEvent;
 import app.tuxguitar.event.TGEventListener;
@@ -34,7 +35,8 @@ import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
  * The Sound Chain panel, docked at the foot of the main window (TGBottomDock): the caret's track's sound chain as a
- * line of buttons in the order the sound flows (the track's name, the source, then each effect), one picked, and under
+ * line of buttons in the order the sound flows (the track's name, the source, then each effect, an arrow leading into
+ * each after the source, TGSoundChainStrip.links: an arrow wraps with its element), one picked, and under
  * it the actions on the picked one and on the chain, as the Sound Chain dialog has them (Edit, Disable/Enable, Move
  * left, Remove, Add effect, Use as source, Default instrument, Keep in song), then "Sound Chain..." opening the dialog
  * (Scan again and the scan report are there) and, while the MIDI Port is not the TuxGuitar Synthesizer, a quiet line
@@ -55,6 +57,8 @@ final class TGSoundChainPanel implements TGEventListener {
 	// each text (re)set in the language chosen
 	private final List<Runnable> texts = new ArrayList<Runnable>();
 	private final List<UIToggleButton> chips = new ArrayList<UIToggleButton>();
+	// the chain line's groups: each element's button, after its arrow
+	private final List<UIPanel> links = new ArrayList<UIPanel>();
 	private UIPanel panel;
 	private UIPanel chain;
 	private UILabel title;
@@ -212,23 +216,33 @@ final class TGSoundChainPanel implements TGEventListener {
 	// the track's rows read (this touches the disk), the row picked as TGSoundChainFollow says
 	private void show(Key now) {
 		this.rows = now.rows(this.context);
-		List<String> read = this.rows.getRows(TuxGuitar.getProperty("audio.sound-chain.source"));
+		List<String> read = this.rows.getElements(TuxGuitar.getProperty("audio.sound-chain.source"));
 		this.picked = TGSoundChainFollow.picked(this.shown, now, this.picked, read.size());
 		this.shown = now;
 		this.title.setText(now.title(TuxGuitar.getProperty("audio.sound-chain.no-track")));
-		this.chips.forEach(UIControl::dispose);
+		this.links.forEach(UIControl::dispose);
+		this.links.clear();
 		this.chips.clear();
-		IntStream.range(0, read.size()).forEach(row -> this.chips.add(this.chip(row, read.get(row))));
+		TGSoundChainStrip.links(read).forEach(this::link);
 		this.offer(TGVst3Hosting.getInstance(this.context).getPlugins());
 		this.pick(this.picked);
 		TGBottomDock.getInstance(this.context).layout();
 	}
 
-	private UIToggleButton chip(int row, String text) {
-		UIToggleButton chip = this.factory.createToggleButton(this.chain);
+	// an element on the chain line: its button, after the arrow leading into it, kept together when the line wraps
+	private void link(TGSoundChainStrip.Link link) {
+		UIPanel group = this.group(this.chain);
+		if (link.isArrowed()) {
+			this.place(group, this.factory.createLabel(group)).setText(TuxGuitar.getProperty("audio.sound-chain.flows-into"));
+		}
+		this.chips.add(this.place(group, this.chip(group, link.getRow(), link.getText())));
+		this.links.add(group);
+	}
+
+	private UIToggleButton chip(UIPanel group, int row, String text) {
+		UIToggleButton chip = this.factory.createToggleButton(group);
 		chip.setText(text);
 		chip.addSelectionListener(event -> this.pick(row));
-		KeyBindingActionManager.getInstance(this.context).appendListenersTo(chip);
 		return chip;
 	}
 

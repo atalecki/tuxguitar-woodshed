@@ -2,6 +2,8 @@ package app.tuxguitar.audio;
 
 import static app.tuxguitar.editor.action.SongActionFixture.reads;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DynamicTest;
@@ -36,6 +38,22 @@ class TestSoundChainStrip {
 			reads("two lines", "0.0,2.5 104.0,0.0 0.0,34.0 | 184.0x54.0", () -> place(200, new float[] {100, 80, 60}, new float[] {25, 30, 20})),
 			reads("one line", "0.0,2.5 104.0,0.0 | 184.0x30.0", () -> place(500, new float[] {100, 80}, new float[] {25, 30})),
 			reads("nothing", "| 0.0x0.0", () -> place(500, new float[0], new float[0])));
+	}
+
+	// each link of the chain line: "<row>:<text>", "-> " before it when an arrow leads into it
+	private static String links(String... elements) {
+		return TGSoundChainStrip.links(Arrays.asList(elements)).stream().map(link -> (link.isArrowed() ? "-> " : "") + link.getRow() + ":" + link.getText())
+			.collect(Collectors.joining(" "));
+	}
+
+	// the chain line: the elements in the order the sound flows, an arrow leading into each after the first (so a line
+	// that wraps starts with the arrow into its first element, never ends on one)
+	@TestFactory
+	Stream<DynamicTest> anArrowLeadsIntoEachElementAfterTheSource() {
+		return Stream.of(
+			reads("a source and two effects", "0:Source: drone -> 1:Test Gain -> 2:[echo]", () -> links("Source: drone", "Test Gain", "[echo]")),
+			reads("a source alone", "0:Source: takes", () -> links("Source: takes")),
+			reads("no track", "", () -> links()));
 	}
 
 	@TestFactory

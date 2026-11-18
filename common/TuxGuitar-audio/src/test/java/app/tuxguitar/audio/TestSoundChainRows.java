@@ -57,6 +57,13 @@ class TestSoundChainRows {
 		assertEquals("Source: drone | 1. Test Gain | 2. [echo]", String.join(" | ", TGSoundChainRows.of(this.guitar).getRows("Source")));
 	}
 
+	// the Sound Chain panel's buttons: the same, without the effects' numbers (arrows show the order there)
+	@Test
+	void theElementsAsThePanelNamesThemWithoutNumbers() {
+		assertEquals("Source: drone | Test Gain | [echo] || ", String.join(" | ", TGSoundChainRows.of(this.guitar).getElements("Source")) + " || "
+			+ String.join(" | ", TGSoundChainRows.NONE.getElements("Source")));
+	}
+
 	// the source is not moved, removed or disabled; the first effect is not moved up; only a VST3 plugin has an editor
 	@Test
 	void whatCanBeDoneWithTheRowPicked() {
