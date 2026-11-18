@@ -4,14 +4,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import app.tuxguitar.util.log.TGLog;
+import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3Exception;
 
 /**
- * An open editor of a VST3 plugin of a sound chain: the plugin's own editor, in a window of its host process, or, for a
- * plugin without one, TuxGuitar's parameter editor, which shows a row per parameter of the plugin (its preset list is no
- * parameter there), at the values the plugin held when they were read. It is open while its plugin runs. Its watcher
- * (one at a time; an app's window) is told each time the plugin may hold other values (its chain ran again: a change,
- * an undo, a redo; the rows are read again on refresh) and once the editor closes; on any thread.
+ * An open editor of a VST3 plugin of a sound chain: the plugin's own editor, in a window of its host process or inside a
+ * window of TuxGuitar (as the host opened it: getOpened; too large for that window, nothing is open), or, for a plugin
+ * without one, TuxGuitar's parameter editor, which shows a row per parameter of the plugin (its preset list is no
+ * parameter there), at the values the plugin held when they were read. It is open while its plugin runs; it has moved
+ * once another editor of the plugin's own opened (a plugin has one view at a time). Its watcher (one at a time; an app's
+ * window) is told each time the plugin may hold other values (its chain ran again: a change, an undo, a redo; the rows
+ * are read again on refresh), once it moved and once the editor closes; on any thread.
  */
 public final class TGPluginEditor {
 
@@ -22,20 +25,32 @@ public final class TGPluginEditor {
 		List<TGPluginParameterRow> read() throws TGVst3Exception;
 	}
 
-	private final boolean own;
+	// what became of it: open, moved (another editor of the plugin's own opened), closed (its plugin no longer runs, or
+	// it was closed)
+	public enum State {
+		OPEN, MOVED, CLOSED
+	}
+
+	private final TGVst3EditorOpened opened;
 	private final Rows plugin;
 	private volatile List<TGPluginParameterRow> rows;
-	private boolean open = true;
+	private State state = State.OPEN;
 	private Runnable watcher = () -> { };
 
-	TGPluginEditor(boolean own, Rows plugin) throws TGVst3Exception {
-		this.own = own;
+	TGPluginEditor(TGVst3EditorOpened opened, Rows plugin) throws TGVst3Exception {
+		this.opened = opened;
 		this.plugin = plugin;
 		this.rows = plugin.read();
 	}
 
+	// whether the plugin has an editor of its own (open, or too large for the window it was to go in)
 	public boolean isOwn() {
-		return this.own;
+		return (this.opened.getKind() != TGVst3EditorOpened.Kind.NONE);
+	}
+
+	// what the host did with the plugin's own editor
+	public TGVst3EditorOpened getOpened() {
+		return this.opened;
 	}
 
 	public List<TGPluginParameterRow> getRows() {
@@ -62,14 +77,18 @@ public final class TGPluginEditor {
 		}
 	}
 
+	public synchronized State getState() {
+		return this.state;
+	}
+
 	public synchronized boolean isOpen() {
-		return this.open;
+		return (this.state != State.CLOSED);
 	}
 
 	// the watcher from now on; told at once when the editor is closed already
 	public synchronized void watch(Runnable watcher) {
 		this.watcher = watcher;
-		if (!this.open) {
+		if (this.state == State.CLOSED) {
 			watcher.run();
 		}
 	}
@@ -79,9 +98,18 @@ public final class TGPluginEditor {
 		this.watcher.run();
 	}
 
-	// its plugin no longer runs
-	synchronized void close() {
-		this.open = false;
+	// another editor of the plugin's own opened: this one is not open there any more
+	void moved() {
+		this.become(State.MOVED);
+	}
+
+	// its plugin no longer runs, or it was closed
+	void close() {
+		this.become(State.CLOSED);
+	}
+
+	private synchronized void become(State state) {
+		this.state = state;
 		this.watcher.run();
 	}
 }

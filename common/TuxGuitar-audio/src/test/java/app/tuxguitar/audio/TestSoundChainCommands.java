@@ -152,16 +152,16 @@ class TestSoundChainCommands {
 		}).toString());
 	}
 
-	// a plugin without an editor of its own is edited in TuxGuitar's parameter editor, handed to the editor once open;
-	// one with its own editor is not
+	// the editor opened is handed to the editor once open: the plugin's own (as the host opened it), or, for a plugin
+	// without one, TuxGuitar's parameter editor
 	@Test
-	void aPluginWithoutItsOwnEditorHandsTheParameterEditor() {
-		List<String> parameters = new ArrayList<String>();
+	void theEditorOpenedIsHandedOnceOpen() {
+		List<String> opened = new ArrayList<String>();
 		this.commands.addEffect(this.hosting.find("Test Gain"));
 		this.commands.addEffect(this.hosting.find("Test Clip 0.5"));
-		this.commands.edit(1, TGEditorPlacement.floating(() -> 0L), editor -> parameters.add("gain " + editor.getRows().get(0).getTitle()));
-		this.commands.edit(2, TGEditorPlacement.floating(() -> 0L), editor -> parameters.add("clip " + editor.getRows().get(0).getTitle()));
-		assertEquals("[clip Ceiling] [done, done, done, done]", parameters + " " + this.told);
+		this.commands.edit(1, TGEditorPlacement.floating(() -> 0L), editor -> opened.add("gain own " + editor.isOwn() + " " + editor.getOpened().getKind()));
+		this.commands.edit(2, TGEditorPlacement.floating(() -> 0L), editor -> opened.add("clip own " + editor.isOwn() + " " + editor.getRows().get(0).getTitle()));
+		assertEquals("[gain own true OWN_WINDOW, clip own false Ceiling] [done, done, done, done]", opened + " " + this.told);
 	}
 
 	// so is the default instrument a source plays (General MIDI for a guitar track: its default) when it has no editor of

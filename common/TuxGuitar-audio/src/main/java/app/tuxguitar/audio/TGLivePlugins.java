@@ -30,6 +30,7 @@ import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGEditorTarget;
+import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Gestures;
@@ -326,8 +327,9 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	}
 
 	// the plugin's own editor where the target says (floating: shown in front in a window the owner window owns, a
-	// native window handle, TuxGuitar's window; 0: none) with the title as its caption, or TuxGuitar's parameter editor
-	// for a plugin without one
+	// native window handle, TuxGuitar's window, 0: none; or inside a window of TuxGuitar, unless it is too large for it)
+	// with the title as its caption, or TuxGuitar's parameter editor for a plugin without one. An editor of the plugin's
+	// own open before has moved (a plugin has one view at a time)
 	public synchronized TGPluginEditor openEditor(int channel, String element, TGEditorTarget target, String title) throws TGVst3Exception {
 		return this.openEditor(channel, element, target, title, LOAD_WAIT);
 	}
@@ -340,9 +342,31 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			this.await(end - System.currentTimeMillis());
 		}
 		TGVst3Instance instance = this.get(channel, element);
-		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, target.getOwner(), title), () -> rows(instance));
-		this.editors.put(key(channel, element), new Editor(editor, instance, this.edited(channel, element, instance)));
+		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, target, title), () -> rows(instance));
+		this.replace(key(channel, element), new Editor(editor, instance, this.edited(channel, element, instance)));
 		return editor;
+	}
+
+	// the editor open for the element from now on; one of the plugin's own it replaces has moved
+	private void replace(String key, Editor editor) {
+		Editor before = this.editors.put(key, editor);
+		if (before != null && before.editor.isOwn()) {
+			before.editor.moved();
+		}
+	}
+
+	// the editor closes, the plugin's own editor with it when it is the one open for its element (one that moved has
+	// none left to close); the plugin goes on
+	public synchronized void close(TGPluginEditor editor) {
+		this.editors.values().removeIf(open -> open.editor == editor && open.close());
+		editor.close();
+	}
+
+	// the plugin's own editor of the editor, inside a window of TuxGuitar, takes the width of that window now (when it
+	// can be resized): the size it takes, or TGVst3EditorOpened.NONE when it is no longer open there
+	public synchronized TGVst3EditorOpened fit(TGPluginEditor editor) throws TGVst3Exception {
+		Optional<Editor> open = this.editors.values().stream().filter(entry -> entry.editor == editor).findFirst();
+		return (open.isPresent() ? open.get().instance.fitEditor() : TGVst3EditorOpened.NONE);
 	}
 
 	// the default instrument the channel plays as its source, when the element is, with its plugin's state once restored,
@@ -358,10 +382,10 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return edited;
 	}
 
-	// whether the plugin opened an editor of its own; refused naming the plugin and the reason
-	private boolean ownEditor(TGVst3Instance instance, int channel, String element, long owner, String title) throws TGVst3Exception {
+	// what the host did with the plugin's own editor; refused naming the plugin and the reason
+	private TGVst3EditorOpened ownEditor(TGVst3Instance instance, int channel, String element, TGEditorTarget target, String title) throws TGVst3Exception {
 		try {
-			return instance.openEditor(owner, title);
+			return instance.openEditor(target, title);
 		} catch (TGVst3Exception e) {
 			String plugin = TGVst3Element.getName(TGSoundChain.element(this.chain(channel), element));
 			throw new TGVst3Exception(TGMessagesManager.getProperty(EDITOR_NOT_OPENED, new Object[] {plugin, e.getLocalizedMessage()}), e);
@@ -396,11 +420,17 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return (editor != null ? editor.editor : null);
 	}
 
-	// TuxGuitar's parameter editor open for the channel's effect (by its number; none: the VST3 instrument that is the
-	// source, or the default instrument played there), or null when that plugin's editor is its own or none is open
-	public synchronized TGPluginEditor parameterEditor(TGChannel channel, Integer effect) {
+	// the editor open for the channel's effect (by its number; none: the VST3 instrument that is the source, or the
+	// default instrument played there), its own or TuxGuitar's parameter editor, or null when none is open
+	public synchronized TGPluginEditor editor(TGChannel channel, Integer effect) {
 		TGProgramElement plugin = TGDefaultInstrumentSource.install(this.context).edited(channel, effect);
-		TGPluginEditor editor = (plugin != null ? this.getEditor(channel.getChannelId(), plugin.getId()) : null);
+		return (plugin != null ? this.getEditor(channel.getChannelId(), plugin.getId()) : null);
+	}
+
+	// TuxGuitar's parameter editor open for the channel's effect, or null when that plugin's editor is its own or none is
+	// open
+	public synchronized TGPluginEditor parameterEditor(TGChannel channel, Integer effect) {
+		TGPluginEditor editor = this.editor(channel, effect);
 		return (editor != null && !editor.isOwn() ? editor : null);
 	}
 

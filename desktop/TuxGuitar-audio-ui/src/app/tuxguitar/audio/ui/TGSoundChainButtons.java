@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import app.tuxguitar.app.TuxGuitar;
+import app.tuxguitar.audio.TGPluginEditor;
 import app.tuxguitar.audio.TGSoundChainCommands;
 import app.tuxguitar.audio.TGSoundChainRows;
 import app.tuxguitar.audio.TGSoundChainRows.Control;
@@ -51,7 +52,13 @@ final class TGSoundChainButtons {
 	// over the window given
 	static void edit(TGContext context, TGSoundChainCommands commands, TGTrack track, int row, Consumer<Runnable> later, UIWindow parent) {
 		Integer effect = TGSoundChainRows.effect(row);
-		commands.edit(row, TGNativeWindow.floating(context), editor -> later.accept(() -> new TGPluginParametersDialog(context, track, effect, editor).open(parent)));
+		commands.edit(row, TGNativeWindow.floating(context), editor -> later.accept(() -> parameters(context, track, effect, editor, parent)));
+	}
+
+	private static void parameters(TGContext context, TGTrack track, Integer effect, TGPluginEditor editor, UIWindow parent) {
+		if (!editor.isOwn()) {
+			new TGPluginParametersDialog(context, track, effect, editor).open(parent);
+		}
 	}
 
 	// done on the UI thread once it gets there, unless the editor was closed meanwhile (a scan, or a plugin loading or

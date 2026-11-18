@@ -377,6 +377,55 @@ Feature: Hosting VST3 plugins
     Then TuxGuitar's parameter editor of VST3 effect 1 of track 1 is open
     And the parameters of VST3 effect 1 of track 1 read "Ceiling"
 
+  # Plugin editors inside the app: the Sound Chain panel shows the picked plugin's editor in its editor area, inside
+  # TuxGuitar's window. Here TuxGuitar's window, and the area, is a window of a host process of its own (the test
+  # plugins' stand-in), 600 by 400 inside unless a step says otherwise; an editor may take half its height
+  Scenario: a VST3 plugin's own editor opened inside TuxGuitar's window shows in it without modifying the song
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have saved the song as a TuxGuitar file
+    When I open the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    Then the plugin's own editor of VST3 effect 1 of track 1 is inside TuxGuitar's window, 200 by 100
+    And the song is not modified
+
+  Scenario: a VST3 plugin's own editor higher than half of TuxGuitar's window is not opened inside it, and says its size
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And TuxGuitar's window is 600 by 150 inside
+    When I open the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    Then the editor of VST3 effect 1 of track 1 is too large for TuxGuitar's window, "200x100 fixed"
+    And no editor of VST3 effect 1 of track 1 is open
+
+  Scenario: a VST3 plugin without an editor of its own shows TuxGuitar's parameters inside the app
+    Given I have added the VST3 effect "Test Clip 0.5" to track 1
+    When I open the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    Then TuxGuitar's parameter editor of VST3 effect 1 of track 1 is open
+    And the parameters of VST3 effect 1 of track 1 read "Ceiling"
+
+  # a plugin has one view at a time: the Sound Chain dialog's Edit opens it in a window of its own, out of the area
+  Scenario: a VST3 plugin's own editor opened in a window of its own moves out of TuxGuitar's window
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have opened the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    When I open the editor of VST3 effect 1 of track 1 from TuxGuitar's window
+    Then the plugin's own editor of VST3 effect 1 of track 1 is in a window TuxGuitar's window owns
+    And the editor opened inside TuxGuitar's window has moved out of it
+
+  Scenario: closing the editor inside TuxGuitar's window leaves the plugin running, the song unchanged
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have saved the song as a TuxGuitar file
+    And I have opened the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    When I close the editor opened inside TuxGuitar's window
+    Then no editor of VST3 effect 1 of track 1 is open
+    And the editor opened inside TuxGuitar's window is closed, with nothing left to fit
+    And the song is not modified
+
+  # TuxGuitar's window made wider: a plugin's own editor that can be resized takes the new width
+  Scenario: an editor inside TuxGuitar's window that can be resized takes its width when the window grows
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the plugin of VST3 effect 1 of track 1 makes its editor resizable
+    And I have opened the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    When TuxGuitar's window becomes 800 by 400 inside
+    And the editor opened inside TuxGuitar's window is fitted again
+    Then the plugin's own editor of VST3 effect 1 of track 1 is inside TuxGuitar's window, 800 by 100
+
   # an app shows a refusal's text to the user (the desktop: in an error message)
   Scenario Outline: opening the editor of a source that is no VST3 plugin is refused, saying so
     Given I have added an audio track recording input channel 1

@@ -17,6 +17,9 @@ public final class TGVst3EditorOpened {
 		NONE, OWN_WINDOW, OWNED, EMBEDDED, TOO_LARGE
 	}
 
+	// no editor of its own is open (as a request to fit one that is not open answers)
+	public static final TGVst3EditorOpened NONE = new TGVst3EditorOpened(Kind.NONE, 0, 0, false, 0);
+
 	private final Kind kind;
 	private final int width;
 	private final int height;

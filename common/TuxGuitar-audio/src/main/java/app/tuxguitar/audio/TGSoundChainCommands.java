@@ -27,7 +27,8 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * the song at that moment (the track asked for then; an undo may have replaced its channel), a row being the editor's
  * (TGSoundChainRows: 0 the source, then each effect). Once an action is done the editor is told (finished, on the
  * action's thread), so it reads the chain again; a refused one tells nothing (the app shows why). Edit opens the row's
- * plugin's own editor where the placement says, or TuxGuitar's parameter editor, then handed to the editor to show.
+ * plugin's own editor where the placement says, or TuxGuitar's parameter editor, then handed to the editor (to show
+ * TuxGuitar's, or follow what becomes of the plugin's own).
  */
 public final class TGSoundChainCommands {
 
@@ -75,17 +76,17 @@ public final class TGSoundChainCommands {
 	}
 
 	// the row's plugin's own editor opens where the placement says, its caption naming the track; or else TuxGuitar's
-	// parameter editor, handed to parameters once open
-	public void edit(int row, TGEditorPlacement placement, Consumer<TGPluginEditor> parameters) {
+	// parameter editor; either is handed to opened once open
+	public void edit(int row, TGEditorPlacement placement, Consumer<TGPluginEditor> opened) {
 		TGActionProcessor processor = this.onRow(TGOpenPluginEditorAction.NAME, row);
 		placement.place(processor);
 		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, this.track.get());
-		this.run(processor, () -> this.opened(row, parameters));
+		this.run(processor, () -> this.opened(row, opened));
 	}
 
-	private void opened(int row, Consumer<TGPluginEditor> parameters) {
+	private void opened(int row, Consumer<TGPluginEditor> opened) {
 		this.finished.run();
-		Optional.ofNullable(TGLivePlugins.getInstance(this.context).parameterEditor(this.channel(), TGSoundChainRows.effect(row))).ifPresent(parameters);
+		Optional.ofNullable(TGLivePlugins.getInstance(this.context).editor(this.channel(), TGSoundChainRows.effect(row))).ifPresent(opened);
 	}
 
 	private TGActionProcessor withPlugin(String action, TGVst3Plugin plugin) {
