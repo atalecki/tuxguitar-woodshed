@@ -57,8 +57,9 @@ public:
 
 	// as its editor's Load profile... does: the capture at the path (UTF-8) is loaded meanwhile, the profile playing
 	// on; then it becomes the profile and the host is told the plugin changed, or it is refused, the profile kept, and
-	// the status says why
-	void loadProfile(const std::string& path);
+	// the status says why. A load the host asked for (told: false; the profile a default instrument's element names) is
+	// no change the user made: the host is not told
+	void loadProfile(const std::string& path, bool told = true);
 	// as its editor's Update from file does: the file at the profile's path loaded as it is now
 	void updateFromFile();
 	ProfileStatus status();

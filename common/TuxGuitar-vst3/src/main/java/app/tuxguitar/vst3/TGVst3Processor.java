@@ -141,11 +141,12 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 
 	// Woodshed Guitar loads the profile, as its editor's Load profile... does, in the background (it restores its state
 	// meanwhile, so Play waits for it, see isBusy), unless it was asked to since it opened or last took an element's state
-	// (a default kept in the song, then the keep undone: the default is as it was opened afresh, its editor's changes gone)
+	// (a default kept in the song, then the keep undone: the default is as it was opened afresh, its editor's changes gone).
+	// Asked by the host, the load is no change the user made: the plugin does not tell it (nothing is kept in the song)
 	private void load(String profile) throws TGVst3Exception {
 		if (!profile.equals(this.profile)) {
 			this.instance.restore(this.opened, Collections.<Integer, Double>emptyMap());
-			this.instance.message(LOAD, Collections.<String, Long>emptyMap(), Collections.singletonMap("path", profile.getBytes(StandardCharsets.UTF_8)));
+			this.instance.message(LOAD, Collections.singletonMap("host", 1L), Collections.singletonMap("path", profile.getBytes(StandardCharsets.UTF_8)));
 			this.profile = profile;
 		}
 	}

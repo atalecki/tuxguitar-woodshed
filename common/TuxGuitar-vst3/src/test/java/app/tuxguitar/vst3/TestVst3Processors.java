@@ -118,7 +118,8 @@ public class TestVst3Processors {
 
 	// a default instrument's element given again after an element's state (the default kept in the song, its plugin going
 	// on as the song's source, then the keep undone): the plugin goes back to how it opened and loads the profile again,
-	// in the background, as a default opened afresh; what the state held is gone
+	// in the background, as a default opened afresh; what the state held is gone. The plugin tells no change of that load
+	// (the host asked for it, not the user: an editor open on the default keeps nothing)
 	@Test
 	public void woodshedGuitarGivenItsDefaultAgainAfterAStateGoesBackToItAndLoadsTheProfileAgain(@TempDir File folder) throws Exception {
 		TGProgramElement element = this.woodshedDefault(folder);
@@ -130,10 +131,13 @@ public class TestVst3Processors {
 		TGProgramElement kept = TGVst3Element.create("source", this.hosting.find("Woodshed Guitar"));
 		TGVst3Element.setState(kept, woodshed.getInstance().getState());
 		woodshed.restoreParameters(kept.getParameters());
+		List<TGVst3Notice.Kind> told = Collections.synchronizedList(new ArrayList<TGVst3Notice.Kind>());
+		woodshed.getInstance().setListener(notice -> told.add(notice.getKind()));
 		woodshed.restoreParameters(element.getParameters());
 		boolean loading = woodshed.isBusy();
 		TestPlugins.untilRestored(woodshed.getInstance());
-		assertEquals("true " + opened + " Gain 3.nam", loading + " " + woodshed.getInstance().getParameter(level) + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+		assertEquals("true " + opened + " Gain 3.nam false", loading + " " + woodshed.getInstance().getParameter(level) + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]
+			+ " " + told.contains(TGVst3Notice.Kind.DIRTY));
 	}
 
 	// the default instrument for guitar tracks as Woodshed Guitar, with TuxGuitar's own plugins scanned: its element names
