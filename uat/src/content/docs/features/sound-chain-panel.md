@@ -57,7 +57,7 @@ later on the branch. The install folder is
 | 22 | File > New (guitar default: Woodshed Guitar). Pick the source button and press **Edit...**. | Woodshed Guitar's own window opens in front of the main window, titled "Woodshed Guitar – Track 1". The source button still reads "(default for guitar tracks)"; the song is not marked as changed. | not run |
 | 23 | Close that window by its close box without touching anything. | Nothing changes: the source button still reads "(default for guitar tracks)", the song is not marked as changed, Edit > Undo has nothing new to undo. | not run |
 | 24 | Press **Edit...** again and drag the Output level slider. Play a few notes meanwhile. | When you let go, the source button reads "Source: Woodshed Guitar" (no "default for ..."), Keep in song is greyed, the song is marked as changed. The window stays open where it is and the sound goes on without a gap or a reload; the new level is heard. | not run |
-| 25 | Drag Input gain too. Then Edit > Undo once, and once more. | The first undo takes back only Input gain (the window stays open). The second takes back the keep: the source button reads "(default for guitar tracks)" again and the window closes (the default instrument plays afresh, see Notes). | not run |
+| 25 | Drag Input gain too. Then Edit > Undo once, and once more. | The first undo takes back only Input gain (the window stays open). The second takes back the keep: the source button reads "(default for guitar tracks)" again and, since `122628115`, the window stays open where it was (see "Sound Chain panel, 3"). | not run |
 | 26 | Edit > Redo twice. Then Settings > Sound: choose another guitar profile, OK. | The track has its own Woodshed Guitar again, with both changes. After the Settings change it still sounds as kept: it no longer follows the settings. | not run |
 | 27 | Add four or five effects and make the window narrower than the chain line (main toolbar off, as in step 17). | The chain line wraps onto more lines, in order; an arrow always stays with the button it leads into, so a wrapped line starts with "→ effect", never ends on an arrow alone. No sideways scroll bar. Widen it: back on one line. | not run |
 
@@ -73,6 +73,7 @@ later on the branch. The install folder is
   numbers in the panel (the dialog keeps them).
 - Since `92b40ca90`, Edit... on a default source opens the default instrument's editor; its first change keeps the
   default in the song (default_instruments.feature, TestDefaultInstrumentEditor). The same plugin goes on playing after
-  the keep, so its window stays open (TestDefaultSource). Pinned: undoing the keep closes the window, because the
-  default instrument then starts afresh from the settings.
+  the keep, so its window stays open (TestDefaultSource). Until `122628115` undoing the keep closed the window; it now
+  stays open (the page "Sound Chain panel, 3" checks it, with the Parameters window of a default without its own
+  editor).
 - Known, pinned: after removing the picked effect, nothing is picked (as in the dialog).
