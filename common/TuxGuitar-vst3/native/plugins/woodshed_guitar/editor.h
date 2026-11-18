@@ -60,6 +60,12 @@ public:
 	// sliders=<w>,<w> labels-fit=<whether each label holds its text>", the size the inside of the window it is in (as
 	// the user sees it)
 	std::string laidOut() const;
+	// its profile's line as last drawn, the text of its tooltip (empty when the line is shown whole), and the line as its
+	// own font cuts it in its box now, a line break between
+	std::string profileLine() const;
+	// the profile's line drawn in its box (a DRAWITEMSTRUCT): as much as it holds, ending in "..." when cut, the whole
+	// line then its tooltip
+	void drawProfile(const void* item);
 	// as Windows tells the window it is in that it went to a screen of that DPI from the one it was told last; as the
 	// user drags that window's border
 	// until its inside is that size
@@ -90,11 +96,15 @@ private:
 	void dropFont();
 	// whether each label is as wide as its text
 	bool labelsHold() const;
+	void showParameters();
 
 	GuitarPlugin* plugin;
 	void* window = nullptr;
 	void* load = nullptr;
 	void* profile = nullptr;
+	// the tooltip holding the profile's whole line while it is cut, and the line as last drawn
+	void* tip = nullptr;
+	std::wstring profileShown;
 	void* refusal = nullptr;
 	void* notice = nullptr;
 	// Update from file, shown with a notice

@@ -114,4 +114,35 @@ int naturalHeight(double scale) {
 	return at(kHeight, scale);
 }
 
+
+// how many characters fit in the room, from the first
+static size_t fitting(const std::vector<int>& edges, int room) {
+	size_t count = 0;
+	while (count < edges.size() && edges[count] <= room) {
+		count++;
+	}
+	return count;
+}
+
+// the first count characters, less the first half of a character of two UTF-16 units they would end on
+static size_t whole(const std::wstring& text, size_t count) {
+	bool half = (count > 0 && text[count - 1] >= 0xD800 && text[count - 1] <= 0xDBFF);
+	return count - (half ? 1 : 0);
+}
+
+// the first count characters, less the spaces they end on
+static size_t trimmed(const std::wstring& text, size_t count) {
+	while (count > 0 && text[count - 1] == L' ') {
+		count--;
+	}
+	return count;
+}
+
+std::wstring ellipsized(const std::wstring& text, const std::vector<int>& edges, int ellipsis, int width) {
+	if (edges.empty() || edges.back() <= width) {
+		return text;
+	}
+	return text.substr(0, trimmed(text, whole(text, fitting(edges, width - ellipsis)))) + L"\u2026";
+}
+
 }  // namespace Woodshed

@@ -5,6 +5,9 @@
 // width. Only the width stretches: the height is the design's, scaled.
 #pragma once
 
+#include <string>
+#include <vector>
+
 namespace Woodshed {
 
 // what the editor measured with the font it uses, in pixels: each button's text, each label's, Quality's widest item,
@@ -50,5 +53,10 @@ Layout layOut(const Measures& measured, int width, double scale);
 int minimumWidth(const Measures& measured, double scale);
 // the editor's height at the scale: the only height it has
 int naturalHeight(double scale);
+
+// a line of text as shown in the width: whole when it fits, else as much of it as fits followed by "\u2026" (spaces
+// before it dropped, a character of two UTF-16 units never cut in half; too narrow for any, the "\u2026" alone). edges:
+// each character's right edge as the font measures the line (GetTextExtentExPoint), ellipsis: the width of "\u2026"
+std::wstring ellipsized(const std::wstring& text, const std::vector<int>& edges, int ellipsis, int width);
 
 }  // namespace Woodshed

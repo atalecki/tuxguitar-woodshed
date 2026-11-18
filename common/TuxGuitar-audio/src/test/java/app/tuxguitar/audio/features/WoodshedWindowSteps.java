@@ -50,6 +50,7 @@ public class WoodshedWindowSteps {
 		running(track).message("Woodshed.dpi-changed", Map.of("dpi", (long) dpi), Collections.<String, byte[]>emptyMap());
 	}
 
+	@Given("I have dragged the border of Woodshed Guitar's editor of track {int} until it is {int} wide")
 	@When("I drag the border of Woodshed Guitar's editor of track {int} until it is {int} wide")
 	public void dragTo(int track, int width) throws TGVst3Exception {
 		long height = Long.parseLong(layout(track).get("size").split("x")[1]);
@@ -88,6 +89,24 @@ public class WoodshedWindowSteps {
 	// drawn in a font, as tall as at 96 DPI times the scale, within a pixel
 	private boolean isScaled(int text, double scale) {
 		return text > 0 && Math.abs(text - this.textAt96 * scale) <= 1;
+	}
+
+	// its profile's line as drawn, then its tooltip's text
+	private String[] profileLine(int track) throws TGVst3Exception {
+		return new String(running(track).message("Woodshed.profile-line", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()), StandardCharsets.UTF_8).split("\n", -1);
+	}
+
+	// what is drawn: a start of the whole line, then the ellipsis, cut where the line's own font fills its box
+	@Then("Woodshed Guitar's editor of track {int} shows its profile line cut, ending in {string}, the whole line {string} in its tooltip")
+	public void profileLineCut(int track, String ellipsis, String line) throws TGVst3Exception {
+		String[] shown = profileLine(track);
+		String start = shown[0].substring(0, Math.max(0, shown[0].length() - ellipsis.length()));
+		assertEquals("true true true true " + line, shown[0].endsWith(ellipsis) + " " + !start.isEmpty() + " " + line.startsWith(start) + " " + shown[0].equals(shown[2]) + " " + shown[1]);
+	}
+
+	@Then("Woodshed Guitar's editor of track {int} shows its whole profile line {string}, without a tooltip")
+	public void profileLineWhole(int track, String line) throws TGVst3Exception {
+		assertEquals(line + "\n\n" + line, String.join("\n", profileLine(track)));
 	}
 
 	@Then("Woodshed Guitar's editor of track {int} is {int} wide, its sliders {int} wide, every label holding its text")

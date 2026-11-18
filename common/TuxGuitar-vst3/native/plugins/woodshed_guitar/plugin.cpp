@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <map>
 
 namespace Woodshed {
 
@@ -461,7 +462,11 @@ tresult GuitarPlugin::editorMessage(FIDString id, IAttributeList* attributes) {
 	return windowMessage(id, attributes);
 }
 
-// while its editor is open: "Woodshed.layout" answers how it is laid out (GuitarView::laidOut); "Woodshed.dpi-changed"
+// the reports of its editor a message asks for
+static const std::map<std::string, std::string (GuitarView::*)() const> kViewReports = {{"Woodshed.layout", &GuitarView::laidOut}, {"Woodshed.profile-line", &GuitarView::profileLine}};
+
+// while its editor is open: "Woodshed.layout" answers how it is laid out (GuitarView::laidOut), "Woodshed.profile-line" its
+// profile's line as drawn and its tooltip (GuitarView::profileLine); "Woodshed.dpi-changed"
 // tells the window it is in that it went to a screen of that "dpi", as Windows does; "Woodshed.drag-to" drags that
 // window's border until its inside is that "width" and "height", as the user does; else kNotImplemented
 tresult GuitarPlugin::windowMessage(FIDString id, IAttributeList* attributes) {
@@ -471,8 +476,9 @@ tresult GuitarPlugin::windowMessage(FIDString id, IAttributeList* attributes) {
 	attributes->getInt("width", width);
 	attributes->getInt("height", height);
 	attributes->getInt("dpi", dpi);
-	if (std::strcmp(id, "Woodshed.layout") == 0) {
-		return report(attributes, view->laidOut());
+	auto asked = kViewReports.find(id);
+	if (asked != kViewReports.end()) {
+		return report(attributes, (view->*(asked->second))());
 	}
 	if (std::strcmp(id, "Woodshed.dpi-changed") == 0) {
 		view->changeDpi(dpi);

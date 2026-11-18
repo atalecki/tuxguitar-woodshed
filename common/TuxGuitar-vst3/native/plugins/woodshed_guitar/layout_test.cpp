@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -62,6 +63,47 @@ Measures scaled(const Measures& measured, double scale) {
 		at(measured.qualityItems), at(measured.value), at(measured.line)};
 }
 
+// each character's right edge, every character 10 px wide
+std::vector<int> tens(const std::wstring& text) {
+	std::vector<int> edges;
+	for (size_t i = 0; i < text.size(); i++) {
+		edges.push_back((int) (i + 1) * 10);
+	}
+	return edges;
+}
+
+// a character of a line as the report reads it: the ellipsis as "...", half a character of two UTF-16 units as "#"
+std::string readable(wchar_t c) {
+	if (c == L'\u2026') {
+		return "...";
+	}
+	return (c >= 0xD800 && c <= 0xDFFF ? std::string("#") : std::string(1, (char) c));
+}
+
+// a line of 10 px characters, "..." 6 px wide, in the width, as UTF-8 for the report ("..." for the ellipsis)
+std::string fitted(const std::wstring& text, int width) {
+	std::wstring shown = ellipsized(text, tens(text), 6, width);
+	std::string read;
+	for (wchar_t c : shown) {
+		read += readable(c);
+	}
+	return read;
+}
+
+// a profile's line too long for its box ends in "..." (one character): as much of it as fits before it
+void checkEllipsis() {
+	check("a line that fits is shown whole", "Profile: Clean.nam", fitted(L"Profile: Clean.nam", 180));
+	check("a line one pixel too long is cut, ending in ...", "Profile: Clean.na...", fitted(L"Profile: Clean.nam", 179));
+	check("as many characters as fit before the ...", "Profile: Clea...", fitted(L"Profile: Clean.nam", 145));
+	check("spaces before the ... are dropped", "Profile:...", fitted(L"Profile: Clean.nam", 101));
+	check("too narrow for any character: the ... alone", "...", fitted(L"Profile", 12));
+	check("narrower than the ...: the ... still", "...", fitted(L"Profile", 3));
+	check("a character of two UTF-16 units is never cut in half", "ab...", fitted(std::wstring(L"ab") + L"\xD83C\xDFB8" + L"cd", 41));
+	check("a character ending right where the ... begins is kept", "Profile: Clean...", fitted(L"Profile: Clean.nam", 146));
+	check("a character of two UTF-16 units that fits whole is kept whole", "ab##...", fitted(std::wstring(L"ab") + L"\xD83C\xDFB8" + L"cd", 50));
+	check("an empty line stays empty", "", fitted(L"", 0));
+}
+
 }  // namespace
 
 int main() {
@@ -92,5 +134,6 @@ int main() {
 		+ " " + std::to_string(naturalHeight(1.0)));
 	check("the height at 175%", "403", std::to_string(naturalHeight(1.75)));
 	check("a font taller than a text line's box: the box grows to the font", "24", std::to_string(layOut(Measures{70, 90, 55, 60, 40, 30, 48, 24}, 460, 1.0).labels[0].height));
+	checkEllipsis();
 	return (failures == 0 ? 0 : 1);
 }

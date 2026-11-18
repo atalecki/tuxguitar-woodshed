@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -110,14 +111,29 @@ bool handled(GuitarView* view, UINT message, WPARAM wParam, LPARAM lParam) {
 	return false;
 }
 
+// its texts painted on the dialog's colour, the profile's line drawn by the view; true when painted (result: the answer)
+bool painted(GuitarView* view, UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result) {
+	if (message == WM_CTLCOLORSTATIC) {
+		SetBkMode((HDC) wParam, TRANSPARENT);
+		result = (LRESULT) GetSysColorBrush(COLOR_BTNFACE);
+		return true;
+	}
+	if (message == WM_DRAWITEM && view) {
+		view->drawProfile((const void*) lParam);
+		result = TRUE;
+		return true;
+	}
+	return false;
+}
+
 LRESULT CALLBACK editorProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	GuitarView* view = viewOf(window);
+	LRESULT result = 0;
 	if (view && handled(view, message, wParam, lParam)) {
 		return 0;
 	}
-	if (message == WM_CTLCOLORSTATIC) {
-		SetBkMode((HDC) wParam, TRANSPARENT);
-		return (LRESULT) GetSysColorBrush(COLOR_BTNFACE);
+	if (painted(view, message, wParam, lParam, result)) {
+		return result;
 	}
 	return DefWindowProcW(window, message, wParam, lParam);
 }
@@ -195,6 +211,27 @@ Measures measure(HGDIOBJ font) {
 	return measured;
 }
 
+// the line as shown in the width with the font selected into the device context: ending in "..." when cut (layout.h)
+std::wstring fitted(HDC dc, const std::wstring& line, int width) {
+	std::vector<int> edges(line.size());
+	SIZE size = {};
+	GetTextExtentExPointW(dc, line.c_str(), (int) line.size(), 0, nullptr, edges.data(), &size);
+	SIZE ellipsis = {};
+	GetTextExtentPoint32W(dc, L"\u2026", 1, &ellipsis);
+	return ellipsized(line, edges, ellipsis.cx, width);
+}
+
+// the tool of the profile's line: its text shown in a tooltip while the pointer rests on it (empty: none shows)
+TOOLINFOW toolOf(void* editor, void* profile, const wchar_t* text) {
+	TOOLINFOW tool = {};
+	tool.cbSize = TTTOOLINFOW_V2_SIZE;
+	tool.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+	tool.hwnd = (HWND) editor;
+	tool.uId = (UINT_PTR) profile;
+	tool.lpszText = (LPWSTR) text;
+	return tool;
+}
+
 void put(HDWP& moves, void* control, const Box& box) {
 	moves = DeferWindowPos(moves, (HWND) control, nullptr, box.x, box.y, box.width, box.height, SWP_NOZORDER | SWP_NOACTIVATE);
 }
@@ -244,7 +281,10 @@ tresult PLUGIN_API GuitarView::attached(void* parent, FIDString type) {
 	HWND editor = CreateWindowExW(WS_EX_CONTROLPARENT, kClass, L"Woodshed Guitar", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, kWidth, kHeight, (HWND) parent, nullptr, module(), nullptr);
 	window = editor;
 	load = child(editor, L"BUTTON", wide(say("editor.load")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, kLoad);
-	profile = child(editor, L"STATIC", L"", SS_LEFT | SS_ENDELLIPSIS, 0);
+	profile = child(editor, L"STATIC", L"", SS_OWNERDRAW | SS_NOTIFY, 0);
+	tip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, 0, 0, 0, 0, editor, nullptr, module(), nullptr);
+	TOOLINFOW tool = toolOf(editor, profile, L"");
+	SendMessageW((HWND) tip, TTM_ADDTOOLW, 0, (LPARAM) &tool);
 	refusal = child(editor, L"STATIC", L"", SS_LEFT, 0);
 	notice = child(editor, L"STATIC", L"", SS_LEFT, 0);
 	update = child(editor, L"BUTTON", wide(say("editor.update")).c_str(), BS_PUSHBUTTON | WS_TABSTOP, kUpdate);
@@ -265,9 +305,10 @@ tresult PLUGIN_API GuitarView::attached(void* parent, FIDString type) {
 tresult PLUGIN_API GuitarView::removed() {
 	plugin->editorOpened(nullptr);
 	if (window) {
+		DestroyWindow((HWND) tip);
 		DestroyWindow((HWND) window);
 	}
-	window = load = profile = refusal = notice = update = quality = nullptr;
+	window = tip = load = profile = refusal = notice = update = quality = nullptr;
 	labels[0] = labels[1] = labels[2] = nullptr;
 	sliders.clear();
 	return CPluginView::removed();
@@ -334,6 +375,38 @@ std::string GuitarView::laidOut() const {
 		+ std::to_string(widthOf(sliders[1].bar)) + " labels-fit=" + (labelsHold() ? "true" : "false");
 }
 
+// the profile's line as much as its box holds (its window's text is the whole line, as a screen reader reads it); the
+// whole line in its tooltip when it is cut
+void GuitarView::drawProfile(const void* item) {
+	const DRAWITEMSTRUCT* drawing = (const DRAWITEMSTRUCT*) item;
+	RECT box = drawing->rcItem;
+	HGDIOBJ before = SelectObject(drawing->hDC, (HGDIOBJ) SendMessageW((HWND) profile, WM_GETFONT, 0, 0));
+	std::wstring line = wide(textOf(profile));
+	profileShown = fitted(drawing->hDC, line, box.right - box.left);
+	FillRect(drawing->hDC, &box, GetSysColorBrush(COLOR_BTNFACE));
+	SetBkMode(drawing->hDC, TRANSPARENT);
+	SetTextColor(drawing->hDC, GetSysColor(COLOR_BTNTEXT));
+	DrawTextW(drawing->hDC, profileShown.c_str(), (int) profileShown.size(), &box, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX);
+	SelectObject(drawing->hDC, before);
+	TOOLINFOW tool = toolOf(window, profile, (profileShown == line ? L"" : line.c_str()));
+	SendMessageW((HWND) tip, TTM_UPDATETIPTEXTW, 0, (LPARAM) &tool);
+}
+
+std::string GuitarView::profileLine() const {
+	UpdateWindow((HWND) profile);
+	wchar_t text[1024] = {};
+	TOOLINFOW tool = toolOf(window, profile, text);
+	SendMessageW((HWND) tip, TTM_GETTEXTW, 1024, (LPARAM) &tool);
+	RECT box = {};
+	GetClientRect((HWND) profile, &box);
+	HDC dc = GetDC((HWND) profile);
+	HGDIOBJ before = SelectObject(dc, (HGDIOBJ) SendMessageW((HWND) profile, WM_GETFONT, 0, 0));
+	std::wstring cut = fitted(dc, wide(textOf(profile)), box.right);
+	SelectObject(dc, before);
+	ReleaseDC((HWND) profile, dc);
+	return utf8(profileShown) + "\n" + utf8(text) + "\n" + utf8(cut);
+}
+
 void GuitarView::changeDpi(int64 dpi) {
 	TuxGuitarTest::changeDpi(GetAncestor((HWND) window, GA_ROOT), dpi, (int) std::lround(USER_DEFAULT_SCREEN_DPI * scale));
 }
@@ -351,6 +424,11 @@ void GuitarView::refresh() {
 	SetWindowTextW((HWND) refusal, wide(refusalText(status)).c_str());
 	SetWindowTextW((HWND) notice, wide(status.notice).c_str());
 	ShowWindow((HWND) update, (status.notice.empty() ? SW_HIDE : SW_SHOW));
+	showParameters();
+}
+
+// each slider and its value, and Quality, as the plugin holds them
+void GuitarView::showParameters() {
 	for (const Slider& slider : sliders) {
 		double value = plugin->parameter(slider.id);
 		SendMessageW((HWND) slider.bar, TBM_SETPOS, TRUE, (LPARAM) (value * kStep + (value < 0 ? -0.5 : 0.5)));
@@ -499,6 +577,14 @@ bool GuitarView::labelsHold() const {
 std::string GuitarView::laidOut() const {
 	return std::string();
 }
+
+std::string GuitarView::profileLine() const {
+	return std::string();
+}
+
+void GuitarView::drawProfile(const void*) {}
+
+void GuitarView::showParameters() {}
 
 void GuitarView::changeDpi(int64) {}
 
