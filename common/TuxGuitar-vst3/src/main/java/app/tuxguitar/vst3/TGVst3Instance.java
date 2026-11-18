@@ -307,7 +307,7 @@ public final class TGVst3Instance implements AutoCloseable {
 	// its editor inside a window of TuxGuitar takes the width of that window's inside now, when its view can be
 	// resized: the size it takes (kind NONE, 0 by 0, when no editor is inside a window)
 	public TGVst3EditorOpened fitEditor() throws TGVst3Exception {
-		return this.host.call(this.request(TGVst3Protocol.FIT_EDITOR), TGVst3EditorOpened::read);
+		return this.host.call(this.request(TGVst3Protocol.FIT_EDITOR), TGVst3EditorOpened::read, TGVst3Host.EDITOR_MILLIS);
 	}
 
 	// its own editor's window as the system shows it (for checks)
@@ -315,8 +315,9 @@ public final class TGVst3Instance implements AutoCloseable {
 		return this.host.call(this.request(TGVst3Protocol.EDITOR_WINDOW), TGVst3EditorWindow::read);
 	}
 
+	// TuxGuitar's window waits EDITOR_MILLIS at most (a host whose editor hangs is then taken for stopped)
 	public void closeEditor() throws TGVst3Exception {
-		this.host.call(this.request(TGVst3Protocol.CLOSE_EDITOR), in -> null);
+		this.host.call(this.request(TGVst3Protocol.CLOSE_EDITOR), in -> null, TGVst3Host.EDITOR_MILLIS);
 		LOG.debug(this.label() + ": editor closed");
 	}
 

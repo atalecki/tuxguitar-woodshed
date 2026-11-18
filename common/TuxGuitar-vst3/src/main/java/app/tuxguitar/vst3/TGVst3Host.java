@@ -46,6 +46,9 @@ public final class TGVst3Host implements AutoCloseable {
 	static final long SILENT_MILLIS = 2000;
 	// how long a request other than a block's waits for its reply
 	static final long CALL_MILLIS = 30000;
+	// how long a request TuxGuitar's window makes of an open editor (fit it, close it) waits: a host whose editor hangs is
+	// taken for stopped as soon as one owing a block's reply is
+	static final long EDITOR_MILLIS = SILENT_MILLIS;
 
 	// why the host failed, as the log reads it, in English
 	private static final String STOPPED = "the VST3 host stopped";
@@ -85,6 +88,10 @@ public final class TGVst3Host implements AutoCloseable {
 	private boolean closed;
 	// it runs one plugin and ends when that plugin closes
 	private boolean dedicated;
+	// ended for not answering (rather than stopping by itself)
+	private boolean silent;
+	// told once when it stops without TuxGuitar ending it
+	private Runnable onStop = () -> { };
 
 	private TGVst3Host(Process process, File shared) {
 		this.process = process;
@@ -162,9 +169,34 @@ public final class TGVst3Host implements AutoCloseable {
 	// why it stopped, or null while it runs; a stop TuxGuitar did not ask for is logged
 	private TGVst3Exception stop() {
 		if (this.stop == null && !this.process.isAlive()) {
-			this.stop = this.stopped(null, !this.closed);
+			this.stopping(this.stopped(null, !this.closed));
 		}
 		return this.stop;
+	}
+
+	// it stopped for that reason; told once, when TuxGuitar did not end it
+	private TGVst3Exception stopping(TGVst3Exception stop) {
+		this.stop = stop;
+		Runnable told = (this.closed ? () -> { } : this.onStop);
+		this.onStop = () -> { };
+		told.run();
+		return stop;
+	}
+
+	// told, once, on the thread that finds it, when the host stops without TuxGuitar ending it (it crashed, or was ended
+	// for not answering): what is told must only hand the news on (the host is held meanwhile)
+	public synchronized void whenStopped(Runnable stopped) {
+		this.onStop = stopped;
+	}
+
+	// whether it was ended for not answering (a plugin hung), rather than stopping by itself
+	public synchronized boolean wasSilent() {
+		return this.silent;
+	}
+
+	// why it stopped, or null while it runs
+	public synchronized TGVst3Exception getStop() {
+		return this.stop();
 	}
 
 	// " (exit code n)" once the process ended, else nothing
@@ -244,7 +276,7 @@ public final class TGVst3Host implements AutoCloseable {
 		return this.call(request, reply, CALL_MILLIS);
 	}
 
-	private <T> T call(TGVst3Request request, TGVst3Request.Reply<T> reply, long millis) throws TGVst3Exception {
+	synchronized <T> T call(TGVst3Request request, TGVst3Request.Reply<T> reply, long millis) throws TGVst3Exception {
 		if (this.owing(SILENT_MILLIS - this.owedFor())) {
 			throw this.silent();
 		}
@@ -355,16 +387,15 @@ public final class TGVst3Host implements AutoCloseable {
 	// the pipe broke: the process is gone (or going: it is ended)
 	private TGVst3Exception broke(Throwable cause) {
 		this.end();
-		this.stop = this.stopped(cause, true);
-		return this.stop;
+		return this.stopping(this.stopped(cause, true));
 	}
 
 	// a reply owed too long: the host is taken for stopped
 	private TGVst3Exception silent() {
 		this.end();
-		this.stop = new TGVst3Exception(SILENT, null, SAY_SILENT, SILENT_MILLIS / 1000);
+		this.silent = true;
 		LOG.warn(this.label + ": " + SILENT + ", ended");
-		return this.stop;
+		return this.stopping(new TGVst3Exception(SILENT, null, SAY_SILENT, SILENT_MILLIS / 1000));
 	}
 
 	// the process and every process it started end; waits up to 5 seconds for it

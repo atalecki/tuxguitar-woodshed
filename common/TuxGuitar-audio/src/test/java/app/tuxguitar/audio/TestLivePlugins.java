@@ -264,7 +264,8 @@ public class TestLivePlugins {
 	}
 
 	// a kept plugin whose host process is gone after a gesture: asking it, reading its editor again and keeping its
-	// gesture in the song each fail quietly as before, and each failure is logged with the host's reason
+	// gesture in the song each fail quietly as before, and each failure is logged with the host's reason (the plugin,
+	// started again meanwhile, logs its own lines)
 	@Test
 	public void aKeptPluginWhoseHostIsGoneIsLoggedWhenAskedReadAndDrained() throws Exception {
 		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "effect-1", TGEditorTarget.floating(0), "");
@@ -279,9 +280,9 @@ public class TestLivePlugins {
 			this.live.drain();
 		}).recorded();
 		String stopped = ": the VST3 host stopped (exit code ";
-		assertEquals("[DEBUG a VST3 plugin kept open was not asked" + stopped + ", DEBUG a VST3 plugin's parameters were not read again" + stopped
+		assertEquals("[DEBUG a VST3 plugin was not asked" + stopped + ", DEBUG a VST3 plugin's parameters were not read again" + stopped
 				+ ", WARN the state of the VST3 plugin of effect-1 on channel " + this.guitar.getChannelId() + " was not kept" + stopped + "]",
-				logged.stream().filter(line -> !line.contains("VST3 host pid")).map(line -> line.replaceAll("\\(exit code -?\\d+\\)", "(exit code ")).collect(java.util.stream.Collectors.toList()).toString());
+				logged.stream().filter(line -> !line.contains("VST3 host pid") && !line.contains("VST3 plugin Test Gain")).map(line -> line.replaceAll("\\(exit code -?\\d+\\)", "(exit code ")).collect(java.util.stream.Collectors.toList()).toString());
 	}
 
 	// a plugin kept before its element ran live is no longer the element's: it is not asked (its editor closed); an

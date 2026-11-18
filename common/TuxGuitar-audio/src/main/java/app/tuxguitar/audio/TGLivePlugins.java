@@ -2,6 +2,7 @@ package app.tuxguitar.audio;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Gestures;
+import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Instance;
 import app.tuxguitar.vst3.TGVst3Parameter;
 import app.tuxguitar.vst3.TGVst3PluginProcessor;
@@ -91,8 +93,14 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		this.live = live;
 	}
 
+	// live: a plugin whose host stops by itself is started again from its element (once, see TGVst3Processor), its
+	// editors told
 	public static TGLivePlugins getInstance(TGContext context) {
-		return TGSingletonUtil.getInstance(context, TGLivePlugins.class.getName(), key -> new TGLivePlugins(key, true));
+		return TGSingletonUtil.getInstance(context, TGLivePlugins.class.getName(), key -> {
+			TGLivePlugins live = new TGLivePlugins(key, true);
+			TGVst3Hosting.getInstance(key).restartStopped(live::restarted);
+			return live;
+		});
 	}
 
 	private static String key(int channel, String element) {
@@ -223,27 +231,51 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return (played != null && played.getId().equals(element) ? played : null);
 	}
 
-	// each plugin kept open whose element no render runs (nothing else calls it) is asked for its first parameter, so
-	// what its editor did since comes with the reply; one without parameters is not asked. Any thread may poll
+	// the watchdog, and what plugins tell: each plugin with an editor open, and each plugin kept open whose element no
+	// render runs (nothing else calls it), is pinged (TGVst3Host.ping: answered at once, else its reply is owed; a host
+	// owing it for 2 s is ended, and started again, see restarted), so a plugin whose editor hangs is found while nothing
+	// plays; a kept one that answered is then asked for its first parameter, so what its editor did since comes with the
+	// reply (one without parameters is not asked). Any thread may poll (an app: every 100 ms)
 	public synchronized void poll() {
-		this.kept.forEach((key, kept) -> {
-			if (!this.running.containsKey(key)) {
-				ask(kept.instance);
-			}
-		});
+		Map<TGVst3Instance, Boolean> asked = new IdentityHashMap<TGVst3Instance, Boolean>();
+		this.kept.entrySet().stream().filter(kept -> !this.running.containsKey(kept.getKey())).forEach(kept -> asked.put(kept.getValue().instance, true));
+		this.editors.values().forEach(editor -> asked.putIfAbsent(editor.instance, false));
+		asked.forEach(TGLivePlugins::ping);
 	}
 
-	private static void ask(TGVst3Instance instance) {
-		instance.getParameters().stream().findFirst().ifPresent(first -> read(instance, first.getId()));
+	private static void ping(TGVst3Instance instance, boolean ask) {
+		try {
+			if (instance.getHost().ping() && ask) {
+				instance.getParameters().stream().findFirst().ifPresent(first -> read(instance, first.getId()));
+			}
+		} catch (TGVst3Exception e) {
+			// its host stopped: there is nothing more to hear from it
+			LOG.debug("a VST3 plugin was not asked: " + e.getMessage());
+		}
 	}
 
 	private static void read(TGVst3Instance instance, int parameter) {
 		try {
 			instance.getParameter(parameter);
 		} catch (TGVst3Exception e) {
-			// its host stopped: there is nothing more to hear from it
-			LOG.debug("a VST3 plugin kept open was not asked: " + e.getMessage());
+			LOG.debug("a VST3 plugin was not asked: " + e.getMessage());
 		}
+	}
+
+	// the plugin whose host stopped by itself runs as started again (or no longer, left silent) wherever it ran; its
+	// editors are told it stopped (they are not opened again: an editor that hangs at once cannot hang TuxGuitar again)
+	public synchronized void restarted(TGVst3Instance stopped, TGVst3Instance started, boolean hung, TGVst3Exception why) {
+		this.running.entrySet().removeIf(running -> running.getValue() == stopped && started == null);
+		this.running.replaceAll((key, instance) -> (instance == stopped ? this.listenedAt(key, started) : instance));
+		this.kept.replaceAll((key, kept) -> (kept.instance == stopped && started != null ? new Kept(kept.processor, this.listenedAt(key, started), kept.parameters) : kept));
+		this.editors.values().removeIf(editor -> editor.instance == stopped && editor.editor.stopped(hung, why.getLocalizedMessage(), started != null));
+		this.notifyAll();
+	}
+
+	// the instance, listened to as the plugin of the element the key names
+	private TGVst3Instance listenedAt(String key, TGVst3Instance instance) {
+		int slash = key.indexOf('/');
+		return this.listened(Integer.parseInt(key.substring(0, slash)), key.substring(slash + 1), instance);
 	}
 
 	// whether a gesture ended since the last drain (any thread may ask)
@@ -319,10 +351,13 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 
 	// the plugin kept for the element did the change the song's element now holds, or gave the state it holds: it is not
 	// opened again for it
+	// (its processor given the element as it is now, which it holds already: what it starts again from if its host stops)
 	synchronized void took(int channel, String element, TGVst3Instance instance) {
 		Kept kept = this.kept.get(key(channel, element));
 		if (kept != null && kept.instance == instance) {
-			this.kept.put(key(channel, element), new Kept(kept.processor, instance, TGSoundChain.element(this.chain(channel), element).getParameters()));
+			Map<String, String> parameters = TGSoundChain.element(this.chain(channel), element).getParameters();
+			this.kept.put(key(channel, element), new Kept(kept.processor, instance, parameters));
+			kept.processor.restoreParameters(parameters);
 		}
 	}
 

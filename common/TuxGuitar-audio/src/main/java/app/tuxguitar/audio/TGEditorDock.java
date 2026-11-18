@@ -71,16 +71,17 @@ public final class TGEditorDock {
 	}
 
 	// what becomes of an editor the area opened: still open (its plugin may have asked another size), moved elsewhere,
-	// closed
+	// its plugin stopped (hung or crashed, started again or not), closed
 	private interface Follow {
-		Step follow(TGEditorDock dock, Element element, TGVst3EditorOpened opened);
+		Step follow(TGEditorDock dock, Element element, TGPluginEditor editor);
 	}
 
 	private static final Map<TGPluginEditor.State, Follow> FOLLOWED = new EnumMap<TGPluginEditor.State, Follow>(TGPluginEditor.State.class);
 	static {
-		FOLLOWED.put(TGPluginEditor.State.OPEN, TGEditorDock::fitted);
-		FOLLOWED.put(TGPluginEditor.State.MOVED, (dock, element, opened) -> dock.moved(element));
-		FOLLOWED.put(TGPluginEditor.State.CLOSED, (dock, element, opened) -> dock.closed(element));
+		FOLLOWED.put(TGPluginEditor.State.OPEN, (dock, element, editor) -> dock.fitted(element, editor.getOpened()));
+		FOLLOWED.put(TGPluginEditor.State.MOVED, (dock, element, editor) -> dock.moved(element));
+		FOLLOWED.put(TGPluginEditor.State.STOPPED, (dock, element, editor) -> dock.stopped(element, editor.isHung(), editor.getWhy(), editor.isRestarted()));
+		FOLLOWED.put(TGPluginEditor.State.CLOSED, (dock, element, editor) -> dock.closed(element));
 	}
 
 	// the plugins (by class id) remembered in a window of their own
@@ -224,8 +225,8 @@ public final class TGEditorDock {
 	}
 
 	// what became of the editor the area opened for the element (current: the one it follows now)
-	public Step followed(Element element, TGPluginEditor.State state, TGVst3EditorOpened opened, boolean current) {
-		return (current ? FOLLOWED.get(state).follow(this, element, opened) : Step.NONE);
+	public Step followed(Element element, TGPluginEditor editor, boolean current) {
+		return (current ? FOLLOWED.get(editor.getState()).follow(this, element, editor) : Step.NONE);
 	}
 
 	// the editor the area showed closed without the area closing it (its plugin ran again: an undo, a change of the

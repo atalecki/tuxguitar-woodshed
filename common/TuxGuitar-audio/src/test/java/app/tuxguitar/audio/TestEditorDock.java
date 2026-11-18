@@ -246,28 +246,38 @@ public class TestEditorDock {
 		assertEquals("false false false true", nothingInside + " " + dock.refits(800) + " " + dock.refits(800) + " " + dock.refits(900));
 	}
 
+	// an editor the host opened (its view this size), TuxGuitar's parameters none
+	private static TGPluginEditor editor(int height) throws Exception {
+		return new TGPluginEditor(TGVst3EditorOpened.of(Kind.EMBEDDED, 200, height, false, 800), () -> Collections.<TGPluginParameterRow>emptyList());
+	}
+
 	// what becomes of an editor the area opened: moved elsewhere, closed (its plugin ran again: it opens again where it
-	// goes), or resized by the plugin; one the area no longer follows, or another plugin's, changes nothing
+	// goes), its plugin stopped, or resized by the plugin; one the area no longer follows, or another plugin's, changes
+	// nothing
 	@Test
-	public void whatBecomesOfTheEditorOpenedIsFollowed() {
-		does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED)))
-			.does(() -> dock.followed(GAIN, TGPluginEditor.State.OPEN, TGVst3EditorOpened.of(Kind.EMBEDDED, 200, 300, false, 800), true))
-			.does(() -> dock.followed(GAIN, TGPluginEditor.State.CLOSED, opened(Kind.EMBEDDED), false))
-			.does(() -> dock.followed(GAIN, TGPluginEditor.State.CLOSED, opened(Kind.EMBEDDED), true)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED)))
-			.does(() -> dock.followed(GAIN, TGPluginEditor.State.MOVED, opened(Kind.EMBEDDED), true))
-			.does(() -> dock.followed(GAIN, TGPluginEditor.State.CLOSED, opened(Kind.OWNED), true)).does(() -> dock.followed(WOODSHED, TGPluginEditor.State.CLOSED, opened(Kind.OWNED), true));
+	public void whatBecomesOfTheEditorOpenedIsFollowed() throws Exception {
+		TGPluginEditor resized = editor(300);
+		TGPluginEditor closed = editor(100);
+		closed.close();
+		TGPluginEditor moved = editor(100);
+		moved.moved();
+		TGPluginEditor stopped = editor(100);
+		stopped.stopped(true, "the VST3 host did not answer for 2 s", true);
+		does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED))).does(() -> dock.followed(GAIN, resized, true)).does(() -> dock.followed(GAIN, closed, false))
+			.does(() -> dock.followed(GAIN, closed, true)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED))).does(() -> dock.followed(GAIN, moved, true))
+			.does(() -> dock.followed(GAIN, closed, true)).does(() -> dock.followed(WOODSHED, closed, true)).does(() -> dock.followed(GAIN, stopped, true));
 		sees("open Test Gain inside / OPENING", "nothing / OWN_EDITOR" + INSIDE_GAIN, "nothing / OWN_EDITOR" + INSIDE_GAIN, "nothing / OWN_EDITOR" + INSIDE_GAIN,
 			"close Test Gain, open Test Gain inside / OPENING", "nothing / OWN_EDITOR" + INSIDE_GAIN,
-			"nothing / OWN_WINDOW audio.sound-chain.editor.in-window(Test Gain) [audio.sound-chain.editor.put-back]",
-			"open Test Gain inside / OPENING", "nothing / OPENING");
+			"nothing / OWN_WINDOW audio.sound-chain.editor.in-window(Test Gain) [audio.sound-chain.editor.put-back]", "open Test Gain inside / OPENING", "nothing / OPENING",
+			"nothing / STOPPED audio.sound-chain.editor.hung-restarted(Test Gain) [audio.sound-chain.editor.show-editor]");
 	}
 
 	// the size a plugin asked for itself is the area's height from then on
 	@Test
-	public void aSizeThePluginAskedForIsTheAreasHeight() {
+	public void aSizeThePluginAskedForIsTheAreasHeight() throws Exception {
 		dock.picked(GAIN);
 		dock.opened(GAIN, opened(Kind.EMBEDDED));
-		dock.followed(GAIN, TGPluginEditor.State.OPEN, TGVst3EditorOpened.of(Kind.EMBEDDED, 200, 300, false, 800), true);
+		dock.followed(GAIN, editor(300), true);
 		assertEquals(300, dock.height(800));
 	}
 

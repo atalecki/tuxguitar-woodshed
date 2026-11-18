@@ -426,6 +426,20 @@ Feature: Hosting VST3 plugins
     And the editor opened inside TuxGuitar's window is fitted again
     Then the plugin's own editor of VST3 effect 1 of track 1 is inside TuxGuitar's window, 800 by 100
 
+  # a plugin whose editor's code hangs keeps its whole host process from answering, and TuxGuitar's window may stop
+  # reacting meanwhile (Windows ties the input of the two); TuxGuitar pings the plugins with an editor open, as the app
+  # does every 100 ms, and ends a host that does not answer for 2 s. The plugin starts again at once from what the
+  # song holds; its editor is not opened again, so an editor that hangs at once cannot hang TuxGuitar again
+  Scenario: a plugin whose editor stops responding is ended within 3 s and plays again from the song, its editor not reopened
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And the plugin has set "Gain" of VST3 effect 1 of track 1 to 4.0
+    And I have opened the editor of VST3 effect 1 of track 1 inside TuxGuitar's window
+    When the editor of VST3 effect 1 of track 1 stops responding
+    And TuxGuitar watches its plugins for up to 3 seconds
+    Then the editor opened inside TuxGuitar's window says its plugin stopped responding and was started again
+    And the plugin of VST3 effect 1 of track 1 runs in another host process, its "Gain" at 4.0
+    And no editor of VST3 effect 1 of track 1 is open
+
   # an app shows a refusal's text to the user (the desktop: in an error message)
   Scenario Outline: opening the editor of a source that is no VST3 plugin is refused, saying so
     Given I have added an audio track recording input channel 1

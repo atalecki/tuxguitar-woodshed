@@ -672,6 +672,83 @@ public class TestVst3Host {
 		});
 	}
 
+	// a plugin's editor whose code hangs keeps its host from answering anything: pinged every 100 ms while nothing plays
+	// (the watchdog's question), the host is ended within 2.5 s, as not answering, and whoever listens is told once
+	@Test
+	public void aHostWhoseEditorHangsIsEndedWithin2500msWhileNothingPlays() {
+		assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+			TGVst3Instance gain = open("Test Gain");
+			gain.openEditor(0, "");
+			List<String> told = new ArrayList<String>();
+			this.host.whenStopped(() -> told.add("stopped"));
+			gain.message("TG.hang-view", Collections.singletonMap("millis", 10000L), Collections.<String, byte[]>emptyMap());
+			long start = System.nanoTime();
+			while (this.host.isRunning() && (System.nanoTime() - start) / 1000000 < 5000) {
+				pingQuietly(this.host);
+				Thread.sleep(100);
+			}
+			long ended = (System.nanoTime() - start) / 1000000;
+			pingQuietly(this.host);
+			assertTrue(ended < 2500, "ended after " + ended + " ms");
+			assertEquals("false true [stopped] the VST3 host did not answer for 2 s", this.host.isRunning() + " " + this.host.wasSilent() + " " + told + " " + this.host.getExitReport());
+		});
+	}
+
+	private static void pingQuietly(TGVst3Host host) {
+		try {
+			host.ping();
+		} catch (TGVst3Exception e) {
+			// ended: the loop sees it
+		}
+	}
+
+	// a request TuxGuitar's window makes of an editor (fit it, close it) gives up on a host whose editor hangs within 2.5 s,
+	// not 30, and the host is ended
+	@Test
+	public void anEditorRequestToAHostWhoseEditorHangsGivesUpWithin2500ms() {
+		assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
+			List<String> waited = new ArrayList<String>();
+			for (boolean closing : new boolean[] {false, true}) {
+				try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+					TGVst3Instance gain = withItsEditor(other, "Test Gain");
+					gain.message("TG.hang-view", Collections.singletonMap("millis", 10000L), Collections.<String, byte[]>emptyMap());
+					Thread.sleep(200);
+					long start = System.nanoTime();
+					assertThrows(TGVst3Exception.class, () -> editorRequest(gain, closing));
+					long millis = (System.nanoTime() - start) / 1000000;
+					waited.add((millis >= 1900 && millis < 2500) + " " + other.isRunning());
+				}
+			}
+			assertEquals("[true false, true false]", waited.toString());
+		});
+	}
+
+	private static void editorRequest(TGVst3Instance plugin, boolean closing) throws TGVst3Exception {
+		if (closing) {
+			plugin.closeEditor();
+		} else {
+			plugin.fitEditor();
+		}
+	}
+
+	// a host that crashes tells whoever listens, once, as stopped (not as not answering); one TuxGuitar closes tells
+	// nothing
+	@Test
+	public void aHostThatStopsTellsWhoListensOnceAndOneClosedTellsNothing() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		List<String> told = new ArrayList<String>();
+		this.host.whenStopped(() -> told.add("crashed"));
+		assertThrows(TGVst3Exception.class, () -> gain.message("TG.crash", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()));
+		this.host.isRunning();
+		assertThrows(TGVst3Exception.class, () -> gain.getParameter(1));
+		try (TGVst3Host closed = TGVst3Host.start(TestPlugins.host())) {
+			closed.whenStopped(() -> told.add("closed"));
+			closed.close();
+			closed.isRunning();
+		}
+		assertEquals("[crashed] false", told + " " + this.host.wasSilent());
+	}
+
 	// another request while a reply is owed waits for it only what is left of the 2 seconds
 	@Test
 	public void aRequestWhileAReplyIsOwedWaitsOnlyTheRestOfTheLimit() {

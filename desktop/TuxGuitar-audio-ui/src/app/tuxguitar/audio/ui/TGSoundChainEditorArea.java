@@ -126,7 +126,7 @@ final class TGSoundChainEditorArea {
 	}
 
 	private void followed(Element element, TGPluginEditor editor) {
-		this.run(this.dock.followed(element, editor.getState(), editor.getOpened(), this.editors.get(element) == editor));
+		this.run(this.dock.followed(element, editor, this.editors.get(element) == editor));
 	}
 
 	// the line above the area, and the area as high as the editor inside it

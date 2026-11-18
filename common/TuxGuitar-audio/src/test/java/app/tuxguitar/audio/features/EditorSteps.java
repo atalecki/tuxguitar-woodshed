@@ -66,6 +66,8 @@ public class EditorSteps {
 	private long standIn;
 	// the editor a step opened inside TuxGuitar's window
 	private TGPluginEditor inside;
+	// the process id of the host of a plugin whose editor a step made hang
+	private long hungHost;
 
 	public EditorSteps(AudioWorld world, PlaySteps play, RecordingSteps recording) {
 		this.world = world;
@@ -194,6 +196,35 @@ public class EditorSteps {
 	@Then("the editor opened inside TuxGuitar's window is closed, with nothing left to fit")
 	public void theEditorInsideIsClosed() throws TGVst3Exception {
 		assertEquals("CLOSED " + TGVst3EditorOpened.NONE, this.inside.getState() + " " + live().fit(this.inside));
+	}
+
+	// its code hangs for 20 s (a deadlock in its UI), the host process it runs in noted
+	@When("the editor of {plugin} stops responding")
+	public void itsEditorStopsResponding(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		TGVst3Instance hanging = running(plugin);
+		this.hungHost = hanging.getHost().getPid();
+		hanging.message("TG.hang-view", Collections.singletonMap("millis", 20000L), Collections.<String, byte[]>emptyMap());
+	}
+
+	// as the app polls every 100 ms, until the editor opened inside TuxGuitar's window is no longer open
+	@When("TuxGuitar watches its plugins for up to {int} seconds")
+	public void tuxGuitarWatchesItsPlugins(int seconds) throws InterruptedException {
+		long end = System.currentTimeMillis() + seconds * 1000L;
+		while (this.inside.isOpen() && System.currentTimeMillis() < end) {
+			live().poll();
+			Thread.sleep(100);
+		}
+	}
+
+	@Then("the editor opened inside TuxGuitar's window says its plugin stopped responding and was started again")
+	public void theEditorInsideSaysItsPluginWasStartedAgain() {
+		assertEquals("STOPPED true true", this.inside.getState() + " " + this.inside.isHung() + " " + this.inside.isRestarted());
+	}
+
+	@Then("the plugin of {plugin} runs in another host process, its {string} at {double}")
+	public void itRunsInAnotherHostProcess(Map.Entry<Integer, String> plugin, String title, double value) throws TGVst3Exception {
+		TGVst3Instance now = running(plugin);
+		assertEquals("true " + value, (now.getHost().getPid() != this.hungHost && now.getHost().isRunning()) + " " + now.getParameter(now.findParameter(title)));
 	}
 
 	@Given("the plugin of {plugin} makes its editor resizable")

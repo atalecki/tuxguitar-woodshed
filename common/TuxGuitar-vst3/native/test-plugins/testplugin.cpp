@@ -67,6 +67,20 @@ void startModal(int64 millis, int64 window) {
 	SetTimer(nullptr, 0, 1, runModal);
 }
 
+// a view whose code hangs (a deadlock in its UI): once its host waits for messages, the thread sleeps that long in a
+// window procedure, answering nothing
+DWORD hangMillis = 0;
+
+void CALLBACK hangView(HWND, UINT, UINT_PTR timer, DWORD) {
+	KillTimer(nullptr, timer);
+	Sleep(hangMillis);
+}
+
+void startHang(int64 millis) {
+	hangMillis = (DWORD) millis;
+	SetTimer(nullptr, 0, 1, hangView);
+}
+
 // as the user clicks the close box of the window the editor is in
 void closeWindow(void* window) { PostMessageW((HWND) window, WM_CLOSE, 0, 0); }
 
@@ -117,6 +131,8 @@ char isWindow(int64 window) { return (IsWindow((HWND) (intptr_t) window) ? 1 : 0
 const bool inModal = false;
 
 void startModal(int64, int64) {}
+
+void startHang(int64) {}
 
 void closeWindow(void*) {}
 
@@ -507,6 +523,7 @@ tresult TestPlugin::tellProgress(IProgress* progress, bool restoring, bool under
 // "capture" (an integer kept in the state, no parameter, no edit begun or ended), saying the plugin is dirty when "dirty"
 // is 1, as a capture player loading a file may or may not; "TG.capture" answers the capture (4 bytes); "TG.report"
 // answers with what the plugin was told; "TG.crash" takes its process down, as a plugin that crashes does, saying so on its standard error;
+// "TG.hang-view" makes the editor's code hang for "millis" milliseconds once its host waits (no answer meanwhile);
 // "TG.modal" makes the editor run a loop of its own for "millis" milliseconds once its host waits, or wait for the
 // "window" of another thread to answer a message, and "TG.in-modal" answers three bytes: 1 while it does (0 else), 1 once
 // a plugin of the module or an editor's view went while it did, and how many plugins of the module are alive; and
@@ -524,6 +541,12 @@ tresult PLUGIN_API TestPlugin::notify(IMessage* message) {
 		attributes->getInt("millis", millis);
 		attributes->getInt("window", window);
 		startModal(millis, window);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.hang-view") == 0) {
+		int64 millis = 0;
+		attributes->getInt("millis", millis);
+		startHang(millis);
 		return kResultOk;
 	}
 	if (std::strcmp(id, "TG.in-modal") == 0) {

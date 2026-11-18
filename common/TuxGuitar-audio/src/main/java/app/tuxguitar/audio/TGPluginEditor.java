@@ -25,10 +25,10 @@ public final class TGPluginEditor {
 		List<TGPluginParameterRow> read() throws TGVst3Exception;
 	}
 
-	// what became of it: open, moved (another editor of the plugin's own opened), closed (its plugin no longer runs, or
-	// it was closed)
+	// what became of it: open, moved (another editor of the plugin's own opened), stopped (its plugin's host stopped by
+	// itself: it hung, or crashed), closed (its plugin no longer runs, or it was closed)
 	public enum State {
-		OPEN, MOVED, CLOSED
+		OPEN, MOVED, STOPPED, CLOSED
 	}
 
 	private final TGVst3EditorOpened opened;
@@ -36,6 +36,11 @@ public final class TGPluginEditor {
 	private volatile List<TGPluginParameterRow> rows;
 	private State state = State.OPEN;
 	private Runnable watcher = () -> { };
+	// once stopped: whether its plugin hung (else it crashed), why its host stopped (in TuxGuitar's language), whether
+	// the plugin was started again
+	private boolean hung;
+	private String why;
+	private boolean restarted;
 
 	TGPluginEditor(TGVst3EditorOpened opened, Rows plugin) throws TGVst3Exception {
 		this.opened = opened;
@@ -81,14 +86,27 @@ public final class TGPluginEditor {
 		return this.state;
 	}
 
+	// open, or open elsewhere (moved); not once stopped or closed
 	public synchronized boolean isOpen() {
-		return (this.state != State.CLOSED);
+		return (this.state == State.OPEN || this.state == State.MOVED);
 	}
 
-	// the watcher from now on; told at once when the editor is closed already
+	public synchronized boolean isHung() {
+		return this.hung;
+	}
+
+	public synchronized String getWhy() {
+		return this.why;
+	}
+
+	public synchronized boolean isRestarted() {
+		return this.restarted;
+	}
+
+	// the watcher from now on; told at once when the editor is no longer open
 	public synchronized void watch(Runnable watcher) {
 		this.watcher = watcher;
-		if (this.state == State.CLOSED) {
+		if (!this.isOpen()) {
 			watcher.run();
 		}
 	}
@@ -106,6 +124,15 @@ public final class TGPluginEditor {
 	// its plugin no longer runs, or it was closed
 	void close() {
 		this.become(State.CLOSED);
+	}
+
+	// its plugin's host stopped by itself (hung: ended for not answering), why, and whether the plugin started again
+	synchronized boolean stopped(boolean hung, String why, boolean restarted) {
+		this.hung = hung;
+		this.why = why;
+		this.restarted = restarted;
+		this.become(State.STOPPED);
+		return true;
 	}
 
 	private synchronized void become(State state) {
