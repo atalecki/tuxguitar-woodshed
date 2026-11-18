@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,16 @@ class TestAudioExport {
 	void theFormatsAreShownByTheirLabels() {
 		TGSynthAudioExporter exporter = exporter();
 		assertEquals("WAVE 16-bit | WAVE 24-bit | WAVE 32-bit float | AIFF 16-bit | AU 16-bit", TuxGuitarMessages.english(() -> labels(exporter)));
+	}
+
+	// as the language TuxGuitar shows says the words (a made-up German), the types as they are; the names stay
+	@Test
+	void theFormatsAreShownInTuxGuitarsLanguageAndChosenByTheirNames() {
+		TGSynthAudioExporter exporter = exporter();
+		Map<String, String> german = Map.of("audio.export.format.pcm-16", "{0} mit 16 Bit", "audio.export.format.pcm-24", "{0} mit 24 Bit",
+			"audio.export.format.float-32", "{0} mit 32-Bit-Gleitkomma");
+		assertEquals("WAVE mit 16 Bit | WAVE mit 24 Bit | WAVE mit 32-Bit-Gleitkomma | AIFF mit 16 Bit | AU mit 16 Bit [WAVE 16-bit, WAVE 24-bit, WAVE 32-bit float, AIFF 16-bit, AU 16-bit]",
+			TuxGuitarMessages.said(german, () -> labels(exporter) + " " + exporter.getFormats()));
 	}
 
 	private static String labels(TGSynthAudioExporter exporter) {
