@@ -68,6 +68,8 @@ public class EditorSteps {
 	private TGPluginEditor inside;
 	// the process id of the host of a plugin whose editor a step made hang
 	private long hungHost;
+	// the plugins that asked to show their editors, as TuxGuitar was told: "channel/element"
+	private final List<String> asked = new java.util.ArrayList<String>();
 
 	public EditorSteps(AudioWorld world, PlaySteps play, RecordingSteps recording) {
 		this.world = world;
@@ -131,6 +133,7 @@ public class EditorSteps {
 		return this.tuxGuitarsWindow;
 	}
 
+	@Given("I have opened the editor of VST3 effect {int} of track {int} from TuxGuitar's window")
 	@When("I open the editor of VST3 effect {int} of track {int} from TuxGuitar's window")
 	public void openTheEditorFromTuxGuitarsWindow(int effect, int track) throws TGVst3Exception {
 		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_TARGET, TGEditorTarget.floating(tuxGuitarsWindow()));
@@ -196,6 +199,40 @@ public class EditorSteps {
 	@Then("the editor opened inside TuxGuitar's window is closed, with nothing left to fit")
 	public void theEditorInsideIsClosed() throws TGVst3Exception {
 		assertEquals("CLOSED " + TGVst3EditorOpened.NONE, this.inside.getState() + " " + live().fit(this.inside));
+	}
+
+	@Then("the editor of {plugin} was hidden by its close box")
+	public void itsEditorWasHiddenByItsCloseBox(Map.Entry<Integer, String> plugin) {
+		assertEquals(TGPluginEditor.State.HIDDEN, live().getEditor(plugin.getKey(), plugin.getValue()).getState());
+	}
+
+	@Given("the window of the plugin's own editor of {plugin} has been moved to {int}, {int}")
+	public void itsWindowHasBeenMoved(Map.Entry<Integer, String> plugin, int x, int y) throws TGVst3Exception {
+		running(plugin).message("TG.move-to", Map.of("width", (long) x, "height", (long) y), Collections.<String, byte[]>emptyMap());
+	}
+
+	@Given("I have closed the editor of {plugin}")
+	public void haveClosedTheEditor(Map.Entry<Integer, String> plugin) {
+		live().close(live().getEditor(plugin.getKey(), plugin.getValue()));
+	}
+
+	@Then("the window of the plugin's own editor of {plugin} is at {int}, {int}")
+	public void itsWindowIsAt(Map.Entry<Integer, String> plugin, int x, int y) throws TGVst3Exception {
+		String frame = running(plugin).getEditorWindow().getFrame();
+		assertEquals(x + "," + y, frame.substring(0, frame.indexOf(' ')));
+	}
+
+	// then the app drains
+	@When("the plugin of {plugin} asks to show its editor")
+	public void itAsksToShowItsEditor(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		live().setRequests((channel, element) -> this.asked.add(channel + "/" + element));
+		running(plugin).message("TG.request-editor", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		live().drain();
+	}
+
+	@Then("TuxGuitar is asked to show the editor of {plugin}")
+	public void tuxGuitarIsAskedToShowTheEditor(Map.Entry<Integer, String> plugin) {
+		assertEquals("[" + plugin.getKey() + "/" + plugin.getValue() + "]", this.asked.toString());
 	}
 
 	// its code hangs for 20 s (a deadlock in its UI), the host process it runs in noted

@@ -127,6 +127,12 @@ void resizeStandIn(int64 window, int64 width, int64 height) { sizeInside((HWND) 
 
 char isWindow(int64 window) { return (IsWindow((HWND) (intptr_t) window) ? 1 : 0); }
 
+// the window the editor is in, on a screen (1) or off every screen (0)
+char onScreen(void* window) { return (MonitorFromWindow((HWND) window, MONITOR_DEFAULTTONULL) ? 1 : 0); }
+
+// as the user drags the window the editor is in to that place on the screen
+void moveTo(void* window, int64 x, int64 y) { SetWindowPos((HWND) window, nullptr, (int) x, (int) y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE); }
+
 #else
 const bool inModal = false;
 
@@ -141,6 +147,10 @@ int64 standIn(int64, int64, int64) { return 0; }
 void resizeStandIn(int64, int64, int64) {}
 
 char isWindow(int64) { return 0; }
+
+char onScreen(void*) { return 0; }
+
+void moveTo(void*, int64, int64) {}
 
 #endif
 
@@ -475,6 +485,25 @@ tresult TestPlugin::windowMessage(FIDString id, IAttributeList* attributes, int6
 		attributes->getInt("window", value);
 		char answer = isWindow(value);
 		return attributes->setBinary("report", &answer, 1);
+	}
+	return placeMessage(id, attributes, width, height);
+}
+
+// "TG.on-screen": 1 byte, 1 while the window the editor is in is on a screen; "TG.move-to": that window goes to that
+// "width" (x) and "height" (y) on the screen; "TG.request-editor": the plugin asks its host to show its editor; else
+// restoringMessage
+tresult TestPlugin::placeMessage(FIDString id, IAttributeList* attributes, int64 x, int64 y) {
+	if (std::strcmp(id, "TG.on-screen") == 0) {
+		char answer = onScreen(view.window);
+		return attributes->setBinary("report", &answer, 1);
+	}
+	if (std::strcmp(id, "TG.move-to") == 0) {
+		moveTo(view.window, x, y);
+		return kResultOk;
+	}
+	FUnknownPtr<IComponentHandler2> handler(componentHandler);
+	if (std::strcmp(id, "TG.request-editor") == 0 && handler) {
+		return handler->requestOpenEditor(ViewType::kEditor);
 	}
 	return restoringMessage(id, attributes);
 }

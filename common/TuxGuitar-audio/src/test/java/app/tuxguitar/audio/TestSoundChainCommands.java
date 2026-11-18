@@ -189,6 +189,16 @@ class TestSoundChainCommands {
 		assertEquals(this.track.getChannelId() + " true true Test Gain 1 null null null", element + " " + this.commands.element(0) + " " + this.commands.element(-1) + " " + none.element(0));
 	}
 
+	// a plugin asking for its editor is found by its channel and element among the rows of the track shown; none on
+	// another channel, nor one not in the chain
+	@Test
+	void aPluginAskingForItsEditorIsFoundAmongTheRows() {
+		this.commands.addEffect(this.hosting.find("Test Gain"));
+		String effect = TGSoundChain.get(this.channel(this.track)).getOutput(0).getId();
+		int channel = this.track.getChannelId();
+		assertEquals("1 -1 -1", this.commands.row(channel, effect) + " " + this.commands.row(channel + 1, effect) + " " + this.commands.row(channel, "nothing"));
+	}
+
 	// an action given no placement opens the editor in a window of its own, owned by none
 	@Test
 	void anEditorGivenNoPlacementFloatsOwnedByNone() {

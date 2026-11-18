@@ -110,6 +110,7 @@ private:
 	tresult viewMessage(FIDString id, IAttributeList* attributes);
 	tresult sizeMessage(FIDString id, IAttributeList* attributes);
 	tresult windowMessage(FIDString id, IAttributeList* attributes, int64 width, int64 height);
+	tresult placeMessage(FIDString id, IAttributeList* attributes, int64 x, int64 y);
 	tresult restoringMessage(FIDString id, IAttributeList* attributes);
 	tresult tellProgress(IProgress* progress, bool restoring, bool underway, const char16_t* what);
 	void choosePreset(int32 preset);

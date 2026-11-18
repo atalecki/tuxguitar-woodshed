@@ -79,6 +79,7 @@ public final class TGEditorDock {
 	private static final Map<TGPluginEditor.State, Follow> FOLLOWED = new EnumMap<TGPluginEditor.State, Follow>(TGPluginEditor.State.class);
 	static {
 		FOLLOWED.put(TGPluginEditor.State.OPEN, (dock, element, editor) -> dock.fitted(element, editor.getOpened()));
+		FOLLOWED.put(TGPluginEditor.State.HIDDEN, (dock, element, editor) -> dock.floatingClosed(element));
 		FOLLOWED.put(TGPluginEditor.State.MOVED, (dock, element, editor) -> dock.moved(element));
 		FOLLOWED.put(TGPluginEditor.State.STOPPED, (dock, element, editor) -> dock.stopped(element, editor.isHung(), editor.getWhy(), editor.isRestarted()));
 		FOLLOWED.put(TGPluginEditor.State.CLOSED, (dock, element, editor) -> dock.closed(element));

@@ -70,6 +70,11 @@ public final class TGVst3EditorOpened {
 		return this.areaWidth;
 	}
 
+	// the same editor, its view now that size (it asked for it)
+	public TGVst3EditorOpened resized(int width, int height) {
+		return new TGVst3EditorOpened(this.kind, width, height, this.resizable, this.areaWidth);
+	}
+
 	public String toString() {
 		return this.kind + " " + this.width + "x" + this.height + " " + (this.resizable ? "resizable" : "fixed");
 	}

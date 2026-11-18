@@ -1291,6 +1291,35 @@ public class TestVst3Host {
 		}
 	}
 
+	// a test plugin's one-byte answer about the window its editor is in
+	private static boolean says(TGVst3Instance plugin, String message) throws TGVst3Exception {
+		return plugin.message(message, Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap())[0] == 1;
+	}
+
+	// a window of its own opens in the frame given (TuxGuitar remembers where the user left it): at its place, at its size
+	// when the view can be resized (else at the view's size); a frame off every screen opens on the nearest screen
+	@Test
+	public void anEditorOpensInTheFrameGivenOnAVisibleScreen() throws TGVst3Exception {
+		TGVst3Instance stretched = resizableGain();
+		TGVst3Instance fixed = open("Test Gain");
+		TGVst3Instance lost = open("Test Gain");
+		stretched.openEditor(TGEditorTarget.floating(0).at(new int[] {300, 200, 800, 500}), "");
+		fixed.openEditor(TGEditorTarget.floating(0).at(new int[] {310, 210, 900, 900}), "");
+		lost.openEditor(TGEditorTarget.floating(0).at(new int[] {-30000, -30000, -29700, -29800}), "");
+		String frames = inFront(stretched).getFrame() + " | " + inFront(fixed).getFrame().startsWith("310,210 ") + " " + inFront(fixed).getInside();
+		assertEquals("300,200 800,500 | true 200x100 | true", frames + " | " + says(lost, "TG.on-screen"));
+	}
+
+	// a plugin asking its host to show its editor (VST3 requestOpenEditor) is heard
+	@Test
+	public void aPluginAskingToShowItsEditorIsHeard() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		List<String> heard = new ArrayList<String>();
+		gain.setListener(notice -> heard.add(notice.getKind().toString()));
+		gain.message("TG.request-editor", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		assertEquals("[EDITOR_REQUESTED]", heard.toString());
+	}
+
 	@Test
 	public void aPluginWithoutAnEditorOpenHasNoEditorWindow() throws TGVst3Exception {
 		TGVst3EditorWindow none = open("Test Gain").getEditorWindow();

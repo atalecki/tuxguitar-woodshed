@@ -288,7 +288,7 @@ public final class TGVst3Instance implements AutoCloseable {
 	// the plugin's own editor where the target says: floating (see above), or inside a window of TuxGuitar, as the
 	// host's reply says (EMBED_EDITOR). A plugin has one view at a time: an editor open elsewhere closes first
 	public TGVst3EditorOpened openEditor(TGEditorTarget target, String title) throws TGVst3Exception {
-		return (target.isEmbedded() ? this.embed(target, title) : this.floating(target.getOwner(), title));
+		return (target.isEmbedded() ? this.embed(target, title) : this.floating(target, title));
 	}
 
 	private TGVst3EditorOpened embed(TGEditorTarget target, String title) throws TGVst3Exception {
@@ -298,8 +298,12 @@ public final class TGVst3Instance implements AutoCloseable {
 		return opened;
 	}
 
-	private TGVst3EditorOpened floating(long owner, String title) throws TGVst3Exception {
-		int[] opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner).writeString(title), in -> new int[] {in.readInt(), in.readInt()});
+	private TGVst3EditorOpened floating(TGEditorTarget target, String title) throws TGVst3Exception {
+		TGVst3Request request = this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(target.getOwner()).writeString(title);
+		for (int side : target.getFrame()) {
+			request.writeInt(side);
+		}
+		int[] opened = this.host.call(request, in -> new int[] {in.readInt(), in.readInt()});
 		LOG.debug(this.label() + EDITOR_OPENED[opened[0]] + (opened[0] == 2 ? " (" + TGVst3EditorWindow.awareness(opened[1]) + ")" : ""));
 		return new TGVst3EditorOpened(TGVst3EditorOpened.Kind.values()[opened[0]], 0, 0, false, 0);
 	}

@@ -39,7 +39,9 @@ final class TGVst3Protocol {
 	static final int RESET = 10;
 	// process id -> network sockets it listens on (-1: unknown)
 	static final int LISTENERS = 11;
-	// instance, owner window (a native window handle; 0: none), title of the window -> the editor: none of its own (0),
+	// instance, owner window (a native window handle; 0: none), title of the window, the frame it opens in when it is
+	// made (left, top, right, bottom on the screen; all 0: centred on its owner; moved onto a visible screen; its size
+	// kept only when the view can be resized) -> the editor: none of its own (0),
 	// opened in a window of its own (1), or in a window the owner window owns (2); shown in front either way, an editor
 	// already open too, and titled; then the DPI awareness of the window owning it (see EDITOR_WINDOW)
 	static final int OPEN_EDITOR = 12;

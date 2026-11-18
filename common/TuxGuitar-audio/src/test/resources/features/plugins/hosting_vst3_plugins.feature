@@ -440,6 +440,28 @@ Feature: Hosting VST3 plugins
     And the plugin of VST3 effect 1 of track 1 runs in another host process, its "Gain" at 4.0
     And no editor of VST3 effect 1 of track 1 is open
 
+  # a plugin's editor in a window of its own (the Sound Chain dialog's Edit, or Open in window): its close box hides it
+  # (the panel then puts it back in the panel), and where the user left it is remembered for the plugin
+  Scenario: the close box of a plugin's editor in a window of its own is told to the editor opened
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have opened the editor of VST3 effect 1 of track 1 from TuxGuitar's window
+    When I close the plugin's own editor of VST3 effect 1 of track 1 by its close box
+    Then the editor of VST3 effect 1 of track 1 was hidden by its close box
+
+  Scenario: a plugin's editor in a window of its own opens again where the user left it
+    Given I have added the VST3 effect "Test Gain" to track 1
+    And I have opened the editor of VST3 effect 1 of track 1 from TuxGuitar's window
+    And the window of the plugin's own editor of VST3 effect 1 of track 1 has been moved to 320, 240
+    And I have closed the editor of VST3 effect 1 of track 1
+    When I open the editor of VST3 effect 1 of track 1 from TuxGuitar's window
+    Then the window of the plugin's own editor of VST3 effect 1 of track 1 is at 320, 240
+
+  # a plugin may ask its host to show its editor (VST3 requestOpenEditor): TuxGuitar is told, the panel shows it
+  Scenario: a plugin asking to show its editor is told to TuxGuitar
+    Given I have added the VST3 effect "Test Gain" to track 1
+    When the plugin of VST3 effect 1 of track 1 asks to show its editor
+    Then TuxGuitar is asked to show the editor of VST3 effect 1 of track 1
+
   # an app shows a refusal's text to the user (the desktop: in an error message)
   Scenario Outline: opening the editor of a source that is no VST3 plugin is refused, saying so
     Given I have added an audio track recording input channel 1

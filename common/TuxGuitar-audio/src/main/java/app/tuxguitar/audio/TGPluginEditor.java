@@ -25,13 +25,14 @@ public final class TGPluginEditor {
 		List<TGPluginParameterRow> read() throws TGVst3Exception;
 	}
 
-	// what became of it: open, moved (another editor of the plugin's own opened), stopped (its plugin's host stopped by
+	// what became of it: open, hidden (the close box of its window of its own), moved (another editor of the plugin's
+	// own opened), stopped (its plugin's host stopped by
 	// itself: it hung, or crashed), closed (its plugin no longer runs, or it was closed)
 	public enum State {
-		OPEN, MOVED, STOPPED, CLOSED
+		OPEN, HIDDEN, MOVED, STOPPED, CLOSED
 	}
 
-	private final TGVst3EditorOpened opened;
+	private volatile TGVst3EditorOpened opened;
 	private final Rows plugin;
 	private volatile List<TGPluginParameterRow> rows;
 	private State state = State.OPEN;
@@ -86,9 +87,9 @@ public final class TGPluginEditor {
 		return this.state;
 	}
 
-	// open, or open elsewhere (moved); not once stopped or closed
+	// open (its window maybe hidden), or open elsewhere (moved); not once stopped or closed
 	public synchronized boolean isOpen() {
-		return (this.state == State.OPEN || this.state == State.MOVED);
+		return (this.state != State.STOPPED && this.state != State.CLOSED);
 	}
 
 	public synchronized boolean isHung() {
@@ -119,6 +120,17 @@ public final class TGPluginEditor {
 	// another editor of the plugin's own opened: this one is not open there any more
 	void moved() {
 		this.become(State.MOVED);
+	}
+
+	// its window of its own was closed by its close box (the view hidden in it)
+	void hidden() {
+		this.become(State.HIDDEN);
+	}
+
+	// its view took that size (the plugin asked for it)
+	synchronized void resized(int width, int height) {
+		this.opened = this.opened.resized(width, height);
+		this.watcher.run();
 	}
 
 	// its plugin no longer runs, or it was closed

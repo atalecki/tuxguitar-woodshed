@@ -28,7 +28,7 @@ using namespace Steinberg;
 // what the controller told the host (dirty: its state changed outside any edit, a file loaded, say), or that the
 // editor's window was hidden by its close box (the editor may have changed the plugin without saying so)
 struct Notification {
-	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4, kDirty = 5, kEditorHidden = 6, kEditorResized = 7 };
+	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4, kDirty = 5, kEditorHidden = 6, kEditorResized = 7, kEditorRequested = 8 };
 	int32 kind;
 	int32 id;     // the parameter, or the restart flags, or the editor's new width
 	double plain; // the parameter's plain value, or the editor's new height
@@ -143,6 +143,9 @@ public:
 	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
 	// no window: none), its caption the title (UTF-8); false when it has none for this platform
 	bool openEditor(int64 owner, const std::string& title);
+	// where a window of its own opens from now on: that frame on the screen (left, top, right, bottom), moved onto the
+	// screen nearest to it, its size kept when the view can be resized; all 0: centred on its owner
+	void placeEditor(const std::vector<int32>& frame);
 	// the plugin's own editor inside the parent window (a native handle), when its view is at most that share of the
 	// inside of the parent's top-level window high and, unable to shrink, no wider than the parent's inside; then a child of the parent once the reply is sent, of the
 	// parent's DPI awareness, at its top left, as wide as its inside when it can be resized. Too large, nothing is kept
@@ -186,6 +189,7 @@ private:
 	bool start(double sampleRate, std::string& error);
 	bool createEditor(int64 owner);
 	bool windowOwnedBy(void* ownerWindow, uint32 dpi);
+	void place(void* made);
 	bool attach(void* made);
 	bool makeView(uint32 dpi);
 	ViewFit embedView(void* parent, int32 maxHeight, const std::string& title);
@@ -214,6 +218,8 @@ private:
 	void* window = nullptr;
 	// the window of TuxGuitar the editor is inside, else nullptr
 	void* embeddedIn = nullptr;
+	// where a window of its own opens (see placeEditor)
+	std::vector<int32> placed = std::vector<int32>(4, 0);
 	int32 inputChannels = 0;
 	int32 outputChannels = 0;
 	Vst::HostProcessData data;

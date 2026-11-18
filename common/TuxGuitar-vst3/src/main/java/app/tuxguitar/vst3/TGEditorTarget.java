@@ -12,11 +12,28 @@ public final class TGEditorTarget {
 	private final long parent;
 	private final long owner;
 	private final double maxShare;
+	// floating: the frame its window opens in (left, top, right, bottom on the screen), or none
+	private final int[] frame;
 
-	private TGEditorTarget(long parent, long owner, double maxShare) {
+	private TGEditorTarget(long parent, long owner, double maxShare, int[] frame) {
 		this.parent = parent;
 		this.owner = owner;
 		this.maxShare = maxShare;
+		this.frame = frame;
+	}
+
+	private TGEditorTarget(long parent, long owner, double maxShare) {
+		this(parent, owner, maxShare, new int[4]);
+	}
+
+	// the same, its window (when it floats and is made now) opening in that frame (left, top, right, bottom; null: where
+	// it opens by itself, centred on its owner)
+	public TGEditorTarget at(int[] frame) {
+		return new TGEditorTarget(this.parent, this.owner, this.maxShare, (frame != null ? frame.clone() : new int[4]));
+	}
+
+	public int[] getFrame() {
+		return this.frame.clone();
 	}
 
 	public static TGEditorTarget floating(long owner) {

@@ -34,7 +34,9 @@ import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
+import app.tuxguitar.vst3.TGVst3EditorWindow;
 import app.tuxguitar.vst3.TGVst3Gestures;
+import app.tuxguitar.vst3.TGVst3Notice;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Instance;
 import app.tuxguitar.vst3.TGVst3Parameter;
@@ -87,6 +89,12 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	private final Set<Integer> played = new HashSet<Integer>();
 	// the gestures ended, in order, until drained (the audio thread adds, the app's UI thread drains)
 	private final ConcurrentLinkedQueue<Gesture> ended = new ConcurrentLinkedQueue<Gesture>();
+	// what plugins told of their editors (hidden by the close box, resized, asked for), until drained
+	private final ConcurrentLinkedQueue<Told> told = new ConcurrentLinkedQueue<Told>();
+	// where each plugin's editor window of its own was last left (by class id), as an app keeps it
+	private TGEditorFrames frames = TGEditorFrames.inMemory();
+	// told of each plugin that asked to show its editor: its channel and element
+	private java.util.function.BiConsumer<Integer, String> requests = (channel, element) -> { };
 
 	private TGLivePlugins(TGContext context, boolean live) {
 		this.context = context;
@@ -152,9 +160,28 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		this.notifyAll();
 	}
 
+	// its gestures heard, and what it tells of its editor queued for the drain
 	private TGVst3Instance listened(int channel, String element, TGVst3Instance instance) {
-		instance.setListener(new TGVst3Gestures(() -> this.ended.add(new Gesture(channel, element, instance))));
+		TGVst3Gestures gestures = new TGVst3Gestures(() -> this.ended.add(new Gesture(channel, element, instance)));
+		instance.setListener(notice -> {
+			gestures.notice(notice);
+			Optional.of(notice).filter(TGLivePlugins::aboutItsEditor).ifPresent(about -> this.told.add(new Told(new Gesture(channel, element, instance), about)));
+		});
 		return instance;
+	}
+
+	private static boolean aboutItsEditor(TGVst3Notice notice) {
+		return EDITOR_NOTICES.contains(notice.getKind());
+	}
+
+	// where each plugin's editor window of its own opens, as an app keeps it (in memory until one is given)
+	public synchronized void setFrames(TGEditorFrames frames) {
+		this.frames = frames;
+	}
+
+	// told, on the thread that drains, of each plugin asking to show its editor
+	public synchronized void setRequests(java.util.function.BiConsumer<Integer, String> requests) {
+		this.requests = requests;
 	}
 
 	// the plugin of the element of the channel's chain as it runs
@@ -278,9 +305,9 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return this.listened(Integer.parseInt(key.substring(0, slash)), key.substring(slash + 1), instance);
 	}
 
-	// whether a gesture ended since the last drain (any thread may ask)
+	// whether a gesture ended, or a plugin told of its editor, since the last drain (any thread may ask)
 	public boolean hasEnded() {
-		return !this.ended.isEmpty();
+		return !(this.ended.isEmpty() && this.told.isEmpty());
 	}
 
 	// the gestures ended since the last drain change the song: one change per element, with its plugin's state now, in
@@ -292,6 +319,32 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			last.put(key(gesture.channel, gesture.element), gesture);
 		}
 		last.values().forEach(gesture -> this.store(gesture.channel, gesture.element, gesture.instance));
+		for (Told about = this.told.poll(); about != null; about = this.told.poll()) {
+			this.tell(about);
+		}
+	}
+
+	// the editor open for the plugin that told: hidden (its window remembered), resized; or the app told the plugin asks
+	// for its editor
+	private synchronized void tell(Told about) {
+		Gesture plugin = about.plugin;
+		Editor editor = this.editors.get(key(plugin.channel, plugin.element));
+		Optional.ofNullable(editor).filter(open -> open.instance == plugin.instance).ifPresent(open -> about.notice(open, this));
+		Optional.of(about.notice.getKind()).filter(TGVst3Notice.Kind.EDITOR_REQUESTED::equals).ifPresent(asked -> this.requests.accept(plugin.channel, plugin.element));
+	}
+
+	// where its window of its own was left, remembered for its plugin, when it is open in one
+	private void remember(Editor editor) {
+		try {
+			TGVst3EditorWindow window = editor.instance.getEditorWindow();
+			Optional.of(window).filter(TGLivePlugins::floats).ifPresent(floating -> this.frames.put(editor.classId, TGEditorFrames.kept(floating.getFrame())));
+		} catch (TGVst3Exception e) {
+			LOG.debug("where the editor of a VST3 plugin was left is not remembered: " + e.getMessage());
+		}
+	}
+
+	private static boolean floats(TGVst3EditorWindow window) {
+		return (window.getWindow() != 0 && !window.isEmbedded());
 	}
 
 	// the song's element keeps the plugin's state, one change of the song; none when the song holds that state already
@@ -377,9 +430,18 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			this.await(end - System.currentTimeMillis());
 		}
 		TGVst3Instance instance = this.get(channel, element);
-		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, target, title), () -> rows(instance));
-		this.replace(key(channel, element), new Editor(editor, instance, this.edited(channel, element, instance)));
+		Optional.ofNullable(this.editors.get(key(channel, element))).filter(open -> open.instance == instance).ifPresent(this::remember);
+		String classId = this.classOf(channel, element);
+		TGEditorTarget placed = target.at(TGEditorFrames.frame(this.frames.get(classId)));
+		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, placed, title), () -> rows(instance));
+		this.replace(key(channel, element), new Editor(editor, instance, this.edited(channel, element, instance), classId));
 		return editor;
+	}
+
+	// the plugin (class id) of the element, of the song's chain or the default instrument the channel plays
+	private String classOf(int channel, String element) {
+		TGProgramElement played = TGSoundChain.element(this.chainOf(channel, element), element);
+		return (played != null ? TGVst3Element.getClassId(played) : "");
 	}
 
 	// the editor open for the element from now on; one of the plugin's own it replaces has moved
@@ -393,6 +455,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	// the editor closes, the plugin's own editor with it when it is the one open for its element (one that moved has
 	// none left to close); the plugin goes on
 	public synchronized void close(TGPluginEditor editor) {
+		this.editors.values().stream().filter(open -> open.editor == editor).forEach(this::remember);
 		this.editors.values().removeIf(open -> open.editor == editor && open.close());
 		editor.close();
 	}
@@ -545,11 +608,14 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		private final TGVst3Instance instance;
 		// the default instrument it was opened for (null: an element of the song)
 		private final Default byDefault;
+		// its plugin's class id (where its window was left is remembered by it)
+		private final String classId;
 
-		Editor(TGPluginEditor editor, TGVst3Instance instance, Default byDefault) {
+		Editor(TGPluginEditor editor, TGVst3Instance instance, Default byDefault, String classId) {
 			this.editor = editor;
 			this.instance = instance;
 			this.byDefault = byDefault;
+			this.classId = classId;
 		}
 
 		// whether it edits the default instrument played now (it was opened for it, and the default is still that one)
@@ -577,6 +643,33 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 			this.editor.close();
 			return true;
 		}
+	}
+
+	// the notices of a plugin's editor, queued for the drain
+	private static final java.util.Set<TGVst3Notice.Kind> EDITOR_NOTICES = java.util.EnumSet.of(TGVst3Notice.Kind.EDITOR_HIDDEN, TGVst3Notice.Kind.EDITOR_RESIZED,
+		TGVst3Notice.Kind.EDITOR_REQUESTED);
+
+	// what a plugin told of its editor
+	private static final class Told {
+		private final Gesture plugin;
+		private final TGVst3Notice notice;
+
+		Told(Gesture plugin, TGVst3Notice notice) {
+			this.plugin = plugin;
+			this.notice = notice;
+		}
+
+		// the editor told: hidden (where its window was left remembered), or resized
+		void notice(Editor open, TGLivePlugins live) {
+			TGVst3Notice.Kind kind = this.notice.getKind();
+			Optional.of(kind).filter(TGVst3Notice.Kind.EDITOR_HIDDEN::equals).ifPresent(hidden -> live.hide(open));
+			Optional.of(kind).filter(TGVst3Notice.Kind.EDITOR_RESIZED::equals).ifPresent(resized -> open.editor.resized(this.notice.getParameter(), (int) this.notice.getPlain()));
+		}
+	}
+
+	private void hide(Editor open) {
+		this.remember(open);
+		open.editor.hidden();
 	}
 
 	private static final class Gesture {

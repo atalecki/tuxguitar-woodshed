@@ -1,6 +1,7 @@
 package app.tuxguitar.audio;
 
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import java.util.function.Supplier;
 
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
@@ -109,6 +110,19 @@ public final class TGSoundChainCommands {
 		TGChannel channel = this.channel();
 		TGProgramElement plugin = TGDefaultInstrumentSource.install(this.context).edited(channel, TGSoundChainRows.effect(row));
 		return (plugin != null ? new TGEditorDock.Element(channel.getChannelId(), plugin.getId(), TGVst3Element.getClassId(plugin), TGVst3Element.getName(plugin), row) : null);
+	}
+
+	// the row of the element of the channel's chain when the track has that channel (a plugin asking for its editor),
+	// else -1
+	public int row(int channel, String id) {
+		TGTrack shown = this.track.get();
+		int rows = (shown != null && shown.getChannelId() == channel ? TGSoundChain.get(this.channel()).countOutputs() + 1 : 0);
+		return IntStream.range(0, rows).filter(row -> this.names(row, id)).findFirst().orElse(-1);
+	}
+
+	private boolean names(int row, String id) {
+		TGEditorDock.Element element = this.element(row);
+		return (element != null && element.getId().equals(id));
 	}
 
 	// the track's channel as the song has it now

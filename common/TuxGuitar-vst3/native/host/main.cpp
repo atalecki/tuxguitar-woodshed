@@ -400,6 +400,11 @@ private:
 		Instance& edited = instance(id);
 		int64_t owner = wire.readLong();
 		std::string title = wire.readString();
+		std::vector<int32_t> frame(4);
+		for (int32_t& side : frame) {
+			side = wire.readInt();
+		}
+		edited.placeEditor(frame);
 		editorsClosing.erase(id);
 		bool opened = edited.openEditor(owner, title);
 		EditorWindow facts = edited.editorWindow();

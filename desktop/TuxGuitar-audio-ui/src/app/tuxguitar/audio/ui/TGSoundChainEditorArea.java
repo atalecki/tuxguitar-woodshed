@@ -25,6 +25,7 @@ import app.tuxguitar.ui.widget.UIPanel;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.configuration.TGConfigManager;
 import app.tuxguitar.util.log.TGLog;
+import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3Exception;
 
 /**
@@ -97,6 +98,20 @@ final class TGSoundChainEditorArea {
 	// Hide editor / Show editor, remembered
 	void toggle(boolean panelShown) {
 		this.run(this.dock.visibility(!this.dock.isHidden(), panelShown));
+	}
+
+	// a plugin of the track shown asked to show its editor
+	void requested(Element element) {
+		this.run(this.dock.requested(element));
+	}
+
+	// a plugin of another track asked to show its editor: in a window of its own
+	void elsewhere(int channel, String element) {
+		try {
+			TGLivePlugins.getInstance(this.context).openEditor(channel, element, TGEditorTarget.floating(this.owner()), "");
+		} catch (TGVst3Exception e) {
+			LOG.debug("the editor a VST3 plugin asked for was not shown: " + e.getMessage());
+		}
 	}
 
 	// the key of the panel's Edit button's text: Hide editor or Show editor

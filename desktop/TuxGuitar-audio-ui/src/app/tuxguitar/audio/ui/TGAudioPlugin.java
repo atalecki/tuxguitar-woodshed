@@ -63,6 +63,7 @@ public class TGAudioPlugin implements TGPlugin {
 		this.settings = () -> new TGDefaultInstrumentsSettings(context);
 		TGSoundSettingsExtensions.getInstance(context).add(this.settings);
 		this.plugins = scheduler("TuxGuitar VST3 plugins");
+		TGLivePlugins.getInstance(context).setFrames(new TGConfigEditorFrames(config(context)));
 		this.plugins.execute(() -> LOG.info(audio.startPlugins()));
 		this.plugins.scheduleWithFixedDelay(() -> drainLater(context), DRAIN_MILLISECONDS, DRAIN_MILLISECONDS, TimeUnit.MILLISECONDS);
 		this.plugins.scheduleWithFixedDelay(TGLivePlugins.getInstance(context)::poll, POLL_MILLISECONDS, POLL_MILLISECONDS, TimeUnit.MILLISECONDS);

@@ -37,7 +37,7 @@ public:
 	tresult PLUGIN_API restartComponent(int32 flags) override { return tell(Notification::kRestart, flags, 0.0); }
 
 	tresult PLUGIN_API setDirty(TBool state) override { return (state ? tell(Notification::kDirty, 0, 0.0) : kResultOk); }
-	tresult PLUGIN_API requestOpenEditor(FIDString) override { return kNotImplemented; }
+	tresult PLUGIN_API requestOpenEditor(FIDString) override { return tell(Notification::kEditorRequested, 0, 0.0); }
 	tresult PLUGIN_API startGroupEdit() override { return kResultOk; }
 	tresult PLUGIN_API finishGroupEdit() override { return kResultOk; }
 
@@ -644,6 +644,18 @@ POINT editorPosition(HWND owner, LONG width, LONG height) {
 	return POINT{std::max(work.left, std::min(x, work.right - width)), std::max(work.top, std::min(y, work.bottom - height))};
 }
 
+// the frame moved onto the work area of the screen nearest to it, its size kept as far as it fits there
+RECT onScreen(const RECT& frame) {
+	MONITORINFO screen = {sizeof(MONITORINFO)};
+	GetMonitorInfoW(MonitorFromRect(&frame, MONITOR_DEFAULTTONEAREST), &screen);
+	const RECT& work = screen.rcWork;
+	LONG width = std::min(frame.right - frame.left, work.right - work.left);
+	LONG height = std::min(frame.bottom - frame.top, work.bottom - work.top);
+	LONG x = std::max(work.left, std::min(frame.left, work.right - width));
+	LONG y = std::max(work.top, std::min(frame.top, work.bottom - height));
+	return RECT{x, y, x + width, y + height};
+}
+
 // what is done to the editors' windows once the reply is sent (doEditorWindowWork), as it waits on the thread of a
 // window of TuxGuitar (TuxGuitar's UI thread, which waits for the reply meanwhile): an owned window shown, a frame put
 // inside a window of TuxGuitar, or destroyed there
@@ -796,7 +808,24 @@ bool Instance::windowOwnedBy(void* ownerWindow, uint32 dpi) {
 	SIZE outside = frameFor(style, size.getWidth(), size.getHeight(), dpi);
 	POINT at = editorPosition((HWND) ownerWindow, outside.cx, outside.cy);
 	HWND made = CreateWindowExW(0, editorClass(), L"", style, at.x, at.y, outside.cx, outside.cy, (HWND) ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
-	return attach(made);
+	bool attached = attach(made);
+	place(made);
+	return attached;
+}
+
+void Instance::placeEditor(const std::vector<int32>& frame) {
+	placed = frame;
+}
+
+// the window made goes where it was asked to open, onto a visible screen: its size too when its view can be resized
+// (within what the view accepts)
+void Instance::place(void* made) {
+	RECT wanted = {placed[0], placed[1], placed[2], placed[3]};
+	if (wanted.right > wanted.left && window == made) {
+		RECT at = onScreen(wanted);
+		UINT keep = ((styleOf((HWND) made) & WS_THICKFRAME) != 0 ? 0 : SWP_NOSIZE);
+		SetWindowPos((HWND) made, nullptr, at.left, at.top, at.right - at.left, at.bottom - at.top, SWP_NOZORDER | SWP_NOACTIVATE | keep);
+	}
 }
 
 // the view attached to the window made, which tells the instance from now on; false, the view gone, when there is no
@@ -893,6 +922,8 @@ EditorWindow Instance::editorWindow() {
 #else
 // editor windows need the platform's window system: only Windows so far
 bool Instance::openEditor(int64, const std::string&) { return false; }
+
+void Instance::placeEditor(const std::vector<int32>& frame) { placed = frame; }
 
 ViewFit Instance::embedEditor(int64, double, const std::string&) { return ViewFit{kNoEditor, 0, 0, false, 0}; }
 

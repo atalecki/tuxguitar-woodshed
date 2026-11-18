@@ -2,6 +2,7 @@ package app.tuxguitar.audio.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import app.tuxguitar.app.TuxGuitar;
@@ -9,6 +10,7 @@ import app.tuxguitar.app.system.keybindings.KeyBindingActionManager;
 import app.tuxguitar.app.system.language.TGLanguageEvent;
 import app.tuxguitar.app.ui.TGApplication;
 import app.tuxguitar.app.view.main.TGBottomDock;
+import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChainCommands;
 import app.tuxguitar.audio.TGSoundChainFollow;
 import app.tuxguitar.audio.TGSoundChainFollow.Key;
@@ -95,6 +97,7 @@ final class TGSoundChainPanel implements TGEventListener {
 		this.texts.forEach(Runnable::run);
 		TGEditorManager.getInstance(this.context).addUpdateListener(this);
 		TuxGuitar.getInstance().getLanguageManager().addLoader(this);
+		TGLivePlugins.getInstance(this.context).setRequests((channel, element) -> this.later(() -> this.requested(channel, element)));
 		this.onUpdate();
 	}
 
@@ -268,6 +271,18 @@ final class TGSoundChainPanel implements TGEventListener {
 			TGSoundChainButtons.offer(this.instruments, TGSoundChainRows.instruments(plugins));
 			this.offered = plugins;
 		}
+	}
+
+	// a plugin asked to show its editor (VST3 requestOpenEditor): on the track shown its button is picked and the area
+	// shows it where it goes; on another track it opens in a window of its own
+	private void requested(int channel, String element) {
+		int row = this.commands.row(channel, element);
+		Optional.of(row).filter(asked -> asked >= 0).ifPresentOrElse(this::pickAsked, () -> this.area.elsewhere(channel, element));
+	}
+
+	private void pickAsked(int row) {
+		this.pick(row);
+		this.area.requested(this.commands.element(row));
 	}
 
 	// the row picked; its plugin's editor shows in the editor area
