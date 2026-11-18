@@ -157,16 +157,6 @@ public class TimedLiveSteps {
 		assertEquals(sounds, level > SOUNDS, "beat " + (beat + 1) + " from sample " + from + ": note " + note + " at " + level);
 	}
 
-	@Then("the player stopped by itself within {int} samples of the turn's end, {int} seconds after Play")
-	public void stoppedAfterTheTurn(int within, int seconds) {
-		live.assertStoppedAfter(within, seconds * (long) SAMPLE_RATE, "the turn");
-	}
-
-	@Then("the player stopped by itself within {int} samples of turn {int}'s end, {int} seconds after Play")
-	public void stoppedAfterTurn(int within, int turn, int seconds) {
-		live.assertStoppedAfter(within, seconds * (long) SAMPLE_RATE, "turn " + turn);
-	}
-
 	@Then("the player stopped by itself at the end of the block turn {int}'s end is heard in, {int} seconds after Play")
 	public void stoppedAsTurnEndIsHeard(int turn, int seconds) {
 		live.assertStoppedAsHeard(seconds * (long) SAMPLE_RATE, "turn " + turn);

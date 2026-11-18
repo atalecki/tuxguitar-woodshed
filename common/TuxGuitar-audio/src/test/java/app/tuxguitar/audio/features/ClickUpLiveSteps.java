@@ -195,11 +195,12 @@ public class ClickUpLiveSteps {
 		after.forEach(step -> assertSounds(step, false));
 	}
 
-	@Then("the player stopped by itself within {int} samples of step {int}'s end")
-	public void stoppedByItself(int within, int step) {
+	// the player stops by itself at the end of the block the output sounds the end of the click-up's last step in
+	@Then("the player stopped by itself at the end of the block step {int}'s end is heard in")
+	public void stoppedByItself(int step) {
 		Heard last = heard().get(heard().size() - 1);
 		assertEquals(step, last.step);
-		assertEquals(last.until + world.chainDelay(), live.stopped(), within, "step " + step + " ends, as heard");
+		live.assertStoppedWhereHeard(last.until + world.chainDelay(), "step " + step);
 	}
 
 	// "1, 2, 3, 3, 4, 5": the steps started before the change as planned, then the one played again and those after it

@@ -144,22 +144,22 @@ Feature: Interleaved practice
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live
     Then before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
-    And the player stopped by itself within 512 samples of turn 3's end
+    And the player stopped by itself at the end of the block turn 3's end is heard in
 
     Examples:
       | count in |
       | on       |
       | off      |
 
-  # the player sees the session's end at the end of a block of 512 samples, which falls up to two blocks after the turn
-  # ends as heard: here turn 3 ends 0.8 of a block into one
+  # the player stops at the end of the block of 512 samples the output sounds the session's end in, as with a Count In
+  # before each turn: here turn 3's end is heard 0.8 of a block into one
   Scenario: live, with "Count In before each turn" off, each turn starts where the turn before ended, even with Count In on
     Given I have turned Count In on
     And I have turned interleaved practice's "Count In before each turn" off
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live
     Then each turn sounds the notes of one measure of measures 1 to 4, each within 1 sample of its beat
-    And the player stopped by itself within 1024 samples of turn 3's end
+    And the player stopped by itself at the end of the block turn 3's end is heard in
 
   # Choosing the turns (no sound: the choosing alone, for many random seeds)
 
@@ -408,7 +408,7 @@ Feature: Interleaved practice
     Given I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, pausing during turn 2 and playing again
     Then after Play, turn 2's measure sounds again after a Count In of 4 beats, then turn 3's after another
-    And the player stopped by itself within 512 samples of turn 3's end, 16 beats after Play
+    And the player stopped by itself at the end of the block turn 3's end is heard in, 16 beats after Play
 
   Scenario: moving the position during a session ends it, and the song plays on from there
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
@@ -419,7 +419,7 @@ Feature: Interleaved practice
   Scenario: editing the song ends the session
     Given I have set interleaved practice to lines over lines 1 to 4, with lines of 4 measures
     When I practise 6 turns live, removing measure 40 during turn 2
-    Then the player stopped within 512 samples of the edit, during turn 2
+    Then the player stopped at the edit, during turn 2
     And the song has 63 measures
     And interleaved practice has ended
 
@@ -429,7 +429,7 @@ Feature: Interleaved practice
     Given I have added the marker "Intro" at measure 2
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, <edit> during turn 2
-    Then the player stopped by itself within 512 samples of turn 3's end
+    Then the player stopped by itself at the end of the block turn 3's end is heard in
     And track 1 reads "<track>" and the markers read "<markers>"
 
     Examples:
@@ -444,7 +444,7 @@ Feature: Interleaved practice
     Given I have <made it>
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, undoing during turn 2
-    Then the player stopped by itself within 512 samples of turn 3's end
+    Then the player stopped by itself at the end of the block turn 3's end is heard in
     And track 1 reads "-" and the markers read ""
 
     Examples:
@@ -458,7 +458,7 @@ Feature: Interleaved practice
     And I have undone it
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, redoing during turn 2
-    Then the player stopped by itself within 512 samples of turn 3's end
+    Then the player stopped by itself at the end of the block turn 3's end is heard in
     And track 1 reads "<track>" and the markers read "<markers>"
 
     Examples:
@@ -474,7 +474,7 @@ Feature: Interleaved practice
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, choosing Record during turn 2
     Then Record is refused, saying "Interleaved practice is under way: stop it to record."
-    And the player stopped by itself within 512 samples of turn 3's end
+    And the player stopped by itself at the end of the block turn 3's end is heard in
     And track 2's takes read ""
 
   # The interval clock: timed turns that loop their unit, with a break between turns, for a session of so many minutes.
@@ -660,7 +660,7 @@ Feature: Interleaved practice
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 1 minute
     When I practise the session live, pausing during pass 3 and playing again
     Then after Play, the turn's measure sounds again after a Count In of 4 beats, then 26 more times back to back
-    And the player stopped by itself within 512 samples of the turn's end, 56 seconds after Play
+    And the player stopped by itself at the end of the block turn 1's end is heard in, 56 seconds after Play
 
   # the player stops where the session's end is heard, late by plugin delay compensation as every track is (none, 600
   # samples, a plugin's 2048): at the end of the block of 512 samples the output sounds turn 2's end in, never before
@@ -852,7 +852,7 @@ Feature: Interleaved practice
     When I practise 4 turns live
     Then each turn sounds the note of one beat of measures 3 to 4, then the note of the beat after it, each within 1 sample of its beat
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
-    And the player stopped by itself within 512 samples of turn 4's end
+    And the player stopped by itself at the end of the block turn 4's end is heard in
 
   Scenario: an audio track's take plays through the joint, and fades out over its last 256 samples
     Given I have added an audio track recording input channel 1
@@ -975,7 +975,7 @@ Feature: Interleaved practice
     When I practise 3 turns live
     Then each turn sounds the notes of one block of 2 measures of measures 1 to 4, each measure once and in order, each within 1 sample of its beat
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
-    And the player stopped by itself within 512 samples of turn 3's end
+    And the player stopped by itself at the end of the block turn 3's end is heard in
 
   Scenario: live, a block of beats plays through the barline, then the joint's note
     Given I have set interleaved practice to beats over measures 3 to 4
@@ -983,7 +983,7 @@ Feature: Interleaved practice
     When I practise 7 turns live
     Then the turns sound each block of 2 beats of measures 3 to 4 once, its beats, then the note of the beat after it, each within 1 sample of its beat
     And before each turn the output holds 4 Count In clicks, 22050 samples apart within 1 sample
-    And the player stopped by itself within 512 samples of turn 7's end
+    And the player stopped by itself at the end of the block turn 7's end is heard in
 
   # a pass of a block of 2 measures lasts 4 seconds: after a Count In of 2 seconds, pass 15 starts at 58 seconds
   Scenario: with the interval clock, a turn loops its block until the turn's time is up
