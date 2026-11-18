@@ -28,10 +28,24 @@ using namespace Steinberg;
 // what the controller told the host (dirty: its state changed outside any edit, a file loaded, say), or that the
 // editor's window was hidden by its close box (the editor may have changed the plugin without saying so)
 struct Notification {
-	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4, kDirty = 5, kEditorHidden = 6 };
+	enum Kind { kBeginEdit = 1, kPerformEdit = 2, kEndEdit = 3, kRestart = 4, kDirty = 5, kEditorHidden = 6, kEditorResized = 7 };
 	int32 kind;
-	int32 id;     // the parameter, or the restart flags
-	double plain; // the parameter's plain value
+	int32 id;     // the parameter, or the restart flags, or the editor's new width
+	double plain; // the parameter's plain value, or the editor's new height
+};
+
+// what the host did with a plugin's own editor, as its reply says it: none of its own, a window of its own, a window
+// TuxGuitar's window owns, inside a window of TuxGuitar, nothing because it is too large for that window
+enum EditorKind { kNoEditor = 0, kOwnWindow = 1, kOwned = 2, kEmbedded = 3, kTooLarge = 4 };
+
+// what an editor inside a window of TuxGuitar is, or would be: its kind, the size its view takes (device pixels),
+// whether the view can be resized, and the width of the window's inside
+struct ViewFit {
+	int32 kind;
+	int32 width;
+	int32 height;
+	bool resizable;
+	int32 inside;
 };
 
 // a note event of a block, at a sample of it
@@ -129,6 +143,15 @@ public:
 	// the plugin's own editor shown in front, in a window the owner window owns (a native handle; 0, or a handle that is
 	// no window: none), its caption the title (UTF-8); false when it has none for this platform
 	bool openEditor(int64 owner, const std::string& title);
+	// the plugin's own editor inside the parent window (a native handle), when its view is at most that share of the
+	// inside of the parent's top-level window high and, unable to shrink, no wider than the parent's inside; then a child of the parent once the reply is sent, of the
+	// parent's DPI awareness, at its top left, as wide as its inside when it can be resized. Too large, nothing is kept
+	// open. An editor open in another place closes first; one open inside that parent stays, fitted again
+	ViewFit embedEditor(int64 parent, double share, const std::string& title);
+	// an editor inside a window takes the width of the window's inside now, when its view can be resized
+	ViewFit fitEditor();
+	// the frame of an editor inside a window was destroyed with that window (TuxGuitar's ended): the view goes
+	void frameGone(void* gone);
 	void closeEditor();
 	EditorWindow editorWindow();
 	// tells the editor's view the scale of its screen (its DPI over 96), when the view takes one
@@ -162,6 +185,14 @@ private:
 	void setupBuses();
 	bool start(double sampleRate, std::string& error);
 	bool createEditor(int64 owner);
+	bool windowOwnedBy(void* ownerWindow, uint32 dpi);
+	bool attach(void* made);
+	bool makeView(uint32 dpi);
+	ViewFit embedView(void* parent, int32 maxHeight, const std::string& title);
+	bool frameIn(void* parent, const ViewFit& fit, const std::string& title);
+	ViewFit fitTo(void* parent);
+	void removeView();
+	void releaseWindow();
 	void stop();
 	void copyIn(int32 frames);
 	void copyOut(int32 frames);
@@ -181,6 +212,8 @@ private:
 	// what the view asks of its window
 	IPtr<IPlugFrame> frame;
 	void* window = nullptr;
+	// the window of TuxGuitar the editor is inside, else nullptr
+	void* embeddedIn = nullptr;
 	int32 inputChannels = 0;
 	int32 outputChannels = 0;
 	Vst::HostProcessData data;

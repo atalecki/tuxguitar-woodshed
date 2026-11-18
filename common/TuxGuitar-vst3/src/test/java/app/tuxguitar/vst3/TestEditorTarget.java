@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 public class TestEditorTarget {
 
 	private static String described(TGEditorTarget target) {
-		return target.isEmbedded() + " " + target.getParent() + " " + target.getOwner() + " " + target.getMaxHeight() + " (" + target + ")";
+		return target.isEmbedded() + " " + target.getParent() + " " + target.getOwner() + " " + target.getMaxShare() + " (" + target + ")";
 	}
 
 	// floating: owned by the window given, in none; embedded: inside the area, at most the height given, its owner kept
@@ -22,8 +22,8 @@ public class TestEditorTarget {
 	// floats
 	@Test
 	public void anEditorFloatsOrIsInsideTheAreaGiven() {
-		String described = Arrays.asList(TGEditorTarget.floating(42), TGEditorTarget.embedded(5, 42, 300), TGEditorTarget.embedded(0, 42, 300)).stream()
+		String described = Arrays.asList(TGEditorTarget.floating(42), TGEditorTarget.embedded(5, 42, 0.5), TGEditorTarget.embedded(0, 42, 0.5)).stream()
 				.map(TestEditorTarget::described).collect(Collectors.joining(" | "));
-		assertEquals("false 0 42 0 (floating, owned by 42) | true 5 42 300 (inside 5, at most 300 px high, owned by 42) | false 0 42 0 (floating, owned by 42)", described);
+		assertEquals("false 0 42 0.0 (floating, owned by 42) | true 5 42 0.5 (inside 5, at most 0.5 of its window high, owned by 42) | false 0 42 0.0 (floating, owned by 42)", described);
 	}
 }

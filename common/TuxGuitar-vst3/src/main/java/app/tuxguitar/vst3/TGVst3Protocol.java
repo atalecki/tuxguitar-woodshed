@@ -56,6 +56,15 @@ final class TGVst3Protocol {
 	static final int EDITOR_WINDOW = 15;
 	// instance -> timing
 	static final int TIMING = 16;
+	// instance, parent window (a native handle), maximum share (double: of the height of the inside of the parent's
+	// top-level window), title -> kind (0 none of its own, 3 inside the parent window, 4 too large: higher than that
+	// share, or wider than the parent's inside and unable to shrink to it; nothing is kept open), width, height (the size
+	// its view takes, or would), resizable (1 or 0), the width of the parent's inside (device pixels). Inside, the editor is a child of the parent window once the reply is sent, of the parent's DPI awareness, as
+	// wide as the parent's inside when it can be resized; an editor open elsewhere closes first (a new view)
+	static final int EMBED_EDITOR = 17;
+	// instance -> kind (3: inside a window, 0: no editor inside one), width, height, resizable, the width of the window's
+	// inside: an editor inside a window that can be resized takes the width of that window's inside now
+	static final int FIT_EDITOR = 18;
 	// -> nothing: whether the host still answers (the thread that runs the plugins' editors answers it)
 	static final int PING = 19;
 

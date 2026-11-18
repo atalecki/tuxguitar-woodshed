@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <map>
 
 #ifdef _WIN32
@@ -505,11 +506,43 @@ SIZE frameFor(DWORD style, LONG width, LONG height, UINT dpi) {
 
 DWORD styleOf(HWND window) { return (DWORD) GetWindowLongPtrW(window, GWL_STYLE); }
 
+// a window inside another: the window it is in; else its owner
+HWND outer(HWND window) { return ((styleOf(window) & WS_CHILD) != 0 ? GetAncestor(window, GA_PARENT) : GetWindow(window, GW_OWNER)); }
+
+// the width of a window's inside, and its height
+int32 insideWidth(HWND window) {
+	RECT inside = {};
+	GetClientRect(window, &inside);
+	return inside.right;
+}
+
+int32 insideHeight(HWND window) {
+	RECT inside = {};
+	GetClientRect(window, &inside);
+	return inside.bottom;
+}
+
+// the thread takes the DPI awareness of a window while this lives (the windows it makes meanwhile have it), then the
+// one it had
+struct ThreadAwareness {
+	explicit ThreadAwareness(HWND window) : before(SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(window))) {}
+	~ThreadAwareness() { SetThreadDpiAwarenessContext(before); }
+	DPI_AWARENESS_CONTEXT before;
+};
+
 // the DPI awareness of a window (of any process); kNoWindow (DPI_AWARENESS_INVALID) for none
 int32 awarenessOf(HWND window) {
 	DPI_AWARENESS_CONTEXT context = GetWindowDpiAwarenessContext(window);
 	bool version2 = (AreDpiAwarenessContextsEqual(context, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) != FALSE);
 	return (version2 ? kPerMonitorAwareV2 : (int32) GetAwarenessFromDpiAwarenessContext(context));
+}
+
+// where the window is: owned by a window, or inside one of TuxGuitar (its parent), and that window's DPI awareness
+void where(EditorWindow& facts, HWND shown) {
+	facts.owner = (int64) (intptr_t) GetWindow(shown, GW_OWNER);
+	facts.embedded = ((styleOf(shown) & WS_CHILD) != 0);
+	facts.parent = (int64) (intptr_t) (facts.embedded ? outer(shown) : nullptr);
+	facts.ownerAwareness = awarenessOf(outer(shown));
 }
 
 // a new size of the window, as the user drags its border: the inside is the size nearest to it the view accepts
@@ -550,18 +583,50 @@ LRESULT CALLBACK editorProcedure(HWND window, UINT message, WPARAM wParam, LPARA
 	return DefWindowProcW(window, message, wParam, lParam);
 }
 
-// the class of editor windows, registered once
+// what the frame of an editor inside a window of TuxGuitar tells its instance: its size (the view is told), the
+// window it is in gone to a screen of another DPI (the view is told the scale), the frame destroyed with that window
+void frameMessage(Instance* instance, HWND window, UINT message, LPARAM lParam) {
+	switch (message) {
+	case WM_SIZE:
+		instance->viewSized(LOWORD(lParam), HIWORD(lParam));
+		break;
+	case WM_DPICHANGED_AFTERPARENT:
+		instance->scaleView(GetDpiForWindow(window) / (double) USER_DEFAULT_SCREEN_DPI);
+		break;
+	case WM_NCDESTROY:
+		instance->frameGone(window);
+		break;
+	}
+}
+
+LRESULT CALLBACK embeddedProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	if (editing(window)) {
+		frameMessage(editing(window), window, message, lParam);
+	}
+	return DefWindowProcW(window, message, wParam, lParam);
+}
+
+// a class of the host's windows, registered once
+const wchar_t* registered(const wchar_t* name, WNDPROC procedure) {
+	WNDCLASSW type = {};
+	type.lpfnWndProc = procedure;
+	type.hInstance = GetModuleHandleW(nullptr);
+	type.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+	type.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
+	type.lpszClassName = name;
+	RegisterClassW(&type);
+	return name;
+}
+
+// the class of editor windows of their own
 const wchar_t* editorClass() {
-	static const wchar_t* name = [] {
-		WNDCLASSW type = {};
-		type.lpfnWndProc = editorProcedure;
-		type.hInstance = GetModuleHandleW(nullptr);
-		type.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-		type.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
-		type.lpszClassName = L"TuxGuitarVst3Editor";
-		RegisterClassW(&type);
-		return type.lpszClassName;
-	}();
+	static const wchar_t* name = registered(L"TuxGuitarVst3Editor", editorProcedure);
+	return name;
+}
+
+// the class of the frames of editors inside a window of TuxGuitar
+const wchar_t* embeddedClass() {
+	static const wchar_t* name = registered(L"TuxGuitarVst3Embedded", embeddedProcedure);
 	return name;
 }
 
@@ -579,9 +644,18 @@ POINT editorPosition(HWND owner, LONG width, LONG height) {
 	return POINT{std::max(work.left, std::min(x, work.right - width)), std::max(work.top, std::min(y, work.bottom - height))};
 }
 
-// the editor windows to show in front once the reply is sent (doEditorWindowWork): showing an owned window waits on the
-// thread of the window owning it (TuxGuitar's UI thread, which waits for the reply meanwhile)
-std::vector<HWND> toShow;
+// what is done to the editors' windows once the reply is sent (doEditorWindowWork), as it waits on the thread of a
+// window of TuxGuitar (TuxGuitar's UI thread, which waits for the reply meanwhile): an owned window shown, a frame put
+// inside a window of TuxGuitar, or destroyed there
+std::vector<std::function<void()>> afterReply;
+
+// the frame goes inside the window: a child of it at its top left, shown, never activated (the user gives it the focus
+// by clicking in it)
+void putInside(HWND frame, HWND parent, int32 width, int32 height) {
+	SetWindowLongPtrW(frame, GWL_STYLE, WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
+	SetParent(frame, parent);
+	SetWindowPos(frame, nullptr, 0, 0, width, height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+}
 
 // shown, in front of the other windows, and the active window when Windows lets this process make it so
 void showInFront(HWND window) {
@@ -616,64 +690,158 @@ std::string caption(HWND window) {
 // the list is taken first: a request answered while this work waits on another thread does its own work (a window
 // closed meanwhile is no window: Windows refuses to show it)
 void doEditorWindowWork() {
-	std::vector<HWND> shown;
-	shown.swap(toShow);
-	for (HWND window : shown) {
-		showInFront(window);
+	std::vector<std::function<void()>> work;
+	work.swap(afterReply);
+	for (const std::function<void()>& done : work) {
+		done();
 	}
 }
 
-// an editor already open is shown and brought to the front as it is (its owner stays the one it opened with), titled
-// anew
+// an editor already open in a window of its own is shown and brought to the front as it is (its owner stays the one it
+// opened with), titled anew; one inside a window of TuxGuitar closes first
 bool Instance::openEditor(int64 owner, const std::string& title) {
+	if (embeddedIn) {
+		closeEditor();
+	}
 	if (!window && !createEditor(owner)) {
 		return false;
 	}
-	SetWindowTextW((HWND) window, wide(title).c_str());
-	toShow.push_back((HWND) window);
+	HWND shown = (HWND) window;
+	SetWindowTextW(shown, wide(title).c_str());
+	afterReply.push_back([shown] { showInFront(shown); });
 	return true;
+}
+
+ViewFit Instance::embedEditor(int64 parentHandle, double share, const std::string& title) {
+	HWND parent = (HWND) (intptr_t) parentHandle;
+	if (window && embeddedIn == parent) {
+		return fitEditor();
+	}
+	closeEditor();
+	ThreadAwareness taken(parent);
+	int32 maxHeight = (int32) std::lround(insideHeight(GetAncestor(parent, GA_ROOT)) * share);
+	return (makeView(GetDpiForWindow(parent)) ? embedView(parent, maxHeight, title) : ViewFit{kNoEditor, 0, 0, false, 0});
+}
+
+// the view made goes inside the parent, unless it is too large for it: then it goes, the size it would take told
+ViewFit Instance::embedView(void* parent, int32 maxHeight, const std::string& title) {
+	ViewFit fit = fitTo(parent);
+	if (fit.height > maxHeight || fit.width > insideWidth((HWND) parent)) {
+		closeEditor();
+		fit.kind = kTooLarge;
+		return fit;
+	}
+	fit.kind = (frameIn(parent, fit, title) ? kEmbedded : kNoEditor);
+	return fit;
+}
+
+// a frame for the view, made hidden and top level, of the thread's DPI awareness (the parent's), the view attached to
+// it and told its size; it goes inside the parent once the reply is sent. False, the view gone, when it does not attach
+bool Instance::frameIn(void* parent, const ViewFit& fit, const std::string& title) {
+	HWND made = CreateWindowExW(WS_EX_NOPARENTNOTIFY, embeddedClass(), wide(title).c_str(), WS_POPUP | WS_CLIPCHILDREN, 0, 0, fit.width, fit.height, nullptr, nullptr,
+	                            GetModuleHandleW(nullptr), nullptr);
+	embeddedIn = parent;
+	if (!attach(made)) {
+		return false;
+	}
+	viewSized(fit.width, fit.height);
+	afterReply.push_back([made, parent, fit] { putInside(made, (HWND) parent, fit.width, fit.height); });
+	return true;
+}
+
+// in the window: the view's own size, or, when it can be resized, the size it accepts nearest to the width of the
+// window's inside at its height
+ViewFit Instance::fitTo(void* parent) {
+	ViewRect size = {0, 0, 400, 300};
+	view->getSize(&size);
+	int32 width = insideWidth((HWND) parent);
+	int32 fitWidth = width;
+	int32 fitHeight = size.getHeight();
+	bool resizable = constrainView(fitWidth, fitHeight);
+	return (resizable ? ViewFit{kEmbedded, fitWidth, fitHeight, true, width} : ViewFit{kEmbedded, size.getWidth(), size.getHeight(), false, width});
+}
+
+ViewFit Instance::fitEditor() {
+	if (!embeddedIn) {
+		return ViewFit{kNoEditor, 0, 0, false, 0};
+	}
+	ViewFit fit = fitTo(embeddedIn);
+	SetWindowPos((HWND) window, nullptr, 0, 0, fit.width, fit.height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+	return fit;
+}
+
+void Instance::frameGone(void* gone) {
+	if (gone == window) {
+		removeView();
+		window = nullptr;
+		embeddedIn = nullptr;
+	}
 }
 
 // a hidden window whose inside is the size of the view, attached to it; an owner that is no window (0, or a window
 // closed since) owns nothing: the editor opens in a window of its own. The view is told the scale of the screen it opens
 // on (the owner's; else the main screen's) before it says its size
 bool Instance::createEditor(int64 owner) {
-	view = owned(controller->createView(ViewType::kEditor));
-	if (!view || view->isPlatformTypeSupported(kPlatformTypeHWND) != kResultTrue) {
-		view = nullptr;
-		return false;
-	}
 	HWND ownerWindow = (IsWindow((HWND) (intptr_t) owner) ? (HWND) (intptr_t) owner : nullptr);
 	UINT dpi = (ownerWindow ? GetDpiForWindow(ownerWindow) : GetDpiForSystem());
-	scaleView(dpi / (double) USER_DEFAULT_SCREEN_DPI);
-	frame = owned(new PlugFrame(this));
-	view->setFrame(frame);
+	return (makeView(dpi) && windowOwnedBy(ownerWindow, dpi));
+}
+
+// the window of the view made, at that DPI, owned by the window given (none: nullptr); false, the view gone, when it
+// does not attach
+bool Instance::windowOwnedBy(void* ownerWindow, uint32 dpi) {
 	ViewRect size = {0, 0, 400, 300};
 	view->getSize(&size);
 	DWORD style = kEditorStyle | (view->canResize() == kResultTrue ? WS_THICKFRAME : 0);
 	SIZE outside = frameFor(style, size.getWidth(), size.getHeight(), dpi);
-	POINT at = editorPosition(ownerWindow, outside.cx, outside.cy);
-	window = CreateWindowExW(0, editorClass(), L"", style, at.x, at.y, outside.cx, outside.cy, ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
-	if (window) {
-		SetWindowLongPtrW((HWND) window, GWLP_USERDATA, (LONG_PTR) this);
-	}
-	if (!window || view->attached(window, kPlatformTypeHWND) != kResultOk) {
+	POINT at = editorPosition((HWND) ownerWindow, outside.cx, outside.cy);
+	HWND made = CreateWindowExW(0, editorClass(), L"", style, at.x, at.y, outside.cx, outside.cy, (HWND) ownerWindow, nullptr, GetModuleHandleW(nullptr), nullptr);
+	return attach(made);
+}
+
+// the view attached to the window made, which tells the instance from now on; false, the view gone, when there is no
+// window or the view does not attach
+bool Instance::attach(void* made) {
+	window = made;
+	SetWindowLongPtrW((HWND) made, GWLP_USERDATA, (LONG_PTR) this);
+	if (!made || view->attached(made, kPlatformTypeHWND) != kResultOk) {
 		closeEditor();
 		return false;
 	}
 	return true;
 }
 
+// the view of the plugin's editor for a window, told the scale of that DPI and given its frame; false (no view kept)
+// when it has none for windows
+bool Instance::makeView(uint32 dpi) {
+	view = owned(controller->createView(ViewType::kEditor));
+	if (!view || view->isPlatformTypeSupported(kPlatformTypeHWND) != kResultTrue) {
+		view = nullptr;
+		return false;
+	}
+	scaleView(dpi / (double) USER_DEFAULT_SCREEN_DPI);
+	frame = owned(new PlugFrame(this));
+	view->setFrame(frame);
+	return true;
+}
+
+// the window takes the size the view asks, and TuxGuitar is told it (an editor inside its window: the panel follows)
 bool Instance::resizeView(int32 width, int32 height) {
 	HWND sized = (HWND) window;
 	if (!sized) {
 		return false;
 	}
+	notifications.push_back(Notification{Notification::kEditorResized, width, (double) height});
 	SIZE outside = frameFor(styleOf(sized), width, height, GetDpiForWindow(sized));
 	return (SetWindowPos(sized, nullptr, 0, 0, outside.cx, outside.cy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) != FALSE);
 }
 
 void Instance::closeEditor() {
+	removeView();
+	releaseWindow();
+}
+
+void Instance::removeView() {
 	if (view && window) {
 		view->removed();
 	}
@@ -682,9 +850,20 @@ void Instance::closeEditor() {
 	}
 	view = nullptr;
 	frame = nullptr;
-	if (window) {
-		DestroyWindow((HWND) window);
-		window = nullptr;
+}
+
+// its window goes: a window of its own at once; a frame inside a window of TuxGuitar once the reply is sent (destroying
+// a child waits on its parent's thread), no longer telling the instance
+void Instance::releaseWindow() {
+	HWND released = (HWND) window;
+	bool inside = (embeddedIn != nullptr);
+	window = nullptr;
+	embeddedIn = nullptr;
+	if (inside) {
+		SetWindowLongPtrW(released, GWLP_USERDATA, 0);
+		afterReply.push_back([released] { DestroyWindow(released); });
+	} else if (released) {
+		DestroyWindow(released);
 	}
 }
 
@@ -695,7 +874,7 @@ EditorWindow Instance::editorWindow() {
 	RECT inside = {};
 	if (shown && GetWindowRect(shown, &frame) && GetClientRect(shown, &inside)) {
 		facts.window = (int64) (intptr_t) shown;
-		facts.owner = (int64) (intptr_t) GetWindow(shown, GW_OWNER);
+		where(facts, shown);
 		facts.shown = (IsWindowVisible(shown) != FALSE);
 		facts.front = (frontWindow() == shown);
 		facts.left = frame.left;
@@ -708,13 +887,18 @@ EditorWindow Instance::editorWindow() {
 		facts.dpi = (int32) GetDpiForWindow(shown);
 		facts.resizable = ((GetWindowLongPtrW(shown, GWL_STYLE) & WS_THICKFRAME) != 0);
 		facts.awareness = awarenessOf(shown);
-		facts.ownerAwareness = awarenessOf(GetWindow(shown, GW_OWNER));
 	}
 	return facts;
 }
 #else
 // editor windows need the platform's window system: only Windows so far
 bool Instance::openEditor(int64, const std::string&) { return false; }
+
+ViewFit Instance::embedEditor(int64, double, const std::string&) { return ViewFit{kNoEditor, 0, 0, false, 0}; }
+
+ViewFit Instance::fitEditor() { return ViewFit{kNoEditor, 0, 0, false, 0}; }
+
+void Instance::frameGone(void*) {}
 
 void Instance::closeEditor() { view = nullptr; }
 

@@ -140,9 +140,9 @@ class TestSoundChainCommands {
 			}
 		});
 		this.commands.edit(2, TGEditorPlacement.floating(() -> 42L), editor -> asked.add("parameters"));
-		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L, () -> 300), editor -> asked.add("parameters"));
+		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L), editor -> asked.add("parameters"));
 		String track = " track " + this.track.getName() + " channel " + this.track.getChannelId();
-		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 300 px high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
+		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
 	}
 
 	// an action given no placement opens the editor in a window of its own, owned by none

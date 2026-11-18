@@ -44,6 +44,8 @@ enum Operation {
 	kMessage = 14,
 	kEditorWindow = 15,
 	kTiming = 16,
+	kEmbedEditor = 17,
+	kFitEditor = 18,
 	kPing = 19,
 };
 
@@ -141,6 +143,10 @@ private:
 				found->second->closeEditor();
 			}
 		}
+		plugins.clear();
+#ifdef _WIN32
+		doEditorWindowWork();
+#endif
 	}
 
 	// reads a request and answers it; false at the end of the input
@@ -184,7 +190,7 @@ private:
 			{kSetParameter, &Host::setParameter}, {kGetParameter, &Host::getParameter}, {kGetState, &Host::getState},
 			{kSetState, &Host::setState}, {kReset, &Host::reset}, {kListeners, &Host::listeners}, {kOpenEditor, &Host::openEditor},
 			{kCloseEditor, &Host::closeEditor}, {kMessage, &Host::message}, {kEditorWindow, &Host::editorWindow}, {kTiming, &Host::timing},
-			{kPing, &Host::ping},
+			{kEmbedEditor, &Host::embedEditor}, {kFitEditor, &Host::fitEditor}, {kPing, &Host::ping},
 		};
 		auto found = operations.find(operation);
 		if (found == operations.end()) {
@@ -405,6 +411,27 @@ private:
 	static int32_t openedKind(int64_t owner, const EditorWindow& facts) { return (owner != 0 && facts.owner == owner ? 2 : 1); }
 
 	void writeFlag(bool flag) { wire.writeInt(flag ? 1 : 0); }
+
+	// the editor inside a window of TuxGuitar (see Instance::embedEditor): its kind, size and whether it can be resized
+	void embedEditor() {
+		int32_t id = wire.readInt();
+		Instance& edited = instance(id);
+		int64_t parent = wire.readLong();
+		double share = wire.readDouble();
+		std::string title = wire.readString();
+		editorsClosing.erase(id);
+		writeFit(edited.embedEditor(parent, share, title));
+	}
+
+	void fitEditor() { writeFit(instance().fitEditor()); }
+
+	void writeFit(const ViewFit& fit) {
+		wire.writeInt(fit.kind);
+		wire.writeInt(fit.width);
+		wire.writeInt(fit.height);
+		writeFlag(fit.resizable);
+		wire.writeInt(fit.inside);
+	}
 
 	void editorWindow() {
 		EditorWindow facts = instance().editorWindow();

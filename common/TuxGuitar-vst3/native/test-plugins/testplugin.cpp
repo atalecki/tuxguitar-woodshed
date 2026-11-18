@@ -70,12 +70,61 @@ void startModal(int64 millis, int64 window) {
 // as the user clicks the close box of the window the editor is in
 void closeWindow(void* window) { PostMessageW((HWND) window, WM_CLOSE, 0, 0); }
 
+// a window standing in for TuxGuitar's main window in the tests ("TG.window"), on its host's thread: plain, made with
+// a DPI awareness (0 unaware, 1 system aware, 3 per monitor version 2), its inside of a size, shown without being
+// activated
+DPI_AWARENESS_CONTEXT awarenessContext(int64 awareness) {
+	static const DPI_AWARENESS_CONTEXT contexts[] = {DPI_AWARENESS_CONTEXT_UNAWARE, DPI_AWARENESS_CONTEXT_SYSTEM_AWARE,
+	                                                 DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
+	return contexts[std::max<int64>(0, std::min<int64>(3, awareness))];
+}
+
+const wchar_t* standInClass() {
+	static const wchar_t* name = [] {
+		WNDCLASSW type = {};
+		type.lpfnWndProc = DefWindowProcW;
+		type.hInstance = GetModuleHandleW(nullptr);
+		type.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
+		type.lpszClassName = L"TuxGuitarTestStandIn";
+		RegisterClassW(&type);
+		return type.lpszClassName;
+	}();
+	return name;
+}
+
+// its frame resized so that its inside is that size
+void sizeInside(HWND window, int64 width, int64 height) {
+	RECT frame = {0, 0, (LONG) width, (LONG) height};
+	AdjustWindowRectEx(&frame, (DWORD) GetWindowLongPtrW(window, GWL_STYLE), FALSE, 0);
+	SetWindowPos(window, nullptr, 0, 0, frame.right - frame.left, frame.bottom - frame.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+int64 standIn(int64 awareness, int64 width, int64 height) {
+	DPI_AWARENESS_CONTEXT before = SetThreadDpiAwarenessContext(awarenessContext(awareness));
+	HWND window = CreateWindowExW(0, standInClass(), L"TuxGuitar stand-in", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, 40, 40, 100, 100, nullptr, nullptr,
+	                              GetModuleHandleW(nullptr), nullptr);
+	sizeInside(window, width, height);
+	SetThreadDpiAwarenessContext(before);
+	ShowWindow(window, SW_SHOWNOACTIVATE);
+	return (int64) (intptr_t) window;
+}
+
+void resizeStandIn(int64 window, int64 width, int64 height) { sizeInside((HWND) (intptr_t) window, width, height); }
+
+char isWindow(int64 window) { return (IsWindow((HWND) (intptr_t) window) ? 1 : 0); }
+
 #else
 const bool inModal = false;
 
 void startModal(int64, int64) {}
 
 void closeWindow(void*) {}
+
+int64 standIn(int64, int64, int64) { return 0; }
+
+void resizeStandIn(int64, int64, int64) {}
+
+char isWindow(int64) { return 0; }
 
 #endif
 
@@ -349,7 +398,8 @@ IPlugView* PLUGIN_API TestPlugin::createView(FIDString name) {
 }
 
 // the test messages on the editor's view and window (kNotImplemented for others): "TG.close-window" clicks the close
-// box of the window the editor is in; "TG.view" answers the view's content scale, width and height (doubles);
+// box of the window the editor is in; "TG.view" answers the view's content scale, width and height, and 1 while it is
+// attached to a window (0 once removed) (doubles);
 // "TG.dpi-changed" tells the window it went to a screen of that "dpi", as Windows does, and answers the frame suggested;
 // "TG.resizable" makes the views made from now on resizable; and those on its size (sizeMessage)
 tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
@@ -358,7 +408,7 @@ tresult TestPlugin::viewMessage(FIDString id, IAttributeList* attributes) {
 		return kResultOk;
 	}
 	if (std::strcmp(id, "TG.view") == 0) {
-		return reportDoubles(attributes, {view.scale, (double) view.width, (double) view.height});
+		return reportDoubles(attributes, {view.scale, (double) view.width, (double) view.height, (view.window ? 1.0 : 0.0)});
 	}
 	if (std::strcmp(id, "TG.dpi-changed") == 0) {
 		int64 dpi = 96;
@@ -386,6 +436,29 @@ tresult TestPlugin::sizeMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "TG.drag-to") == 0) {
 		TuxGuitarTest::dragTo(view.window, width, height);
 		return kResultOk;
+	}
+	return windowMessage(id, attributes, width, height);
+}
+
+// "TG.window": a window standing in for TuxGuitar's (standIn), its inside of that "width" and "height", of the DPI
+// "awareness" asked, answering its handle (8 bytes); "TG.window-size": the "window" given gets an inside of that
+// "width" and "height"; "TG.is-window": 1 byte, 1 while the "window" given is a window; else restoringMessage
+tresult TestPlugin::windowMessage(FIDString id, IAttributeList* attributes, int64 width, int64 height) {
+	int64 value = 0;
+	if (std::strcmp(id, "TG.window") == 0) {
+		attributes->getInt("awareness", value);
+		int64 window = standIn(value, width, height);
+		return attributes->setBinary("report", &window, sizeof(int64));
+	}
+	if (std::strcmp(id, "TG.window-size") == 0) {
+		attributes->getInt("window", value);
+		resizeStandIn(value, width, height);
+		return kResultOk;
+	}
+	if (std::strcmp(id, "TG.is-window") == 0) {
+		attributes->getInt("window", value);
+		char answer = isWindow(value);
+		return attributes->setBinary("report", &answer, 1);
 	}
 	return restoringMessage(id, attributes);
 }

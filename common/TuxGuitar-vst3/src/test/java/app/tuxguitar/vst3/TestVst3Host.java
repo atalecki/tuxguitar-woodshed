@@ -830,7 +830,7 @@ public class TestVst3Host {
 		return values;
 	}
 
-	// what the view was last told: its content scale, width, height
+	// what the view was last told: its content scale, width, height; and whether it is attached to a window (1, else 0)
 	private static double[] view(TGVst3Instance plugin) throws TGVst3Exception {
 		return viewMessage(plugin, "TG.view", Collections.<String, Long>emptyMap());
 	}
@@ -955,6 +955,263 @@ public class TestVst3Host {
 		assertTrue(stale.openEditor(gone, ""));
 		assertEquals("0 0", unowned.getEditorWindow().getOwner() + " " + stale.getEditorWindow().getOwner());
 		assertNotEquals(0L, stale.getEditorWindow().getWindow());
+	}
+
+	// a window of another host process standing in for TuxGuitar's (the test plugins' "TG.window"), of a DPI awareness,
+	// its inside of a size; resized as the user resizes TuxGuitar's
+	private static final class StandIn {
+		private final TGVst3Instance maker;
+		private final long window;
+
+		StandIn(TGVst3Host other, int awareness, long width, long height) throws TGVst3Exception {
+			this.maker = other.open(other.scan(TestPlugins.bundle("Test Gain")).get(0), 44100f, FRAMES);
+			Map<String, Long> asked = size(width, height);
+			asked.put("awareness", (long) awareness);
+			this.window = ByteBuffer.wrap(this.maker.message("TG.window", asked, Collections.<String, byte[]>emptyMap())).order(ByteOrder.nativeOrder()).getLong();
+		}
+
+		void resize(long width, long height) throws TGVst3Exception {
+			Map<String, Long> asked = size(width, height);
+			asked.put("window", this.window);
+			this.maker.message("TG.window-size", asked, Collections.<String, byte[]>emptyMap());
+		}
+
+		// inside it, at most that share of its height
+		TGEditorTarget at(double share) {
+			return TGEditorTarget.embedded(this.window, 0, share);
+		}
+
+		// whether the window given (of any process) is still a window, as the stand-in's host sees it
+		boolean sees(long window) throws TGVst3Exception {
+			return this.maker.message("TG.is-window", Collections.singletonMap("window", window), Collections.<String, byte[]>emptyMap())[0] == 1;
+		}
+	}
+
+	// Test Gain, its views made resizable (down to 150 by 80)
+	private TGVst3Instance resizableGain() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.message("TG.resizable", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		return gain;
+	}
+
+	// once the host has put it inside the window (after its reply): whether it is there, shown, the size of its inside,
+	// and what its view was told
+	private static String inside(TGVst3Instance plugin, StandIn app) throws TGVst3Exception {
+		TGVst3EditorWindow editor = once(plugin, TGVst3EditorWindow::isEmbedded);
+		double[] view = view(plugin);
+		return (editor.getParent() == app.window) + " " + editor.isShown() + " " + editor.getInside() + " " + (int) view[1] + "x" + (int) view[2];
+	}
+
+	// an editor put inside a window of TuxGuitar is a child of that window, as wide as its inside when its view can be
+	// resized, as high as its view
+	@Test
+	public void anEditorEmbeddedInAWindowIsItsChildFillingItsWidth() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = resizableGain();
+			TGVst3EditorOpened opened = gain.openEditor(app.at(1.0), "Test Gain – Guitar");
+			assertEquals("EMBEDDED 500x100 resizable in 500 | true true 500x100 500x100", opened + " in " + opened.getAreaWidth() + " | " + inside(gain, app));
+		}
+	}
+
+	// a view that cannot be resized keeps its own size, at the left of the window's inside
+	@Test
+	public void anEmbeddedViewThatCannotResizeKeepsItsSize() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = open("Test Gain");
+			TGVst3EditorOpened opened = gain.openEditor(app.at(1.0), "");
+			assertEquals("EMBEDDED 200x100 fixed | true true 200x100 200x100", opened + " | " + inside(gain, app));
+		}
+	}
+
+	// an editor higher than the limit (a share of the height of the inside of TuxGuitar's window), or wider than the window when it cannot shrink to its width, is not put there: the
+	// host says the size it would take and keeps nothing open (TuxGuitar opens it in a window of its own)
+	@Test
+	public void anEditorTallerThanTheLimitOrWiderThanTheWindowIsNotEmbeddedAndSaysItsSize() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			StandIn narrow = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 120, 300);
+			TGVst3Instance gain = open("Test Gain");
+			String taller = gain.openEditor(app.at(0.33), "") + " " + gain.getEditorWindow().getWindow();
+			String wider = gain.openEditor(narrow.at(1.0), "") + " " + gain.getEditorWindow().getWindow();
+			String shrinking = resizableGain().openEditor(narrow.at(1.0), "").toString();
+			String fits = gain.openEditor(app.at(1.0 / 3), "").toString();
+			assertEquals("TOO_LARGE 200x100 fixed 0 | TOO_LARGE 200x100 fixed 0 | TOO_LARGE 150x100 resizable | EMBEDDED 200x100 fixed", taller + " | " + wider + " | " + shrinking + " | " + fits);
+		}
+	}
+
+	// it takes the DPI awareness of the window it is in (a per-monitor child cannot be in a window of another
+	// awareness), its view told the scale of that window
+	@Test
+	public void anEmbeddedEditorTakesTheDpiAwarenessOfTheWindowItIsIn() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			List<String> taken = new ArrayList<String>();
+			for (int awareness : new int[] {TGVst3EditorWindow.UNAWARE, TGVst3EditorWindow.AWARE_SYSTEM, TGVst3EditorWindow.AWARE_PER_MONITOR_V2}) {
+				TGVst3Instance gain = open("Test Gain");
+				StandIn app = new StandIn(other, awareness, 500, 300);
+				gain.openEditor(app.at(1.0), "");
+				TGVst3EditorWindow editor = once(gain, TGVst3EditorWindow::isEmbedded);
+				taken.add(editor.getAwareness() + "/" + editor.getOwnerAwareness() + " " + (editor.getParent() == app.window) + " " + (view(gain)[0] == editor.getDpi() / 96.0));
+			}
+			assertEquals("[0/0 true true, 1/1 true true, 3/3 true true]", taken.toString());
+		}
+	}
+
+	// the window's thread busy (TuxGuitar's UI thread waits for the reply), putting an editor in it is answered at once,
+	// and the host goes on answering
+	@Test
+	public void embeddingIsAnsweredAtOnceWhileTheParentsThreadIsBusy() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			hangItsHost(other.open(other.scan(TestPlugins.bundle("Test Hang")).get(0), 44100f, FRAMES));
+			TGVst3Instance gain = open("Test Gain");
+			TGVst3EditorOpened opened = assertTimeoutPreemptively(Duration.ofMillis(1000), () -> gain.openEditor(app.at(1.0), ""));
+			assertEquals("EMBEDDED 200x100 fixed true", opened + " " + this.host.ping());
+		}
+	}
+
+	// so is closing it; the view goes at once, its window once nothing waits on that thread
+	@Test
+	public void closingAnEmbeddedEditorIsAnsweredAtOnceWhileTheParentsThreadIsBusy() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance hang = other.open(other.scan(TestPlugins.bundle("Test Hang")).get(0), 44100f, FRAMES);
+			gain.openEditor(app.at(1.0), "");
+			once(gain, TGVst3EditorWindow::isEmbedded);
+			hangItsHost(hang);
+			assertTimeoutPreemptively(Duration.ofMillis(1000), gain::closeEditor);
+			assertTrue(this.host.ping());
+		}
+		assertEquals(0L, once(gain, editor -> editor.getWindow() == 0).getWindow());
+	}
+
+	// its window goes at once too, the parent's thread still busy: destroying it sends that thread nothing
+	@Test
+	public void anEmbeddedEditorsWindowGoesAtOnceWhileTheParentsThreadIsBusy() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance hang = other.open(other.scan(TestPlugins.bundle("Test Hang")).get(0), 44100f, FRAMES);
+			TGVst3Instance gain = open("Test Gain");
+			gain.openEditor(app.at(1.0), "");
+			long frame = once(gain, TGVst3EditorWindow::isEmbedded).getWindow();
+			hang.setParameter(hang.findParameter("Hang at"), 0);
+			hang.setParameter(hang.findParameter("Hang for"), 1500);
+			process(hang, block(0.25f, 0.25f));
+			gain.closeEditor();
+			assertFalse(seenFrom(gain, frame));
+		}
+	}
+
+	// whether the window (of any process) is still a window, as the plugin's host sees it
+	private static boolean seenFrom(TGVst3Instance plugin, long window) throws TGVst3Exception {
+		return plugin.message("TG.is-window", Collections.singletonMap("window", window), Collections.<String, byte[]>emptyMap())[0] == 1;
+	}
+
+	// an editor inside a window closed while an editor runs a loop of its own goes once the loop has returned, its window
+	// with it, with no request to the host after
+	@Test
+	public void anEmbeddedEditorClosedWhileALoopRunsGoesWithItsWindowOnceTheLoopReturns() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = open("Test Gain");
+			gain.openEditor(app.at(1.0), "");
+			long frame = once(gain, TGVst3EditorWindow::isEmbedded).getWindow();
+			gain.message("TG.modal", Collections.singletonMap("millis", 500L), Collections.<String, byte[]>emptyMap());
+			awaitLoop(gain, true);
+			gain.closeEditor();
+			boolean during = app.sees(frame);
+			LockSupport.parkNanos(1000000000L);
+			assertEquals("true false", during + " " + app.sees(frame));
+		}
+	}
+
+	// a plugin closed while its editor is inside a window: its window goes (once the reply is sent), and the host goes on
+	@Test
+	public void aPluginClosedWhileItsEditorIsInsideAWindowTakesItsWindowAlong() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = open("Test Gain");
+			gain.openEditor(app.at(1.0), "");
+			long frame = once(gain, TGVst3EditorWindow::isEmbedded).getWindow();
+			gain.close();
+			long end = System.currentTimeMillis() + 2000;
+			while (app.sees(frame) && System.currentTimeMillis() < end) {
+				LockSupport.parkNanos(5000000);
+			}
+			assertEquals("false true", app.sees(frame) + " " + this.host.ping());
+		}
+	}
+
+	// the window it is in gone (TuxGuitar ended), the editor is closed: no view is left in a window that is gone
+	@Test
+	public void anEmbeddedEditorWhoseWindowIsGoneIsClosed() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			gain.openEditor(new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300).at(1.0), "");
+			once(gain, TGVst3EditorWindow::isEmbedded);
+		}
+		assertEquals("0 0.0 true", once(gain, editor -> editor.getWindow() == 0).getWindow() + " " + view(gain)[3] + " " + this.host.ping());
+	}
+
+	// a view asking for another size inside the window gets it, and TuxGuitar hears it (the panel's height follows)
+	@Test
+	public void aViewAskingForAnotherSizeInsideAWindowIsSizedAndTold() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = open("Test Gain");
+			List<String> heard = new ArrayList<String>();
+			gain.setListener(notice -> heard.add(notice.getKind() + " " + notice.getParameter() + "x" + (int) notice.getPlain()));
+			gain.openEditor(app.at(1.0), "");
+			once(gain, TGVst3EditorWindow::isEmbedded);
+			gain.message("TG.resize", size(300, 150), Collections.<String, byte[]>emptyMap());
+			assertEquals("true true 300x150 300x150 [EDITOR_RESIZED 300x150]", inside(gain, app) + " " + heard);
+		}
+	}
+
+	// TuxGuitar's window resized, the editor is fitted to it again: a view that can be resized takes the new width, one
+	// that cannot keeps its size
+	@Test
+	public void anEmbeddedEditorFitsTheWidthOfTheWindowItIsInOnceThatWindowIsResized() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance stretched = resizableGain();
+			TGVst3Instance fixed = open("Test Gain");
+			stretched.openEditor(app.at(1.0), "");
+			fixed.openEditor(app.at(1.0), "");
+			app.resize(700, 300);
+			assertEquals("EMBEDDED 700x100 resizable true true 700x100 700x100 | EMBEDDED 200x100 fixed", stretched.fitEditor() + " " + inside(stretched, app) + " | " + fixed.fitEditor());
+		}
+	}
+
+	// an editor not inside a window has nothing to fit
+	@Test
+	public void anEditorNotEmbeddedHasNothingToFit() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		String closed = gain.fitEditor().toString();
+		gain.openEditor(0, "");
+		assertEquals("NONE 0x0 fixed | NONE 0x0 fixed", closed + " | " + gain.fitEditor());
+	}
+
+	// a plugin has one view at a time: opened in a window of its own it leaves the window it was in, and put back in
+	// it leaves its own window (each a new view); put in the same window again it stays the same
+	@Test
+	public void anEditorMovesBetweenAWindowOfItsOwnAndAWindowOfTuxGuitarAsANewView() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = open("Test Gain");
+			gain.openEditor(app.at(1.0), "");
+			long embedded = once(gain, TGVst3EditorWindow::isEmbedded).getWindow();
+			gain.openEditor(app.at(1.0), "");
+			boolean same = (gain.getEditorWindow().getWindow() == embedded);
+			gain.openEditor(app.window, "Test Gain – Guitar");
+			TGVst3EditorWindow floating = inFront(gain);
+			gain.openEditor(app.at(1.0), "");
+			TGVst3EditorWindow back = once(gain, TGVst3EditorWindow::isEmbedded);
+			assertEquals("true | false " + app.window + " true | true " + app.window, same + " | " + floating.isEmbedded() + " " + floating.getOwner() + " " + (floating.getWindow() != embedded)
+					+ " | " + back.isEmbedded() + " " + back.getParent());
+		}
 	}
 
 	@Test
