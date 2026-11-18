@@ -365,7 +365,7 @@ These features change how TuxGuitar works today. They are requirements, not side
   `TuxGuitar-vst3/native/plugins/woodshed_guitar/profiles` and pinned by SHA-256 in its CMakeLists). The element names
   it (`vst3.profile`, an element without a state of its own) and the processor has the plugin load it once
   (`Woodshed.load`), so Play waits while it loads as for a profile loaded in the editor; the song is not changed. A
-  profile set whose file is not there leaves the dry voice, the status line saying so
+  profile set whose file is not there plays the shipped profile instead (never the dry voice), the status line saying so
   (`audio.default-instrument.profile-missing`).
 - **File format 3.0** for a song with an audio track. A reader of format 2.0 opening it as a `.tg` file refuses it with
   its "please upgrade" message (the step compares the message of the innermost cause). This version still opens format 2.0 files, and saves

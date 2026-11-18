@@ -130,7 +130,7 @@ Feature: Default instruments by track kind
   # chosen, playing the profile chosen for the kind in the settings (bass: the guitar's until one is chosen for it), else
   # the profile TuxGuitar ships next to its own plugins folder ("RiffSmith Clean.nam", an A2 capture of a clean amp).
   # Play waits while the profile loads, as for a profile loaded in its editor. A profile chosen whose file is not there
-  # leaves Woodshed Guitar its dry voice, and the status line says so. Track 2 plays Woodshed Guitar chosen as its own
+  # plays the profile TuxGuitar ships instead, and the status line says so. Track 2 plays Woodshed Guitar chosen as its own
   # instrument, to compare with
   Scenario Outline: a guitar or bass track without an instrument of its own plays Woodshed Guitar through the profile chosen
     Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
@@ -163,27 +163,31 @@ Feature: Default instruments by track kind
     Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
     And track 1 sounds 1.0 times what track 2 sounds, sample for sample within 0.001
 
-  Scenario: a profile chosen whose file is not there leaves Woodshed Guitar its dry voice, and the status line says so
+  Scenario: a profile chosen whose file is not there plays the profile TuxGuitar ships instead, and the status line says so
     Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is the NAM capture TuxGuitar ships, "RiffSmith Clean.nam"
     And I have added a guitar track on a channel of its own
     And I have moved the caret to track 2
     And I have entered fret 5 on string 1 at dynamic fff
     And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 2 has loaded the NAM capture "RiffSmith Clean.nam"
     And the default instrument for guitar tracks is "Woodshed Guitar"
     And the guitar profile in the settings is "Gone.nam", whose file is not there
     When I play the song from measure 1 beat 1
-    Then track 1 sounds 1.0 times what track 2 sounds, sample for sample within 0.001
-    And the status line reads "Gone.nam was not found: guitar tracks play Woodshed Guitar without an amp."
+    Then track 1 sounds, every sample a number, peaking above 0.001 in measure 1
+    And track 1 sounds 1.0 times what track 2 sounds, sample for sample within 0.001
+    And the status line reads "Gone.nam was not found: guitar tracks play RiffSmith Clean, the profile TuxGuitar ships."
 
+  # "{2}" the profile TuxGuitar ships that plays instead
   Scenario: a profile not found is said as the language TuxGuitar shows says it
-    Given TuxGuitar's language says "{0} wurde nicht gefunden: {1} spielen Woodshed Guitar ohne Verstärker." for the message "audio.default-instrument.profile-missing"
+    Given TuxGuitar's language says "{0} wurde nicht gefunden: {1} spielen {2}, das mitgelieferte Profil." for the message "audio.default-instrument.profile-missing"
     And TuxGuitar's language says "Bassspuren" for the message "audio.default-instrument.kind.bass"
     And the VST3 folders hold the test plugins and TuxGuitar's own plugins
     And I have set the General MIDI program of track 1's channel to "Fingered Electric Bass"
     And the default instrument for bass tracks is "Woodshed Guitar"
     And the bass profile in the settings is "Gone.nam", whose file is not there
     When I play the song from measure 1 beat 1
-    Then the status line reads "Gone.nam wurde nicht gefunden: Bassspuren spielen Woodshed Guitar ohne Verstärker."
+    Then the status line reads "Gone.nam wurde nicht gefunden: Bassspuren spielen RiffSmith Clean, das mitgelieferte Profil."
 
   # at a Volume of 32, so the profile's three times the fff note stays below full scale
   Scenario: played live, Play waits for the default instrument's profile to load and plays it from the first note

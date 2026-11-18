@@ -27,8 +27,8 @@ import app.tuxguitar.vst3.TGVst3PluginProcessor;
  * none until an app gives them), found by its class id in the last VST3 scan; else General MIDI. A default the scan did
  * not find, or one that could not be loaded, plays General MIDI too, and the user is told so quietly (getNotice,
  * TGFallbackNotice) and the log says why, in English. Woodshed Guitar plays the kind's profile (guitar and bass): the
- * one chosen, else the one TuxGuitar ships (SHIPPED, in profiles next to its own plugins folder); a profile chosen whose
- * file is not there leaves it its dry voice, the user told.
+ * one chosen, else the one TuxGuitar ships (shipped, in profiles next to its own plugins folder), which also plays in
+ * place of a profile chosen whose file is not there, the user told.
  */
 public final class TGDefaultInstrumentSource implements TGDefaultSource {
 
@@ -78,8 +78,9 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 				"the default instrument " + described(kind, instrument) + " plays General MIDI instead: it is not installed"));
 		}
 		if (source != null && isWoodshed(source)) {
-			missingProfile(kind, this.defaults).ifPresent(profile -> this.fellBack(TGFallback.profileMissing(kind, profile),
-				"the default instrument for " + tracks(kind) + ", Woodshed Guitar, plays without the profile chosen, which was not found: " + profile));
+			missingProfile(kind, this.defaults).ifPresent(profile -> this.fellBack(TGFallback.profileMissing(kind, profile, shipped(kind)),
+				"the default instrument for " + tracks(kind) + ", Woodshed Guitar, plays the profile TuxGuitar ships, " + shipped(kind)
+					+ ", instead of the one chosen, which was not found: " + profile));
 		}
 		return source;
 	}
@@ -140,15 +141,21 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		return isWoodshed(TGVst3Element.getClassId(source));
 	}
 
-	// the profile Woodshed Guitar plays for the kind: the one chosen, when its file is there; with none chosen, the one
-	// TuxGuitar ships, next to the folder the scan found Woodshed Guitar in, when it is there; else none (its dry voice)
+	// the profile Woodshed Guitar plays for the kind: the one chosen, when its file is there; else (none chosen, or its
+	// file gone) the one TuxGuitar ships for the kind, next to the folder the scan found Woodshed Guitar in, when it is
+	// there; else none (its dry voice)
 	static Optional<String> profile(TGInstrumentKind kind, TGDefaultInstruments defaults, TGVst3Plugin woodshed) {
-		Optional<String> chosen = defaults.getProfile(kind);
-		if (chosen.isPresent()) {
-			return chosen.filter(path -> new File(path).isFile());
-		}
-		File shipped = new File(new File(new File(woodshed.getModule()).getAbsoluteFile().getParentFile().getParentFile(), "profiles"), SHIPPED);
+		return defaults.getProfile(kind).filter(path -> new File(path).isFile()).or(() -> shipped(kind, woodshed));
+	}
+
+	private static Optional<String> shipped(TGInstrumentKind kind, TGVst3Plugin woodshed) {
+		File shipped = new File(new File(new File(woodshed.getModule()).getAbsoluteFile().getParentFile().getParentFile(), "profiles"), shipped(kind));
 		return (shipped.isFile() ? Optional.of(shipped.getPath()) : Optional.<String>empty());
+	}
+
+	// the file name of the profile TuxGuitar ships for the kind
+	static String shipped(TGInstrumentKind kind) {
+		return SHIPPED;
 	}
 
 	// the profile chosen for the kind whose file is not there

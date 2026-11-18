@@ -112,14 +112,16 @@ class TestDefaultInstrumentSource {
 			+ profile(TGInstrumentKind.BASS, defaults.withProfile(TGInstrumentKind.BASS, bass.getPath()), woodshed(folder)));
 	}
 
-	// none chosen: the one TuxGuitar ships, when it is there; a profile chosen whose file is gone: none (its dry voice)
+	// none chosen, or the one chosen whose file is gone: the one TuxGuitar ships, when it is there (else none: its dry
+	// voice)
 	@Test
-	void withNoProfileChosenWoodshedGuitarPlaysTheOneTuxGuitarShips(@TempDir File folder) throws IOException {
+	void withNoProfileChosenOrItsFileGoneWoodshedGuitarPlaysTheOneTuxGuitarShips(@TempDir File folder) throws IOException {
 		TGDefaultInstruments defaults = TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, TGDefaultInstruments.WOODSHED_GUITAR);
-		String without = profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder));
+		TGDefaultInstruments gone = defaults.withProfile(TGInstrumentKind.GUITAR, new File(folder, "Gone.nam").getPath());
+		String without = profile(TGInstrumentKind.GUITAR, gone, woodshed(folder));
 		File shipped = file(new File(folder, "profiles"), "RiffSmith Clean.nam");
-		String gone = profile(TGInstrumentKind.GUITAR, defaults.withProfile(TGInstrumentKind.GUITAR, new File(folder, "Gone.nam").getPath()), woodshed(folder));
-		assertEquals("- " + shipped.getAbsoluteFile() + " -", without + " " + profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder)) + " " + gone);
+		assertEquals("- " + shipped.getAbsoluteFile() + " " + shipped.getAbsoluteFile(), without + " " + profile(TGInstrumentKind.GUITAR, defaults, woodshed(folder)) + " "
+			+ profile(TGInstrumentKind.GUITAR, gone, woodshed(folder)));
 	}
 
 	// a profile is Woodshed Guitar's: another instrument chosen as the guitars' default is not given one

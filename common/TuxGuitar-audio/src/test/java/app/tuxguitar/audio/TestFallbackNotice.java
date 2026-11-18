@@ -137,12 +137,12 @@ class TestFallbackNotice {
 	void aProfileNotFoundIsToldUntilItsFileIsThereOrAnotherIsChosen(@TempDir File folder) throws IOException {
 		File gone = new File(folder, "Gone.nam");
 		this.defaults = this.defaults.withProfile(TGInstrumentKind.GUITAR, gone.getPath());
-		this.notice.fellBack(TGFallback.profileMissing(TGInstrumentKind.GUITAR, gone.getPath()), SONG, 0);
+		this.notice.fellBack(TGFallback.profileMissing(TGInstrumentKind.GUITAR, gone.getPath(), "RiffSmith Clean.nam"), SONG, 0);
 		String missing = readAt(0);
 		this.defaults = DEFAULTS.withProfile(TGInstrumentKind.GUITAR, new File(folder, "Other.nam").getPath());
 		String another = readAt(1);
 		this.defaults = DEFAULTS.withProfile(TGInstrumentKind.GUITAR, gone.getPath());
 		Files.write(gone.toPath(), new byte[] {'{', '}'});
-		assertEquals("Gone.nam was not found: guitar tracks play Woodshed Guitar without an amp. | null | null", missing + " | " + another + " | " + readAt(2));
+		assertEquals("Gone.nam was not found: guitar tracks play RiffSmith Clean, the profile TuxGuitar ships. | null | null", missing + " | " + another + " | " + readAt(2));
 	}
 }

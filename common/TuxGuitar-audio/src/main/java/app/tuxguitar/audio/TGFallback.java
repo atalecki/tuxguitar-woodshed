@@ -10,9 +10,9 @@ import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
  * A default instrument that did not play as set, for a kind of track: General MIDI played instead, the scan not finding
- * the instrument installed or the instrument found but not loaded; or Woodshed Guitar played without the profile chosen
- * for the kind, its file not found. Said in TuxGuitar's language ("Test Drums could not be loaded: drum tracks play
- * General MIDI.").
+ * the instrument installed or the instrument found but not loaded; or Woodshed Guitar played the profile TuxGuitar ships
+ * instead of the one chosen for the kind, its file not found. Said in TuxGuitar's language ("Test Drums could not be
+ * loaded: drum tracks play General MIDI.").
  */
 final class TGFallback {
 
@@ -20,7 +20,8 @@ final class TGFallback {
 		NOT_INSTALLED("audio.default-instrument.not-installed"), NOT_LOADED("audio.default-instrument.not-loaded"),
 		PROFILE_MISSING("audio.default-instrument.profile-missing");
 
-		// the message: "{0} ...: {1} play ..." ({0} the instrument, or the profile's file; {1} the kind's tracks)
+		// the message: "{0} ...: {1} play ..." ({0} the instrument, or the profile's file; {1} the kind's tracks; {2} the
+		// profile played instead)
 		private final String message;
 
 		Why(String message) {
@@ -37,26 +38,29 @@ final class TGFallback {
 	// id, the profile's path)
 	private final String name;
 	private final String key;
+	// what played instead, as the user names it (the profile TuxGuitar ships, without ".nam"); null for General MIDI
+	private final String instead;
 
 	TGFallback(TGInstrumentKind kind, TGDefaultInstrument instrument, Why why) {
-		this(kind, why, instrument.getName(), instrument.getClassId());
+		this(kind, why, instrument.getName(), instrument.getClassId(), null);
 	}
 
-	private TGFallback(TGInstrumentKind kind, Why why, String name, String key) {
+	private TGFallback(TGInstrumentKind kind, Why why, String name, String key, String instead) {
 		this.kind = kind;
 		this.why = why;
 		this.name = name;
 		this.key = key;
+		this.instead = instead;
 	}
 
-	// the kind's profile (a path) was not found: Woodshed Guitar played without it
-	static TGFallback profileMissing(TGInstrumentKind kind, String profile) {
-		return new TGFallback(kind, Why.PROFILE_MISSING, new File(profile).getName(), profile);
+	// the kind's profile (a path) was not found: Woodshed Guitar played the one TuxGuitar ships (its file name) instead
+	static TGFallback profileMissing(TGInstrumentKind kind, String profile, String shipped) {
+		return new TGFallback(kind, Why.PROFILE_MISSING, new File(profile).getName(), profile, shipped.replaceFirst("\\.nam$", ""));
 	}
 
 	String say() {
 		String tracks = TGMessagesManager.getProperty(KIND + this.kind.name().toLowerCase(Locale.ROOT));
-		return TGMessagesManager.getProperty(this.why.message, new Object[] {this.name, tracks});
+		return TGMessagesManager.getProperty(this.why.message, new Object[] {this.name, tracks, this.instead});
 	}
 
 	// whether its cause still holds: the kind's profile is still that file and it is still not there; or the kind's
