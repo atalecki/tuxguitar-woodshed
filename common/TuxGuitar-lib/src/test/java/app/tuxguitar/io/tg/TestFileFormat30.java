@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import app.tuxguitar.io.base.TGFileFormatException;
 import app.tuxguitar.io.base.TGSongReaderHandle;
 import app.tuxguitar.io.base.TGSongWriterHandle;
+import app.tuxguitar.practice.PracticeRefusals;
 import app.tuxguitar.song.factory.TGFactory;
 import app.tuxguitar.song.managers.TGSongManager;
 import app.tuxguitar.song.models.TGAudioInput;
@@ -51,7 +52,7 @@ public class TestFileFormat30 {
 	private static final String PLEASE_UPGRADE = "error.new-major-version";
 
 	// a take's samples as text: its rate, then each channel's samples
-	private static final class TextCodec implements TGTakeCodec {
+	private static class TextCodec implements TGTakeCodec {
 		public String getExtension() {
 			return "take";
 		}
@@ -287,6 +288,27 @@ public class TestFileFormat30 {
 		entries.remove("takes/1.take");
 
 		assertEquals("No entry for take 1", innermostMessage(assertThrows(TGFileFormatException.class, () -> read(rezip(entries), new TextCodec()))));
+	}
+
+	// a take its codec cannot read: the file is refused saying a take could not be read, and the codec's reason, as the
+	// app's error message reads it, in TuxGuitar's language (English, then a made-up German)
+	@Test
+	public void aTakeTheCodecCannotReadIsRefusedSayingSoAndWhy() throws Exception {
+		measure(this.song, 2, 1).addTakeClip(new TGTakeClip(this.first, 0, 3840, 0, 120.0));
+		byte[] file = write(this.song, new TextCodec());
+		TGTakeCodec refusing = new TextCodec() {
+			public TGTake read(InputStream in) throws IOException {
+				throw new IOException("Not a take");
+			}
+		};
+		Map<String, String> german = Map.of("audio.take.refusal.unreadable", "Eine Aufnahme in diesem Lied ließ sich nicht lesen: {0}");
+		assertEquals("A take in this song could not be read: Not a take | Eine Aufnahme in diesem Lied ließ sich nicht lesen: Not a take",
+			PracticeRefusals.said(Map.of(), () -> refusalReading(file, refusing)) + " | " + PracticeRefusals.said(german, () -> refusalReading(file, refusing)));
+	}
+
+	// the message of the reader's refusal of the file
+	private String refusalReading(byte[] file, TGTakeCodec codec) {
+		return assertThrows(TGFileFormatException.class, () -> read(file, codec)).getMessage();
 	}
 
 	// why a reader with a take codec refuses a file of the entries named, each holding the version's text

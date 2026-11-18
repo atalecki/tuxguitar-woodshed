@@ -13,15 +13,20 @@ import org.apache.commons.io.IOUtils;
 
 import app.tuxguitar.io.base.TGFileFormatException;
 import app.tuxguitar.song.models.TGTake;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.TGVersion;
 
 /**
  * The entries of a TuxGuitar file, read in one pass: version.txt read as soon as it comes (first, in the files TuxGuitar
  * writes) and refused there when the reader cannot read that version, content.xml kept as it is, each take's entry
  * decoded by the take codec as it streams by, once version.txt said format 3.0 (none without a codec), and whether any
- * other entry was there.
+ * other entry was there. A take the codec cannot read is refused saying so, in TuxGuitar's language, and why the codec
+ * could not (UNREADABLE).
  */
 final class TGFileEntries {
+
+	// "A take in this song could not be read: {0}", {0} the codec's reason
+	private static final String UNREADABLE = "audio.take.refusal.unreadable";
 
 	// the version of a file, or why the reader cannot read it
 	interface Versions {
@@ -49,9 +54,18 @@ final class TGFileEntries {
 		} else if (TGStream.CONTENT_FILE_NAME.equals(name)) {
 			this.content = IOUtils.toByteArray(entry);
 		} else if (this.isTake(name, codec)) {
-			this.takes.put(name, codec.read(entry));
+			this.takes.put(name, take(entry, codec));
 		} else {
 			this.unknown = true;
+		}
+	}
+
+	// the take of the entry, as the codec reads it
+	private static TGTake take(InputStream entry, TGTakeCodec codec) throws IOException {
+		try {
+			return codec.read(entry);
+		} catch (IOException e) {
+			throw new IOException(TGMessagesManager.getProperty(UNREADABLE, new Object[] {e.getMessage()}), e);
 		}
 	}
 
