@@ -38,6 +38,9 @@ public class SoundOption extends TGSettingsOption {
 	private UISpinner clickNote;
 	private UISpinner clickVelocity;
 
+	//**What plugins add**//
+	private List<TGSoundSettings> extensions;
+
 	public SoundOption(TGSettingsEditor configEditor, UIToolBar toolBar, UILayoutContainer parent){
 		super(configEditor, toolBar, parent, TuxGuitar.getProperty("settings.config.sound"));
 		this.initialized = false;
@@ -84,7 +87,19 @@ public class SoundOption extends TGSettingsOption {
 		this.clickNote = this.createClickSpinner(clickComposite, 1, "midi.click.note", 0, click.getNote());
 		this.clickVelocity = this.createClickSpinner(clickComposite, 3, "midi.click.velocity", 1, click.getVelocity());
 
+		this.createExtensions(7);
 		this.loadConfig();
+	}
+
+	// the settings plugins add (TGSoundSettingsExtensions), each in a panel of its own from the row on
+	private void createExtensions(int row) {
+		this.extensions = TGSoundSettingsExtensions.getInstance(getViewContext().getContext()).create();
+		for(int i = 0; i < this.extensions.size(); i++) {
+			UIPanel panel = getUIFactory().createPanel(getPanel(), false);
+			panel.setLayout(new UITableLayout());
+			((UITableLayout) getPanel().getLayout()).set(panel, row + i, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false);
+			this.extensions.get(i).create(getUIFactory(), panel);
+		}
 	}
 
 	// a label and a spinner from the minimum to 127 (a MIDI note or velocity), in the columns from the given one
@@ -177,6 +192,7 @@ public class SoundOption extends TGSettingsOption {
 			this.updateKey(TGConfigKeys.MIDI_PORT, this.mpCombo, MidiOutputPort::getKey);
 		}
 		new MidiClick(this.clickNote.getValue(), this.clickVelocity.getValue()).write(getConfig());
+		this.extensions.forEach(TGSoundSettings::keep);
 	}
 
 	// the key of what is selected, if anything is
@@ -193,5 +209,6 @@ public class SoundOption extends TGSettingsOption {
 			getConfig().setValue(TGConfigKeys.MIDI_SEQUENCER, getDefaults().getValue(TGConfigKeys.MIDI_SEQUENCER));
 		}
 		MidiClick.DEFAULT.write(getConfig());
+		this.extensions.forEach(TGSoundSettings::keepDefaults);
 	}
 }

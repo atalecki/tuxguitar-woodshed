@@ -38,4 +38,13 @@ public final class TGDefaultInstrument {
 	public String getName() {
 		return this.name;
 	}
+
+	// the same instrument: the same class id, whatever its name
+	public boolean equals(Object other) {
+		return (other instanceof TGDefaultInstrument && ((TGDefaultInstrument) other).classId.equals(this.classId));
+	}
+
+	public int hashCode() {
+		return this.classId.hashCode();
+	}
 }

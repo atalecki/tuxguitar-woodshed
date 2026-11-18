@@ -92,6 +92,17 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		}
 	}
 
+	// Settings' OK: defaults other than those in use are used and heard at once (applyNow); the same ones change nothing
+	// (playing goes on). Whether they were other ones
+	public boolean apply(TGDefaultInstruments defaults) {
+		if (defaults.equals(this.defaults)) {
+			return false;
+		}
+		this.use(defaults);
+		this.applyNow();
+		return true;
+	}
+
 	public TGDefaultInstruments getDefaults() {
 		return this.defaults;
 	}

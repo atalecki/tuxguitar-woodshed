@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import app.tuxguitar.midi.synth.TGInstrumentKind;
@@ -23,6 +24,8 @@ public final class TGDefaultInstruments {
 	public static final TGDefaultInstrument WOODSHED_GUITAR = new TGDefaultInstrument("57534847554954415200000000000001", "Woodshed Guitar");
 	public static final TGDefaultInstruments NONE = new TGDefaultInstruments(new EnumMap<TGInstrumentKind, TGDefaultInstrument>(TGInstrumentKind.class),
 		new EnumMap<TGInstrumentKind, String>(TGInstrumentKind.class));
+	// what a computer whose settings never set them plays (Settings' Defaults)
+	public static final TGDefaultInstruments BUILT_IN = NONE.with(TGInstrumentKind.GUITAR, WOODSHED_GUITAR).with(TGInstrumentKind.BASS, WOODSHED_GUITAR);
 
 	private final Map<TGInstrumentKind, TGDefaultInstrument> instruments;
 	private final Map<TGInstrumentKind, String> profiles;
@@ -73,17 +76,25 @@ public final class TGDefaultInstruments {
 		return new TGDefaultInstruments(instruments, this.profiles);
 	}
 
-	// these defaults, the kind's profile that one (blank: none); only guitar and bass have one
+	// these defaults, the kind playing General MIDI
+	public TGDefaultInstruments withGeneralMidi(TGInstrumentKind kind) {
+		Map<TGInstrumentKind, TGDefaultInstrument> instruments = new EnumMap<TGInstrumentKind, TGDefaultInstrument>(this.instruments);
+		instruments.remove(kind);
+		return new TGDefaultInstruments(instruments, this.profiles);
+	}
+
+	// these defaults, the kind's profile that one (blank: none, the one TuxGuitar ships); only guitar and bass have one
 	public TGDefaultInstruments withProfile(TGInstrumentKind kind, String profile) {
-		if (profile == null || profile.trim().isEmpty() || !hasProfile(kind)) {
+		if (!hasProfile(kind)) {
 			return this;
 		}
 		Map<TGInstrumentKind, String> profiles = new EnumMap<TGInstrumentKind, String>(this.profiles);
-		profiles.put(kind, profile.trim());
+		profiles.remove(kind);
+		Optional.ofNullable(profile).map(String::trim).filter(path -> !path.isEmpty()).ifPresent(path -> profiles.put(kind, path));
 		return new TGDefaultInstruments(this.instruments, profiles);
 	}
 
-	private static boolean hasProfile(TGInstrumentKind kind) {
+	public static boolean hasProfile(TGInstrumentKind kind) {
 		return (kind == TGInstrumentKind.GUITAR || kind == TGInstrumentKind.BASS);
 	}
 
@@ -95,5 +106,15 @@ public final class TGDefaultInstruments {
 	// the profile chosen for the kind; none until one is chosen for it
 	public Optional<String> getProfile(TGInstrumentKind kind) {
 		return Optional.ofNullable(this.profiles.get(kind));
+	}
+
+	// the same instruments (by class id) and profiles
+	public boolean equals(Object other) {
+		return (other instanceof TGDefaultInstruments && ((TGDefaultInstruments) other).instruments.equals(this.instruments)
+			&& ((TGDefaultInstruments) other).profiles.equals(this.profiles));
+	}
+
+	public int hashCode() {
+		return Objects.hash(this.instruments, this.profiles);
 	}
 }

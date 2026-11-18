@@ -90,6 +90,29 @@ class TestDefaultInstruments {
 			+ describe(defaults.withProfile(TGInstrumentKind.BASS, "Bass.nam"), TGInstrumentKind.BASS));
 	}
 
+	// Settings' Defaults: what the settings never set play
+	@Test
+	void theBuiltInDefaultsAreWhatNothingSetReads() {
+		assertEquals(TGDefaultInstruments.read(config()), TGDefaultInstruments.BUILT_IN);
+	}
+
+	// as the settings choose them: General MIDI for a kind, back to the shipped profile with none
+	@Test
+	void aKindChoosesGeneralMidiAndAProfileGoesBackToNone() {
+		TGDefaultInstruments chosen = TGDefaultInstruments.BUILT_IN.withProfile(TGInstrumentKind.GUITAR, "Lead.nam").withGeneralMidi(TGInstrumentKind.BASS);
+		assertEquals("GUITAR=Woodshed Guitar (" + WOODSHED + ") Lead.nam, BASS=- -, DRUMS=- -, OTHER=- - | GUITAR=Woodshed Guitar (" + WOODSHED + ") -, BASS=- -, DRUMS=- -, OTHER=- -",
+			describe(chosen) + " | " + describe(chosen.withProfile(TGInstrumentKind.GUITAR, " ")));
+	}
+
+	// the same instruments by class id (whatever their names) and the same profiles
+	@Test
+	void defaultsAreEqualWithTheSameInstrumentsAndProfiles() {
+		TGDefaultInstruments sine = TGDefaultInstruments.NONE.with(TGInstrumentKind.OTHER, new TGDefaultInstrument(SINE, "Test Sine"));
+		TGDefaultInstruments renamed = TGDefaultInstruments.NONE.with(TGInstrumentKind.OTHER, new TGDefaultInstrument(SINE, "Sine renamed"));
+		assertEquals("true true false false false", sine.equals(renamed) + " " + (sine.hashCode() == renamed.hashCode()) + " " + sine.equals(TGDefaultInstruments.NONE) + " "
+			+ sine.equals(sine.withProfile(TGInstrumentKind.GUITAR, "Lead.nam")) + " " + sine.equals("not defaults"));
+	}
+
 	// drums and other kinds play no profile
 	@Test
 	void onlyGuitarAndBassHaveAProfile() {

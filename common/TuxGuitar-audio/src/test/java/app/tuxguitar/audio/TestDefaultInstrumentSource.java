@@ -81,6 +81,17 @@ class TestDefaultInstrumentSource {
 		assertEquals("none null", describe(source.sourceFor(0, 25)) + " " + source.getNotice());
 	}
 
+	// Settings' OK: defaults other than those in use are used (and applied at once: with no MIDI Port open, nothing to
+	// play again); the same ones change nothing (playing goes on)
+	@Test
+	void defaultsAreAppliedOnlyWhenTheyChanged() {
+		TGDefaultInstrumentSource source = TGDefaultInstrumentSource.install(new TGContext());
+		TGDefaultInstruments sine = TGDefaultInstruments.NONE.with(TGInstrumentKind.OTHER, instrument(SINE, "Test Sine"));
+		boolean changed = source.apply(sine);
+		boolean same = source.apply(TGDefaultInstruments.NONE.with(TGInstrumentKind.OTHER, instrument(SINE, "Test Sine")));
+		assertEquals("true false true", changed + " " + same + " " + (source.getDefaults() == sine));
+	}
+
 	// Woodshed Guitar where TuxGuitar installs it: its own plugins folder (vst3), the profiles it ships next to it
 	private static TGVst3Plugin woodshed(File install) {
 		return new TGVst3Plugin(new File(new File(install, "vst3"), "Woodshed Guitar.vst3").getPath(), WOODSHED, "Woodshed Guitar", true);
