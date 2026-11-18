@@ -254,6 +254,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
 | `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain; what a scan reports, and why an editor does not open |
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
+| `plugins/default_instruments` | the default instrument of each kind of track (guitar, bass, drums, other) for a track without an instrument of its own |
 | `plugins/nam_guitar_instrument` | Woodshed Guitar, the VST3 instrument TuxGuitar ships: plucked strings through a NAM capture, its profile; found in TuxGuitar's own plugins folder |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
@@ -341,6 +342,16 @@ These features change how TuxGuitar works today. They are requirements, not side
   it adds no latency. No General MIDI sound is heard for them. The drums join the output at the
   Volume and Balance of the song's percussion channel, the channel they click on today, with the tracks' law; a song
   without one (today it has no Count In and no Metronome) clicks as a new channel sounds: Volume 127, Balance 64.
+- **Default instruments by track kind.** A track whose sound chain has no instrument of its own (no chain, or a chain
+  whose source is General MIDI, `gervill`) plays the default instrument of its kind, a VST3 instrument set once per
+  computer (`TGDefaultInstruments`, in the `tuxguitar-audio` configuration: `audio.default-instrument.<kind>.class`,
+  `.name`, and for guitar and bass Woodshed Guitar's `.profile`), found in the last scan by its class id. The kind is
+  synth-core's `TGInstrumentKind.of(bank, program)`: the percussion bank is drums, General MIDI programs 24 to 31
+  guitar, 32 to 39 bass, any other program other. One place decides it, live and offline alike: the synth channel
+  asks the context's `TGDefaultSource` (audio's `TGDefaultInstrumentSource`, installed by `TGLiveAudio.install`) once
+  it has a program (until then a chain's General MIDI source plays), and again when its kind changes; a chain's
+  effects stay. The song keeps saying General MIDI (nothing in it changes); a kind without a default plays General
+  MIDI, offline as live through the programs the synthesizer's settings keep (`TGSynthSettings`).
 - **File format 3.0** for a song with an audio track. A reader of format 2.0 opening it as a `.tg` file refuses it with
   its "please upgrade" message (the step compares the message of the innermost cause). This version still opens format 2.0 files, and saves
   a song without audio tracks as format 2.0. A VST3 sound chain is saved under channel parameter keys outside the

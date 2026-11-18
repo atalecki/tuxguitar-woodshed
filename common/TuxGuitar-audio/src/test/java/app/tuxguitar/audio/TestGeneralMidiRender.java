@@ -1,5 +1,6 @@
 package app.tuxguitar.audio;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,6 +27,8 @@ import app.tuxguitar.song.models.TGMeasure;
 import app.tuxguitar.song.models.TGNote;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.configuration.TGConfigManager;
+import app.tuxguitar.util.properties.TGProperties;
 import app.tuxguitar.util.properties.TGPropertiesManager;
 
 /**
@@ -120,6 +123,31 @@ public class TestGeneralMidiRender {
 			}
 		}
 		return strongest;
+	}
+
+	// the programs the synthesizer's settings keep (tuxguitar-synth, as the app ships them or the user changed them) play
+	// offline as they play live: program 80 kept there as General MIDI's piano sounds the piano
+	@Test
+	public void aProgramTheSynthesizersSettingsKeepPlaysOfflineAsLive() throws MidiPlayerException {
+		TGPropertiesManager.getInstance(this.context).addPropertiesReader(TGConfigManager.RESOURCE, (properties, module) -> keepAsThePiano(properties, module, 80));
+		float[] kept = render(44100).getTap(song.getTrack(0));
+		TGPropertiesManager.getInstance(this.context).removePropertiesReader(TGConfigManager.RESOURCE);
+		channel().setProgram((short) 0);
+		float[] piano = render(44100).getTap(song.getTrack(0));
+
+		assertTrue(Meters.peak(piano, 0, 2048) > 0.01, "the piano sounds");
+		assertArrayEquals(piano, kept, 0.0001f);
+	}
+
+	private static void keepAsThePiano(TGProperties properties, String module, int program) {
+		if ("tuxguitar-synth".equals(module)) {
+			String prefix = "synth.program.0." + program;
+			properties.setValue(prefix + ".id", "kept");
+			properties.setValue(prefix + ".type", "gervill");
+			properties.setValue(prefix + ".param.count", "1");
+			properties.setValue(prefix + ".param.0.name", "gervil.program");
+			properties.setValue(prefix + ".param.0.value", "0:0");
+		}
 	}
 
 	@Test
