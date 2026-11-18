@@ -1,6 +1,7 @@
 package app.tuxguitar.app.view.dialog.settings.items;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 import app.tuxguitar.app.TuxGuitar;
@@ -73,6 +74,7 @@ public class SoundOption extends TGSettingsOption {
 		this.indent(mpComposite, 4, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false);
 
 		this.mpCombo = uiFactory.createDropDownSelect(mpComposite);
+		this.mpCombo.addSelectionListener(event -> this.tellPort());
 		mpCompositeLayout.set(this.mpCombo, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, true);
 
 		//---Count In / Metronome click---//
@@ -91,7 +93,8 @@ public class SoundOption extends TGSettingsOption {
 		this.loadConfig();
 	}
 
-	// the settings plugins add (TGSoundSettingsExtensions), each in a panel of its own from the row on
+	// the settings plugins add (TGSoundSettingsExtensions), each in a panel of its own from the row on, told the MIDI
+	// Port configured until the ports are listed
 	private void createExtensions(int row) {
 		this.extensions = TGSoundSettingsExtensions.getInstance(getViewContext().getContext()).create();
 		for(int i = 0; i < this.extensions.size(); i++) {
@@ -99,7 +102,15 @@ public class SoundOption extends TGSettingsOption {
 			panel.setLayout(new UITableLayout());
 			((UITableLayout) getPanel().getLayout()).set(panel, row + i, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false);
 			this.extensions.get(i).create(getUIFactory(), panel);
+			this.extensions.get(i).portChosen(getConfig().getStringValue(TGConfigKeys.MIDI_PORT));
 		}
+	}
+
+	// the settings plugins add are told the MIDI Port selected
+	private void tellPort() {
+		MidiOutputPort port = this.mpCombo.getSelectedValue();
+		String key = (port != null ? port.getKey() : null);
+		this.extensions.forEach(extension -> extension.portChosen(key));
 	}
 
 	// a label and a spinner from the minimum to 127 (a MIDI note or velocity), in the columns from the given one
@@ -134,55 +145,32 @@ public class SoundOption extends TGSettingsOption {
 				TGSynchronizer.getInstance(getViewContext().getContext()).executeLater(new Runnable() {
 					public void run() {
 						if(!isDisposed()){
-							//---Midi Sequencer---//
-							String loadedSequencer = msLoaded;
-							UISelectItem<MidiSequencer> selectedSequencerItem = null;
-							for(MidiSequencer sequencer : SoundOption.this.msList) {
-								UISelectItem<MidiSequencer> item = new UISelectItem<MidiSequencer>(sequencer.getName(), sequencer);
-
-								SoundOption.this.msCombo.addItem(item);
-								if( SoundOption.this.msCurrentKey != null && SoundOption.this.msCurrentKey.equals(sequencer.getKey())){
-									loadedSequencer = null;
-
-									selectedSequencerItem = item;
-								} else if(loadedSequencer != null && loadedSequencer.equals(sequencer.getKey())){
-									selectedSequencerItem = item;
-								} else if(selectedSequencerItem == null) {
-									selectedSequencerItem = item;
-								}
-							}
-							if( selectedSequencerItem != null ){
-								SoundOption.this.msCombo.setSelectedItem(selectedSequencerItem);
-							}
-
-							//---Midi Port---//
-							String loadedPort = mpLoaded;
-							UISelectItem<MidiOutputPort> selectedPortItem = null;
-							for(MidiOutputPort port : SoundOption.this.mpList) {
-								UISelectItem<MidiOutputPort> item = new UISelectItem<MidiOutputPort>(port.getName(), port);
-
-								SoundOption.this.mpCombo.addItem(item);
-								if( SoundOption.this.mpCurrentKey != null && SoundOption.this.mpCurrentKey.equals(port.getKey())){
-									loadedPort = null;
-
-									selectedPortItem = item;
-								} else if(loadedPort != null && loadedPort.equals(port.getKey())) {
-									selectedPortItem = item;
-								} else if(selectedPortItem == null) {
-									selectedPortItem = item;
-								}
-							}
-							if( selectedPortItem != null ){
-								SoundOption.this.mpCombo.setSelectedItem(selectedPortItem);
-							}
-
-							SoundOption.this.initialized = true;
-							SoundOption.this.pack();
+							SoundOption.this.showDevices(msLoaded, mpLoaded);
 						}
 					}
 				});
 			}
 		}).start();
+	}
+
+	// the sequencers and the ports listed, each with the one configured selected (else the one loaded, else the first);
+	// the settings plugins add told the port
+	private void showDevices(String msLoaded, String mpLoaded) {
+		offer(this.msCombo, this.msList, MidiSequencer::getName, MidiSequencer::getKey, this.msCurrentKey, msLoaded);
+		offer(this.mpCombo, this.mpList, MidiOutputPort::getName, MidiOutputPort::getKey, this.mpCurrentKey, mpLoaded);
+		this.tellPort();
+		this.initialized = true;
+		this.pack();
+	}
+
+	private static <T> void offer(UIDropDownSelect<T> combo, List<T> items, Function<T, String> nameOf, Function<T, String> keyOf, String configured, String loaded) {
+		items.forEach(item -> combo.addItem(new UISelectItem<T>(nameOf.apply(item), item)));
+		find(items, keyOf, configured).or(() -> find(items, keyOf, loaded)).or(() -> items.stream().findFirst()).ifPresent(combo::setSelectedValue);
+	}
+
+	// the item of the key; none for no key
+	private static <T> Optional<T> find(List<T> items, Function<T, String> keyOf, String key) {
+		return Optional.ofNullable(key).flatMap(wanted -> items.stream().filter(item -> wanted.equals(keyOf.apply(item))).findFirst());
 	}
 
 	// the click is kept whether or not the devices were listed yet: its spinners are filled at once

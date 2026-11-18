@@ -1,7 +1,9 @@
 package app.tuxguitar.audio.ui;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -33,8 +35,9 @@ import app.tuxguitar.vst3.TGVst3Hosting;
 /**
  * Settings > Sound, "Default instruments": for each kind of track a drop-down of General MIDI and the VST3 instruments
  * the last scan found, and for guitar and bass the profile Woodshed Guitar plays (the one TuxGuitar ships until a .nam
- * file is chosen, Shipped going back to it; only while Woodshed Guitar is the kind's choice). What can be chosen is
- * decided by TGDefaultInstrumentChoices, which is tested; OK keeps the choices in TuxGuitar's audio configuration and
+ * file is chosen, Shipped going back to it; only while Woodshed Guitar is the kind's choice). Greyed, with a line saying
+ * why, while the MIDI Port chosen on the page is not the TuxGuitar Synthesizer. What can be chosen is decided by
+ * TGDefaultInstrumentChoices, which is tested; OK keeps the choices in TuxGuitar's audio configuration and
  * applies them to the open song at once, when they changed (TGDefaultInstrumentSource.apply). Glue only.
  */
 public class TGDefaultInstrumentsSettings implements TGSoundSettings {
@@ -44,7 +47,10 @@ public class TGDefaultInstrumentsSettings implements TGSoundSettings {
 	private final TGContext context;
 	private TGDefaultInstrumentChoices choices;
 	private final Map<TGInstrumentKind, Profile> profiles = new EnumMap<TGInstrumentKind, Profile>(TGInstrumentKind.class);
+	private final List<UIDropDownSelect<Choice>> selects = new ArrayList<UIDropDownSelect<Choice>>();
 	private UIPanel panel;
+	// why the defaults cannot be chosen, under them; empty while they can
+	private UILabel notice;
 
 	public TGDefaultInstrumentsSettings(TGContext context) {
 		this.context = context;
@@ -64,6 +70,20 @@ public class TGDefaultInstrumentsSettings implements TGSoundSettings {
 		for (TGInstrumentKind kind : TGInstrumentKind.values()) {
 			row = this.rows(factory, row, kind);
 		}
+		this.notice = factory.createLabel(panel);
+		this.layout().set(this.notice, row, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false, 1, 4);
+		this.show();
+	}
+
+	public void portChosen(String portKey) {
+		this.choices.choosePort(portKey);
+		this.show();
+	}
+
+	// the drop-downs greyed or not, the line why, the profiles' rows
+	private void show() {
+		this.selects.forEach(select -> select.setEnabled(this.choices.isEditable()));
+		this.notice.setText(this.choices.getNotice());
 		this.showProfiles();
 	}
 
@@ -93,6 +113,7 @@ public class TGDefaultInstrumentsSettings implements TGSoundSettings {
 		UIDropDownSelect<Choice> select = factory.createDropDownSelect(this.panel);
 		this.choices.choices(kind).forEach(choice -> select.addItem(new UISelectItem<Choice>(choice.getLabel(), choice)));
 		select.setSelectedValue(this.choices.chosen(kind));
+		this.selects.add(select);
 		select.addSelectionListener(event -> {
 			this.choices.choose(kind, select.getSelectedValue());
 			this.showProfiles();
@@ -168,10 +189,9 @@ public class TGDefaultInstrumentsSettings implements TGSoundSettings {
 		}
 
 		void show() {
-			boolean takes = choices.takesProfile(this.kind);
 			this.shown.setText(choices.profile(this.kind));
-			this.choose.setEnabled(takes);
-			this.shipped.setEnabled(takes && !choices.isShipped(this.kind));
+			this.choose.setEnabled(choices.canChooseProfile(this.kind));
+			this.shipped.setEnabled(choices.canGoBackToShipped(this.kind));
 		}
 	}
 }
