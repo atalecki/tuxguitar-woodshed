@@ -47,6 +47,9 @@ folder `desktop/build-scripts/tuxguitar-windows-swt-x86_64/target/tuxguitar-9.99
 
 ## Notes
 
+- **Changed since this commit** (see *Default instrument follow-ups*): bass tracks now start on their own shipped
+  profile, RiffSmith Bass Clean (steps 3-4 no longer hold), and a missing profile plays the shipped one instead of the
+  dry voice (step 8 no longer holds).
 - **CPU (a quick measurement, not a gate).** Playing RiffSmith Clean costs one Woodshed Guitar instance about 5.2% of
   one core at full Quality and 2.8% at Light (`woodshed-guitar-time`, 44.1 kHz, blocks of 512, a six-string chord each
   second, 20 s of audio). Ten instances running at once took about 6% of one core each (about 60% of one core in all)
