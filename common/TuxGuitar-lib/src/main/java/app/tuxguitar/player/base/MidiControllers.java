@@ -26,6 +26,8 @@ public class MidiControllers {
 
 	public static final int RPN_MSB = 0x65 ;
 
+	public static final int ALL_SOUND_OFF = 0x78;
+
 	public static final int ALL_NOTES_OFF = 0x7B;
 
 }
