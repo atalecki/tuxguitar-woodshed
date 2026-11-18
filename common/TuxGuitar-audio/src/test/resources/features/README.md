@@ -382,6 +382,11 @@ These features change how TuxGuitar works today. They are requirements, not side
   its next change keeps it again, and Redo leaves it open too (`TGLivePlugins`: an editor follows its plugin to the
   element it runs as; one never opened for the default closes). These scenarios keep the synthesizer's channels open
   and send them after each action, as the app does ("the TuxGuitar Synthesizer runs the song's sound chains").
+  A default without an editor of its own (`Test Tone`) opens TuxGuitar's parameter editor instead
+  (`TGLivePlugins.parameterEditor`, from the same decision as Edit: `TGDefaultInstrumentSource.edited(channel, effect)`);
+  the first value set there that its plugin does not hold keeps the default in the song with that value, as one change
+  (`TGSetPluginParameterAction`, `TGLivePlugins.keepDefault`: its state as when the editor opened, then the parameter),
+  and the editor goes on as the source's; undone, it stays open on the default, as above.
   Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`

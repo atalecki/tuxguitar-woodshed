@@ -395,11 +395,26 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	}
 
 	// TuxGuitar's parameter editor open for the channel's effect (by its number; none: the VST3 instrument that is the
-	// source), or null when that plugin's editor is its own or none is open
+	// source, or the default instrument played there), or null when that plugin's editor is its own or none is open
 	public synchronized TGPluginEditor parameterEditor(TGChannel channel, Integer effect) {
-		TGProgramElement plugin = TGSoundChain.plugin(TGSoundChain.get(channel), effect);
+		TGProgramElement plugin = TGDefaultInstrumentSource.install(this.context).edited(channel, effect);
 		TGPluginEditor editor = (plugin != null ? this.getEditor(channel.getChannelId(), plugin.getId()) : null);
 		return (editor != null && !editor.isOwn() ? editor : null);
+	}
+
+	// the default instrument the channel plays as its source as the song keeps it, its state as when its editor opened,
+	// when that editor (TuxGuitar's parameter editor: the plugin has none of its own) is open for it and shows another
+	// value of the parameter (as the user sees it): the first value set there keeps it, as the first change in a
+	// plugin's own editor does, its plugin and editor the source's from then on (see take); else null
+	public synchronized TGProgramElement keepDefault(TGChannel channel, int parameter, double plain) {
+		int id = channel.getChannelId();
+		TGProgramElement played = TGDefaultInstrumentSource.install(this.context).edited(channel);
+		Editor editor = (played != null ? this.editors.get(key(id, played.getId())) : null);
+		if (editor == null || !editor.edits(played) || editor.editor.shows(parameter, plain)) {
+			return null;
+		}
+		this.handOver(id, played.getId(), TGSoundChain.source(TGVst3Element.INSTRUMENT).getId(), editor.instance);
+		return TGPluginStates.kept(played, editor.byDefault.state);
 	}
 
 	// the editors whose plugin is no longer the element's: one whose plugin runs as another element of the channel now

@@ -204,6 +204,12 @@ public class EditorSteps {
 		assertFalse(editor(effect, track).isOwn());
 	}
 
+	@Then("TuxGuitar's parameter editor of {plugin} is open, reading {string}")
+	public void theParameterEditorIsOpenReading(Map.Entry<Integer, String> plugin, String parameters) {
+		TGPluginEditor editor = live().getEditor(plugin.getKey(), plugin.getValue());
+		assertEquals("false " + parameters, editor.isOwn() + " " + String.join(", ", editor.getParameters()));
+	}
+
 	@Then("the parameters of VST3 effect {int} of track {int} read {string}")
 	public void theParametersRead(int effect, int track, String expected) {
 		assertEquals(expected, String.join(", ", editor(effect, track).getParameters()));

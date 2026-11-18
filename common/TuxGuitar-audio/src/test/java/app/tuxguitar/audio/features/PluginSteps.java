@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
 
 import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
+import app.tuxguitar.audio.TGPluginEditor;
+import app.tuxguitar.audio.TGPluginParameterRow;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.editor.action.TGActionBase;
@@ -32,9 +34,12 @@ import app.tuxguitar.audio.action.TGSoundChainAction;
 import app.tuxguitar.audio.undo.TGUndoableOnSuccess;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.undo.impl.channel.TGUndoableModifyChannelController;
+import app.tuxguitar.midi.synth.TGAudioProcessor;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.vst3.TGVst3EffectProcessor;
+import app.tuxguitar.vst3.TGVst3InstrumentProcessor;
+import app.tuxguitar.vst3.TGVst3PluginProcessor;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Host;
@@ -358,14 +363,36 @@ public class PluginSteps {
 	// the value the plugin holds once opened from the effect's element
 	@Then("{string} of VST3 effect {int} of track {int} is {double}")
 	public void theParameterIs(String title, int effect, int track, double value) throws TGVst3Exception {
+		theParameterIs(title, effect, track, value, new TGVst3EffectProcessor(hosting()));
+	}
+
+	// the value the plugin holds once opened from the source's element
+	@Then("{string} of the VST3 instrument of track {int} is {double}")
+	public void theInstrumentsParameterIs(String title, int track, double value) throws TGVst3Exception {
+		theParameterIs(title, null, track, value, new TGVst3InstrumentProcessor(hosting()));
+	}
+
+	private void theParameterIs(String title, Integer effect, int track, double value, TGVst3PluginProcessor plugin) throws TGVst3Exception {
 		TGProgramElement element = element(effect, track);
-		TGVst3EffectProcessor processor = new TGVst3EffectProcessor(hosting());
+		TGAudioProcessor processor = (TGAudioProcessor) plugin;
 		processor.restoreParameters(element.getParameters());
 		try {
-			assertEquals(value, processor.getInstance().getParameter(parameter(element, title)), 1e-9);
+			assertEquals(value, plugin.getInstance().getParameter(parameter(element, title)), 1e-9);
 		} finally {
 			processor.close();
 		}
+	}
+
+	// as TuxGuitar's parameter editor (the Parameters window) sets it: the row with the title, at the plain value, one
+	// change of the song (the source's editor: no effect)
+	@Given("I set {string} to {double} in TuxGuitar's parameter editor of the source of track {int}")
+	public void setInTheParameterEditor(String title, double value, int track) {
+		TGPluginEditor editor = TGLivePlugins.getInstance(world.fixture().context).parameterEditor(world.channel(world.track(track)), null);
+		TGPluginParameterRow row = editor.getRows().stream().filter(shown -> shown.getTitle().equals(title)).findFirst().get();
+		world.fixture().actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, null);
+		world.fixture().actionContext.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, row.getId());
+		world.fixture().actionContext.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_VALUE, value);
+		change(track, new TGSetPluginParameterAction(world.fixture().context));
 	}
 
 	@Given("I have set {string} of the VST3 instrument of track {int} to {double}")

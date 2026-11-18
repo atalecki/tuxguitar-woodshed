@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
+import app.tuxguitar.audio.action.TGSetPluginParameterAction;
 import app.tuxguitar.audio.action.TGSetPluginStateAction;
 import app.tuxguitar.audio.features.EditorSteps;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -227,6 +228,57 @@ public class TestDefaultInstrumentEditor {
 
 	private boolean editing(String element) {
 		return (this.live.getEditor(this.guitar.getChannelId(), element) != null);
+	}
+
+	// a default without an editor of its own (Test Tone) is edited in TuxGuitar's parameter editor: the first value set
+	// there keeps it in the song with that value (one change of the song), the editor going on as the source's
+	@Test
+	public void theFirstValueSetInTheDefaultsParameterEditorKeepsItInTheSongWithThatValue() throws TGVst3Exception {
+		this.useDefault("Test Tone");
+		TGPluginEditor editor = this.edit();
+		String opened = editor.isOwn() + " " + editor.getParameters() + " " + this.level();
+		boolean set = this.set(editor, 0.5);
+		assertEquals("false [Level] General MIDI | true Test Tone at 0.5 true", opened + " | " + set + " " + this.level() + " " + this.editing("source"));
+	}
+
+	// setting the value the default has keeps nothing; nor does a value set while no editor is open for it
+	@Test
+	public void theValueTheDefaultHasOrOneSetWithoutItsEditorKeepsNothing() throws TGVst3Exception {
+		this.useDefault("Test Tone");
+		TGPluginEditor editor = this.edit();
+		boolean same = this.set(editor, 1.0);
+		this.live.close();
+		boolean closed = this.set(editor, 0.5);
+		assertEquals("false false General MIDI", same + " " + closed + " " + this.level());
+	}
+
+	// the parameter of the row titled Level set to the value on the guitar's source, as the parameter editor sets it;
+	// whether the song changed
+	private boolean set(TGPluginEditor editor, double value) {
+		TGPluginParameterRow level = editor.getRows().get(editor.getParameters().indexOf("Level"));
+		TGActionContext context = this.fixture.actionContext;
+		context.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, this.guitar);
+		context.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, level.getId());
+		context.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_VALUE, value);
+		context.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_SUCCESS, Boolean.FALSE);
+		this.fixture.execute(new TGSetPluginParameterAction(this.fixture.context));
+		return Boolean.TRUE.equals(context.getAttribute(TGSetPluginParameterAction.ATTRIBUTE_SUCCESS));
+	}
+
+	// the guitar's source as the song has it: the VST3 instrument with its Level as a plugin opened afresh from it reads
+	// it, else "General MIDI"
+	private String level() throws TGVst3Exception {
+		TGProgramElement source = TGSoundChain.plugin(TGSoundChain.get(this.guitar), null);
+		if (source == null) {
+			return "General MIDI";
+		}
+		TGVst3InstrumentProcessor fresh = new TGVst3InstrumentProcessor(this.hosting);
+		try {
+			fresh.restoreParameters(source.getParameters());
+			return TGVst3Element.getName(source) + " at " + fresh.getInstance().getParameter(fresh.getInstance().findParameter("Level"));
+		} finally {
+			fresh.close();
+		}
 	}
 
 	private static TGVst3Instance running(TGSynthChannel channel) {

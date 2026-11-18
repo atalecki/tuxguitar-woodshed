@@ -163,6 +163,13 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		return (TGSoundChainRows.of(channel, play).canKeep() ? play.getElement() : null);
 	}
 
+	// the VST3 plugin Edit opens on a row of the channel's chain: the effect's (by its number), else the VST3 instrument
+	// that is the source, else the default instrument played as the source (edited); null for none
+	public TGProgramElement edited(TGChannel channel, Integer effect) {
+		TGProgramElement plugin = TGSoundChain.plugin(TGSoundChain.get(channel), effect);
+		return (plugin != null || effect != null ? plugin : this.edited(channel));
+	}
+
 	public TGDefaultPlay play(int bank, int program) {
 		return this.play(bank, program, this.defaults);
 	}

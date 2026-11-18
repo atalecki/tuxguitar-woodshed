@@ -374,6 +374,60 @@ Feature: Default instruments by track kind
     And Woodshed Guitar of track 1 as it runs has "Output level" at 0.0
     And Woodshed Guitar's editor of track 1 shows "Profile: Gain 3.nam" and ""
 
+  # A default instrument without an editor of its own (Test Tone) is edited in TuxGuitar's parameter editor (the
+  # Parameters window): its first change there keeps the default in the song with that value, as a change in a plugin's
+  # own editor does, one undo step; opening and closing it, or setting a value it already has, keeps nothing
+  Scenario: Edit on a default source without an editor of its own opens TuxGuitar's parameter editor, the song as it was
+    Given the default instrument for guitar tracks is "Test Tone"
+    And I have saved the song as a TuxGuitar file
+    When I open the editor of the source of track 1
+    Then TuxGuitar's parameter editor of the default instrument of track 1 is open, reading "Level"
+    And track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the song is not modified
+
+  Scenario: the first value set in a default instrument's parameter editor keeps it in the song, with that value
+    Given the default instrument for guitar tracks is "Test Tone"
+    And I have opened the editor of the source of track 1
+    And I have saved the song as a TuxGuitar file
+    When I set "Level" to 0.5 in TuxGuitar's parameter editor of the source of track 1
+    And the default instrument for guitar tracks is "Test Sine"
+    Then track 1's sound chain reads "Test Tone"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Test Tone"
+    And "Level" of the VST3 instrument of track 1 is 0.5
+    And TuxGuitar's parameter editor of the source of track 1 is open, reading "Level"
+    And the song is modified
+
+  Scenario: keeping a default instrument by the first value set in its parameter editor is one undo step, a later one another
+    Given the default instrument for guitar tracks is "Test Tone"
+    And I have opened the editor of the source of track 1
+    And I set "Level" to 0.5 in TuxGuitar's parameter editor of the source of track 1
+    And I set "Level" to 0.25 in TuxGuitar's parameter editor of the source of track 1
+    When I undo
+    Then "Level" of the VST3 instrument of track 1 is 0.5
+    When I undo
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Test Tone (default for guitar tracks)"
+
+  Scenario: setting the value a default instrument already has in its parameter editor keeps nothing
+    Given the default instrument for guitar tracks is "Test Tone"
+    And I have opened the editor of the source of track 1
+    And I have saved the song as a TuxGuitar file
+    When I set "Level" to 1.0 in TuxGuitar's parameter editor of the source of track 1
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the song is not modified
+
+  Scenario: the keep made by a default instrument's parameter editor undone, the parameter editor stays open on the default
+    Given the default instrument for guitar tracks is "Test Tone"
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    And I have opened the editor of the source of track 1
+    And I set "Level" to 0.5 in TuxGuitar's parameter editor of the source of track 1
+    When I undo
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And TuxGuitar's parameter editor of the default instrument of track 1 is open, reading "Level"
+    When I set "Level" to 0.25 in TuxGuitar's parameter editor of the source of track 1
+    Then track 1's sound chain reads "Test Tone"
+    And "Level" of the VST3 instrument of track 1 is 0.25
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1
