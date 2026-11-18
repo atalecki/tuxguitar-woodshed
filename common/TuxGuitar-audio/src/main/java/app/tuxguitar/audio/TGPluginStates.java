@@ -122,9 +122,7 @@ final class TGPluginStates {
 	// an instrument's element (one without a state of its own, say a default instrument's) as a song keeps it as a
 	// chain's source: opened in a helper of its own, its state once it has restored (a profile loading), then closed
 	static TGProgramElement kept(TGContext context, TGProgramElement element) throws TGVst3Exception {
-		TGProgram chain = new TGProgram();
-		chain.setReceiver(element);
-		TGAudioProcessor processor = opened(context, element, chain);
+		TGAudioProcessor processor = opened(context, element, alone(element));
 		try {
 			restored(((TGVst3PluginProcessor) processor).getInstance());
 			TGProgramElement kept = TGSoundChain.source(element.getType());
@@ -135,8 +133,22 @@ final class TGPluginStates {
 		}
 	}
 
+	// an instrument's element as a song keeps it as a chain's source, with the state given (what the plugin holds)
+	static TGProgramElement kept(TGProgramElement element, TGVst3State state) {
+		TGProgramElement kept = TGVst3Element.create(TGSoundChain.source(element.getType()).getId(), TGVst3Element.plugin(element.getParameters(), true));
+		TGVst3Element.setState(kept, state);
+		return kept;
+	}
+
+	// a chain whose source is the instrument's element, alone
+	static TGProgram alone(TGProgramElement element) {
+		TGProgram chain = new TGProgram();
+		chain.setReceiver(element);
+		return chain;
+	}
+
 	// once the plugin no longer restores its state in the background (for a while at most, see TGVst3Instance)
-	private static void restored(TGVst3Instance instance) {
+	static void restored(TGVst3Instance instance) {
 		while (instance.isRestoring()) {
 			LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
 		}

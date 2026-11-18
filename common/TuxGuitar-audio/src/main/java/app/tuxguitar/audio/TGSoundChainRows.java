@@ -121,8 +121,9 @@ public final class TGSoundChainRows {
 		return row > 1;
 	}
 
+	// a VST3 plugin's editor: an effect's, the source's, or, on the source's row, the default instrument's that plays
 	public boolean canEdit(int row) {
-		return row >= 0 && TGSoundChain.plugin(this.chain, effect(row)) != null;
+		return row >= 0 && (TGSoundChain.plugin(this.chain, effect(row)) != null || (row == 0 && this.canKeep()));
 	}
 
 	// the source is always enabled

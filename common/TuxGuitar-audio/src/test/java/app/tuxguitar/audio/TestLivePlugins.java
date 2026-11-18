@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +50,8 @@ public class TestLivePlugins {
 	// the elements whose state the song took, in order
 	private final List<String> changes = new ArrayList<String>();
 	private TGVst3Hosting hosting;
+	@AutoClose
+	private final AutoCloseable plugins = TestPluginHosting.closing(this.fixture.context);
 
 	@BeforeEach
 	public void setUp() throws TGVst3Exception {
@@ -62,12 +64,6 @@ public class TestLivePlugins {
 		});
 		this.fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, this.guitar);
 		this.addGain();
-	}
-
-	@AfterEach
-	public void tearDown() {
-		this.live.close();
-		this.hosting.close();
 	}
 
 	private void addGain() {

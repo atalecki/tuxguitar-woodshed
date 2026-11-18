@@ -24,6 +24,7 @@ import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
 import app.tuxguitar.vst3.TGVst3PluginProcessor;
+import app.tuxguitar.vst3.TGVst3State;
 
 /**
  * The default instruments the TuxGuitar Synthesizer's channels play, one per context, installed on its synth manager
@@ -148,6 +149,18 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	// has once opened and restored (Woodshed Guitar's holds the kind's profile); refused saying why when it does not open
 	public TGProgramElement kept(TGDefaultPlay play) throws TGVst3Exception {
 		return TGPluginStates.kept(this.context, play.getElement());
+	}
+
+	// the default instrument that plays as a song keeps it with the state given (what its editor made of it)
+	public TGProgramElement kept(TGDefaultPlay play, TGVst3State state) {
+		return TGPluginStates.kept(play.getElement(), state);
+	}
+
+	// the default instrument the channel plays as its source (its chain's source is the default, an instrument plays),
+	// whose editor Edit opens; null when it plays none (General MIDI, or an instrument of its own)
+	public TGProgramElement edited(TGChannel channel) {
+		TGDefaultPlay play = this.play(channel);
+		return (TGSoundChainRows.of(channel, play).canKeep() ? play.getElement() : null);
 	}
 
 	public TGDefaultPlay play(int bank, int program) {

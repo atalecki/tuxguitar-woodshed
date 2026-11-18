@@ -119,10 +119,19 @@ class TestSoundChainRows {
 			reads("no track", "", () -> enabled(TGSoundChainRows.NONE, 0, GAIN, SINE)));
 	}
 
-	// a default source that plays an instrument can be kept in the song, whatever row is picked
+	// a default source that plays an instrument can be kept in the song, whatever row is picked; picked, its editor opens
+	// (the default's: the first change made there keeps it, TGLivePlugins)
 	@Test
-	void keepIsEnabledWhileTheDefaultInstrumentPlays() {
-		assertEquals("DEFAULT_INSTRUMENT KEEP OPEN_DIALOG", enabled(TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine()), -1, null, null));
+	void keepIsEnabledWhileTheDefaultInstrumentPlaysAndEditOnItsRow() {
+		TGSoundChainRows rows = TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine());
+		assertEquals("DEFAULT_INSTRUMENT KEEP OPEN_DIALOG | DEFAULT_INSTRUMENT KEEP EDIT OPEN_DIALOG", enabled(rows, -1, null, null) + " | " + enabled(rows, 0, null, null));
+	}
+
+	// General MIDI playing as the default source has no editor
+	@Test
+	void aDefaultSourcePlayingGeneralMidiHasNoEditor() {
+		TGDefaultPlay generalMidi = new TGDefaultPlay(TGInstrumentKind.GUITAR, null, null, TGDefaultPlay.Is.NO_DEFAULT);
+		assertEquals("false false", TGSoundChainRows.of(this.guitar, generalMidi).canEdit(0) + " " + TGSoundChainRows.of(this.guitar).canEdit(0));
 	}
 
 	// the guitar's source made the default instrument (stored as General MIDI), which plays Test Sine

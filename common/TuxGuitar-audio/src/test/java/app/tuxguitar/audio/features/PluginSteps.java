@@ -18,7 +18,7 @@ import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
-import app.tuxguitar.action.TGActionException;
+import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
 import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
 import app.tuxguitar.audio.action.TGChooseTakesAction;
@@ -261,15 +261,13 @@ public class PluginSteps {
 		change(track, new TGChooseGeneralMidiAction(world.fixture().context));
 	}
 
-	// the Sound Chain dialog's Keep in song: refused saying why (kept as the refusal), or not
+	// the Sound Chain dialog's Keep in song: refused saying why (kept as the refusal), or not; undoable as the app maps it
+	// (AudioWorld), however it is run
 	@When("I keep the default instrument in the song for track {int}")
 	public void keepTheDefaultInstrument(int track) {
-		world.setRefusal(null);
-		try {
-			change(track, new TGKeepDefaultInstrumentAction(world.fixture().context));
-		} catch (TGActionException refused) {
-			world.setRefusal(refused.getMessage());
-		}
+		world.fixture().actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, world.channel(world.track(track)));
+		world.fixture().actionContext.setAttribute(TGActionBase.ATTRIBUTE_SUCCESS, null);
+		world.attempt(new TGKeepDefaultInstrumentAction(world.fixture().context));
 	}
 
 	@Given("I have kept the default instrument in the song for track {int}")
