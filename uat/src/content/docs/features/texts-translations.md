@@ -152,7 +152,7 @@ Build and launch with the VS Code task **app: build + run** at `faae7b847` or la
   windows and error messages.
 - The errors when a plugin or its editor cannot be opened, and when a take cannot be read, are hard to bring about by
   hand (a plugin uninstalled after a song was saved with it; a damaged song file); the tests cover them. The error
-  opening a damaged song shows Java class names before the reason ("...TGFileFormatException: java.io.IOException: Not
-  a wave file"): a known defect, not part of this change.
+  opening a song whose take is damaged shows the bare reason ("Not a wave file"), with no Java class names: a
+  scenario opening such a song reads exactly that.
 - The Sound Chain window's Edit... is greyed out for a source that is no VST3 plugin, so its refusal ("takes is not a
   VST3 plugin: it has no editor to open") is not shown there.
