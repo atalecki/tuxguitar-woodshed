@@ -9,7 +9,7 @@ import app.tuxguitar.app.view.main.TGStatusLine;
 import app.tuxguitar.audio.TGAudioSettings;
 import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
-import app.tuxguitar.audio.TGLoadingHint;
+import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGSynchronizer;
 import app.tuxguitar.util.configuration.TGConfigManager;
@@ -23,7 +23,8 @@ import app.tuxguitar.util.plugin.TGPlugin;
  * opens the devices of the settings, so the TuxGuitar Synthesizer plays through them. Then, off the UI thread, it scans
  * the VST3 folders, every 100 ms asks the plugins kept open that nothing else calls (so their editors' gestures come
  * back), every 50 ms has the UI thread drain the gestures of plugins' editors into the song, and every 250 ms reads the
- * hint of a plugin Play stopped waiting for (TGLoadingHint), which the main window's status line shows. Glue only:
+ * quiet hint (TGStatusHint: why Record was just refused, else a plugin Play stopped waiting for), which the main
+ * window's status line shows. Glue only:
  * every decision is in common/TuxGuitar-audio, which is tested.
  */
 public class TGAudioPlugin implements TGPlugin {
@@ -35,7 +36,7 @@ public class TGAudioPlugin implements TGPlugin {
 	private static final long DRAIN_MILLISECONDS = 50;
 	// how often the plugins kept open that nothing else calls (their element runs in no render) are asked
 	private static final long POLL_MILLISECONDS = 100;
-	// how often the loading hint is read
+	// how often the status line's hint is read
 	private static final long HINT_MILLISECONDS = 250;
 
 	private ScheduledExecutorService plugins;
@@ -83,7 +84,7 @@ public class TGAudioPlugin implements TGPlugin {
 
 	// read here (it asks the plugins' hosts), shown on the UI thread
 	private static void showHintLater(TGContext context) {
-		String hint = TGLoadingHint.install(context).getText();
+		String hint = TGStatusHint.getInstance(context).getText();
 		TGSynchronizer.getInstance(context).executeLater(() -> TGStatusLine.getInstance(context).show(hint));
 	}
 

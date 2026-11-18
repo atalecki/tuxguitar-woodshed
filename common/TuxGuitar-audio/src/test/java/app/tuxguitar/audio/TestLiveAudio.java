@@ -385,15 +385,30 @@ class TestLiveAudio {
 		return String.join(" | ", unarmed, portless, deviceless, String.valueOf(this.fixture.actionContext.<Boolean>getAttribute(TGRecordAction.ATTRIBUTE_SUCCESS)));
 	}
 
-	// what the user is told each time Record is refused: today, nothing. The hint an app shows on its status line reads
-	// none after each, and the action does not fail (no error message)
-	@Test
-	void aRefusedRecordingTellsTheUserNothing() {
-		TGLoadingHint loading = TGLoadingHint.install(this.fixture.context);
-		assertEquals("null | null | null | null", TuxGuitarMessages.english(() -> this.refusedRecordings(record -> {
+	// what the user is told each time Record is refused, in TuxGuitar's language (said): the hint an app shows on its
+	// status line after each; the action does not fail (no error message)
+	private String toldOfRefusedRecordings(Map<String, String> said) {
+		TGStatusHint hint = TGStatusHint.getInstance(this.fixture.context);
+		return TuxGuitarMessages.said(said, () -> this.refusedRecordings(record -> {
 			record.run();
-			return String.valueOf(loading.getText());
-		})));
+			return hint.getText();
+		}));
+	}
+
+	@Test
+	void aRefusedRecordingSaysWhatToDoOnTheStatusLine() {
+		assertEquals("Arm a track to record | Choose the TuxGuitar Synthesizer as the MIDI Port to record | Choose an audio device to record | null",
+			this.toldOfRefusedRecordings(Map.of()));
+	}
+
+	// as the language TuxGuitar shows says it (a made-up German)
+	@Test
+	void aRefusedRecordingSaysWhatToDoInTuxGuitarsLanguage() {
+		Map<String, String> german = Map.of("audio.record.refusal.no-armed-track", "Zum Aufnehmen eine Spur scharf schalten",
+			"audio.record.refusal.midi-port", "Zum Aufnehmen den TuxGuitar-Synthesizer als MIDI-Port wählen",
+			"audio.record.refusal.no-device", "Zum Aufnehmen ein Audiogerät wählen");
+		assertEquals("Zum Aufnehmen eine Spur scharf schalten | Zum Aufnehmen den TuxGuitar-Synthesizer als MIDI-Port wählen | Zum Aufnehmen ein Audiogerät wählen | null",
+			this.toldOfRefusedRecordings(german));
 	}
 
 	@Test

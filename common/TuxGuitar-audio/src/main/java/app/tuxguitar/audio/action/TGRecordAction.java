@@ -4,11 +4,12 @@ import java.util.List;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
-import app.tuxguitar.audio.TGAudioDevice;
 import app.tuxguitar.audio.TGAudioSession;
 import app.tuxguitar.audio.TGAudioStatus;
 import app.tuxguitar.audio.TGLiveDevice;
 import app.tuxguitar.audio.TGLiveRecording;
+import app.tuxguitar.audio.TGRecordRefusal;
+import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.audio.TGRecording;
 import app.tuxguitar.audio.TGRender;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -23,7 +24,8 @@ import app.tuxguitar.util.log.TGLog;
 /**
  * Records the armed tracks while the song plays from a position until another one is reached in the last pass, or
  * until that pass ends. It needs an armed track, the TuxGuitar Synthesizer as the MIDI Port and an audio device (the
- * session's: none when the native audio library did not load or the devices did not open), and no practice session
+ * session's: none when the native audio library did not load or the devices did not open): refused without one of
+ * them, saying why on the app's status line (TGRecordRefusal, TGStatusHint) and in the log. It needs no practice session
  * under way (refused saying why, a TGActionException: see TGAudioStatus.practiceRefusal), and then succeeds,
  * whether or not it made a take (ATTRIBUTE_TAKES says how many). What was
  * heard while recording is left in the context as TGPlayAction.ATTRIBUTE_RENDER. While it runs, the session says a
@@ -61,7 +63,8 @@ public class TGRecordAction extends TGActionBase {
 		TGAudioSession session = TGAudioSession.getInstance(getContext());
 		MidiPlayer player = MidiPlayer.getInstance(getContext());
 		List<TGTrack> tracks = session.getArmedTracks(song);
-		String refusal = refusal(tracks, player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY), session.getDevice());
+		TGRecordRefusal refusal = TGRecordRefusal.of(tracks, player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY), session.getDevice());
+		TGStatusHint.getInstance(getContext()).recordPressed(refusal);
 		if (refusal != null) {
 			LOG.warn("recording refused: " + refusal);
 			return;
@@ -77,17 +80,6 @@ public class TGRecordAction extends TGActionBase {
 		} finally {
 			session.setRecording(false);
 		}
-	}
-
-	// why a recording cannot start, or null when it can
-	static String refusal(List<TGTrack> tracks, boolean synthesizerPort, TGAudioDevice device) {
-		if (tracks.isEmpty()) {
-			return "no track is armed";
-		}
-		if (!synthesizerPort) {
-			return "the MIDI port is not the TuxGuitar Synthesizer";
-		}
-		return (device == null ? "no live audio device" : null);
 	}
 
 	private int record(TGActionContext context, TGSong song, TGAudioSession session, List<TGTrack> tracks) {
