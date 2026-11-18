@@ -168,7 +168,7 @@ class TestLiveAudio {
 			Files.createFile(new File(captures, "Lead.nam").toPath());
 			List<File> folders = Arrays.asList(hosting.getFolders().get(0), captures);
 			String failed = "TuxGuitar audio: The VST3 folders could not be scanned: the VST3 host did not start";
-			assertEquals("The VST3 folders have not been scanned yet. | TuxGuitar audio: VST3 effects found: 8. VST3 instruments found: 2. | NAM captures found: 1."
+			assertEquals("The VST3 folders have not been scanned yet. | TuxGuitar audio: VST3 effects found: 8. VST3 instruments found: 3. | NAM captures found: 1."
 				+ " | Folders scanned: " + folders.get(0) + ", " + captures + " | 3 | " + failed,
 				TuxGuitarMessages.english(() -> this.scanned(hosting, folders, failed.length())));
 		} finally {

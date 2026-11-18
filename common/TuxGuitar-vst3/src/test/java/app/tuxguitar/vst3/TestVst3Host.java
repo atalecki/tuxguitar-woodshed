@@ -714,6 +714,17 @@ public class TestVst3Host {
 		assertArrayEquals(octave[0], tuned[0], 1e-4f);
 	}
 
+	// Test Tone: Test Sine's tones at its parameter Level, an instrument without an editor of its own
+	@Test
+	public void anInstrumentWithoutAnEditorOfItsOwnPlaysAtItsLevel() throws TGVst3Exception {
+		TGVst3Instance tone = open("Test Tone");
+		tone.setParameter(tone.findParameter("Level"), 0.5);
+		float[][] half = play(tone, TGVst3NoteEvent.noteOn(0, 69, 7, 1f));
+		float[][] sine = play(open("Test Sine"), TGVst3NoteEvent.noteOn(0, 69, 7, 1f));
+		assertFalse(tone.openEditor(0, ""));
+		assertEquals(sine[0][100] / 2, half[0][100], 1e-6f);
+	}
+
 	@Test
 	public void anEditorOpensAgainOnceClosed() throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");

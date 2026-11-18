@@ -93,7 +93,7 @@ public class TestVst3Processors {
 		List<String> read = new ArrayList<String>();
 		this.hosting.getPlugins().forEach(plugin -> read.add(plugin.getName() + (plugin.isInstrument() ? " (instrument)" : "")));
 		assertEquals(Arrays.asList("Test Click (instrument)", "Test Clip 0.5", "Test Drone", "Test Echo", "Test Gain", "Test Hang", "Test Latency",
-			"Test Sine (instrument)", "Test Stereo", "Test Tempo"), read);
+			"Test Sine (instrument)", "Test Stereo", "Test Tempo", "Test Tone (instrument)"), read);
 		assertNull(this.hosting.find("Old Amp"));
 	}
 
@@ -163,7 +163,7 @@ public class TestVst3Processors {
 		File refused = new File(folder, "NamModels.vst3");
 		refused.mkdir();
 		this.hosting.configure(TestPlugins.host(), Arrays.asList(folder, TestPlugins.folder()));
-		assertEquals(10, this.hosting.scan().size());
+		assertEquals(11, this.hosting.scan().size());
 		List<TGVst3SkippedModule> skipped = this.hosting.getSkipped();
 		assertEquals(Arrays.asList(refused), skipped.stream().map(TGVst3SkippedModule::getModule).collect(Collectors.toList()));
 		assertTrue(skipped.get(0).getReason().startsWith("not a VST3 module: " + refused.getPath()), skipped.get(0).getReason());

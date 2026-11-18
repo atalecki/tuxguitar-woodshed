@@ -79,6 +79,7 @@ if(TG_VST3_TEST_PLUGINS)
 	tg_add_test_plugin(tg_test_stereo "Test Stereo" test_stereo.cpp)
 	tg_add_test_plugin(tg_test_tempo "Test Tempo" test_tempo.cpp)
 	tg_add_test_plugin(tg_test_sine "Test Sine" test_sine.cpp)
+	tg_add_test_plugin(tg_test_tone "Test Tone" test_tone.cpp)
 	tg_add_test_plugin(tg_test_click "Test Click" test_click.cpp)
 	tg_add_test_plugin(tg_test_hang "Test Hang" test_hang.cpp)
 

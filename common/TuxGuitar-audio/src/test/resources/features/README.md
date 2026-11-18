@@ -640,10 +640,11 @@ These features change how TuxGuitar works today. They are requirements, not side
 | `Test Tempo` | VST3 effect | passes the signal and records the tempo, time signature, play state and musical position it is given | 0 | 0 |
 | `Test Sine` | VST3 instrument | a sine at each note's pitch, peaking at 0.5 × velocity / 127, following per-note tuning | 0 | 0 |
 | `Test Click` | VST3 instrument | a click of +0.5 at the start of each note, delayed by its parameter `Latency` (0 by default) | `Latency` | 0 |
+| `Test Tone` | VST3 instrument | `Test Sine`'s tones at its parameter `Level` (1.0 by default); no editor of its own | 0 | 0 |
 | `Test Capture` (planned) | VST3 effect | a capture player: multiplies the signal by the gain its NAM capture holds (1.0 with none), and reports the capture it plays; the capture's path is in its state | 0 | 0 |
 
 Each test plugin keeps a state of 1 KB that changes with its parameters and its preset, so saving can be checked byte
-for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
+for byte, and has its own editor (except `Test Clip 0.5` and `Test Tone`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
 it from its own editor, as one gesture (begin edit, changes, end edit). "Track N's plugin loading "X" as Play starts" is
 the plugin, as Play starts, telling its host it restores its state in the background (`IProgress`,
 `AsyncStateRestoration`, its description X; none without), as a plugin loading a file on a thread of its own does, until

@@ -198,6 +198,6 @@ public class TestVst3Log {
 		assertEquals(Arrays.asList("INFO VST3 module skipped: " + refused + ": " + skipped.getReason()), logged("INFO VST3 module skipped"));
 		List<String> done = logged("INFO VST3 scan done");
 		assertEquals(1, done.size());
-		assertTrue(done.get(0).matches("INFO VST3 scan done: 10 plugins in 10 modules, 1 skipped, in \\d{1,5} ms"), done.get(0));
+		assertTrue(done.get(0).matches("INFO VST3 scan done: 11 plugins in 11 modules, 1 skipped, in \\d{1,5} ms"), done.get(0));
 	}
 }
