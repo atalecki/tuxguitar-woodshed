@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.midi.synth.TGSynthAudioExporter;
 import app.tuxguitar.midi.synth.TGSynthManager;
@@ -34,6 +36,17 @@ class TestAudioExport {
 	void theFormatsOfferedByNameWithTheirFilesExtension() {
 		TGSynthAudioExporter exporter = exporter();
 		assertEquals("[WAVE 16-bit, WAVE 24-bit, WAVE 32-bit float, AIFF 16-bit, AU 16-bit] wav au", exporter.getFormats() + " " + exporter.getExtension("WAVE 24-bit") + " " + exporter.getExtension("AU 16-bit"));
+	}
+
+	// what the user is shown of each, as an English user reads it
+	@Test
+	void theFormatsAreShownByTheirLabels() {
+		TGSynthAudioExporter exporter = exporter();
+		assertEquals("WAVE 16-bit | WAVE 24-bit | WAVE 32-bit float | AIFF 16-bit | AU 16-bit", TuxGuitarMessages.english(() -> labels(exporter)));
+	}
+
+	private static String labels(TGSynthAudioExporter exporter) {
+		return exporter.getFormats().stream().map(exporter::getLabel).collect(Collectors.joining(" | "));
 	}
 
 	@Test

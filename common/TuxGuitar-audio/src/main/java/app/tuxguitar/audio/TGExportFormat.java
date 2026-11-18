@@ -81,9 +81,14 @@ public final class TGExportFormat {
 		return offered().stream().filter(format -> format.getName().equals(name)).findFirst().orElseThrow(() -> new IllegalArgumentException("no export format is named " + name));
 	}
 
-	// "WAVE 16-bit"
+	// "WAVE 16-bit": what an app keeps and passes back
 	public String getName() {
 		return this.type + " " + this.samples.name;
+	}
+
+	// what the user is shown: its name
+	public String getLabel() {
+		return this.getName();
 	}
 
 	// of its files, without the dot

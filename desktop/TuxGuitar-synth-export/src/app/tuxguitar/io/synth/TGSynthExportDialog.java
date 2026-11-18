@@ -15,7 +15,8 @@ import app.tuxguitar.ui.widget.UIWindow;
 import app.tuxguitar.util.TGContext;
 
 /**
- * The audio export's options when an audio exporter is registered: one of the formats it offers (the first chosen).
+ * The audio export's options when an audio exporter is registered: one of the formats it offers (the first chosen),
+ * each shown by its label and chosen by its name.
  */
 public class TGSynthExportDialog {
 
@@ -38,7 +39,7 @@ public class TGSynthExportDialog {
 		label.setText(TuxGuitar.getProperty("tuxguitar-synth-export.options.audio-format") + ":");
 		layout.set(label, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, false, false);
 		this.formats = this.factory.createDropDownSelect(this.dialog);
-		exporter.getFormats().forEach(format -> this.formats.addItem(new UISelectItem<String>(format, format)));
+		exporter.getFormats().forEach(format -> this.formats.addItem(new UISelectItem<String>(exporter.getLabel(format), format)));
 		this.formats.setSelectedValue(exporter.getFormats().get(0));
 		layout.set(this.formats, 1, 2, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false, 1, 2, 200f, null, null);
 		this.button(2, 2, "ok", () -> this.choose(exporter, settings, onSuccess));
