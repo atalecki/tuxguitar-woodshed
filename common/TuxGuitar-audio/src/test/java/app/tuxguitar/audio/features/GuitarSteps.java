@@ -105,13 +105,24 @@ public class GuitarSteps {
 		capture(name, "0.7.0", "Linear", gain, rate);
 	}
 
+	// the Linear capture at 44.1 kHz, with the metadata given (a JSON object)
+	private void capture(String name, double gain, String metadata) throws IOException {
+		capture(name, "0.7.0", "Linear", gain, 44100);
+		String json = new String(Files.readAllBytes(folder().resolve(name)), StandardCharsets.UTF_8);
+		Files.write(folder().resolve(name), (json.substring(0, json.length() - 1) + ", \"metadata\": " + metadata + "}").getBytes(StandardCharsets.UTF_8));
+	}
+
 	// as large as a full-size capture, so it takes a while to load: the same Linear one, with notes in its metadata
 	@Given("there is a NAM capture {string} that multiplies the signal by {double}, with {int} MB of notes in it")
 	public void thereIsALargeNamCapture(String name, double gain, int megabytes) throws IOException {
-		capture(name, "0.7.0", "Linear", gain, 44100);
-		String json = new String(Files.readAllBytes(folder().resolve(name)), StandardCharsets.UTF_8);
 		String notes = String.join("", Collections.nCopies(megabytes * 1024 * 1024, "n"));
-		Files.write(folder().resolve(name), (json.substring(0, json.length() - 1) + ", \"metadata\": {\"notes\": \"" + notes + "\"}}").getBytes(StandardCharsets.UTF_8));
+		capture(name, gain, "{\"notes\": \"" + notes + "\"}");
+	}
+
+	// its loudness as NAM's trainer stores it, in dB (the level the capture plays a standard input at)
+	@Given("there is a NAM capture {string} that multiplies the signal by {double}, its loudness {double} dB")
+	public void thereIsANamCaptureOfLoudness(String name, double gain, double loudness) throws IOException {
+		capture(name, gain, "{\"loudness\": " + loudness + "}");
 	}
 
 	@Given("there is a NAM capture {string} of the architecture {string}")

@@ -47,7 +47,12 @@ add_executable(woodshed-guitar-time time.cpp)
 target_link_libraries(woodshed-guitar-time PRIVATE tg_woodshed_core)
 set_target_properties(woodshed-guitar-time PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-# checks how the plugin chooses its texts (text.h): bin/woodshed-guitar-text-test, run by TuxGuitar-vst3's TestWoodshedText
+# checks how the plugin chooses its texts (text.h): bin/woodshed-guitar-text-test, run by TuxGuitar-vst3's TestWoodshedChecks
 add_executable(woodshed-guitar-text-test text_test.cpp text.cpp)
 target_compile_features(woodshed-guitar-text-test PRIVATE cxx_std_20)
 set_target_properties(woodshed-guitar-text-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+# checks how loud the plugin plays a capture (capture.h): bin/woodshed-guitar-level-test, run by TestWoodshedChecks
+add_executable(woodshed-guitar-level-test level_test.cpp)
+target_link_libraries(woodshed-guitar-level-test PRIVATE tg_woodshed_core)
+set_target_properties(woodshed-guitar-level-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

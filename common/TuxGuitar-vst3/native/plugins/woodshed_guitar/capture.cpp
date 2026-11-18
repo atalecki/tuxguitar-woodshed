@@ -53,6 +53,11 @@ Capture fromJson(const std::string& name, const nlohmann::json& json) {
 	}
 }
 
+// what brings the model's output from its stored loudness to the target; 1 when it stores none
+double evenOut(const nam::DSP& model) {
+	return (model.HasLoudness() ? std::pow(10.0, (kTargetLoudness - model.GetLoudness()) / 20.0) : 1.0);
+}
+
 }  // namespace
 
 std::string fileName(const std::string& path) {
@@ -98,7 +103,7 @@ Capture loadCapture(const std::string& path, std::string& contents) {
 	}
 }
 
-Amp::Amp(std::shared_ptr<nam::DSP> model, double modelRate) : model(std::move(model)), modelRate(modelRate) {}
+Amp::Amp(std::shared_ptr<nam::DSP> model, double modelRate) : model(std::move(model)), modelRate(modelRate), level(evenOut(*this->model)) {}
 
 Amp::~Amp() = default;
 
@@ -128,6 +133,9 @@ void Amp::run(const double* input, double* output, int frames) {
 	double* inputs[1] = {const_cast<double*>(input)};
 	double* outputs[1] = {output};
 	model->process(inputs, outputs, frames);
+	for (int i = 0; i < frames; i++) {
+		output[i] *= level;
+	}
 }
 
 void Amp::process(float* signal, int frames) {
