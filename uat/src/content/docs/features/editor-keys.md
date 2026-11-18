@@ -45,3 +45,6 @@ Close any running TuxGuitar first. Build and launch with the VS Code task **app:
 - Shortcuts on punctuation keys (Ctrl++, Ctrl+-, whose key depends on the keyboard layout) and Shift-only shortcuts
   stay with the plugin.
 - A shortcut you change in Tools > Keyboard Shortcuts is passed from the next time an editor opens in the panel.
+- Later, `fix/plugin-text-box-keys` leaves Ctrl+C, X, V, A and Z with a standard Windows text box that has the focus
+  (step 6: Ctrl+Z there undoes the typing when the field is a standard one): see "Copy, cut, paste, select all and undo
+  in a plugin's text box".
