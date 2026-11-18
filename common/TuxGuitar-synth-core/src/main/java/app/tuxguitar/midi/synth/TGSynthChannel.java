@@ -32,6 +32,8 @@ public class TGSynthChannel implements MidiChannel {
 	private TGProgram program;
 	// the channel's sound chain (or the custom program older versions save), null without one
 	private TGProgram chain;
+	// whether its program plays the default instrument of its kind in place of General MIDI
+	private boolean byDefault;
 
 	public TGSynthChannel(TGSynthModel synthesizer, int id){
 		this.synthesizer = synthesizer;
@@ -81,6 +83,7 @@ public class TGSynthChannel implements MidiChannel {
 		if( this.processor != null ){
 			this.processor.close();
 			this.processor = null;
+			this.byDefault = false;
 			this.pendingEvents.clear();
 			this.synthesizer.chainChanged(this);
 		}
@@ -237,11 +240,22 @@ public class TGSynthChannel implements MidiChannel {
 
 	// the program, or General MIDI's when the default instrument in its place did not open (its source told)
 	private void play(TGProgram playing, TGProgram generalMidi) throws MidiPlayerException {
+		this.handOver(playing, generalMidi);
 		this.loadProgram(playing);
-		if( playing != generalMidi && !this.isSourceOpen() ) {
+		this.byDefault = (playing != generalMidi);
+		if( this.byDefault && !this.isSourceOpen() ) {
 			TGMidiProcessor source = (this.processor != null ? this.processor.getProcessor() : null);
 			this.defaults().notOpened(playing.getReceiver(), source);
 			this.loadProgram(generalMidi);
+			this.byDefault = false;
+		}
+	}
+
+	// the default instrument the channel played, kept in the song as its own instrument (a chain's source of the same
+	// type), goes on playing on its processor, given the chain's source: nothing reopens, an editor open on it stays
+	private void handOver(TGProgram playing, TGProgram generalMidi) {
+		if( this.byDefault && playing == generalMidi ) {
+			this.processor.handOver(this.program.getReceiver(), playing.getReceiver());
 		}
 	}
 

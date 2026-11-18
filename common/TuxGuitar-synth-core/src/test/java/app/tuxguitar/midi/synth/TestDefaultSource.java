@@ -246,4 +246,54 @@ public class TestDefaultSource {
 
 		assertEquals(level(0f) + " []", sounds() + " " + this.defaults.notOpened);
 	}
+
+	// the default kept in the song as the channel's own instrument (a chain whose source is of the default's type, the
+	// state it had) goes on playing on the processor the default played on, given the chain's source (a plugin's editor
+	// open on it stays open); given General MIDI again, the default opens afresh
+	@Test
+	public void aDefaultKeptAsTheChannelsOwnInstrumentGoesOnPlayingOnItsProcessor() throws MidiPlayerException {
+		sendChain(GervillProcessorFactory.TYPE);
+		sendBankAndProgram(0, 25);
+		FakeProcessors.Source played = this.guitar.last();
+		sendChain("guitar");
+		String kept = this.guitar.created.size() + " " + (this.guitar.last() == played) + " " + played.isOpen() + " " + this.channel.getProgram().getReceiver().getId() + " "
+			+ (this.channel.getProcessor().getAudioProcessor(this.channel.getProgram().getReceiver()) == played) + " " + sounds();
+		sendChain(GervillProcessorFactory.TYPE);
+
+		assertEquals("1 true true source true " + level(GUITAR) + " | 2 false", kept + " | " + this.guitar.created.size() + " " + played.isOpen());
+	}
+
+	// a default closed meanwhile (a bank select without a chain) is no longer played: the track's own instrument opens
+	@Test
+	public void aDefaultClosedMeanwhileIsNotHandedOver() throws MidiPlayerException {
+		sendChain(null);
+		sendBankAndProgram(0, 25);
+		this.channel.sendControlChange(MidiControllers.BANK_SELECT, 1);
+		sendChain("guitar");
+
+		assertEquals("2 " + level(GUITAR), this.guitar.created.size() + " " + sounds());
+	}
+
+	// only a default that plays is handed over: General MIDI played in place of one that did not open is not
+	@Test
+	public void theProgramPlayedInPlaceOfADefaultThatDidNotOpenIsNotHandedOver() throws MidiPlayerException {
+		this.defaults.types.put(TGInstrumentKind.GUITAR, "broken");
+		sendChain(null);
+		sendBankAndProgram(0, 25);
+		FakeProcessors.Source fellBackTo = this.table.last();
+		sendChain("table");
+
+		assertEquals("2 false", this.table.created.size() + " " + fellBackTo.isOpen());
+	}
+
+	// an instrument of the track's own of another type opens as before
+	@Test
+	public void anInstrumentOfItsOwnOfAnotherTypeThanTheDefaultOpensItsOwnProcessor() throws MidiPlayerException {
+		sendChain(GervillProcessorFactory.TYPE);
+		sendBankAndProgram(0, 25);
+		FakeProcessors.Source played = this.guitar.last();
+		sendChain("own");
+
+		assertEquals("1 false " + level(OWN), this.own.created.size() + " " + played.isOpen() + " " + sounds());
+	}
 }
