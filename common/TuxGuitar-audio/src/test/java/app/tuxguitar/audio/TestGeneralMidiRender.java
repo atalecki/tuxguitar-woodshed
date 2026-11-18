@@ -356,29 +356,27 @@ public class TestGeneralMidiRender {
 		assertEquals(88200, firstSound(Arrays.copyOfRange(tap, 44100 + 20000, tap.length)) + 44100 + 20000, 512);
 	}
 
-	// PINNED KNOWN DEFECT (owner decision, slice 3a; to be fixed on a branch of its own, not here): offline, the note off
-	// of a note that ends where the song ends, or where a loop jumps back, is never sent. TGMidiTaps.schedule takes a
-	// measure's events before its end tick; the note off on that tick belongs to the measure after it in song order, which
-	// does not play next (only a turn's end sends it, see aNoteEndingWithATurnStopsThere), so the note rings on. The two
-	// tests below document today's behaviour; once the defect is fixed they fail and are turned round (the note is over
-	// 20000 samples after its end, as in aNoteEndingWithATurnStopsThere).
+	// a note ending where the song ends, or where a loop jumps back, goes off there, as where a turn ends (see
+	// aNoteEndingWithATurnStopsThere): the measure after it in song order, which its note off would belong to, does not
+	// play next (fixed: these notes rang on, pinned since slice 3a)
 
 	// the song's only measure, a note on beat 4 ending where the song ends, rendered running on for a measure
 	@Test
-	public void pinnedDefectANoteEndingWhereTheSongEndsRingsOnPastIt() throws MidiPlayerException {
+	public void aNoteEndingWhereTheSongEndsStopsThere() throws MidiPlayerException {
 		song.getTrack(0).getMeasure(0).clear();
 		note(song.getTrack(0).getMeasure(0), 2880);
 		device(44100);
 		float[] tap = render(new TGTimeline(song, TGSongTime.play(song, new MidiPlayerMode(), 960, Long.MAX_VALUE, 1), 44100).runningOn(88200))
 			.getTap(song.getTrack(0));
 
-		assertTrue(Meters.peak(tap, 88200 + 20000, 88200 + 60000) > 0.01, "pinned defect: the note rings on past the song's end");
+		assertTrue(Meters.peak(tap, 88200 - 2000, 88200) > 0.01, "the note sounds to the song's end");
+		assertTrue(Meters.peak(tap, 88200 + 20000, 88200 + 60000) < 0.01, "the note is over past the song's end");
 	}
 
-	// measure 1 looped for 2 passes, a note on its beat 4 ending where the loop jumps back: it rings on into the second
-	// pass, until that pass's own note on beat 4
+	// measure 1 looped for 2 passes, a note on its beat 4 ending where the loop jumps back: over in the second pass,
+	// until that pass's own note on beat 4
 	@Test
-	public void pinnedDefectANoteEndingWhereALoopJumpsBackRingsOnIntoTheNextPass() throws MidiPlayerException {
+	public void aNoteEndingWhereALoopJumpsBackStopsThere() throws MidiPlayerException {
 		song.getTrack(0).getMeasure(0).clear();
 		note(song.getTrack(0).getMeasure(0), 2880);
 		MidiPlayerMode looped = new MidiPlayerMode();
@@ -390,7 +388,8 @@ public class TestGeneralMidiRender {
 		float[] tap = new TGRenderer(this.context, this.songManager, this.song, TGAudioSession.getInstance(this.context)).render(timeline, looped, false, true)
 			.getTap(song.getTrack(0));
 
-		assertTrue(Meters.peak(tap, 88200 + 20000, 88200 + 60000) > 0.01, "pinned defect: the note rings on into the next pass");
+		assertTrue(Meters.peak(tap, 88200 - 2000, 88200) > 0.01, "the note sounds to the jump");
+		assertTrue(Meters.peak(tap, 88200 + 20000, 88200 + 60000) < 0.01, "the note is over in the next pass");
 	}
 
 	// as the player does today, the MIDI sequence leaves out a muted track's notes
