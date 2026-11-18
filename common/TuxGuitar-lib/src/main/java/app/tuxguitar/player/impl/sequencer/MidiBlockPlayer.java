@@ -116,6 +116,7 @@ class MidiBlockPlayer {
 			this.wrap(clock, transport, this.frameOf(this.sequencer.getTickLength(), rate));
 			this.playBefore(frames, clock, transport);
 		}
+		this.tellEnd(transport, frames, rate);
 		this.played += frames;
 		this.anchorFrame -= frames;
 		this.scheduled = this.sounding.tickAt(this.played);
@@ -136,7 +137,7 @@ class MidiBlockPlayer {
 
 	// a loop whose end (the sequence's last tick, after its start) is reached: every event of the pass is sent
 	private boolean loopsHere() {
-		return (this.loopStart >= 0 && this.loopStart < this.sequencer.getTickLength() && this.next == this.events.size());
+		return (this.loops() && this.next == this.events.size());
 	}
 
 	// the next pass from the frame the end sounds on, from the loop's start, with the next pass's events when given: the
@@ -181,12 +182,31 @@ class MidiBlockPlayer {
 		this.span(transport, 0, rate);
 	}
 
-	// a span from the frame: the song plays at the tempo, in the time signature, from the quarter note reached there (the
-	// song's first measure starts a quarter note in: at tick 960)
+	// the end of a sequence that plays no pass after it, reached in the block: the transport is told the song stops on
+	// the frame the end sounds on (from the first frame, past the end: the sequencer plays on until the output sounds it)
+	private void tellEnd(MidiTransport transport, int frames, float rate) {
+		long end = this.frameOf(this.sequencer.getTickLength(), rate);
+		if (!this.loops() && end < frames) {
+			this.span(transport, Math.max(0, end), rate, false);
+		}
+	}
+
+	// whether the sequence plays again from the loop's start once its end is reached
+	private boolean loops() {
+		return (this.loopStart >= 0 && this.loopStart < this.sequencer.getTickLength());
+	}
+
+	// a span from the frame in which the song plays
 	private void span(MidiTransport transport, long frame, float rate) {
+		this.span(transport, frame, rate, true);
+	}
+
+	// a span from the frame: the song plays (or stops) at the tempo, in the time signature, from the quarter note reached
+	// there (the song's first measure starts a quarter note in: at tick 960)
+	private void span(MidiTransport transport, long frame, float rate, boolean playing) {
 		double quarters = (this.anchorTick - TGDuration.QUARTER_TIME + (frame - this.anchorFrame) * MICROSECONDS_PER_QUARTER / (this.usq * (double) rate)) / TGDuration.QUARTER_TIME;
 		double tempo = 60000000.0 / this.usq;
-		transport.add((int) frame, true, tempo, this.signature.getNumerator(), this.signature.getDenominator(), quarters, Math.round(quarters * 60 / tempo * rate));
+		transport.add((int) frame, playing, tempo, this.signature.getNumerator(), this.signature.getDenominator(), quarters, Math.round(quarters * 60 / tempo * rate));
 	}
 
 	// the channel setup before the position, on the first frame, then the events from the position, anchored at the

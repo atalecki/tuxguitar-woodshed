@@ -79,6 +79,24 @@ public class LiveSteps {
 		assertTrue(Meters.sounding(samples) >= least, "sounds for " + Meters.sounding(samples) + " samples");
 	}
 
+	// as heard: from so many samples after play started, plus plugin delay compensation (the chain delay), the side is
+	// silent (below -60 dBFS), and it sounds in the 256 samples before (a take fades out over its last 256)
+	@Then("the output's {side} side is silent from {int} samples after play started on, as heard, and sounds right before")
+	public void silentFrom(int side, int after) {
+		float[] samples = world.live()[side];
+		int from = after + world.chainDelay();
+		assertTrue(Meters.peak(samples, from, samples.length) < SILENT, "from sample " + from + " the side peaks at " + Meters.peak(samples, from, samples.length));
+		assertTrue(Meters.peak(samples, from - 256, from) >= SILENT, "before sample " + from + " the side peaks at " + Meters.peak(samples, from - 256, from));
+	}
+
+	// from its first sample above half its peak to its very last, never at or below half its peak for more than the most
+	// samples running
+	@Then("the output's {side} side sounds to its last sample, at most {int} samples at a time below half its peak")
+	public void soundsToTheEnd(int side, int most) {
+		float[] samples = world.live()[side];
+		this.soundsWithoutABreak(side, samples.length - Meters.onset(samples), most);
+	}
+
 	// its very first sample is above half its peak
 	@Then("the output's {side} side sounds from its first sample on")
 	public void soundsFromTheFirstSample(int side) {
