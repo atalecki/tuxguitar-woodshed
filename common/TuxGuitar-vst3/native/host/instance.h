@@ -56,18 +56,25 @@ struct Transport {
 	bool offline;
 };
 
-// the window of a plugin's own editor as the system shows it (for checks); all 0 when no editor is open
+// the DPI awareness of a window, as Windows has it (none: no window)
+enum Awareness { kNoWindow = -1, kUnaware = 0, kSystemAware = 1, kPerMonitorAware = 2, kPerMonitorAwareV2 = 3 };
+
+// the window of a plugin's own editor as the system shows it (for checks); all 0 (the awareness kNoWindow) when no
+// editor is open
 struct EditorWindow {
 	int64 window;  // native handles
 	int64 owner;
+	int64 parent;  // the window it is in (inside a window of TuxGuitar), else 0
+	bool embedded;
 	bool shown;
 	bool front;    // in front of the process's other shown windows
 	int32 left, top, right, bottom;  // its frame on the screen
 	int32 width, height;             // inside the frame
 	std::string title;               // its caption, UTF-8
 	int32 dpi;                       // of its screen
-	bool perMonitorDpiAware;         // per monitor, version 2
 	bool resizable;                  // a border the user can drag
+	int32 awareness = kNoWindow;      // its DPI awareness
+	int32 ownerAwareness = kNoWindow; // of the window owning it, or that it is in
 };
 
 #ifdef _WIN32

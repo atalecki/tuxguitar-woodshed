@@ -282,9 +282,9 @@ public final class TGVst3Instance implements AutoCloseable {
 	// already open is brought to the front. The window's caption is the title. False when it has none (or the platform
 	// is not supported)
 	public boolean openEditor(long owner, String title) throws TGVst3Exception {
-		int opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner).writeString(title), in -> in.readInt());
-		LOG.debug(this.label() + EDITOR_OPENED[opened]);
-		return (opened != 0);
+		int[] opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner).writeString(title), in -> new int[] {in.readInt(), in.readInt()});
+		LOG.debug(this.label() + EDITOR_OPENED[opened[0]] + (opened[0] == 2 ? " (" + TGVst3EditorWindow.awareness(opened[1]) + ")" : ""));
+		return (opened[0] != 0);
 	}
 
 	// its own editor's window as the system shows it (for checks)

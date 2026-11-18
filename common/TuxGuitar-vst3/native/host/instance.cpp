@@ -505,6 +505,13 @@ SIZE frameFor(DWORD style, LONG width, LONG height, UINT dpi) {
 
 DWORD styleOf(HWND window) { return (DWORD) GetWindowLongPtrW(window, GWL_STYLE); }
 
+// the DPI awareness of a window (of any process); kNoWindow (DPI_AWARENESS_INVALID) for none
+int32 awarenessOf(HWND window) {
+	DPI_AWARENESS_CONTEXT context = GetWindowDpiAwarenessContext(window);
+	bool version2 = (AreDpiAwarenessContextsEqual(context, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) != FALSE);
+	return (version2 ? kPerMonitorAwareV2 : (int32) GetAwarenessFromDpiAwarenessContext(context));
+}
+
 // a new size of the window, as the user drags its border: the inside is the size nearest to it the view accepts
 void constrain(HWND window, WINDOWPOS* position) {
 	SIZE border = frameFor(styleOf(window), 0, 0, GetDpiForWindow(window));
@@ -699,8 +706,9 @@ EditorWindow Instance::editorWindow() {
 		facts.height = inside.bottom;
 		facts.title = caption(shown);
 		facts.dpi = (int32) GetDpiForWindow(shown);
-		facts.perMonitorDpiAware = (AreDpiAwarenessContextsEqual(GetWindowDpiAwarenessContext(shown), DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) != FALSE);
 		facts.resizable = ((GetWindowLongPtrW(shown, GWL_STYLE) & WS_THICKFRAME) != 0);
+		facts.awareness = awarenessOf(shown);
+		facts.ownerAwareness = awarenessOf(GetWindow(shown, GW_OWNER));
 	}
 	return facts;
 }

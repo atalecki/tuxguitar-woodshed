@@ -211,6 +211,12 @@ public final class TGVst3Host implements AutoCloseable {
 		}
 	}
 
+	// whether the host still answers: a ping answered in time (LATE_MILLIS), else its reply is owed as a late block's is,
+	// and a host that owes it for SILENT_MILLIS is ended (the watchdog's question; it never holds the host for long)
+	public synchronized boolean ping() throws TGVst3Exception {
+		return (!this.isLate() && this.callInTime(new TGVst3Request(TGVst3Protocol.PING), in -> null, false));
+	}
+
 	// the names of the plugins opened in this process, in the order they opened
 	public synchronized List<String> getOpened() {
 		return new ArrayList<String>(this.opened);

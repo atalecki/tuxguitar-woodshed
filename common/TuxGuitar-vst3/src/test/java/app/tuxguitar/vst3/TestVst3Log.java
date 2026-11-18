@@ -126,12 +126,25 @@ public class TestVst3Log {
 		TGVst3Instance clip = this.host.open(this.host.scan(TestPlugins.bundle("Test Clip 0.5")).get(0), 44100f, 512);
 		clip.openEditor(0, "");
 
-		assertEquals(Arrays.asList("DEBUG VST3 plugin Test Gain: editor opened, unowned", "DEBUG VST3 plugin Test Gain: editor opened, owned by TuxGuitar's window",
+		assertEquals(Arrays.asList("DEBUG VST3 plugin Test Gain: editor opened, unowned", "DEBUG VST3 plugin Test Gain: editor opened, owned by TuxGuitar's window (per-monitor DPI aware, version 2)",
 				"DEBUG VST3 plugin Test Gain: editor closed", "DEBUG VST3 plugin Test Clip 0.5: no editor of its own"), logged("DEBUG VST3 plugin"));
 	}
 
+	// a window that is gone owns nothing: the editor opened in a window of its own
 	@Test
-	public void aHostThatCrashesIsLoggedWithItsExitCodeAndWhatItPrinted() throws TGVst3Exception, InterruptedException {
+	public void anEditorGivenAWindowThatIsGoneIsLoggedUnowned() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		long gone = gain.getEditorWindow().getWindow();
+		gain.closeEditor();
+		gain.openEditor(gone, "");
+
+		assertEquals(Arrays.asList("DEBUG VST3 plugin Test Gain: editor opened, unowned", "DEBUG VST3 plugin Test Gain: editor closed",
+				"DEBUG VST3 plugin Test Gain: editor opened, unowned"), logged("DEBUG VST3 plugin"));
+	}
+
+	@Test
+	public void aHostThatCrashesIsLoggedWithItsExitCodeAndWhatItPrinted()throws TGVst3Exception, InterruptedException {
 		TGVst3Instance gain = open("Test Gain");
 		long pid = this.host.getPid();
 		assertThrows(TGVst3Exception.class, () -> gain.message("TG.crash", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()));

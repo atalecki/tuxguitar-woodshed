@@ -10,7 +10,7 @@ package app.tuxguitar.vst3;
  */
 final class TGVst3Protocol {
 
-	static final int VERSION = 8;
+	static final int VERSION = 9;
 
 	// -> version, process id
 	static final int HELLO = 1;
@@ -41,7 +41,7 @@ final class TGVst3Protocol {
 	static final int LISTENERS = 11;
 	// instance, owner window (a native window handle; 0: none), title of the window -> the editor: none of its own (0),
 	// opened in a window of its own (1), or in a window the owner window owns (2); shown in front either way, an editor
-	// already open too, and titled
+	// already open too, and titled; then the DPI awareness of the window owning it (see EDITOR_WINDOW)
 	static final int OPEN_EDITOR = 12;
 	// instance
 	static final int CLOSE_EDITOR = 13;
@@ -49,11 +49,15 @@ final class TGVst3Protocol {
 	static final int MESSAGE = 14;
 	// (for checks) instance -> its editor's window and that window's owner (native handles; 0: none), shown (1 or 0), in
 	// front of the host's other shown windows (1 or 0), its frame on the screen (left, top, right, bottom), the size
-	// inside the frame (width, height), its title, the DPI of its screen, whether it is per-monitor DPI aware (1 or 0),
-	// whether it has a border the user can drag (1 or 0)
+	// inside the frame (width, height), its title, the DPI of its screen, whether it has a border the user can drag (1 or
+	// 0), the window it is in (0: none), whether it is inside a window of TuxGuitar (1 or 0), the DPI awareness of its
+	// window and of the window owning it or that it is in (each 0 unaware, 1 system aware, 2 per monitor, 3 per monitor
+	// version 2; -1 for no window)
 	static final int EDITOR_WINDOW = 15;
 	// instance -> timing
 	static final int TIMING = 16;
+	// -> nothing: whether the host still answers (the thread that runs the plugins' editors answers it)
+	static final int PING = 19;
 
 	private TGVst3Protocol() {
 	}

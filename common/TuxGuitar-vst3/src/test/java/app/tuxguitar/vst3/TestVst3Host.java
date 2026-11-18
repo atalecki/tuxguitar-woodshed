@@ -82,7 +82,7 @@ public class TestVst3Host {
 	public void aHostOfAnotherProtocolVersionIsRefused() throws TGVst3Exception {
 		assertEquals(42L, TGVst3Protocol.greeted(TGVst3Protocol.VERSION, 42));
 		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> TGVst3Protocol.greeted(TGVst3Protocol.VERSION + 1, 42));
-		assertEquals("the VST3 host speaks version 9, not 8", refused.getMessage());
+		assertEquals("the VST3 host speaks version 10, not 9", refused.getMessage());
 	}
 
 	@Test
@@ -572,6 +572,20 @@ public class TestVst3Host {
 		assertEquals(Collections.nCopies(10, true) + " true", answeredWhileItsEditorWaits(open("Test Gain"), Collections.singletonMap("millis", 3000L)));
 	}
 
+	// nor a ping, the watchdog's question whether the host still answers (the thread that runs the editors answers it)
+	@Test
+	public void aPingIsAnsweredWhileAnEditorRunsALoopOfItsOwn() throws TGVst3Exception {
+		TGVst3Instance gain = open("Test Gain");
+		gain.openEditor(0, "");
+		gain.message("TG.modal", Collections.singletonMap("millis", 3000L), Collections.<String, byte[]>emptyMap());
+		awaitLoop(gain, true);
+		List<Boolean> answered = new ArrayList<Boolean>();
+		for (int i = 0; i < 10; i++) {
+			answered.add(this.host.ping());
+		}
+		assertEquals(Collections.nCopies(10, true) + " true", answered + " " + inALoopOfItsOwn(gain));
+	}
+
 	// the plugin opened in the other host, its editor open
 	private static TGVst3Instance withItsEditor(TGVst3Host other, String name) throws TGVst3Exception {
 		TGVst3Instance plugin = other.open(other.scan(TestPlugins.bundle(name)).get(0), 44100f, FRAMES);
@@ -946,7 +960,23 @@ public class TestVst3Host {
 	@Test
 	public void aPluginWithoutAnEditorOpenHasNoEditorWindow() throws TGVst3Exception {
 		TGVst3EditorWindow none = open("Test Gain").getEditorWindow();
-		assertEquals("0 0 false", none.getWindow() + " " + none.getOwner() + " " + none.isShown());
+		assertEquals("0 0 0 false false -1 -1", none.getWindow() + " " + none.getOwner() + " " + none.getParent() + " " + none.isShown() + " " + none.isEmbedded() + " "
+				+ none.getAwareness() + " " + none.getOwnerAwareness());
+	}
+
+	// a floating editor is in no window (parent 0, not embedded); its window is per-monitor DPI aware (version 2: 3), and
+	// so is the window owning it here (another host's editor window; -1 when none owns it)
+	@Test
+	public void aFloatingEditorSaysTheDpiAwarenessOfItsWindowAndOfItsOwner() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			TGVst3Instance owned = open("Test Gain");
+			TGVst3Instance unowned = open("Test Gain");
+			owned.openEditor(windowOfAnotherProcess(other), "");
+			unowned.openEditor(0, "");
+			TGVst3EditorWindow editor = owned.getEditorWindow();
+			assertEquals("0 false 3 3 | 3 -1", editor.getParent() + " " + editor.isEmbedded() + " " + editor.getAwareness() + " " + editor.getOwnerAwareness() + " | "
+					+ unowned.getEditorWindow().getAwareness() + " " + unowned.getEditorWindow().getOwnerAwareness());
+		}
 	}
 
 	@Test
