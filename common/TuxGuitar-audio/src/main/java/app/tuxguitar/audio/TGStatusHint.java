@@ -4,13 +4,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
+import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 /**
  * The one quiet hint an app shows on its status line (the line under the fretboard): why Record was just refused (the
- * last time it was pressed, for REFUSAL_MILLIS after), else the hint of a plugin Play stopped waiting for
- * (TGLoadingHint). An app reads it as often as it likes, off its UI thread; null for none.
+ * last time it was pressed, for REFUSAL_MILLIS after or until its cause no longer holds, whichever comes first), else
+ * the hint of a plugin Play stopped waiting for (TGLoadingHint). An app reads it as often as it likes, off its UI
+ * thread; null for none.
  */
 public final class TGStatusHint {
 
@@ -18,19 +20,23 @@ public final class TGStatusHint {
 	static final long REFUSAL_MILLIS = 5000;
 
 	private final Supplier<String> loading;
+	// what Record needs, as it is now
+	private final Supplier<TGRecordConditions> conditions;
 	// now, in milliseconds
 	private final LongSupplier clock;
 	// Record's last refusal, and when; null when it was not refused
 	private volatile Refused refused;
 
-	TGStatusHint(Supplier<String> loading, LongSupplier clock) {
+	TGStatusHint(Supplier<String> loading, Supplier<TGRecordConditions> conditions, LongSupplier clock) {
 		this.loading = loading;
+		this.conditions = conditions;
 		this.clock = clock;
 	}
 
 	public static TGStatusHint getInstance(TGContext context) {
 		return TGSingletonUtil.getInstance(context, TGStatusHint.class.getName(),
-			key -> new TGStatusHint(TGLoadingHint.install(key)::getText, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime())));
+			key -> new TGStatusHint(TGLoadingHint.install(key)::getText, () -> TGRecordConditions.of(key, TGDocumentManager.getInstance(key).getSong()),
+				() -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime())));
 	}
 
 	// Record was pressed: it was refused for that reason, or it records (null)
@@ -40,7 +46,7 @@ public final class TGStatusHint {
 
 	public String getText() {
 		Refused refused = this.refused;
-		return (refused != null && this.clock.getAsLong() - refused.at < REFUSAL_MILLIS ? refused.why.say() : this.loading.get());
+		return (refused != null && refused.isTold(this.clock.getAsLong(), this.conditions) ? refused.why.say() : this.loading.get());
 	}
 
 	private static final class Refused {
@@ -50,6 +56,11 @@ public final class TGStatusHint {
 		Refused(TGRecordRefusal why, long at) {
 			this.why = why;
 			this.at = at;
+		}
+
+		// told at the time while its cause holds in what Record needs now (read only then), for REFUSAL_MILLIS after
+		boolean isTold(long time, Supplier<TGRecordConditions> now) {
+			return time - this.at < REFUSAL_MILLIS && this.why.holds(now.get());
 		}
 	}
 }

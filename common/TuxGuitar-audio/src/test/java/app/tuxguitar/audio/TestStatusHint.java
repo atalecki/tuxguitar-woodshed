@@ -11,14 +11,18 @@ import org.junit.jupiter.api.Test;
 import app.tuxguitar.editor.TuxGuitarMessages;
 
 /**
- * The quiet hint an app shows on its status line: why Record was just refused, for 5 seconds after it was pressed, else
- * the loading hint ("Woodshed Guitar is still loading Clean.nam" here); read with TuxGuitar's English messages, on a
- * clock the test moves.
+ * The quiet hint an app shows on its status line: why Record was just refused, for 5 seconds after it was pressed or
+ * until its cause no longer holds, whichever comes first, else the loading hint ("Woodshed Guitar is still loading
+ * Clean.nam" here); read with TuxGuitar's English messages, on a clock the test moves, with what Record needs as the
+ * test sets it (at first: nothing armed, another MIDI Port, no device; every refusal holds).
  */
 class TestStatusHint {
 
+	private static final TGRecordConditions NOTHING = new TGRecordConditions(false, false, false);
+
 	private long now = 1000;
-	private final TGStatusHint hint = new TGStatusHint(() -> "Woodshed Guitar is still loading Clean.nam", () -> this.now);
+	private TGRecordConditions conditions = NOTHING;
+	private final TGStatusHint hint = new TGStatusHint(() -> "Woodshed Guitar is still loading Clean.nam", () -> this.conditions, () -> this.now);
 
 	// what the hint reads at each of the times, in milliseconds after the start
 	private String readAt(long... times) {
@@ -57,5 +61,31 @@ class TestStatusHint {
 			hint.recordPressed(TGRecordRefusal.NO_ARMED_TRACK);
 			hint.recordPressed(TGRecordRefusal.NO_DEVICE);
 		}, 0) + " | " + this.english(hint -> hint.recordPressed(null), 0));
+	}
+
+	// Record refused, then, a second later, what Record needs as it is then: what the hint reads before and after
+	private String refusedThen(TGRecordRefusal refusal, TGRecordConditions then) {
+		String before = this.english(hint -> hint.recordPressed(refusal), 0);
+		this.conditions = then;
+		return before + " | " + this.english(hint -> {
+		}, 1000);
+	}
+
+	// as soon as its cause no longer holds, though another refusal does
+	@Test
+	void aRefusalIsToldUntilItsCauseNoLongerHolds() {
+		String armed = this.refusedThen(TGRecordRefusal.NO_ARMED_TRACK, new TGRecordConditions(true, false, false));
+		String port = this.refusedThen(TGRecordRefusal.MIDI_PORT, new TGRecordConditions(true, true, false));
+		String device = this.refusedThen(TGRecordRefusal.NO_DEVICE, new TGRecordConditions(false, false, true));
+		assertEquals("Arm a track to record | Woodshed Guitar is still loading Clean.nam"
+			+ " | Choose the TuxGuitar Synthesizer as the MIDI Port to record | Woodshed Guitar is still loading Clean.nam"
+			+ " | Choose an audio device to record | Woodshed Guitar is still loading Clean.nam", String.join(" | ", armed, port, device));
+	}
+
+	// while its cause holds, though another no longer does
+	@Test
+	void aRefusalWhoseCauseHoldsIsToldOn() {
+		assertEquals("Choose the TuxGuitar Synthesizer as the MIDI Port to record | Choose the TuxGuitar Synthesizer as the MIDI Port to record",
+			this.refusedThen(TGRecordRefusal.MIDI_PORT, new TGRecordConditions(true, false, true)));
 	}
 }

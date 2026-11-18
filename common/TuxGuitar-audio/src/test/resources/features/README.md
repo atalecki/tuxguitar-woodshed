@@ -88,7 +88,7 @@ files: the refusals to open a plugin or its editor (`audio.plugin.refusal.*`), t
 a take file's refusals (`audio.take.refusal.*`) and the audio device's description (`audio.device.*`) too, and the
 reasons TuxGuitar gives that the VST3 host failed (`audio.vst3-host.*`: it stopped, did not answer, did not start, or none is configured), which
 the log keeps in English (TGVst3Exception: its message logged, its localized message shown); what to do when Record is refused
-(`audio.record.refusal.*`, said on the app's status line for 5 seconds, TGStatusHint; logged in English); the reasons they quote
+(`audio.record.refusal.*`, said on the app's status line for 5 seconds or until its cause no longer holds, TGStatusHint; logged in English); the reasons they quote
 from a plugin's host process, the audio library or the device stay as those gave them. Logs stay English, but for a
 text shown to the user that a log line quotes (an action's refusal, the scan), which it quotes as shown. The helper
 tells that description with the plugin's timing too (protocol version 8). Play that waited until the plugins were ready shows no hint. The player's position

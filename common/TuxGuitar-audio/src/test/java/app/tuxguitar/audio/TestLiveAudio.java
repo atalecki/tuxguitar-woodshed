@@ -372,17 +372,40 @@ class TestLiveAudio {
 	// Record refused three times (no armed track, then no MIDI port, then no device), what each press tells (told:
 	// pressing it, given how), then whether the action succeeded
 	private String refusedRecordings(Function<Runnable, String> told) {
-		this.audio.load(new File("target/no-native-library"));
-		this.audio.open(settings("", "", 2, 0));
-		TGTrack track = this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1));
-		this.fixture.actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 960L);
-		Runnable record = () -> this.fixture.execute(new TGRecordAction(this.fixture.context));
+		TGTrack track = this.unarmedWithoutDevice();
+		Runnable record = this::record;
 		String unarmed = told.apply(record);
 		this.session.arm(track);
 		String portless = told.apply(record);
 		openPort();
 		String deviceless = told.apply(record);
 		return String.join(" | ", unarmed, portless, deviceless, String.valueOf(this.fixture.actionContext.<Boolean>getAttribute(TGRecordAction.ATTRIBUTE_SUCCESS)));
+	}
+
+	// no live audio device (the native library did not load), an audio track, not armed, and Record set to start at 960
+	private TGTrack unarmedWithoutDevice() {
+		this.audio.load(new File("target/no-native-library"));
+		this.audio.open(settings("", "", 2, 0));
+		this.fixture.actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 960L);
+		return this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1));
+	}
+
+	// Record pressed, as the app presses it
+	private void record() {
+		this.fixture.execute(new TGRecordAction(this.fixture.context));
+	}
+
+	// the hint goes as soon as its cause no longer holds, before its 5 seconds are up: here once the track is armed
+	@Test
+	void aRefusalsHintGoesOnceItsCauseNoLongerHolds() {
+		TGStatusHint hint = TGStatusHint.getInstance(this.fixture.context);
+		TGTrack track = this.unarmedWithoutDevice();
+		String refused = TuxGuitarMessages.english(() -> {
+			this.record();
+			return hint.getText();
+		});
+		this.session.arm(track);
+		assertEquals("Arm a track to record | null", refused + " | " + hint.getText());
 	}
 
 	// what the user is told each time Record is refused, in TuxGuitar's language (said): the hint an app shows on its

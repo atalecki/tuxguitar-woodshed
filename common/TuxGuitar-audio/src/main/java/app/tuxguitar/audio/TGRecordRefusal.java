@@ -1,39 +1,41 @@
 package app.tuxguitar.audio;
 
-import java.util.List;
+import java.util.Arrays;
+import java.util.function.Predicate;
 
-import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGMessagesManager;
 
 /**
  * Why Record, pressed, cannot start a recording: no track is armed, the MIDI Port is not the TuxGuitar Synthesizer, or
- * there is no live audio device. The log reads it in English (toString); the user is told what to do about it in
- * TuxGuitar's language (say), on the app's status line (TGStatusHint).
+ * there is no live audio device: each a cause that holds, or not, in what Record needs as it is (TGRecordConditions).
+ * The log reads it in English (toString); the user is told what to do about it in TuxGuitar's language (say), on the
+ * app's status line (TGStatusHint).
  */
 public enum TGRecordRefusal {
 
-	NO_ARMED_TRACK("no track is armed", "audio.record.refusal.no-armed-track"),
-	MIDI_PORT("the MIDI port is not the TuxGuitar Synthesizer", "audio.record.refusal.midi-port"),
-	NO_DEVICE("no live audio device", "audio.record.refusal.no-device");
+	NO_ARMED_TRACK("no track is armed", "audio.record.refusal.no-armed-track", now -> !now.isArmed()),
+	MIDI_PORT("the MIDI port is not the TuxGuitar Synthesizer", "audio.record.refusal.midi-port", now -> !now.isSynthesizerPort()),
+	NO_DEVICE("no live audio device", "audio.record.refusal.no-device", now -> !now.hasDevice());
 
 	private final String english;
 	// what the user is told, its message
 	private final String message;
+	private final Predicate<TGRecordConditions> cause;
 
-	TGRecordRefusal(String english, String message) {
+	TGRecordRefusal(String english, String message, Predicate<TGRecordConditions> cause) {
 		this.english = english;
 		this.message = message;
+		this.cause = cause;
 	}
 
-	// why a recording of the armed tracks cannot start, the first that holds; null when it can
-	public static TGRecordRefusal of(List<TGTrack> armed, boolean synthesizerPort, TGAudioDevice device) {
-		if (armed.isEmpty()) {
-			return NO_ARMED_TRACK;
-		}
-		if (!synthesizerPort) {
-			return MIDI_PORT;
-		}
-		return (device == null ? NO_DEVICE : null);
+	// why a recording cannot start, the first that holds; null when it can
+	public static TGRecordRefusal of(TGRecordConditions now) {
+		return Arrays.stream(values()).filter(refusal -> refusal.holds(now)).findFirst().orElse(null);
+	}
+
+	// whether its cause holds
+	public boolean holds(TGRecordConditions now) {
+		return this.cause.test(now);
 	}
 
 	// what the user is told, as TuxGuitar's language says it

@@ -8,6 +8,7 @@ import app.tuxguitar.audio.TGAudioSession;
 import app.tuxguitar.audio.TGAudioStatus;
 import app.tuxguitar.audio.TGLiveDevice;
 import app.tuxguitar.audio.TGLiveRecording;
+import app.tuxguitar.audio.TGRecordConditions;
 import app.tuxguitar.audio.TGRecordRefusal;
 import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.audio.TGRecording;
@@ -62,13 +63,13 @@ public class TGRecordAction extends TGActionBase {
 		TGSong song = context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG);
 		TGAudioSession session = TGAudioSession.getInstance(getContext());
 		MidiPlayer player = MidiPlayer.getInstance(getContext());
-		List<TGTrack> tracks = session.getArmedTracks(song);
-		TGRecordRefusal refusal = TGRecordRefusal.of(tracks, player.isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY), session.getDevice());
+		TGRecordRefusal refusal = TGRecordRefusal.of(TGRecordConditions.of(getContext(), song));
 		TGStatusHint.getInstance(getContext()).recordPressed(refusal);
 		if (refusal != null) {
 			LOG.warn("recording refused: " + refusal);
 			return;
 		}
+		List<TGTrack> tracks = session.getArmedTracks(song);
 		TGRecordingVeto.getInstance(getContext());
 		session.setRecording(true);
 		try {
