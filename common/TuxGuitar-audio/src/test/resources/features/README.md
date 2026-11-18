@@ -452,6 +452,16 @@ These features change how TuxGuitar works today. They are requirements, not side
   plucks a string of its own (one voice per note id); the strings are summed and played through its **profile**, the
   NAM capture loaded into it, the same signal left and right. Its **dry voice** is what it sounds with no profile.
   "Woodshed Guitar of track 1" is the plugin of track 1's source.
+- **Kind** (of a track): guitar, bass, drums or other, from the track's General MIDI instrument: a percussion channel is
+  drums, the General MIDI Guitar programs (24 to 31) guitar, the Bass programs (32 to 39) bass, any other program other
+  (`TGInstrumentKind`). Strings and tuning play no part.
+- **Default instrument**: the VST3 instrument a track of a kind plays when its sound chain has no instrument of its own
+  (no chain, or a General MIDI source), a setting of the computer, not of the song. Woodshed Guitar for guitar and bass
+  until another is set; none (General MIDI) for drums and other until one is set.
+- **Profile** (of a default Woodshed Guitar): the NAM capture it plays for guitar or bass tracks, set per kind in the
+  settings (bass: the guitar's until set); the **shipped profile** (RiffSmith Clean) when none is set.
+- **Fallback**: a default instrument not installed or not loaded plays General MIDI instead; the status line says so
+  quietly.
 - **NAM capture**: a `.nam` file, a Neural Amp Modeler model of an amp or pedal, in the A1 format (JSON) that
   NeuralAmpModelerCore reads; "a NAM capture that multiplies the signal by 3.0" is one of the architecture `Linear` whose
   single weight is 3.0, made at 44100 Hz unless the scenario gives a rate. A capture **made at** a sample rate is played
