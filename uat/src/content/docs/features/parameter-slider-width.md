@@ -7,8 +7,8 @@ sidebar:
 
 ## What it tests
 
-Branch `fix/parameter-slider-width`, the commit "audio, audio-ui: a parameter slider stops at about 400 pixels, so its
-row stays together" (after `2e813ceec`). Before it, a plugin with few parameters (Test Tone: one Level row) showed its
+Commit `dff929fd4` on branch `fix/parameter-slider-width` ("audio, audio-ui: a parameter slider stops at about 400 pixels, so its
+row stays together", after `2e813ceec`). Before it, a plugin with few parameters (Test Tone: one Level row) showed its
 slider stretched across the whole panel, about 1800 pixels, with the value and **Set** far away at the right edge.
 
 ## Setup
