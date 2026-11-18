@@ -23,6 +23,7 @@ import app.tuxguitar.audio.action.TGRecordingVeto;
 import app.tuxguitar.audio.device.TGAudioDeviceInfo;
 import app.tuxguitar.audio.device.TGPortAudio;
 import app.tuxguitar.document.TGDocumentContextAttributes;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.midi.synth.TGSynthManager;
@@ -156,27 +157,33 @@ class TestLiveAudio {
 	}
 
 	// what the scan of the VST3 folders found (TGPluginScan), for the log and kept for the app to show: nothing before the
-	// first scan; the NAM captures in the folders counted; a scan that fails says why
+	// first scan; the NAM captures in the folders counted; a scan that fails says why. Read as an English user reads it
 	@Test
 	void scanningTheVst3FoldersSaysWhatItFound(@TempDir File captures) throws Exception {
-		String before = this.audio.getPluginScan().toString();
 		TGVst3Hosting hosting = TestPluginHosting.host(this.fixture.context);
 		try {
 			Files.createFile(new File(captures, "Lead.nam").toPath());
 			List<File> folders = Arrays.asList(hosting.getFolders().get(0), captures);
-			hosting.configure(hosting.getExecutable(), folders);
-			String found = this.audio.scanPlugins();
-			List<String> kept = this.audio.getPluginScan().getLines();
-			hosting.configure(new File("target/no-vst3-host.exe"), folders);
-			String refused = this.audio.scanPlugins();
 			String failed = "TuxGuitar audio: The VST3 folders could not be scanned: the VST3 host did not start";
 			assertEquals("The VST3 folders have not been scanned yet. | TuxGuitar audio: VST3 effects found: 8. VST3 instruments found: 2. | NAM captures found: 1."
 				+ " | Folders scanned: " + folders.get(0) + ", " + captures + " | 3 | " + failed,
-				before + " | " + found.substring(0, found.indexOf('\n')) + " | " + kept.get(1).substring(0, kept.get(1).indexOf('.') + 1) + " | " + kept.get(2) + " | " + kept.size()
-				+ " | " + refused.substring(0, Math.min(refused.length(), failed.length())));
+				TuxGuitarMessages.english(() -> this.scanned(hosting, folders, failed.length())));
 		} finally {
 			hosting.close();
 		}
+	}
+
+	// what the scans say: before the first, the first lines of one that finds the plugins and the captures in the
+	// folders, then the start of one that fails (as long as the failure expected)
+	private String scanned(TGVst3Hosting hosting, List<File> folders, int failed) {
+		String before = this.audio.getPluginScan().toString();
+		hosting.configure(hosting.getExecutable(), folders);
+		String found = this.audio.scanPlugins();
+		List<String> kept = this.audio.getPluginScan().getLines();
+		hosting.configure(new File("target/no-vst3-host.exe"), folders);
+		String refused = this.audio.scanPlugins();
+		return before + " | " + found.substring(0, found.indexOf('\n')) + " | " + kept.get(1).substring(0, kept.get(1).indexOf('.') + 1) + " | " + kept.get(2) + " | " + kept.size()
+			+ " | " + refused.substring(0, Math.min(refused.length(), failed));
 	}
 
 	private static Properties system(String os, String home) {
@@ -402,13 +409,19 @@ class TestLiveAudio {
 		assertEquals(512, this.rendered);
 	}
 
-	// what the log and the settings say
+	// what the log and the settings say, as an English user reads it
 	@Test
 	void itDescribesTheDeviceOrWhyThereIsNone() {
 		this.open(settings("ASIO", "Interface", 2, 0));
+		assertEquals("TuxGuitar audio: Interface (ASIO) at 44100 Hz, latency in 0 out 300 frames | TuxGuitar audio: no device (no library), the TuxGuitar Synthesizer plays through Java Sound",
+			TuxGuitarMessages.english(this::openThenFailed));
+	}
+
+	// the description of the device open, then of none for want of a library
+	private String openThenFailed() {
 		String open = this.audio.describe();
 		this.audio.fail("no library");
-		assertEquals("TuxGuitar audio: Interface (ASIO) at 44100 Hz, latency in 0 out 300 frames | TuxGuitar audio: no device (no library), the TuxGuitar Synthesizer plays through Java Sound", open + " | " + this.audio.describe());
+		return open + " | " + this.audio.describe();
 	}
 
 	// what the settings offer: the backend's host APIs and the devices of one; nothing without a backend

@@ -6,16 +6,22 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.vst3.TGVst3Plugin;
 import app.tuxguitar.vst3.TGVst3SkippedModule;
 
 /**
  * What a scan of the VST3 folders tells the user, a line each: the plugins found, the modules skipped and why, which
- * plugin plays the NAM captures found there, and the folders.
+ * plugin plays the NAM captures found there, and the folders. Read as an English user reads them: with TuxGuitar's
+ * English messages, none again after.
  */
 class TestPluginScan {
 
@@ -33,6 +39,16 @@ class TestPluginScan {
 	private static String installed(String players) {
 		return "NAM captures found: 2. A .nam capture is a model of an amp or pedal, not a plugin: " + players + " plays it. Add "
 			+ players + " to the track as a VST3 effect after the instrument, then load the capture in its editor.";
+	}
+
+	@BeforeEach
+	void speakEnglish() {
+		TuxGuitarMessages.speak(Map.of());
+	}
+
+	@AfterEach
+	void speakNone() {
+		TGMessagesManager.getInstance().setResources(null);
 	}
 
 	private static TGVst3Plugin plugin(String name, boolean instrument) {
