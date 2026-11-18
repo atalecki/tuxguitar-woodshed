@@ -32,10 +32,10 @@ later on the branch. The install folder is
 | 4 | Pick row 2 and press **Up**. | The two effects swap. | not run |
 | 5 | Pick row 1 and press **Disable**. | The row reads in brackets, "1. [..]", and the button now says **Enable**. Press it: the brackets go. | not run |
 | 6 | Pick row 2 and press **Remove**. | Row 2 goes. Nothing is picked now. | not run |
-| 7 | Pick the source row. | Up, Remove and Disable are greyed. Edit... is enabled (Woodshed Guitar is a VST3 plugin). | not run |
-| 8 | Press **Edit...** on the source row. | Woodshed Guitar's own window opens in front of the main window, titled "Woodshed Guitar – <track name>". | not run |
-| 9 | Add the effect without an editor of its own (Test Clip), pick its row and press **Edit...**. | TuxGuitar's Parameters window opens, one row per parameter. | not run |
-| 10 | Press **Keep in song**. | The source row now reads "Source: Woodshed Guitar" (no "default for ..."): the track has its own instrument. Keep in song is greyed now. | not run |
+| 7 | Pick the source row. | Up, Remove and Disable are greyed. Edit... is greyed too: the source is the default instrument, which the track does not own yet. | not run |
+| 8 | Add the effect without an editor of its own (Test Clip), pick its row and press **Edit...**. | TuxGuitar's Parameters window opens, one row per parameter. | not run |
+| 9 | Pick the row of the effect with its own editor (TONE3000 or Test Gain) and press **Edit...**. | The plugin's own window opens in front of the main window, titled "<plugin> – <track name>". | not run |
+| 10 | Press **Keep in song**, then pick the source row. | The source row now reads "Source: Woodshed Guitar" (no "default for ..."): the track has its own instrument. Keep in song is greyed now, Edit... is enabled; pressing it opens Woodshed Guitar's window in front of the main window. | not run |
 | 11 | Press **Default instrument**. | The source row reads "Source: Woodshed Guitar (default for guitar tracks)" again. | not run |
 | 12 | Pick an instrument in the VST3 instrument drop-down and press **Use as source**. | The source row names that instrument. | not run |
 | 13 | Edit > Undo, several times. | Each change goes back one step, in reverse order, and the dialog (if still open) shows each step after reopening it. | not run |
