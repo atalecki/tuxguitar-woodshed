@@ -14,7 +14,8 @@ import app.tuxguitar.vst3.TGVst3Element;
  * without one, of the VST3 instrument that is the source, or of the default instrument played as the source while
  * TuxGuitar's parameter editor is open for it: the first value set there that it does not hold keeps it in the song with
  * that value, as the first change in a plugin's own editor does (TGLivePlugins.keepDefault), one change of the song.
- * Refused when that is not a VST3 plugin, or nothing is kept.
+ * Refused when that is not a VST3 plugin, or nothing is kept, or when TuxGuitar's parameter editor shows that value
+ * already (TGLivePlugins.shows): nothing changes, so no undo step is added.
  */
 public class TGSetPluginParameterAction extends TGSoundChainAction {
 
@@ -32,6 +33,9 @@ public class TGSetPluginParameterAction extends TGSoundChainAction {
 		Integer effect = context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT);
 		int parameter = context.<Integer>getAttribute(ATTRIBUTE_PARAMETER);
 		double value = context.<Double>getAttribute(ATTRIBUTE_VALUE);
+		if (TGLivePlugins.getInstance(getContext()).shows(channel, effect, parameter, value)) {
+			return false;
+		}
 		TGProgramElement plugin = TGSoundChain.plugin(chain, effect);
 		if (plugin == null && effect == null) {
 			plugin = this.keepDefault(channel, chain, parameter, value);

@@ -387,9 +387,18 @@ public class PluginSteps {
 	// change of the song (the source's editor: no effect)
 	@Given("I set {string} to {double} in TuxGuitar's parameter editor of the source of track {int}")
 	public void setInTheParameterEditor(String title, double value, int track) {
-		TGPluginEditor editor = TGLivePlugins.getInstance(world.fixture().context).parameterEditor(world.channel(world.track(track)), null);
+		setInTheParameterEditor(title, value, null, track);
+	}
+
+	@When("I set {string} to {double} in TuxGuitar's parameter editor of VST3 effect {int} of track {int}")
+	public void setInTheParameterEditorOfTheEffect(String title, double value, int effect, int track) {
+		setInTheParameterEditor(title, value, effect, track);
+	}
+
+	private void setInTheParameterEditor(String title, double value, Integer effect, int track) {
+		TGPluginEditor editor = TGLivePlugins.getInstance(world.fixture().context).parameterEditor(world.channel(world.track(track)), effect);
 		TGPluginParameterRow row = editor.getRows().stream().filter(shown -> shown.getTitle().equals(title)).findFirst().get();
-		world.fixture().actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, null);
+		world.fixture().actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, effect);
 		world.fixture().actionContext.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, row.getId());
 		world.fixture().actionContext.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_VALUE, value);
 		change(track, new TGSetPluginParameterAction(world.fixture().context));

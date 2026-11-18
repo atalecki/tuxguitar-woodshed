@@ -552,15 +552,23 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		return (editor != null && !editor.isOwn() ? editor : null);
 	}
 
+	// whether TuxGuitar's parameter editor open for the channel's effect (see parameterEditor) shows the parameter at the
+	// plain value already, as the user sees it: setting it there changes nothing (no change of the song, no undo step),
+	// whatever plugin it is, the song's own or a default instrument
+	public synchronized boolean shows(TGChannel channel, Integer effect, int parameter, double plain) {
+		TGPluginEditor editor = this.parameterEditor(channel, effect);
+		return (editor != null && editor.shows(parameter, plain));
+	}
+
 	// the default instrument the channel plays as its source as the song keeps it, its state as when its editor opened,
-	// when that editor (TuxGuitar's parameter editor: the plugin has none of its own) is open for it and shows another
-	// value of the parameter (as the user sees it): the first value set there keeps it, as the first change in a
-	// plugin's own editor does, its plugin and editor the source's from then on (see take); else null
+	// when that editor (TuxGuitar's parameter editor: the plugin has none of its own) is open for it: the first value set
+	// there (one it does not show already, see shows) keeps it, as the first change in a plugin's own editor does, its
+	// plugin and editor the source's from then on (see take); else null
 	public synchronized TGProgramElement keepDefault(TGChannel channel, int parameter, double plain) {
 		int id = channel.getChannelId();
 		TGProgramElement played = TGDefaultInstrumentSource.install(this.context).edited(channel);
 		Editor editor = (played != null ? this.editors.get(key(id, played.getId())) : null);
-		if (editor == null || !editor.edits(played) || editor.editor.shows(parameter, plain)) {
+		if (editor == null || !editor.edits(played)) {
 			return null;
 		}
 		this.handOver(id, played.getId(), TGSoundChain.source(TGVst3Element.INSTRUMENT).getId(), editor.instance);

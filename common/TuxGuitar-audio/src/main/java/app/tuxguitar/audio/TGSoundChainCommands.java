@@ -89,8 +89,8 @@ public final class TGSoundChainCommands {
 	}
 
 	// the row's plugin's parameter set to the plain value, one undoable change of the song: TuxGuitar's parameter rows
-	// (the panel's, the Parameters window's); a default instrument played as the source, its parameter editor open, is
-	// kept in the song by the first value it does not hold
+	// (the panel's, the Parameters window's); a value they show already changes nothing; a default instrument played as
+	// the source, its parameter editor open, is kept in the song by the first value it does not hold
 	public void set(int row, int parameter, double plain) {
 		TGActionProcessor processor = this.onRow(TGSetPluginParameterAction.NAME, row);
 		processor.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, parameter);
