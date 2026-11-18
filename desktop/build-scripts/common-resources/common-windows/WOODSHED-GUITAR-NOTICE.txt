@@ -14,10 +14,11 @@ native build downloads the following from their official sources, pinned by SHA-
   address and commit; the plugin uses it unmodified.
 - The Steinberg VST3 SDK, under its MIT licence (see AUDIO-NOTICE.txt).
 
-The profile Woodshed Guitar plays when none is chosen (profiles/RiffSmith Clean.nam) is "RiffSmith Clean", an A2 Neural
-Amp Modeler capture of a clean amp channel (amp and cabinet) trained by Matt Hartman on his own rig, from
-https://github.com/hartmamt/riffsmith (https://riffsmith.app), under the MIT License below (also in
-profiles/RiffSmith-LICENSE.txt). It is kept in the TuxGuitar sources unmodified and pinned by SHA-256
+The profiles Woodshed Guitar plays when none is chosen are "RiffSmith Clean" (profiles/RiffSmith Clean.nam, guitar
+tracks), an A2 Neural Amp Modeler capture of a clean amp channel (amp and cabinet) trained by Matt Hartman on his own
+rig, and "RiffSmith Bass Clean" (profiles/RiffSmith Bass Clean.nam, bass tracks), an A2 capture of his clean bass rig,
+both from https://github.com/hartmamt/riffsmith (https://riffsmith.app), under the MIT License below (also in
+profiles/RiffSmith-LICENSE.txt). They are kept in the TuxGuitar sources unmodified and each pinned by SHA-256
 (common/TuxGuitar-vst3/native/plugins/woodshed_guitar/profiles).
 
 
@@ -63,8 +64,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER I
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-RiffSmith Clean
----------------
+RiffSmith Clean, RiffSmith Bass Clean
+-------------------------------------
 
 MIT License
 

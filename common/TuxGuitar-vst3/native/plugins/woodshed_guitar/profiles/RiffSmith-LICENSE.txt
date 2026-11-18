@@ -1,10 +1,16 @@
-RiffSmith Clean.nam: the NAM capture Woodshed Guitar plays when no profile is chosen
+RiffSmith Clean.nam and RiffSmith Bass Clean.nam: the NAM captures Woodshed Guitar plays when no profile is chosen
 
-"RiffSmith Clean", an A2 Neural Amp Modeler capture of a clean amp channel (amp and cabinet), trained by Matt Hartman on
-his own rig. Source: https://github.com/hartmamt/riffsmith (public/nam/models/riffsmith-clean.nam, added in commit
-56862ee786, 2026-09-02; https://riffsmith.app), distributed there under the MIT License below (the repository's
-LICENSE; its public/nam/models/manifest.json notes the capture as "redistributable, shipped in the repo"). Kept here
-unmodified, SHA-256 433f93c73abfc86b1ab46adc8ec7e0eaa46a7286727708880c285c10a1642741.
+"RiffSmith Clean" (guitar tracks), an A2 Neural Amp Modeler capture of a clean amp channel (amp and cabinet), trained by
+Matt Hartman on his own rig. Source: https://github.com/hartmamt/riffsmith (public/nam/models/riffsmith-clean.nam, added
+in commit 56862ee786, 2026-09-02; https://riffsmith.app), distributed there under the MIT License below (the
+repository's LICENSE; its public/nam/models/manifest.json notes the capture as "redistributable, shipped in the repo").
+Kept here unmodified, SHA-256 433f93c73abfc86b1ab46adc8ec7e0eaa46a7286727708880c285c10a1642741.
+
+"RiffSmith Bass Clean" (bass tracks), an A2 Neural Amp Modeler capture of a clean bass rig (amp and cabinet), trained by
+Matt Hartman on his own bass rig. Source: the same repository (public/nam/models/riffsmith-bass-clean.nam, added in
+commit da9c5f11272cf552a6ff0ee7d75140a4c5e74f3e, 2026-09-03; read at commit 228b801ccc8b518d0a1fb53a8e63355a2fbd153f),
+under the same MIT License below (its manifest notes it as "redistributable, shipped in the repo"). Kept here
+unmodified, SHA-256 af11453ec552c93acc9cf2de76de56b730a3cad4c18bffba9a71b9b84ca7eff6.
 
 
 MIT License

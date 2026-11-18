@@ -395,8 +395,8 @@
 									</fileset>
 								</copy>
 								<copy file="${project.rootPath}/../common/TuxGuitar-vst3/native-build/nam/eigen/COPYING.MPL2" tofile="${project.build.directory}/${project.finalName}/MPL-2.0.txt" overwrite="true" />
-								<!-- the profile Woodshed Guitar plays by default (an A2 NAM capture, MIT, see WOODSHED-GUITAR-NOTICE.txt), in profiles
-									next to vst3, where TuxGuitar finds it -->
+								<!-- the profiles Woodshed Guitar plays by default for guitar and bass (A2 NAM captures, MIT, see
+									WOODSHED-GUITAR-NOTICE.txt), in profiles next to vst3, where TuxGuitar finds them -->
 								<copy todir="${project.build.directory}/${project.finalName}/profiles" overwrite="true">
 									<fileset dir="${project.rootPath}/../common/TuxGuitar-vst3/native-build/plugins/profiles" />
 								</copy>
