@@ -132,8 +132,8 @@ class TestSoundChainCommands {
 	}
 
 	// Edit asks the action to open the picked effect's editor, placed as the editor says (floating: owned by the window
-	// given; embedded: inside the area given, at most the height given, the window given kept as its owner), titled with
-	// the track
+	// given; embedded: inside the area given, at most the height given, passing the keys given, the window given kept as
+	// its owner), titled with the track
 	@Test
 	void editOpensThePickedPluginsEditorWhereThePlacementSays() {
 		List<String> asked = new ArrayList<String>();
@@ -145,9 +145,9 @@ class TestSoundChainCommands {
 			}
 		});
 		this.commands.edit(2, TGEditorPlacement.floating(() -> 42L), editor -> asked.add("parameters"));
-		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L), editor -> asked.add("parameters"));
+		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L, () -> new int[] {0x277}), editor -> asked.add("parameters"));
 		String track = " track " + this.track.getName() + " channel " + this.track.getChannelId();
-		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
+		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, passing [631], owned by 7" + track + "] [done, done]", asked + " " + this.told);
 	}
 
 	// the app runs the action later on its UI thread (its interceptor), after the command returned: the editor is handed
