@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 import app.tuxguitar.audio.LivePlay;
 import app.tuxguitar.audio.TGPunchRange;
+import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.audio.device.TGAudioDeviceException;
 import app.tuxguitar.audio.action.TGArmTrackAction;
 import app.tuxguitar.audio.action.TGDisarmTrackAction;
@@ -41,6 +42,8 @@ public class RecordingSteps {
 	private final SongSteps songSteps;
 	private List<Object> historyBeforeRecording;
 	private Thread recording;
+	// what the status line said after Record was chosen
+	private volatile String statusLine;
 
 	public RecordingSteps(AudioWorld world, SongSteps songSteps) {
 		this.world = world;
@@ -151,12 +154,14 @@ public class RecordingSteps {
 	}
 
 	// Tools > Record as the app chooses it: the record action on a thread of its own, from measure 1 beat 1; a refusal
-	// (a TGActionException, which the app shows) is the world's refusal. It waits a second for the action: one that
-	// records instead runs on, past the scenario
+	// (a TGActionException, which the app shows) is the world's refusal, then what the status line says is read at once
+	// (the hint shows for a few seconds). It waits a second for the action: one that records instead runs on, past the
+	// scenario
 	void chooseRecord() {
 		Thread choosing = new Thread(() -> {
 			world.fixture().actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 0L);
 			world.attempt(new TGRecordAction(world.fixture().context));
+			statusLine = TGStatusHint.getInstance(world.fixture().context).getText();
 		});
 		choosing.setDaemon(true);
 		choosing.start();
@@ -165,6 +170,12 @@ public class RecordingSteps {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
+	}
+
+	// the action's refusal (an error message: none) and what the status line said
+	@Then("Record is refused with no error message, the status line saying {string}")
+	public void refusedQuietly(String said) {
+		assertEquals("null | " + said, world.refusal() + " | " + statusLine);
 	}
 
 	@After

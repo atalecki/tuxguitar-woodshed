@@ -6,16 +6,14 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import app.tuxguitar.document.TGDocumentManager;
-import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeUnderWay;
-import app.tuxguitar.practice.TGPracticeWording;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
 
 /**
  * What an app shows of its audio, read at one moment (an app polls it): whether a recording is under way (its state,
  * a message key), whether Record can start one (a device, an armed track, no recording nor practice session under way;
- * see practiceRefusal) and the input meter
+ * the MIDI Port does not grey it out, the record action refuses then: TGRecordRefusal) and the input meter
  * of each armed track of the song open, in track order. Without a device nothing is metered.
  */
 public final class TGAudioStatus {
@@ -44,17 +42,7 @@ public final class TGAudioStatus {
 		}
 		List<Meter> meters = session.getArmedTracks(TGDocumentManager.getInstance(context).getSong()).stream().map(track -> new Meter(track, session.getInputMeter(track))).collect(Collectors.toList());
 		boolean recording = session.isRecording();
-		return new TGAudioStatus(recording ? RECORDING : NOT_RECORDING, !recording && !meters.isEmpty() && practiceRefusal(context) == null, meters);
-	}
-
-	/**
-	 * Why Record cannot start now, during a practice session under way, playing or paused (an app greys Record out and
-	 * the record action refuses, saying so in TuxGuitar's language: transport.practice.refusal.record); null when no
-	 * session is under way.
-	 */
-	public static String practiceRefusal(TGContext context) {
-		TGPracticeCourse course = TGPracticeUnderWay.getInstance(context).getCourse();
-		return (course != null ? TGPracticeWording.APP.get("transport.practice.refusal.record", new String[] {course.getModeName()}) : null);
+		return new TGAudioStatus(recording ? RECORDING : NOT_RECORDING, !recording && !meters.isEmpty() && TGPracticeUnderWay.getInstance(context).getCourse() == null, meters);
 	}
 
 	/**

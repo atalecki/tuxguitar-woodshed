@@ -46,7 +46,8 @@ public final class TGStatusHint {
 
 	public String getText() {
 		Refused refused = this.refused;
-		return (refused != null && refused.isTold(this.clock.getAsLong(), this.conditions) ? refused.why.say() : this.loading.get());
+		String told = (refused != null ? refused.told(this.clock.getAsLong(), this.conditions) : null);
+		return (told != null ? told : this.loading.get());
 	}
 
 	private static final class Refused {
@@ -58,9 +59,14 @@ public final class TGStatusHint {
 			this.at = at;
 		}
 
-		// told at the time while its cause holds in what Record needs now (read only then), for REFUSAL_MILLIS after
-		boolean isTold(long time, Supplier<TGRecordConditions> now) {
-			return time - this.at < REFUSAL_MILLIS && this.why.holds(now.get());
+		// what the user is told at the time: why, for REFUSAL_MILLIS after, while its cause holds in what Record needs
+		// now (read only then); else null
+		String told(long time, Supplier<TGRecordConditions> conditions) {
+			if (time - this.at >= REFUSAL_MILLIS) {
+				return null;
+			}
+			TGRecordConditions now = conditions.get();
+			return (this.why.holds(now) ? this.why.say(now) : null);
 		}
 	}
 }
