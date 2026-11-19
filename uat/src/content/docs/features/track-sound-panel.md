@@ -7,14 +7,15 @@ sidebar:
 
 ## What it tests
 
-Branch `feature/editor-in-right-panel`, commit `716b55995` (the editor area moved into the panel in `a08169c59` and
-`3b9a03f13`; the Track panel itself came on `feature/track-sound-panel`, merged at `19683f945`). The Sound Chain
-panel moves from the foot of the window to a Track panel docked at the right of the score, like Guitar Pro 8's Track
-inspector: the track's colour and name, then SOUNDS with a **MIDI** / **VST3** switch per track, the instrument, the
-sound chain top to bottom with its meters, its actions, and the picked plugin's editor under them. MIDI plays the
-track's General MIDI program inside TuxGuitar; VST3 plays the track's VST3 instrument or the default instrument of
-its kind. Switching to MIDI and back restores the same VST3 instrument with its settings. Nothing of it stays at the
-foot of the window; an editor wider than the panel opens in a window of its own.
+Branch `feature/editor-in-right-panel`, commit `3761746b7` (Show back into the panel; the editor area moved into the
+panel in `a08169c59` and `3b9a03f13`; the Track panel itself came on `feature/track-sound-panel`, merged at
+`19683f945`). The Sound Chain panel moves from the foot of the window to a Track panel docked at the right of the
+score, like Guitar Pro 8's Track inspector: the track's colour and name, then SOUNDS with a **MIDI** / **VST3**
+switch per track, the instrument, the sound chain top to bottom with its meters, its actions, and the picked plugin's
+editor under them. MIDI plays the track's General MIDI program inside TuxGuitar; VST3 plays the track's VST3
+instrument or the default instrument of its kind. Switching to MIDI and back restores the same VST3 instrument with
+its settings. Nothing of it stays at the foot of the window; an editor wider than the panel opens in a window of its
+own.
 
 ## Setup
 
@@ -55,8 +56,8 @@ Close any running TuxGuitar first. Check out the commit above, then build and la
 | 19 | Settings > Sound: pick another MIDI Port than the TuxGuitar Synthesizer. | Under **Sound Chain...** a quiet line says sound chains are heard only with the TuxGuitar Synthesizer. Set it back. | not run |
 | 20 | Settings > Language: pick another language, then back to English. | No label is blank or shows a raw key; the new texts stay in English where the language has no translation yet. | not run |
 | 21 | Settings > Sound, Default instruments: set Other tracks to none (General MIDI). Track > Add Track, set its instrument to a piano (Track > Properties, or the channel settings), move the caret to it and press **VST3**. Pick **Woodshed Guitar** in the Instrument drop-down. Press Play and keep it playing; while it plays, pick "Default instrument (General MIDI)", then **Woodshed Guitar** again. | Each pick is heard at once: the General MIDI piano right after the first pick, Woodshed Guitar right after the second. The track never goes silent. | not run |
-| 22 | Add the wide effect (editor wider than about 600 px) and pick it in the chain. Move its window, close it with its close box, then pick the source and the effect again. | Its editor opens in a window of its own, not in the panel; the panel says "<name>'s editor is too large for the panel: it is in its own window." with **Show**, which brings that window to the front. Picked again, the window opens where you left it. | not run |
-| 23 | Drag the panel to its widest. Add the effect whose fixed editor is 250 to 550 px wide and pick it: it shows in the panel. Now drag the panel's divider to the right until the panel is narrower than that editor. Then drag it wide again. | While the panel is wider than the editor, the editor stays in the panel. As soon as the panel is narrower, the editor leaves the panel and opens in a window of its own, the panel saying it is too large with **Show**. Dragging wider again leaves it in its window. Pick another element and this one again: with the panel wide enough, the editor is back in the panel. | not run |
+| 22 | Add the wide effect (editor wider than about 600 px) and pick it in the chain. Move its window, close it with its close box, then pick the source and the effect again. | Its editor opens in a window of its own, not in the panel; the panel says "<name>'s editor is too large for the panel: it is in its own window." with **Show**: the panel is still too narrow for it, so Show brings that window to the front. Picked again, the window opens where you left it. | not run |
+| 23 | Drag the panel to its widest. Add the effect whose fixed editor is 250 to 550 px wide and pick it: it shows in the panel; turn one of its knobs. Now drag the panel's divider to the right until the panel is narrower than that editor. Then drag it wide again and press **Show**. | While the panel is wider than the editor, the editor stays in the panel. As soon as the panel is narrower, the editor leaves the panel and opens in a window of its own, the panel saying it is too large with **Show**. Dragging wider again leaves it in its window. Now press **Show** on the panel's line: with the panel wide enough again, the editor leaves its window and is back in the panel, its settings as you left them. | not run |
 | 24 | Pick the source (Woodshed Guitar) and drag the panel narrower and wider. | Woodshed Guitar's editor follows the panel's width each time and stays in the panel: it stretches. | not run |
 | 25 | With an editor in the panel, press **Open in window**. Close TuxGuitar and start it again, pick that element. Press **Put back in the panel**. Then press Open in window again and close that window with its close box. | The editor goes to a window of its own and stays there after the restart (remembered for that plugin); the panel says so with **Put back in the panel**, which puts it back. Closing its window with the close box also puts it back in the panel. | not run |
 | 26 | Make TuxGuitar's window lower (drag its bottom edge up) until the panel no longer fits, with an editor showing in it. Scroll the panel. | A scroll bar appears at the right of the panel; the editor scrolls with the rest of the panel and stays drawn where it belongs (no part of it left floating over the score). | not run |
