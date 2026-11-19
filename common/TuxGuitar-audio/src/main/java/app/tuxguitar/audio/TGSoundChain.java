@@ -126,8 +126,8 @@ public final class TGSoundChain {
 	}
 
 	// the source of a track's sound set to MIDI: General MIDI marked plain, so no default plays in its place; of an id of
-	// its own, apart from a VST3 instrument's ("source"), so the synthesizer opens General MIDI rather than handing it
-	// the instrument's processor
+	// its own, apart from the VST3 instrument's ("source") the song keeps meanwhile (kept), as elements are known by id
+	// (the live plugins, the editor area)
 	public static TGProgramElement midi() {
 		TGProgramElement midi = source(GervillProcessorFactory.TYPE);
 		midi.setId(MIDI_ID);

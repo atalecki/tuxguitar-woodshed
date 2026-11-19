@@ -165,16 +165,26 @@ public class TestDefaultSource {
 		assertEquals(level(GUITAR), sounds());
 	}
 
-	// pinned as it is (odd): an instrument of the channel's own given a General MIDI source of the same id ("source"), on a
-	// kind without a default, goes on sounding on its processor, which is given General MIDI's parameters; the plain
-	// General MIDI source of a track's sound set to MIDI has an id of its own ("midi") so it does not meet this
+	// a source of the same id ("source") but of another type in place of the one playing, on a kind without a default:
+	// the processor that played closes and one of the new type opens and plays, either way (before, the processor of the
+	// old type was kept and given the new source's parameters: silence with a real plugin). Read as "<the old processor
+	// open> <processors of the new type made> <what sounds>"
 	@Test
-	public void pinnedAnInstrumentOfItsOwnGivenGeneralMidiOfTheSameIdGoesOnSoundingWithoutADefault() throws MidiPlayerException {
+	public void aSourceOfTheSameIdAndAnotherTypeClosesTheOldProcessorAndPlays() throws MidiPlayerException {
 		sendChain("own");
 		sendBankAndProgram(0, 5);
-		sendChain(GervillProcessorFactory.TYPE);
+		String toGeneralMidi = this.switched(GervillProcessorFactory.TYPE, this.gervill);
+		String toOwn = this.switched("own", this.own);
 
-		assertEquals("source true " + level(OWN), this.playing(this.own.last()));
+		assertEquals("false 1 " + level(GERVILL) + " | false 1 " + level(OWN), toGeneralMidi + " | " + toOwn);
+	}
+
+	// the source playing switched to the type given, its factory given
+	private String switched(String then, FakeProcessors.SourceFactory made) throws MidiPlayerException {
+		TGMidiProcessor played = this.channel.getProcessor().getProcessor();
+		int before = made.created.size();
+		sendChain(then);
+		return played.isOpen() + " " + (made.created.size() - before) + " " + sounds();
 	}
 
 	private void sendBankAndProgram(int bank, int program) throws MidiPlayerException {

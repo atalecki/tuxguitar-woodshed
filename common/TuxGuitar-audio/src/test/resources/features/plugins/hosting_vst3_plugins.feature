@@ -250,6 +250,16 @@ Feature: Hosting VST3 plugins
     When I go back to the General MIDI program for track 1
     Then track 1's sound chain reads "Distortion Electric Guitar"
 
+  # live, the TuxGuitar Synthesizer runs the channel already; a guitar track here has no default instrument, so General
+  # MIDI comes back as the source of the same id the instrument had: each change is heard at once, never silence
+  Scenario: while the TuxGuitar Synthesizer runs the song, going back to General MIDI and to the instrument plays each at once
+    Given I have chosen the VST3 instrument "Test Sine" for track 1
+    And the TuxGuitar Synthesizer runs the song's sound chains, each change sent to it as the app sends it
+    When I go back to the General MIDI program for track 1
+    Then track 1's channel plays "General MIDI" before any Play
+    When I choose the VST3 instrument "Test Sine" for track 1
+    Then track 1's channel plays "Test Sine" before any Play
+
   Scenario: an audio track cannot take a VST3 instrument
     Given I have added an audio track recording input channel 1
     When I choose the VST3 instrument "Test Sine" for track 2

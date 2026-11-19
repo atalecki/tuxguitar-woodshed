@@ -186,20 +186,26 @@ public class TGSynthChannelProcessor {
 		this.taps.remove(processor);
 	}
 
+	// a mapped element's processor closes unless the program has that element: of its id and of its type (a source of
+	// another type under the same id, General MIDI in place of a VST3 instrument, opens a processor of its own)
 	public boolean shouldCloseProcessor(TGProgram program, TGProgramElement element) {
 		synchronized (this.lock) {
 			if( program != null ) {
-				if( program.getReceiver() != null && program.getReceiver().equals(element)) {
+				if( program.getReceiver() != null && isSame(program.getReceiver(), element)) {
 					return false;
 				}
 				for( int i = 0 ; i < program.countOutputs() ;i ++){
-					if( program.getOutput(i).equals(element)) {
+					if( isSame(program.getOutput(i), element)) {
 						return false;
 					}
 				}
 			}
 			return true;
 		}
+	}
+
+	private static boolean isSame(TGProgramElement element, TGProgramElement mapped) {
+		return element.equals(mapped) && element.getType().equals(mapped.getType());
 	}
 
 	public TGProgramElement getElement(TGAudioProcessor processor) {
