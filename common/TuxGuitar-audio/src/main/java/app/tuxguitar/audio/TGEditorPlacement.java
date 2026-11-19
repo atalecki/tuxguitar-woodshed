@@ -12,7 +12,7 @@ import app.tuxguitar.vst3.TGEditorTarget;
  * action that opens it (TGOpenPluginEditorAction.ATTRIBUTE_TARGET), the native handles read when Edit is pressed.
  * Floating: a window of its own owned by the app's window, so it stays in front of it (the Sound Chain dialog).
  * Embedded: inside an area of the app's window, at most TGEditorArea.MAX_SHARE of that window high, the app's window
- * kept as the owner of a window of its own later (the Sound Chain panel), the keys given (TGEditorKeys: TuxGuitar's
+ * kept as the owner of a window of its own later (the Track panel), the keys given (TGEditorKeys: TuxGuitar's
  * shortcuts, read when Edit is pressed) passed to that area while the editor has the focus.
  */
 public interface TGEditorPlacement {

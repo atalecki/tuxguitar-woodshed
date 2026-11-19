@@ -9,7 +9,6 @@ import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.system.keybindings.KeyBindingActionManager;
 import app.tuxguitar.app.system.language.TGLanguageEvent;
 import app.tuxguitar.app.ui.TGApplication;
-import app.tuxguitar.app.view.main.TGBottomDock;
 import app.tuxguitar.app.view.main.TGRightDock;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChainCommands;
@@ -41,18 +40,19 @@ import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
  * The Track panel, docked at the right of the main window (TGRightDock) as Guitar Pro's Track inspector, for the
- * caret's track, top to bottom: its colour and name (TGTrackHeader); SOUNDS, the [MIDI | VST3] switch and the instrument
- * (TGTrackSoundSection); the sound chain as a list in the order the sound flows (the source, then each effect, an arrow
- * down into each after the source, a level meter under each, Track out and Master at the foot), one picked; the actions
- * on the picked one (Edit / Hide editor, Disable / Enable, Up, Remove); Add effect; "Sound Chain..." opening the dialog
- * (Scan again and the scan report are there) and, while the MIDI Port is not the TuxGuitar Synthesizer, a quiet line
- * saying the chains are not heard. A name too long for the panel ends in "…", its whole in the tooltip. Built in
- * sections so more can follow (notation, tuning, interpretation); it scrolls when taller than the window. The picked
- * plugin's own editor shows at the foot of the window (TGBottomDock), in the editor area (TGSoundChainEditorArea), shown
- * and hidden with the panel by View > Sound Chain (F8), the choice kept in its own config at once, as is the panel's
- * width (TGTrackPanelWidth) once its divider is dragged. It reads the track again only when what it shows changed
- * (TGSoundChainFollow), not on each move of the caret; what is enabled is decided by the rows (TGSoundChainButtons), the
- * changes run through TGSoundChainCommands. Glue only; on the UI thread.
+ * caret's track, top to bottom: its colour and name (TGTrackHeader); SOUNDS, the [MIDI | VST3] switch and the
+ * instrument (TGTrackSoundSection); the sound chain as a list in the order the sound flows (the source, then each
+ * effect, an arrow down into each after the source, a level meter under each, Track out and Master at the foot), one
+ * picked; the actions on the picked one (Edit / Hide editor, Disable / Enable, Up, Remove); Add effect; "Sound
+ * Chain..." opening the dialog (Scan again and the scan report are there) and, while the MIDI Port is not the TuxGuitar
+ * Synthesizer, a quiet line saying the chains are not heard. A name too long for the panel ends in "…", its whole in
+ * the tooltip. Built in sections so more can follow (notation, tuning, interpretation); under them the picked plugin's
+ * own editor, or TuxGuitar's parameter rows for one without (TGSoundChainEditorArea: an editor wider than the panel
+ * goes to a window of its own); it scrolls when taller than the window. Nothing of it is at the foot of the window.
+ * Shown and hidden by View > Sound Chain (F8), the choice kept in its own config at once, as is the panel's width
+ * (TGTrackPanelWidth) once its divider is dragged. It reads the track again only when what it shows changed
+ * (TGSoundChainFollow), not on each move of the caret; what is enabled is decided by the rows (TGSoundChainButtons),
+ * the changes run through TGSoundChainCommands. Glue only; on the UI thread.
  */
 final class TGTrackPanel implements TGEventListener {
 
@@ -63,13 +63,15 @@ final class TGTrackPanel implements TGEventListener {
 	private static final float NUMBER_WIDTH = 56f;
 	// about how wide a character of a name is, so a name too long for the panel is cut
 	private static final float CHARACTER = 7f;
-	// the panel's rows: the header, the sound's three, the chain, the actions on the picked one, Add effect, the dialog
+	// the panel's rows: the header, the sound's three, the chain, the actions on the picked one, Add effect, the dialog,
+	// the editor area
 	private static final int HEADER = 1;
 	private static final int SOUND = 2;
 	private static final int CHAIN = 5;
 	private static final int PICKED = 6;
 	private static final int ADD = 7;
 	private static final int DIALOG = 8;
+	private static final int EDITOR = 9;
 
 	private final TGContext context;
 	private final UIFactory factory;
@@ -86,8 +88,6 @@ final class TGTrackPanel implements TGEventListener {
 	private List<String> names = new ArrayList<String>();
 	private UIScrollBarPanel scroll;
 	private UIPanel panel;
-	// the bottom dock's panel holding the editor area
-	private UIPanel editors;
 	private TGTrackHeader header;
 	private TGTrackSoundSection sound;
 	private UIPanel chain;
@@ -108,8 +108,8 @@ final class TGTrackPanel implements TGEventListener {
 		this.commands = new TGSoundChainCommands(context, () -> this.shown.getTrack(), () -> this.later(this::follow));
 	}
 
-	// in the right dock's slot, its editor area in the bottom dock's; shown as last chosen (the first time: shown) unless
-	// the audio it edits is off
+	// in the right dock's slot, its editor area under the chain and its actions; shown as last chosen (the first time:
+	// shown) unless the audio it edits is off
 	void create(boolean audio) {
 		this.createPanel();
 		this.header = new TGTrackHeader(this.context, this.factory, this.panel, HEADER, this.commands);
@@ -122,7 +122,7 @@ final class TGTrackPanel implements TGEventListener {
 		this.dialog(this.section(DIALOG));
 		boolean visible = (audio && this.config.getBooleanValue(VISIBLE, true));
 		this.meters = new TGSoundChainMeters(this.context, this.panel);
-		this.createEditors();
+		this.area = new TGSoundChainEditorArea(this.context, this.factory, this.section(EDITOR), 1, this.commands, this.config, this::layout);
 		this.texts.forEach(Runnable::run);
 		this.show(visible);
 		TGRightDock.getInstance(this.context).setDragged(this::dragged);
@@ -142,15 +142,6 @@ final class TGTrackPanel implements TGEventListener {
 		this.panel = this.factory.createPanel(this.scroll, false);
 		this.panel.setLayout(new UITableLayout());
 		this.panel.getLayout().set(UITableLayout.IGNORE_INVISIBLE, true);
-	}
-
-	// the editor area at the foot of the window
-	private void createEditors() {
-		UIPanel slot = TGBottomDock.getInstance(this.context).getSlot();
-		this.editors = this.factory.createPanel(slot, false);
-		this.editors.setLayout(new UITableLayout(0f));
-		((UITableLayout) slot.getLayout()).set(this.editors, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 1, null, null, 0f);
-		this.area = new TGSoundChainEditorArea(this.context, this.factory, this.editors, 1, this.commands, this.config);
 	}
 
 	// a section of the column, its controls in a table of its own
@@ -216,13 +207,11 @@ final class TGTrackPanel implements TGEventListener {
 		this.onUpdate();
 	}
 
-	// the panel at its width and the editor area, or neither; the meters measure only while shown
+	// the panel at its width, or hidden, the editor area's view with it; the meters measure only while shown
 	private void show(boolean visible) {
-		this.editors.setVisible(visible);
 		this.area.panel(visible);
 		this.meters.shown(visible);
 		TGRightDock.getInstance(this.context).show(visible, this.width());
-		TGBottomDock.getInstance(this.context).layout();
 	}
 
 	// the width the panel is shown at: as last left, else the default
@@ -249,10 +238,8 @@ final class TGTrackPanel implements TGEventListener {
 		this.area.dispose();
 		TGEditorManager.getInstance(this.context).removeUpdateListener(this);
 		TuxGuitar.getInstance().getLanguageManager().removeLoader(this);
-		this.editors.dispose();
 		this.scroll.dispose();
 		TGRightDock.getInstance(this.context).show(false, 0f);
-		TGBottomDock.getInstance(this.context).layout();
 	}
 
 	// an update of the app (a caret move, a change of the song, of the MIDI Port...) or another language

@@ -27,4 +27,11 @@ public class TestEditorArea {
 	public void anAreaWithoutAWidthHasNoHeight() {
 		assertEquals("0 0", TGEditorArea.height(230, 0, 800) + " " + TGEditorArea.height(230, -1, 800));
 	}
+
+	// a width in units as a height is (the panel compares an editor too large with its own width): at 150 %, 600 pixels
+	// in an area of 450 pixels and 300 units are 400 units; an area of a single pixel still converts
+	@Test
+	public void aWidthInUnitsAsAHeightIs() {
+		assertEquals("400 10", TGEditorArea.units(600, 450, 300) + " " + TGEditorArea.units(5, 1, 2));
+	}
 }

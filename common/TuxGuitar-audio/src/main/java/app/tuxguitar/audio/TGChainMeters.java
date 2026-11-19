@@ -12,7 +12,7 @@ import app.tuxguitar.midi.synth.TGLevelTap;
 import app.tuxguitar.midi.synth.TGLevels;
 
 /**
- * The meters a sound chain shows (the Sound Chain panel's): one per row it follows (its elements, then the track's
+ * The meters a sound chain shows (the Track panel's): one per row it follows (its elements, then the track's
  * output: TGSoundChainRows.getMeters), then the master. Each tick it reads the live levels' taps (never the processors,
  * so never their locks) and moves each meter (TGMeterBallistics). A row measuring nothing (an effect switched off, a
  * point not running yet, no live TuxGuitar Synthesizer) reads OFF. The state of each tap's meter is kept across rows

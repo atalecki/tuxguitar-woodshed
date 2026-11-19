@@ -98,7 +98,7 @@ public final class TGAudioStatus {
 			return this.clipped;
 		}
 
-		// the level itself, which a meter reads (TGTapMeter) as the Sound Chain panel's do
+		// the level itself, which a meter reads (TGTapMeter) as the Track panel's do
 		public TGInputLevel getInput() {
 			return this.input;
 		}

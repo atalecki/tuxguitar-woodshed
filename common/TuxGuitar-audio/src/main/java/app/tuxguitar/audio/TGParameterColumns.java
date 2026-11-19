@@ -1,7 +1,7 @@
 package app.tuxguitar.audio;
 
 /**
- * TuxGuitar's parameter rows (a row per parameter: its title, a slider, its value) laid out in the Sound Chain panel's
+ * TuxGuitar's parameter rows (a row per parameter: its title, a slider, its value) laid out in the Track panel's
  * editor area as numbers: as many columns as the area's width holds, filled down each column first (parameters that
  * follow each other stay together, as a list reads), and the area as high as the longest column, at most the share of
  * TuxGuitar's window an editor may take (TGEditorArea.MAX_SHARE): beyond that the rows scroll inside the area. All in the

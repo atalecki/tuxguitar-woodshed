@@ -26,7 +26,7 @@ public final class TGSoundChainRows {
 	// what an app's sound chain editor can be asked to do, each enabled or greyed for the row picked (the one place that
 	// decides it): add the VST3 effect picked, make the VST3 instrument picked or the default instrument the source, keep
 	// the default instrument in the song, move the picked effect up, remove it, enable or disable it, open its editor;
-	// the Sound Chain panel opens the full dialog on its track
+	// the Track panel opens the full dialog on its track
 	public enum Control {
 		ADD_EFFECT((rows, row, effect, instrument) -> rows.canAdd(effect)),
 		USE_AS_SOURCE((rows, row, effect, instrument) -> rows.canChoose(instrument)),
@@ -86,7 +86,7 @@ public final class TGSoundChainRows {
 		return IntStream.range(0, elements.size()).mapToObj(row -> (row > 0 ? row + ". " : "") + elements.get(row)).collect(Collectors.toList());
 	}
 
-	// the same without the effects' numbers (the Sound Chain panel's buttons, arrows between them)
+	// the same without the effects' numbers (the Track panel's chain list, arrows between them)
 	public List<String> getElements(String source) {
 		List<String> elements = new ArrayList<String>();
 		if (this.chain == null) {

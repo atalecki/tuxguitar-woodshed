@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 
 import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.system.keybindings.KeyBindingActionManager;
-import app.tuxguitar.app.view.main.TGBottomDock;
 import app.tuxguitar.app.view.main.TGWindow;
 import app.tuxguitar.audio.TGEditorDock;
 import app.tuxguitar.audio.TGEditorDock.Element;
@@ -33,15 +32,16 @@ import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3Exception;
 
 /**
- * The Sound Chain panel's editor area, under its chain and action lines: the picked plugin's own editor inside it
- * (a window of the plugin's host process, a child of this area's native window), as wide as the area when it can be,
- * as high as it needs (Q3: no border to drag), with a line above naming it and offering Open in window; or a line saying
- * where the editor is instead (in a window of its own, too large for the panel, stopped); for a plugin without an editor
- * of its own, TuxGuitar's parameter rows under that line (TGSoundChainParameterRoom). TGEditorDock decides all of
- * it; this executes its steps (TGLivePlugins closes a view, TGSoundChainCommands opens an editor where the step says)
- * and shows what it shows, on the UI thread. What Hide editor and Open in window remember is kept in the panel's config
- * at once. While the editor inside has the focus, TuxGuitar's shortcuts with Ctrl, Alt or a function key typed there come
- * to the area (the host passes them), whose key listener runs them; plain keys stay with the plugin. Glue only.
+ * The Track panel's editor area, under its chain and actions: the picked plugin's own editor inside it (a window of the
+ * plugin's host process, a child of this area's native window), as wide as the area when it can be, as high as it needs
+ * (Q3: no border to drag), with a line above naming it and offering Open in window; or a line saying where the editor
+ * is instead (in a window of its own, too large for the panel: wider than the panel when it opens or once the panel is
+ * made narrower, or higher than the limit; stopped); for a plugin without an editor of its own, TuxGuitar's parameter
+ * rows under that line (TGSoundChainParameterRoom). TGEditorDock decides all of it; this executes its steps
+ * (TGLivePlugins closes a view, TGSoundChainCommands opens an editor where the step says) and shows what it shows, on
+ * the UI thread. What Hide editor and Open in window remember is kept in the panel's config at once. While the editor
+ * inside has the focus, TuxGuitar's shortcuts with Ctrl, Alt or a function key typed there come to the area (the host
+ * passes them), whose key listener runs them; plain keys stay with the plugin. Glue only.
  */
 final class TGSoundChainEditorArea {
 
@@ -63,11 +63,14 @@ final class TGSoundChainEditorArea {
 	private final UIButton button;
 	private final UIPanel area;
 	private final UIPanel parent;
+	// the panel laid out again once the area's height changed
+	private final Runnable laidOut;
 	// TuxGuitar's parameter rows of a plugin without an editor of its own
 	private final TGSoundChainParameterRoom room;
 
-	TGSoundChainEditorArea(TGContext context, UIFactory factory, UIPanel parent, int row, TGSoundChainCommands commands, TGConfigManager config) {
+	TGSoundChainEditorArea(TGContext context, UIFactory factory, UIPanel parent, int row, TGSoundChainCommands commands, TGConfigManager config, Runnable laidOut) {
 		this.context = context;
+		this.laidOut = laidOut;
 		this.config = config;
 		this.commands = commands;
 		this.parent = parent;
@@ -87,7 +90,7 @@ final class TGSoundChainEditorArea {
 		((UITableLayout) parent.getLayout()).set(this.area, row + 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 1, null, null, 0f);
 		this.placements.put(How.INSIDE, TGEditorPlacement.embedded(() -> TGNativeWindow.handle(this.area), this::owner, this::keys));
 		this.placements.put(How.IN_A_WINDOW, TGNativeWindow.floating(context));
-		this.room = new TGSoundChainParameterRoom(context, factory, parent, row + 2);
+		this.room = new TGSoundChainParameterRoom(context, factory, parent, row + 2, laidOut);
 		this.show();
 	}
 
@@ -183,7 +186,7 @@ final class TGSoundChainEditorArea {
 		Optional.ofNullable(line).ifPresent(this::say);
 		float height = this.dock.height(Math.round(this.parent.getBounds().getWidth()));
 		((UITableLayout) this.parent.getLayout()).set(this.area, UITableLayout.PACKED_HEIGHT, height);
-		TGBottomDock.getInstance(this.context).layout();
+		this.laidOut.run();
 	}
 
 	private void say(Line line) {
