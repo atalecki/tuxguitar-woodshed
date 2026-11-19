@@ -19,22 +19,26 @@ public final class TGMeterLook {
 	// how wide the hold line and the 0 dB mark are
 	static final float HOLD = 2f;
 	static final float MARK = 1f;
+	// a stripe 1 wide every this many
+	static final float STRIPES = 2f;
 
 	public enum Role {
 		// the empty track under a bar
 		TRACK,
 		// the bar, up to 0 dB at most
 		BAR,
-		// the bar above 0 dB: striped
+		// the bar above 0 dB, under its stripes
 		OVER,
+		// a stripe across the bar above 0 dB, every STRIPES (so it shows without colour)
+		STRIPE,
 		// the 0 dB mark
 		ZERO,
 		// the hold line
 		HOLD,
-		// the clip lamp, out: an outline
+		// the clip lamp: a filled square (lit, it stays so)...
 		LAMP,
-		// the clip lamp, lit: filled
-		LIT,
+		// ...while out, its inside the track's colour again: an outline 1 wide is left
+		HOLE,
 		// the "!" on a lit lamp (its stroke, its dot): the colour the lamp is not filled with
 		BANG,
 		// the track of a meter that measures nothing
@@ -123,10 +127,22 @@ public final class TGMeterLook {
 		}
 		if (level > zero) {
 			shapes.add(new Shape(Role.OVER, zero, top, level - zero, high));
+			shapes.addAll(stripes(zero, level, top, high));
 		}
 		shapes.add(new Shape(Role.ZERO, zero, top, MARK, high));
 		if (!Double.isInfinite(hold)) {
 			shapes.add(new Shape(Role.HOLD, Math.max(0, at(hold, wide) - HOLD), top, HOLD, high));
+		}
+		return shapes;
+	}
+
+	// the stripes from 0 dB to the level, each 1 wide (less at the level)
+	private static List<Shape> stripes(float zero, float level, float top, float high) {
+		List<Shape> shapes = new ArrayList<Shape>();
+		int stripes = (int) Math.ceil((level - zero) / STRIPES);
+		for (int stripe = 0; stripe < stripes; stripe++) {
+			float x = zero + stripe * STRIPES;
+			shapes.add(new Shape(Role.STRIPE, x, top, Math.min(MARK, level - x), high));
 		}
 		return shapes;
 	}
@@ -136,13 +152,16 @@ public final class TGMeterLook {
 		return (float) (TGMeterScale.position(decibels) * wide);
 	}
 
-	// an outline while out; lit, filled with a "!": its stroke and its dot, a sixth of the lamp from its edges
+	// an outline 1 wide while out (every shape is filled, so an app draws no outline); lit, filled with a "!": its
+	// stroke and its dot, a sixth of the lamp from its edges
 	private static List<Shape> lamp(boolean lit, float left, float size) {
 		List<Shape> shapes = new ArrayList<Shape>();
 		float sixth = size / 6;
 		float middle = left + (size - sixth) / 2;
-		shapes.add(new Shape(lit ? Role.LIT : Role.LAMP, left, 0, size, size));
-		if (lit) {
+		shapes.add(new Shape(Role.LAMP, left, 0, size, size));
+		if (!lit) {
+			shapes.add(new Shape(Role.HOLE, left + MARK, MARK, size - 2 * MARK, size - 2 * MARK));
+		} else {
 			shapes.add(new Shape(Role.BANG, middle, sixth, sixth, size - 4 * sixth));
 			shapes.add(new Shape(Role.BANG, middle, size - 2 * sixth, sixth, sixth));
 		}

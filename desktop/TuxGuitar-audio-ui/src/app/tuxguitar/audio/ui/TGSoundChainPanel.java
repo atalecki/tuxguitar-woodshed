@@ -21,6 +21,7 @@ import app.tuxguitar.editor.TGEditorManager;
 import app.tuxguitar.event.TGEvent;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.ui.UIFactory;
+import app.tuxguitar.ui.appearance.UIAppearance;
 import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.widget.UIButton;
 import app.tuxguitar.ui.widget.UIContainer;
@@ -49,6 +50,9 @@ import app.tuxguitar.vst3.TGVst3Plugin;
 final class TGSoundChainPanel implements TGEventListener {
 
 	static final String VISIBLE = "visible";
+	// how wide Track out's and Master's meters are, and the held peak beside their name ("-60.0 dB")
+	private static final float OUTPUT_WIDTH = 120f;
+	private static final float NUMBER_WIDTH = 56f;
 
 	private final TGContext context;
 	private final UIFactory factory;
@@ -60,6 +64,10 @@ final class TGSoundChainPanel implements TGEventListener {
 	private final List<UIToggleButton> chips = new ArrayList<UIToggleButton>();
 	// the chain line's groups: each element's button, after its arrow
 	private final List<UIPanel> links = new ArrayList<UIPanel>();
+	// the level meters: one under each element's button, then Track out and Master
+	private TGSoundChainMeters meters;
+	private List<TGMeterCanvas> canvases = new ArrayList<TGMeterCanvas>();
+	private List<String> names = new ArrayList<String>();
 	private UIPanel panel;
 	private UIPanel chain;
 	private UILabel title;
@@ -92,6 +100,8 @@ final class TGSoundChainPanel implements TGEventListener {
 		this.actions(this.line(2));
 		boolean visible = (audio && this.config.getBooleanValue(VISIBLE, true));
 		this.panel.setVisible(visible);
+		this.meters = new TGSoundChainMeters(this.context, this.panel);
+		this.meters.shown(visible);
 		this.area = new TGSoundChainEditorArea(this.context, this.factory, this.panel, 3, this.commands, this.config);
 		this.area.panel(visible);
 		this.texts.forEach(Runnable::run);
@@ -177,6 +187,7 @@ final class TGSoundChainPanel implements TGEventListener {
 		this.config.setValue(VISIBLE, visible);
 		this.config.save();
 		this.area.panel(visible);
+		this.meters.shown(visible);
 		this.onUpdate();
 		TGBottomDock.getInstance(this.context).layout();
 	}
@@ -188,6 +199,7 @@ final class TGSoundChainPanel implements TGEventListener {
 	}
 
 	void dispose() {
+		this.meters.shown(false);
 		this.area.dispose();
 		TGEditorManager.getInstance(this.context).removeUpdateListener(this);
 		TuxGuitar.getInstance().getLanguageManager().removeLoader(this);
@@ -241,20 +253,61 @@ final class TGSoundChainPanel implements TGEventListener {
 		this.links.forEach(UIControl::dispose);
 		this.links.clear();
 		this.chips.clear();
+		this.canvases = new ArrayList<TGMeterCanvas>();
+		this.names = new ArrayList<String>();
 		TGSoundChainStrip.links(read).forEach(this::link);
+		this.outputs(!read.isEmpty());
+		this.meters.follow(this.rows.getMeters(), this.canvases, this.names);
 		this.offer(TGVst3Hosting.getInstance(this.context).getPlugins());
 		this.pick(this.picked);
 		TGBottomDock.getInstance(this.context).layout();
 	}
 
-	// an element on the chain line: its button, after the arrow leading into it, kept together when the line wraps
+	// an element on the chain line: its button, after the arrow leading into it, its level meter under the button,
+	// kept together when the line wraps
 	private void link(TGSoundChainStrip.Link link) {
 		UIPanel group = this.group(this.chain);
-		if (link.isArrowed()) {
+		this.arrow(group, link.isArrowed());
+		this.chips.add(this.place(group, this.chip(group, link.getRow(), link.getText())));
+		this.canvases.add(TGMeterCanvas.mono(this.factory, this.appearance(), group, 2, group.getChildren().size(), this.clearing(link.getRow())));
+		this.names.add(TuxGuitar.getProperty("audio.sound-chain.meter.after", new String[] {link.getText()}));
+		this.links.add(group);
+	}
+
+	private void arrow(UIPanel group, boolean arrowed) {
+		if (arrowed) {
 			this.place(group, this.factory.createLabel(group)).setText(TuxGuitar.getProperty("audio.sound-chain.flows-into"));
 		}
-		this.chips.add(this.place(group, this.chip(group, link.getRow(), link.getText())));
+	}
+
+	// Track out, when a track is shown, then Master
+	private void outputs(boolean track) {
+		if (track) {
+			this.output("audio.sound-chain.meter.out", true);
+		}
+		this.output("audio.sound-chain.meter.master", false);
+	}
+
+	// Track out (after the track's Volume and Balance) and Master: their name, the held peak beside it, two bars under
+	private void output(String key, boolean arrowed) {
+		UIPanel group = this.group(this.chain);
+		this.arrow(group, arrowed);
+		this.place(group, this.factory.createLabel(group)).setText(TuxGuitar.getProperty(key));
+		int column = group.getChildren().size();
+		UILabel number = this.factory.createLabel(group);
+		((UITableLayout) group.getLayout()).set(number, 1, column + 1, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_CENTER, true, false, 1, 1, NUMBER_WIDTH, null, 0f);
+		this.canvases.add(TGMeterCanvas.stereo(this.factory, this.appearance(), group, 2, column, OUTPUT_WIDTH, number, this.clearing(this.canvases.size())));
+		this.names.add(TuxGuitar.getProperty(key));
 		this.links.add(group);
+	}
+
+	// a click on the meter of the row clears its lamp
+	private Runnable clearing(int row) {
+		return () -> this.meters.clear(row);
+	}
+
+	private UIAppearance appearance() {
+		return TGApplication.getInstance(this.context).getApplication().getAppearance();
 	}
 
 	private UIToggleButton chip(UIPanel group, int row, String text) {
