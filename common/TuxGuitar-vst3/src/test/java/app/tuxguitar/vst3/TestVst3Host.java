@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -1086,7 +1087,23 @@ public class TestVst3Host {
 	private static final int ALT = 4 << 8;
 	// for the test: the plugin looks at the key typed without taking it (PeekMessage, PM_NOREMOVE)
 	private static final int PEEKED = 1 << 16;
+	// for the test: the key is typed in a standard text box of the plugin's view, which has the focus: an Edit, a RichEdit
+	private static final int IN_EDIT = 1 << 17;
+	private static final int IN_RICH_EDIT = 2 << 17;
+	// the same under class names of the plugin's own (superclassed), or in a list box of the view (no text box)
+	private static final int IN_RENAMED_EDIT = 3 << 17;
+	private static final int IN_RENAMED_RICH_EDIT = 4 << 17;
+	private static final int IN_LIST_BOX = 5 << 17;
 	private static final int[] SHORTCUTS = {'Z' | CTRL, 0x77, 0x25 | ALT};
+	// the keys a text box edits with, as TuxGuitar's shortcuts too: copy, cut, paste, select all, undo, redo (Ctrl+Y,
+	// Ctrl+Shift+Z), a word left or right (Ctrl+Left, Ctrl+Right), selected (with Shift too), deleted (Ctrl+Backspace,
+	// Ctrl+Delete), and Ctrl+Shift+Delete (TuxGuitar's Remove Track, kept so a slip while typing removes no track; typed
+	// before the paste, while the box is empty, as a text box may cut with it)
+	private static final int[] EDITING = {'C' | CTRL, 'X' | CTRL, 0x2E | CTRL | SHIFT, 'V' | CTRL, 'A' | CTRL, 'Z' | CTRL, 'Y' | CTRL, 'Z' | CTRL | SHIFT,
+		0x25 | CTRL, 0x27 | CTRL, 0x25 | CTRL | SHIFT, 0x27 | CTRL | SHIFT, 0x08 | CTRL, 0x2E | CTRL};
+	// TuxGuitar's shortcuts, those a text box edits with, and two it does not (Ctrl+Shift+C, Ctrl+Up)
+	private static final int[] WITH_EDITING = IntStream.concat(IntStream.concat(IntStream.of(SHORTCUTS), IntStream.of(EDITING)), IntStream.of('C' | CTRL | SHIFT, 0x26 | CTRL))
+		.toArray();
 
 	// where a key typed in the plugin's view (with the modifiers held) went once it got there: "window <key>" when the
 	// stand-in heard it, as typed there with the modifiers its thread saw held, "view <key>" when the view did (both,
@@ -1098,6 +1115,7 @@ public class TestVst3Host {
 		typed.put("alt", (long) ((key & ALT) != 0 ? 1 : 0));
 		typed.put("shift", (long) ((key & SHIFT) != 0 ? 1 : 0));
 		typed.put("peek", (long) ((key & PEEKED) != 0 ? 1 : 0));
+		typed.put("box", (long) (key >> 17));
 		plugin.message("TG.type", typed, Collections.<String, byte[]>emptyMap());
 		long end = System.currentTimeMillis() + 2000;
 		String went = "";
@@ -1129,10 +1147,51 @@ public class TestVst3Host {
 
 	// Test Gain's editor inside the stand-in, passing the shortcuts (SHORTCUTS)
 	private TGVst3Instance passingShortcuts(StandIn app) throws TGVst3Exception {
+		return passing(app, SHORTCUTS);
+	}
+
+	private TGVst3Instance passing(StandIn app, int[] keys) throws TGVst3Exception {
 		TGVst3Instance gain = open("Test Gain");
-		gain.openEditor(app.at(1.0).passing(SHORTCUTS), "");
+		gain.openEditor(app.at(1.0).passing(keys), "");
 		once(gain, TGVst3EditorWindow::isEmbedded);
 		return gain;
+	}
+
+	// the keys, typed in the plugin's control of that kind (IN_EDIT, IN_RICH_EDIT, ...)
+	private static int[] in(int box, int... keys) {
+		return Arrays.stream(keys).map(key -> key | box).toArray();
+	}
+
+	// while a standard text box of the plugin's editor has the focus (an Edit, a RichEdit: a key comes to the window with
+	// the focus), the shortcuts passed that it edits with (EDITING) stay with it; the other shortcuts passed still go to
+	// the window, and so do those typed elsewhere in the editor (a plugin drawing its own text boxes)
+	@Test
+	public void aStandardTextBoxWithTheFocusKeepsTheEditingKeysOthersStillGoToTheWindow() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passing(app, WITH_EDITING);
+			String edit = typedAll(gain, app, in(IN_EDIT, EDITING)) + ", " + typedAll(gain, app, in(IN_EDIT, 0x77, 0x25 | ALT, 'C' | CTRL | SHIFT, 0x26 | CTRL));
+			String rich = typedAll(gain, app, in(IN_RICH_EDIT, 'V' | CTRL, 'Y' | CTRL, 0x08 | CTRL, 0x77));
+			assertEquals("view C+ctrl, view X+ctrl, view #46+ctrl+shift, view V+ctrl, view A+ctrl, view Z+ctrl, view Y+ctrl, view Z+ctrl+shift, view #37+ctrl, view #39+ctrl,"
+				+ " view #37+ctrl+shift, view #39+ctrl+shift, view #8+ctrl, view #46+ctrl, window F8, window #37+alt, window C+ctrl+shift, window #38+ctrl"
+				+ " | view V+ctrl, view Y+ctrl, view #8+ctrl, window F8 | window C+ctrl, window Z+ctrl, window #37+ctrl, window #8+ctrl, window #46+ctrl+shift",
+				edit + " | " + rich + " | " + typedAll(gain, app, 'C' | CTRL, 'Z' | CTRL, 0x25 | CTRL, 0x08 | CTRL, 0x2E | CTRL | SHIFT));
+		}
+	}
+
+	// a standard text box under a class name of the plugin's own (an Edit or a RichEdit superclassed, as Delphi's TEdit and
+	// WinForms' WindowsForms10.EDIT... are) keeps the keys it edits with too; a standard control that edits no text (a
+	// list box) does not
+	@Test
+	public void aTextBoxUnderAnotherClassNameKeepsTheEditingKeysAListBoxDoesNot() throws TGVst3Exception {
+		try (TGVst3Host other = TGVst3Host.start(TestPlugins.host())) {
+			StandIn app = new StandIn(other, TGVst3EditorWindow.AWARE_PER_MONITOR_V2, 500, 300);
+			TGVst3Instance gain = passing(app, WITH_EDITING);
+			String edit = typedAll(gain, app, in(IN_RENAMED_EDIT, 'A' | CTRL, 'Z' | CTRL, 0x25 | CTRL, 0x77));
+			String rich = typedAll(gain, app, in(IN_RENAMED_RICH_EDIT, 'Y' | CTRL, 0x27 | CTRL, 0x77));
+			assertEquals("view A+ctrl, view Z+ctrl, view #37+ctrl, window F8 | view Y+ctrl, view #39+ctrl, window F8 | window A+ctrl, window Z+ctrl, window #37+ctrl",
+				edit + " | " + rich + " | " + typedAll(gain, app, in(IN_LIST_BOX, 'A' | CTRL, 'Z' | CTRL, 0x25 | CTRL)));
+		}
 	}
 
 	// the shortcuts passed, typed in an editor inside a window of TuxGuitar (in another process), go to that window as if

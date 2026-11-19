@@ -686,11 +686,33 @@ const PassedKeys* passingFor(HWND window) {
 	return nullptr;
 }
 
+// the keys a standard text box keeps while it has the focus, though its frame passes them, Ctrl held (2 << 8): copy,
+// cut, paste, select all, undo, redo (Ctrl+Y, Ctrl+Shift+Z), a word left or right, selected with Shift too, a word
+// deleted before or after the caret; and Ctrl+Shift+Delete, TuxGuitar's Remove Track, so a slip while typing removes no
+// track
+const std::set<int32> kTextBoxKeys = {'C' | 2 << 8, 'X' | 2 << 8, 'V' | 2 << 8, 'A' | 2 << 8, 'Z' | 2 << 8, 'Y' | 2 << 8, 'Z' | 3 << 8,
+                                      VK_LEFT | 2 << 8, VK_RIGHT | 2 << 8, VK_LEFT | 3 << 8, VK_RIGHT | 3 << 8, VK_BACK | 2 << 8, VK_DELETE | 2 << 8,
+                                      VK_DELETE | 3 << 8};
+
+// one of Windows' standard text boxes, an Edit or a RichEdit, under whatever class name it was given (Delphi's TEdit,
+// WinForms' WindowsForms10.EDIT..., a plugin's own superclass or subclass): asked what keys it wants, as the dialog
+// manager asks (WM_GETDLGCODE), it says it takes a selection (DLGC_HASSETSEL), which only text boxes say. Its class name
+// would miss the renamed ones, and RealGetWindowClass knows Edit but not RichEdit. The window is the thread's own (a key
+// comes in the queue of the thread that made the window it is for, and the hook sees this thread's queue only), so the
+// message is a direct call of its procedure: nothing waits on another thread
+bool isTextBox(HWND window) { return ((SendMessageW(window, WM_GETDLGCODE, 0, 0) & DLGC_HASSETSEL) != 0); }
+
+// whether the window the key came to (Windows sends keys to the window with the focus) keeps it: a key a text box edits
+// with (looked at first, so the window is asked for those keys only), and a standard text box
+bool keptByTextBox(HWND focused, int32 key) { return (kTextBoxKeys.count(key) > 0 && isTextBox(focused)); }
+
 // a key typed in an editor inside a window of TuxGuitar that its frame passes goes to that window instead, as if typed
-// there, posted (nothing waits on TuxGuitar's thread); the view gets nothing
+// there, posted (nothing waits on TuxGuitar's thread); the view gets nothing. A standard text box with the focus keeps
+// the keys it edits with (a plugin drawing its own text boxes does not: those go to TuxGuitar)
 void passOn(MSG* message) {
 	const PassedKeys* passed = passingFor(message->hwnd);
-	if (passed && passed->keys.count((int32) message->wParam | modifiersHeld() << 8)) {
+	int32 key = (int32) message->wParam | modifiersHeld() << 8;
+	if (passed && passed->keys.count(key) && !keptByTextBox(message->hwnd, key)) {
 		PostMessageW(passed->parent, message->message, message->wParam, message->lParam);
 		message->message = WM_NULL;
 	}

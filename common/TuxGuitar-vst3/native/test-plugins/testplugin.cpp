@@ -230,6 +230,49 @@ void typeKey(void* own, int64 key, int64 ctrl, int64 alt, int64 shift) {
 	PostMessageW((HWND) own, (alt ? WM_SYSKEYDOWN : WM_KEYDOWN), (WPARAM) key, details);
 }
 
+// the plugin's controls inside its view's own window, by kind: 1 an Edit, 2 a RichEdit, 3 and 4 the same under class
+// names of the plugin's own (superclassed, as Delphi's TEdit or WinForms' WindowsForms10.EDIT... are), 5 a list box (a
+// standard control that edits no text); each made when first typed in: the keys that come to one are the view's
+// (kViewHeard), then the control does what it does with them
+const wchar_t* kBoxClasses[6] = {nullptr, L"Edit", L"RICHEDIT50W", L"TuxGuitarTestEdit", L"TuxGuitarTestRichEdit", L"ListBox"};
+WNDPROC boxProcedures[6] = {};
+
+// the classes of kinds 3 and 4, copies of those of kinds 1 and 2 (window procedure, extra bytes, style) under their own
+// names, registered once
+void renameTextBoxes() {
+	static const bool renamed = [] {
+		LoadLibraryW(L"Msftedit.dll");
+		for (int kind = 3; kind <= 4; kind++) {
+			WNDCLASSEXW type = {sizeof(WNDCLASSEXW)};
+			GetClassInfoExW(GetModuleHandleW(nullptr), kBoxClasses[kind - 2], &type);
+			type.hInstance = GetModuleHandleW(nullptr);
+			type.lpszClassName = kBoxClasses[kind];
+			RegisterClassExW(&type);
+		}
+		return true;
+	}();
+	(void) renamed;
+}
+
+LRESULT CALLBACK boxProcedure(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+	heard(kViewHeard, message, wParam);
+	return CallWindowProcW(boxProcedures[GetWindowLongPtrW(window, GWLP_ID)], window, message, wParam, lParam);
+}
+
+HWND control(HWND own, int64 kind) {
+	HWND box = GetDlgItem(own, (int) kind);
+	if (!box) {
+		renameTextBoxes();
+		box = CreateWindowExW(0, kBoxClasses[kind], L"", WS_CHILD | WS_VISIBLE, 0, 0, 100, 20, own, (HMENU) (INT_PTR) kind,
+		                      GetModuleHandleW(nullptr), nullptr);
+		boxProcedures[kind] = (WNDPROC) SetWindowLongPtrW(box, GWLP_WNDPROC, (LONG_PTR) boxProcedure);
+	}
+	return box;
+}
+
+// where a key typed in the editor goes: its control of that kind (it has the focus), or the view's own window (0)
+void* typedInto(void* own, int64 box) { return (box ? control((HWND) own, box) : own); }
+
 // as a plugin's code looks at its thread's next message without taking it (PeekMessage, PM_NOREMOVE), when asked
 void peekQueue(int64 peek) {
 	MSG next;
@@ -268,6 +311,8 @@ void endViewWindow(void*) {}
 void typeKey(void*, int64, int64, int64, int64) {}
 
 void peekQueue(int64) {}
+
+void* typedInto(void* own, int64) { return own; }
 
 #endif
 
@@ -630,16 +675,17 @@ tresult TestPlugin::placeMessage(FIDString id, IAttributeList* attributes, int64
 }
 
 // "TG.type": as the user types the "key" (a virtual-key number) in the editor's view, with "ctrl", "alt" and "shift"
-// held when 1, the plugin then looking at the key without taking it when "peek" is 1; "TG.keys": what the windows of this process heard since last asked, the stand-in's then the views'
+// held when 1, the plugin then looking at the key without taking it when "peek" is 1, typed in the view's control of
+// the kind "box" says (1 an Edit, 2 a RichEdit, 3 and 4 the same renamed, 5 a list box; 0 none, the view itself); "TG.keys": what the windows of this process heard since last asked, the stand-in's then the views'
 // ("<stand-in> | <views>", UTF-8); else restoringMessage
 tresult TestPlugin::keyMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "TG.type") == 0) {
-		int64 typed[5] = {0, 0, 0, 0, 0};
-		const char* names[5] = {"key", "ctrl", "alt", "shift", "peek"};
-		for (int i = 0; i < 5; i++) {
+		int64 typed[6] = {0, 0, 0, 0, 0, 0};
+		const char* names[6] = {"key", "ctrl", "alt", "shift", "peek", "box"};
+		for (int i = 0; i < 6; i++) {
 			attributes->getInt(names[i], typed[i]);
 		}
-		typeKey(view.own, typed[0], typed[1], typed[2], typed[3]);
+		typeKey(typedInto(view.own, typed[5]), typed[0], typed[1], typed[2], typed[3]);
 		peekQueue(typed[4]);
 		return kResultOk;
 	}
