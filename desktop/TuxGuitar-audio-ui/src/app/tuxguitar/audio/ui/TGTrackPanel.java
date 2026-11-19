@@ -168,6 +168,7 @@ final class TGTrackPanel implements TGEventListener {
 		UILabel label = this.place(section, 1, 1, this.factory.createLabel(section));
 		this.texts.add(() -> label.setText(TuxGuitar.getProperty("audio.sound-chain.effect") + ":"));
 		this.effects = this.place(section, 2, 1, this.factory.<TGVst3Plugin>createDropDownSelect(section));
+		TGSoundChainButtons.narrow((UITableLayout) section.getLayout(), this.effects);
 		this.effects.addSelectionListener(event -> this.apply());
 		this.buttons.put(Control.ADD_EFFECT, this.button(section, 2, 2, "audio.sound-chain.add-effect", () -> this.commands.addEffect(this.effects.getSelectedValue())));
 	}
