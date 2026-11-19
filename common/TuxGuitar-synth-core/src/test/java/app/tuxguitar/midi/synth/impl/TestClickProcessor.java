@@ -267,6 +267,139 @@ public class TestClickProcessor {
 		}
 	}
 
+	// the recording's samples at the rate, so many semitones higher, at the gain: what a note at velocity 127 sounds
+	private static float[] recording(MidiClickSound sound, float rate, int semitones, double gain) {
+		float[] samples = TGClickSounds.recording(sound, null).at((int) rate, semitones);
+		for (int i = 0; i < samples.length; i++) {
+			samples[i] *= (float) gain;
+		}
+		return samples;
+	}
+
+	// the first so many samples of the left
+	private static float[] first(float[][] sides, int length) {
+		return Arrays.copyOf(sides[0], length);
+	}
+
+	// the first samples of the left played are the recording's at the rate, as it is, at velocity 127 and 0 dB
+	private static void assertRecording(MidiClickSound sound, float rate, float[][] played) {
+		assertArrayEquals(Arrays.copyOf(recording(sound, rate, 0, 1), 2048), first(played, 2048), 1e-6f, sound + " at " + rate + " Hz");
+	}
+
+	// a processor told the sound for every beat (beat 1 accented), at 0 dB
+	private static ClickProcessor toldOnly(MidiClickSound sound) {
+		ClickProcessor click = new ClickProcessor();
+		click.restoreParameters(MidiClick.sameAccented(sound, 0).toParameters(null));
+		return click;
+	}
+
+	// the volume: 10^(dB / 20) times the sound, whatever the velocity
+	@Test
+	public void theClickIsPlayedAtItsVolume() {
+		float[] loud = left(44100, note(64, 0));
+		float[] soft = told(MidiClick.sameAccented(MidiClickSound.CLICK, -6).toParameters(null), 44100, note(64, 0))[0];
+		for (int i = 0; i < loud.length; i++) {
+			assertEquals(loud[i] * Math.pow(10, -6 / 20.0), soft[i], 1e-6, "at " + i);
+		}
+	}
+
+	// the other beats' recording, at the synthesizer's rate, for every note but the accented one
+	@Test
+	public void theOtherBeatsPlayTheirRecordingAtTheSynthesizersRate() {
+		Map<String, String> woodBlock = MidiClick.sameAccented(MidiClickSound.WOOD_BLOCK, 0).toParameters(null);
+		for (float rate : new float[] {44100, 48000}) {
+			assertRecording(MidiClickSound.WOOD_BLOCK, rate, told(woodBlock, rate, new Note(MidiClick.PLAIN, 127, 0)));
+			assertRecording(MidiClickSound.WOOD_BLOCK, rate, told(woodBlock, rate, note(127, 0)));
+		}
+	}
+
+	// beat 1 the other beats' recording, accented: 2 semitones higher, 3 dB louder
+	@Test
+	public void beat1AccentedIsTheRecording2SemitonesHigherAnd3DecibelsLouder() {
+		float[][] played = told(MidiClick.sameAccented(MidiClickSound.CLAVES, 0).toParameters(null), 48000, new Note(MidiClick.ACCENTED, 127, 0));
+
+		assertArrayEquals(Arrays.copyOf(recording(MidiClickSound.CLAVES, 48000, 2, Math.pow(10, 3 / 20.0)), 2048), first(played, 2048), 1e-6f);
+	}
+
+	// beat 1 a sound of its own, as it is: the code-made Click its plain 1500 Hz click
+	@Test
+	public void beat1OfItsOwnIsItsSoundAsItIs() {
+		float[][] clap = told(new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 0).toParameters(null), 44100, new Note(MidiClick.ACCENTED, 127, 0));
+		float[][] click = told(new MidiClick(MidiClickSound.CLICK, MidiClickSound.SNARE, 0).toParameters(null), 44100, new Note(MidiClick.ACCENTED, 127, 0));
+
+		assertRecording(MidiClickSound.CLAP, 44100, clap);
+		assertArrayEquals(left(44100, note(127, 0)), click[0]);
+	}
+
+	// the user's own sound, from the folder the parameters name; one that cannot be read plays the code-made Click
+	@Test
+	public void anOwnSoundIsReadFromTheFolderToldAndOneUnreadablePlaysTheClick(@org.junit.jupiter.api.io.TempDir java.io.File folder) throws Exception {
+		try (java.io.InputStream clap = TGClickSounds.open(MidiClickSound.CLAP, null)) {
+			java.nio.file.Files.copy(clap, new java.io.File(folder, "Mine.wav").toPath());
+		}
+		float[][] own = told(MidiClick.sameAccented(MidiClickSound.own("Mine.wav"), 0).toParameters(folder.getPath()), 44100, note(127, 0));
+		float[][] gone = told(MidiClick.sameAccented(MidiClickSound.own("Gone.wav"), 0).toParameters(folder.getPath()), 44100, note(127, 0), new Note(MidiClick.ACCENTED, 127, 100));
+
+		assertRecording(MidiClickSound.CLAP, 44100, own);
+		assertArrayEquals(left(44100, note(127, 0), new Note(MidiClick.ACCENTED, 127, 100)), gone[0]);
+	}
+
+	// every sample of a recording accented is louder, from its first (a file of the user's that starts at full scale)
+	@Test
+	public void aRecordingAccentedIsLouderFromItsFirstSample(@org.junit.jupiter.api.io.TempDir java.io.File folder) throws Exception {
+		byte[] wave = {'R', 'I', 'F', 'F', 40, 0, 0, 0, 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ', 16, 0, 0, 0, 1, 0, 1, 0, 0x44, (byte) 0xAC, 0, 0,
+			(byte) 0x88, 0x58, 1, 0, 2, 0, 16, 0, 'd', 'a', 't', 'a', 4, 0, 0, 0, 0, 0x40, 0, (byte) 0xC0};
+		java.nio.file.Files.write(new java.io.File(folder, "Loud.wav").toPath(), wave);
+		MidiClickSound loud = MidiClickSound.own("Loud.wav");
+		float[] higher = TGClickSounds.recording(loud, folder.getPath()).at(44100, 2);
+		float[] expected = new float[FRAMES * BLOCKS];
+		for (int i = 0; i < higher.length; i++) {
+			expected[i] = higher[i] * (float) Math.pow(10, 3 / 20.0);
+		}
+
+		assertArrayEquals(expected, told(MidiClick.sameAccented(loud, 0).toParameters(folder.getPath()), 44100, new Note(MidiClick.ACCENTED, 127, 0))[0]);
+	}
+
+	// a recording sounds as long as it is (the snare's 1.3 s), not the code-made Click's 30 ms
+	@Test
+	public void aRecordingSoundsAsLongAsItIs() {
+		ClickProcessor click = toldOnly(MidiClickSound.SNARE);
+		click.sendNoteOn(MidiClick.PLAIN, 127, -1, false, 0);
+		float[][] block = new float[2][FRAMES];
+		float late = 0;
+		for (int b = 0; b < 100; b++) {
+			click.process(block);
+			late = (b == 99 ? peak(block[0], 0, FRAMES) : late);
+		}
+
+		assertTrue(late > 0.0001, "sounds 1.1 s on: " + late);
+	}
+
+	// a click sounds the sounds the processor was told when its note reached it, to its end, whatever it is told after
+	@Test
+	public void aClickKeepsTheSoundsOfWhenItsNoteCame() {
+		ClickProcessor click = toldOnly(MidiClickSound.HI_HAT);
+		click.sendNoteOn(MidiClick.PLAIN, 127, -1, false, 0);
+		click.restoreParameters(MidiClick.DEFAULT.toParameters(null));
+
+		assertRecording(MidiClickSound.HI_HAT, 44100, blocks(click));
+	}
+
+	// parameters that tell no click (another processor's) leave the sounds as they were
+	@Test
+	public void parametersOfNoClickLeaveTheSounds() {
+		ClickProcessor click = toldOnly(MidiClickSound.COWBELL);
+		click.restoreParameters(Map.of("gervil.program", "128:0"));
+
+		assertRecording(MidiClickSound.COWBELL, 44100, play(click, 44100, note(127, 0)));
+	}
+
+	// told the sounds, then a new rate: the sounds at that rate
+	@Test
+	public void toldTheSoundsThenARateItPlaysThemAtThatRate() {
+		assertRecording(MidiClickSound.COWBELL, 48000, play(toldOnly(MidiClickSound.COWBELL), 48000, note(127, 0)));
+	}
+
 	// no latency, no parameters; open until closed, then silent
 	@Test
 	public void itHasNoLatencyNorParametersAndIsSilentOnceClosed() {
