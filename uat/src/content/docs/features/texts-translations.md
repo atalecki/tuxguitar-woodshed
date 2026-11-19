@@ -164,6 +164,8 @@ archive tool that can replace a file inside a zip (such as 7-Zip) and a short te
   the log.
 - The tests cover the damaged take's message in English and a made-up German, opening a song file whose takes are no
   wave files, and a take codec that refuses.
+- From `fix/damaged-take-opens` on, such a song opens without the take, with a warning instead of this refusal: steps 3
+  and 4 above then no longer hold; see **A damaged take no longer keeps a song from opening**.
 
 ### Notes
 

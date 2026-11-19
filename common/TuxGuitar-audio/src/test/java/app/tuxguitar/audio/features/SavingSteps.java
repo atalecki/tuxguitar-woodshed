@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.zip.ZipEntry;
@@ -24,7 +26,6 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import app.tuxguitar.action.TGActionContext;
-import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -65,6 +66,8 @@ public class SavingSteps {
 	private static final String VERSION_PREFIX = "TuxGuitar_file_format ";
 	// the node that holds the TuxGuitar release a file was written with
 	private static final String TG_VERSION = "<TGVersion[^>]*/>";
+	// where a file's take entries are
+	private static final String TAKES = "takes/";
 
 	// the other file formats' writers and readers, as their plugins make them
 	private static final Map<String, Supplier<TGSongWriter>> WRITERS = Map.of("MIDI", MidiSongWriter::new, "GP5", () -> new GP5OutputStream(new GTPSettings()));
@@ -226,34 +229,62 @@ public class SavingSteps {
 	// the saved file with every take entry replaced by bytes that are no wave file
 	@Given("the takes in the saved file are not wave files")
 	public void theTakesAreNotWaveFiles() throws IOException {
+		this.damage(name -> name.startsWith(TAKES));
+	}
+
+	// the saved file with the entry of its first take (the first one its first audio track plays) replaced so
+	@Given("the first take in the saved file is not a wave file")
+	public void theFirstTakeIsNotAWaveFile() throws IOException {
+		this.damage(name -> name.startsWith(TAKES + "1."));
+	}
+
+	// the saved file with the entries named replaced by bytes that are no wave file, every other entry as it was
+	private void damage(Predicate<String> named) throws IOException {
 		ByteArrayOutputStream damaged = new ByteArrayOutputStream();
 		try (ZipInputStream saved = new ZipInputStream(new ByteArrayInputStream(world.saved())); ZipOutputStream zip = new ZipOutputStream(damaged)) {
 			for (ZipEntry entry = saved.getNextEntry(); entry != null; entry = saved.getNextEntry()) {
 				zip.putNextEntry(new ZipEntry(entry.getName()));
-				zip.write(damaged(entry.getName(), saved.readAllBytes()));
+				zip.write(damaged(named.test(entry.getName()), saved.readAllBytes()));
 			}
 		}
 		world.setSaved(damaged.toByteArray());
 	}
 
-	// what an entry of the saved file holds once damaged: a take's entry no wave file, any other entry as it was
-	private static byte[] damaged(String name, byte[] held) {
-		return (name.startsWith("takes/") ? "not a wave file".getBytes(StandardCharsets.US_ASCII) : held);
+	// what an entry of the saved file holds once damaged, if it is: no wave file; as it was otherwise
+	private static byte[] damaged(boolean damaged, byte[] held) {
+		return (damaged ? "not a wave file".getBytes(StandardCharsets.US_ASCII) : held);
 	}
 
-	// what the app's error message reads: the message of the action's refusal (the desktop's open passes it on as it is)
-	@Then("opening it again is refused, the error message reading {string}")
-	public void openingItAgainIsRefused(String message) {
-		TGActionException refused = assertThrows(TGActionException.class, () -> world.open(world.saved()));
-		assertEquals(message, refused.getMessage());
+	// what the app's warning reads once the song is open: the reader's warnings opening the file opened last
+	@Then("opening it warned {string}")
+	public void openingItWarned(String warning) {
+		assertEquals(List.of(warning), world.warnings());
+	}
+
+	@Then("the file's take entries are byte for byte those of the file opened")
+	public void theTakeEntriesAreThoseOfTheFileOpened() throws IOException {
+		Map<String, String> opened = takeEntries(world.opened());
+		assertFalse(opened.isEmpty(), "the file opened has take entries");
+		assertEquals(opened, takeEntries(world.saved()));
+	}
+
+	// the file's take entries by name, each byte one character
+	private static Map<String, String> takeEntries(byte[] file) throws IOException {
+		Map<String, String> takes = new LinkedHashMap<String, String>(entries(file, StandardCharsets.ISO_8859_1));
+		takes.keySet().removeIf(name -> !name.startsWith(TAKES));
+		return takes;
 	}
 
 	// the file's entries, in order, by name, as text
 	static Map<String, String> entries(byte[] file) throws IOException {
+		return entries(file, StandardCharsets.UTF_8);
+	}
+
+	private static Map<String, String> entries(byte[] file, Charset charset) throws IOException {
 		Map<String, String> entries = new LinkedHashMap<String, String>();
 		try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(file))) {
 			for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
-				entries.put(entry.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
+				entries.put(entry.getName(), new String(zip.readAllBytes(), charset));
 			}
 		}
 		return entries;

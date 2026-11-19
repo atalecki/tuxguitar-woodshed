@@ -74,6 +74,7 @@ public class TGSongReaderImpl extends TGStream implements TGSongReader {
 				handle.setNewerFileFormatDetected(true);
 			}
 			this.readContent(handle, entries.getContent(), (entries.hasAudio() ? entries.getTakes() : null), codec);
+			entries.warnings().forEach(handle::addWarning);
 		} catch (TGFileFormatException | IOException e) {
 			throw new TGFileFormatException(e);
 		}

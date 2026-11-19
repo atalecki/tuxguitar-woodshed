@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,13 +126,18 @@ public class TestFileFormat30 {
 	}
 
 	private TGSong read(byte[] file, TGTakeCodec codec) throws TGFileFormatException {
+		return opened(file, codec).getSong();
+	}
+
+	// the reader's handle once it read the file: the song, and what the reader warns about it
+	private TGSongReaderHandle opened(byte[] file, TGTakeCodec codec) throws TGFileFormatException {
 		TGSongReaderHandle handle = new TGSongReaderHandle();
 		handle.setFactory(this.factory);
 		handle.setInputStream(new ByteArrayInputStream(file));
 		TGSongReaderImpl reader = new TGSongReaderImpl();
 		reader.setTakeCodec(codec);
 		reader.read(handle);
-		return handle.getSong();
+		return handle;
 	}
 
 	private TGSong reopened() throws TGFileFormatException {
@@ -290,25 +296,80 @@ public class TestFileFormat30 {
 		assertEquals("No entry for take 1", innermostMessage(assertThrows(TGFileFormatException.class, () -> read(rezip(entries), new TextCodec()))));
 	}
 
-	// a take its codec cannot read: the file is refused saying a take could not be read, and the codec's reason, as the
-	// app's error message reads it, in TuxGuitar's language (English, then a made-up German)
-	@Test
-	public void aTakeTheCodecCannotReadIsRefusedSayingSoAndWhy() throws Exception {
-		measure(this.song, 2, 1).addTakeClip(new TGTakeClip(this.first, 0, 3840, 0, 120.0));
-		byte[] file = write(this.song, new TextCodec());
-		TGTakeCodec refusing = new TextCodec() {
+	// a codec that cannot read the takes recorded at the rates given, each refused with its reason; it reads the others
+	private static TGTakeCodec refusing(Map<Integer, String> reasons) {
+		return new TextCodec() {
 			public TGTake read(InputStream in) throws IOException {
-				throw new IOException("Not a take");
+				TGTake take = super.read(in);
+				if (reasons.containsKey(take.getSampleRate())) {
+					throw new IOException(reasons.get(take.getSampleRate()));
+				}
+				return take;
 			}
 		};
-		Map<String, String> german = Map.of("audio.take.refusal.unreadable", "Eine Aufnahme in diesem Lied ließ sich nicht lesen: {0}");
-		assertEquals("A take in this song could not be read: Not a take | Eine Aufnahme in diesem Lied ließ sich nicht lesen: Not a take",
-			PracticeRefusals.said(Map.of(), () -> refusalReading(file, refusing)) + " | " + PracticeRefusals.said(german, () -> refusalReading(file, refusing)));
 	}
 
-	// the message of the reader's refusal of the file
-	private String refusalReading(byte[] file, TGTakeCodec codec) {
-		return assertThrows(TGFileFormatException.class, () -> read(file, codec)).getMessage();
+	// a take its codec cannot read: the song opens without its samples (it plays silence where it was) and the reader
+	// warns that it was left out, and why; the other takes are read as they were
+	@Test
+	public void aTakeTheCodecCannotReadIsLeftOutSayingSoAndWhyTheOthersRead() throws Exception {
+		measure(this.song, 2, 1).addTakeClip(new TGTakeClip(this.first, 0, 3840, 0, 120.0));
+		measure(this.song, 3, 1).addTakeClip(new TGTakeClip(this.second, 0, 3840, 0, 120.0));
+		byte[] file = write(this.song, new TextCodec());
+		TGTakeCodec codec = refusing(Map.of(44100, "Not a take"));
+		TGSong opened = read(file, codec);
+		TGMeasure left = measure(opened, 2, 1);
+		TGMeasure read = measure(opened, 3, 1);
+
+		assertEquals("A take in this song could not be read and was left out: Not a take | 1/1 0-3840 from 0 at 120.0 with 0 samples"
+			+ " | take 2 at 48000: [0.5 0.75, -1.5 2.0]",
+			PracticeRefusals.english(() -> warnings(file, codec)) + " | " + clips(left) + " with " + left.getTakeClips().get(0).getSource().countSamples()
+				+ " samples | " + samples(read.getTakeClips().get(0).getSource()));
+	}
+
+	// several takes left out: one warning, how many and each reason once, in TuxGuitar's language (English, then a
+	// made-up German), as for one
+	@Test
+	public void takesTheCodecCannotReadAreLeftOutInOneWarningInTuxGuitarsLanguage() throws Exception {
+		measure(this.song, 2, 1).addTakeClip(new TGTakeClip(this.first, 0, 3840, 0, 120.0));
+		measure(this.song, 2, 2).addTakeClip(new TGTakeClip(new TGTake(3, new float[] {0.5f}, 22050), 3840, 7680, 0, 120.0));
+		measure(this.song, 3, 1).addTakeClip(new TGTakeClip(this.second, 0, 3840, 0, 120.0));
+		byte[] file = write(this.song, new TextCodec());
+		TGTakeCodec one = refusing(Map.of(44100, "Not a take"));
+		TGTakeCodec three = refusing(Map.of(44100, "Not a take", 22050, "Not a take", 48000, "Ends early"));
+		Map<String, String> german = Map.of("audio.take.warning.left-out", "Eine Aufnahme in diesem Lied ließ sich nicht lesen und fehlt: {0}",
+			"audio.take.warning.left-out-several", "{0} Aufnahmen in diesem Lied ließen sich nicht lesen und fehlen: {1}");
+
+		assertEquals("A take in this song could not be read and was left out: Not a take"
+			+ " | 3 takes in this song could not be read and were left out: Not a take; Ends early"
+			+ " | Eine Aufnahme in diesem Lied ließ sich nicht lesen und fehlt: Not a take"
+			+ " | 3 Aufnahmen in diesem Lied ließen sich nicht lesen und fehlen: Not a take; Ends early",
+			PracticeRefusals.said(Map.of(), () -> warnings(file, one) + " | " + warnings(file, three))
+				+ " | " + PracticeRefusals.said(german, () -> warnings(file, one) + " | " + warnings(file, three)));
+	}
+
+	// a take left out is saved back as its entry was, byte for byte: a codec that reads it finds it again where it was,
+	// with nothing to warn about
+	@Test
+	public void aTakeLeftOutIsSavedBackAsItsEntryWas() throws Exception {
+		measure(this.song, 2, 1).addTakeClip(new TGTakeClip(this.first, 0, 3840, 0, 120.0));
+		byte[] file = write(this.song, new TextCodec());
+		byte[] saved = write(read(file, refusing(Map.of(44100, "Not a take"))), new TextCodec());
+		TGSongReaderHandle reopened = opened(saved, new TextCodec());
+		TGMeasure measure = measure(reopened.getSong(), 2, 1);
+
+		assertEquals("same entry: true | [] | take 1 at 44100: [0.25 -0.5 0.125] | 1/1 0-3840 from 0 at 120.0",
+			"same entry: " + Arrays.equals(unzip(file).get("takes/1.take"), unzip(saved).get("takes/1.take")) + " | "
+				+ reopened.getWarnings() + " | " + samples(measure.getTakeClips().get(0).getSource()) + " | " + clips(measure));
+	}
+
+	// the reader's warnings opening the file, joined
+	private String warnings(byte[] file, TGTakeCodec codec) {
+		try {
+			return String.join(" / ", opened(file, codec).getWarnings());
+		} catch (TGFileFormatException e) {
+			throw new AssertionError(e);
+		}
 	}
 
 	// why a reader with a take codec refuses a file of the entries named, each holding the version's text
