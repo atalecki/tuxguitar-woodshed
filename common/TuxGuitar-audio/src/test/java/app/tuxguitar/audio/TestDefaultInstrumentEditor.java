@@ -25,6 +25,7 @@ import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.vst3.TGEditorTarget;
 import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
@@ -79,7 +80,7 @@ public class TestDefaultInstrumentEditor {
 
 	// Edit on the guitar's source: its editor, as TGOpenPluginEditorAction opens it
 	private TGPluginEditor edit() throws TGVst3Exception {
-		return this.live.openEditor(this.guitar.getChannelId(), "default-guitar", 0, "");
+		return this.live.openEditor(this.guitar.getChannelId(), "default-guitar", TGEditorTarget.floating(0), "");
 	}
 
 	private TGVst3Instance plugin(String element) throws TGVst3Exception {
@@ -201,7 +202,7 @@ public class TestDefaultInstrumentEditor {
 		chain.setReceiver(TGDefaultInstrumentSource.install(this.fixture.context).kept(TGDefaultInstrumentSource.install(this.fixture.context).play(this.guitar)));
 		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
 		this.send();
-		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "source", 0, "");
+		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "source", TGEditorTarget.floating(0), "");
 		this.undo(before);
 		assertEquals("false false false", editor.isOpen() + " " + this.editing("default-guitar") + " " + this.editing("source"));
 	}

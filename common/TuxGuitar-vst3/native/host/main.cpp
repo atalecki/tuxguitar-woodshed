@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 8;
+const int32_t kProtocolVersion = 9;
 
 enum Operation {
 	kHello = 1,
@@ -44,6 +44,9 @@ enum Operation {
 	kMessage = 14,
 	kEditorWindow = 15,
 	kTiming = 16,
+	kEmbedEditor = 17,
+	kFitEditor = 18,
+	kPing = 19,
 };
 
 struct Failure {
@@ -140,6 +143,10 @@ private:
 				found->second->closeEditor();
 			}
 		}
+		plugins.clear();
+#ifdef _WIN32
+		doEditorWindowWork();
+#endif
 	}
 
 	// reads a request and answers it; false at the end of the input
@@ -183,6 +190,7 @@ private:
 			{kSetParameter, &Host::setParameter}, {kGetParameter, &Host::getParameter}, {kGetState, &Host::getState},
 			{kSetState, &Host::setState}, {kReset, &Host::reset}, {kListeners, &Host::listeners}, {kOpenEditor, &Host::openEditor},
 			{kCloseEditor, &Host::closeEditor}, {kMessage, &Host::message}, {kEditorWindow, &Host::editorWindow}, {kTiming, &Host::timing},
+			{kEmbedEditor, &Host::embedEditor}, {kFitEditor, &Host::fitEditor}, {kPing, &Host::ping},
 		};
 		auto found = operations.find(operation);
 		if (found == operations.end()) {
@@ -196,6 +204,9 @@ private:
 	void listeners() { wire.writeInt(networkListeners(wire.readLong())); }
 
 	void timing() { writeTiming(instance()); }
+
+	// answered by the thread that runs the editors: a host whose thread hangs (an editor's deadlock) does not answer
+	void ping() {}
 
 	void hello() {
 		wire.writeInt(kProtocolVersion);
@@ -382,31 +393,67 @@ private:
 		writeTiming(restored);
 	}
 
-	// the editor: none of its own (0), opened in a window of its own (1), or in a window the owner window owns (2)
+	// the editor: none of its own (0), opened in a window of its own (1), or in a window the owner window owns (2); then
+	// the DPI awareness of the window owning it
 	void openEditor() {
 		int32_t id = wire.readInt();
 		Instance& edited = instance(id);
 		int64_t owner = wire.readLong();
 		std::string title = wire.readString();
+		std::vector<int32_t> frame(4);
+		for (int32_t& side : frame) {
+			side = wire.readInt();
+		}
+		edited.placeEditor(frame);
 		editorsClosing.erase(id);
 		bool opened = edited.openEditor(owner, title);
-		bool owned = (opened && owner != 0 && edited.editorWindow().owner == owner);
-		wire.writeInt(opened ? (owned ? 2 : 1) : 0);
+		EditorWindow facts = edited.editorWindow();
+		wire.writeInt(opened ? openedKind(owner, facts) : 0);
+		wire.writeInt(facts.ownerAwareness);
+	}
+
+	// an editor opened: in a window the owner window owns (2), else in a window of its own (1)
+	static int32_t openedKind(int64_t owner, const EditorWindow& facts) { return (owner != 0 && facts.owner == owner ? 2 : 1); }
+
+	void writeFlag(bool flag) { wire.writeInt(flag ? 1 : 0); }
+
+	// the editor inside a window of TuxGuitar (see Instance::embedEditor): its kind, size and whether it can be resized
+	void embedEditor() {
+		int32_t id = wire.readInt();
+		Instance& edited = instance(id);
+		int64_t parent = wire.readLong();
+		double share = wire.readDouble();
+		std::string title = wire.readString();
+		editorsClosing.erase(id);
+		writeFit(edited.embedEditor(parent, share, title));
+	}
+
+	void fitEditor() { writeFit(instance().fitEditor()); }
+
+	void writeFit(const ViewFit& fit) {
+		wire.writeInt(fit.kind);
+		wire.writeInt(fit.width);
+		wire.writeInt(fit.height);
+		writeFlag(fit.resizable);
+		wire.writeInt(fit.inside);
 	}
 
 	void editorWindow() {
 		EditorWindow facts = instance().editorWindow();
 		wire.writeLong(facts.window);
 		wire.writeLong(facts.owner);
-		wire.writeInt(facts.shown ? 1 : 0);
-		wire.writeInt(facts.front ? 1 : 0);
+		writeFlag(facts.shown);
+		writeFlag(facts.front);
 		for (int32_t value : {facts.left, facts.top, facts.right, facts.bottom, facts.width, facts.height}) {
 			wire.writeInt(value);
 		}
 		wire.writeString(facts.title);
 		wire.writeInt(facts.dpi);
-		wire.writeInt(facts.perMonitorDpiAware ? 1 : 0);
-		wire.writeInt(facts.resizable ? 1 : 0);
+		writeFlag(facts.resizable);
+		wire.writeLong(facts.parent);
+		writeFlag(facts.embedded);
+		wire.writeInt(facts.awareness);
+		wire.writeInt(facts.ownerAwareness);
 	}
 
 	// a message to the plugin's controller, with integer and binary attributes; the reply holds its report

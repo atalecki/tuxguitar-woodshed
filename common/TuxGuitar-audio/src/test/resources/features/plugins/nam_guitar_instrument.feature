@@ -542,6 +542,18 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
   # and its file dialog are checked by hand (README); what it shows is read from its window, and a control is moved as
   # the user moves it (the control set, then told to its window as the user's move is)
 
+  # Woodshed Guitar says its texts in the language TuxGuitar shows (Settings > Language), as TuxGuitar tells it; it has
+  # English and German, and says English for another language
+  Scenario: Woodshed Guitar's editor speaks the language TuxGuitar shows, and changes with it while open
+    Given TuxGuitar shows its texts in "de"
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    Then Woodshed Guitar's editor of track 1 shows "Kein Profil: die trockene Gitarre ist zu hören" and ""
+    When TuxGuitar shows its texts in "pt_BR"
+    Then Woodshed Guitar's editor of track 1 shows "No profile: the dry guitar is heard" and ""
+    When TuxGuitar shows its texts in "de"
+    Then Woodshed Guitar's editor of track 1 shows "Kein Profil: die trockene Gitarre ist zu hören" and ""
+
   Scenario: Woodshed Guitar's editor shows its profile
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And I have opened the editor of the source of track 1

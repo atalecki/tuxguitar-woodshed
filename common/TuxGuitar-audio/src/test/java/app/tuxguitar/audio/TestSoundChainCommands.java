@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionContext;
+import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
@@ -127,33 +128,94 @@ class TestSoundChainCommands {
 	}
 
 	// Edit asks the action to open the picked effect's editor, placed as the editor says (floating: owned by the window
-	// given), titled with the track
+	// given; embedded: inside the area given, at most the height given, the window given kept as its owner), titled with
+	// the track
 	@Test
 	void editOpensThePickedPluginsEditorWhereThePlacementSays() {
 		List<String> asked = new ArrayList<String>();
 		this.fixture.map(new TGActionBase(this.fixture.context, TGOpenPluginEditorAction.NAME) {
 			protected void processAction(TGActionContext context) {
-				asked.add("effect " + context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT) + " owner " + context.getAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER)
+				asked.add("effect " + context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT) + " " + TGOpenPluginEditorAction.target(context)
 					+ " track " + context.<TGTrack>getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK).getName()
 					+ " channel " + context.<TGChannel>getAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL).getChannelId());
 			}
 		});
 		this.commands.edit(2, TGEditorPlacement.floating(() -> 42L), editor -> asked.add("parameters"));
-		this.commands.edit(0, TGEditorPlacement.floating(() -> 7L), editor -> asked.add("parameters"));
-		assertEquals("[effect 2 owner 42 track " + this.track.getName() + " channel " + this.track.getChannelId() + ", effect null owner 7 track " + this.track.getName() + " channel "
-			+ this.track.getChannelId() + "] [done, done]", asked + " " + this.told);
+		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L), editor -> asked.add("parameters"));
+		String track = " track " + this.track.getName() + " channel " + this.track.getChannelId();
+		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
 	}
 
-	// a plugin without an editor of its own is edited in TuxGuitar's parameter editor, handed to the editor once open;
-	// one with its own editor is not
+	// the app runs the action later on its UI thread (its interceptor), after the command returned: the editor is handed
+	// once the action has opened it, not before
 	@Test
-	void aPluginWithoutItsOwnEditorHandsTheParameterEditor() {
-		List<String> parameters = new ArrayList<String>();
+	void theEditorIsHandedOnceTheActionRanLater() throws Exception {
+		List<Runnable> later = new ArrayList<Runnable>();
+		boolean[] deferring = {true};
+		TGActionManager actions = TGActionManager.getInstance(this.fixture.context);
+		actions.addInterceptor((id, context) -> {
+			boolean deferred = (deferring[0] && id.equals(TGOpenPluginEditorAction.NAME));
+			if (deferred) {
+				later.add(() -> this.runLater(actions, deferring, id, context));
+			}
+			return deferred;
+		});
+		this.commands.addEffect(this.hosting.find("Test Clip 0.5"));
+		List<String> opened = new ArrayList<String>();
+		this.commands.edit(1, TGEditorPlacement.floating(() -> 0L), editor -> opened.add("clip " + editor.getParameters()));
+		String before = opened.toString();
+		later.forEach(Runnable::run);
+		assertEquals("[] [clip [Ceiling]]", before + " " + opened);
+	}
+
+	private void runLater(TGActionManager actions, boolean[] deferring, String id, TGActionContext context) {
+		deferring[0] = false;
+		try {
+			actions.execute(id, context);
+		} catch (TGActionException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	// a row's plugin as the editor area knows it: its channel, element, plugin, name and row; a row without a VST3 plugin
+	// (General MIDI, no default instrument) is none
+	@Test
+	void aRowsPluginIsTheElementTheEditorAreaKnows() {
+		this.commands.addEffect(this.hosting.find("Test Gain"));
+		TGEditorDock.Element gain = this.commands.element(1);
+		String element = gain.getChannel() + " " + gain.getId().equals(TGSoundChain.get(this.channel(this.track)).getOutput(0).getId()) + " "
+			+ gain.getClassId().equals(this.hosting.find("Test Gain").getClassId()) + " " + gain.getName() + " " + gain.getRow();
+		TGSoundChainCommands none = new TGSoundChainCommands(this.fixture.context, () -> null, () -> { });
+		assertEquals(this.track.getChannelId() + " true true Test Gain 1 null null null", element + " " + this.commands.element(0) + " " + this.commands.element(-1) + " " + none.element(0));
+	}
+
+	// a plugin asking for its editor is found by its channel and element among the rows of the track shown; none on
+	// another channel, nor one not in the chain
+	@Test
+	void aPluginAskingForItsEditorIsFoundAmongTheRows() {
+		this.commands.addEffect(this.hosting.find("Test Gain"));
+		String effect = TGSoundChain.get(this.channel(this.track)).getOutput(0).getId();
+		int channel = this.track.getChannelId();
+		assertEquals("1 -1 -1", this.commands.row(channel, effect) + " " + this.commands.row(channel + 1, effect) + " " + this.commands.row(channel, "nothing"));
+	}
+
+	// an action given no placement opens the editor in a window of its own, owned by none
+	@Test
+	void anEditorGivenNoPlacementFloatsOwnedByNone() {
+		assertEquals("floating, owned by 0", TGOpenPluginEditorAction.target(new TGActionContext() {
+		}).toString());
+	}
+
+	// the editor opened is handed to the editor once open: the plugin's own (as the host opened it), or, for a plugin
+	// without one, TuxGuitar's parameter editor
+	@Test
+	void theEditorOpenedIsHandedOnceOpen() {
+		List<String> opened = new ArrayList<String>();
 		this.commands.addEffect(this.hosting.find("Test Gain"));
 		this.commands.addEffect(this.hosting.find("Test Clip 0.5"));
-		this.commands.edit(1, TGEditorPlacement.floating(() -> 0L), editor -> parameters.add("gain " + editor.getRows().get(0).getTitle()));
-		this.commands.edit(2, TGEditorPlacement.floating(() -> 0L), editor -> parameters.add("clip " + editor.getRows().get(0).getTitle()));
-		assertEquals("[clip Ceiling] [done, done, done, done]", parameters + " " + this.told);
+		this.commands.edit(1, TGEditorPlacement.floating(() -> 0L), editor -> opened.add("gain own " + editor.isOwn() + " " + editor.getOpened().getKind()));
+		this.commands.edit(2, TGEditorPlacement.floating(() -> 0L), editor -> opened.add("clip own " + editor.isOwn() + " " + editor.getRows().get(0).getTitle()));
+		assertEquals("[gain own true OWN_WINDOW, clip own false Ceiling] [done, done, done, done]", opened + " " + this.told);
 	}
 
 	// so is the default instrument a source plays (General MIDI for a guitar track: its default) when it has no editor of

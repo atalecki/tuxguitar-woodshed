@@ -5,6 +5,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.action.TGActionAdapterManager;
 import app.tuxguitar.app.view.dialog.settings.items.TGSoundSettings;
 import app.tuxguitar.app.view.dialog.settings.items.TGSoundSettingsExtensions;
@@ -15,6 +16,7 @@ import app.tuxguitar.audio.TGDefaultInstruments;
 import app.tuxguitar.audio.TGLiveAudio;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGStatusHint;
+import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGSynchronizer;
 import app.tuxguitar.util.configuration.TGConfigManager;
@@ -47,6 +49,8 @@ public class TGAudioPlugin implements TGPlugin {
 	private static final long HINT_MILLISECONDS = 250;
 
 	private ScheduledExecutorService plugins;
+	// tells the plugins TuxGuitar's language each time it changes (Woodshed Guitar follows it)
+	private TGEventListener language;
 	// the default instruments in Settings > Sound
 	private Supplier<TGSoundSettings> settings;
 
@@ -63,6 +67,9 @@ public class TGAudioPlugin implements TGPlugin {
 		this.settings = () -> new TGDefaultInstrumentsSettings(context);
 		TGSoundSettingsExtensions.getInstance(context).add(this.settings);
 		this.plugins = scheduler("TuxGuitar VST3 plugins");
+		TGLivePlugins.getInstance(context).setFrames(new TGConfigEditorFrames(config(context)));
+		this.language = event -> this.plugins.execute(TGLivePlugins.getInstance(context)::languageChanged);
+		TuxGuitar.getInstance().getLanguageManager().addLoader(this.language);
 		this.plugins.execute(() -> LOG.info(audio.startPlugins()));
 		this.plugins.scheduleWithFixedDelay(() -> drainLater(context), DRAIN_MILLISECONDS, DRAIN_MILLISECONDS, TimeUnit.MILLISECONDS);
 		this.plugins.scheduleWithFixedDelay(TGLivePlugins.getInstance(context)::poll, POLL_MILLISECONDS, POLL_MILLISECONDS, TimeUnit.MILLISECONDS);
@@ -70,6 +77,7 @@ public class TGAudioPlugin implements TGPlugin {
 	}
 
 	public void disconnect(TGContext context) {
+		TuxGuitar.getInstance().getLanguageManager().removeLoader(this.language);
 		this.plugins.shutdownNow();
 		TGSoundSettingsExtensions.getInstance(context).remove(this.settings);
 		TGLiveAudio.getInstance(context).close();

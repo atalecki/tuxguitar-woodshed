@@ -7,6 +7,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,15 @@ public final class TGVst3Hosting {
 	private final List<String> stops = new ArrayList<String>();
 	// the host processes of the plugins opened, until each is closed or found stopped
 	private final List<TGVst3Host> hosts = new ArrayList<TGVst3Host>();
+	// told of each plugin whose host stopped by itself, once started again or left silent; none: plugins whose host
+	// stopped stay silent (an export, the tests)
+	private final List<TGVst3RestartListener> restartListeners = new ArrayList<TGVst3RestartListener>();
+	// opens plugins again, one after the other, off the threads that found their hosts stopped (the audio thread...)
+	private final ExecutorService restarts = Executors.newSingleThreadExecutor(runnable -> {
+		Thread thread = new Thread(runnable, "tuxguitar-vst3-restarts");
+		thread.setDaemon(true);
+		return thread;
+	});
 
 	public static TGVst3Hosting getInstance(TGContext context) {
 		return TGSingletonUtil.getInstance(context, TGVst3Hosting.class.getName(), new TGSingletonFactory<TGVst3Hosting>() {
@@ -183,6 +194,29 @@ public final class TGVst3Hosting {
 			host.close();
 			throw e;
 		}
+	}
+
+	// from now on a plugin whose host stops by itself (it crashed, or hung and was ended) is opened again from its element,
+	// once until it is given its element again (TGVst3Processor), the listener told (as TuxGuitar plays live)
+	public synchronized void restartStopped(TGVst3RestartListener listener) {
+		this.restartListeners.add(listener);
+	}
+
+	synchronized boolean isRestarting() {
+		return !this.restartListeners.isEmpty();
+	}
+
+	void restartLater(Runnable restart) {
+		this.restarts.execute(restart);
+	}
+
+	// the listeners told how the plugin whose host stopped went on
+	void restarted(TGVst3Instance stopped, TGVst3Instance started, boolean hung, TGVst3Exception why) {
+		List<TGVst3RestartListener> listeners;
+		synchronized (this) {
+			listeners = new ArrayList<TGVst3RestartListener>(this.restartListeners);
+		}
+		listeners.forEach(listener -> listener.restarted(stopped, started, hung, why));
 	}
 
 	// the host processes end, and their plugins with them

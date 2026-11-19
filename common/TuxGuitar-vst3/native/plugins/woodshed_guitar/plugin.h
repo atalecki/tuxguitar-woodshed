@@ -64,6 +64,7 @@ public:
 	ProfileStatus status();
 	// its editor's view while one is open (none: nullptr)
 	void editorOpened(GuitarView* view);
+	Steinberg::tresult languageMessage(Steinberg::FIDString id, Steinberg::Vst::IAttributeList* attributes);
 	// a parameter's plain value
 	double parameter(ParamID id);
 	// as its editor changes a parameter: a gesture begun, going on, or ended, each telling the host the value

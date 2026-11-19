@@ -15,6 +15,23 @@ import io.cucumber.java.en.Given;
 public class LanguageSteps {
 
 	private final Map<String, String> said = new HashMap<String, String>();
+	private final AudioWorld world;
+	// whether a step showed TuxGuitar's texts in another language
+	private boolean shown;
+
+	public LanguageSteps(AudioWorld world) {
+		this.world = world;
+	}
+
+	// TuxGuitar's texts as a language's (its tag: "de", "pt_BR"), the app telling the plugins (its language listener)
+	@Given("TuxGuitar shows its texts in {string}")
+	public void showsItsTextsIn(String tag) {
+		String[] parts = tag.split("_");
+		java.util.Locale locale = (parts.length > 1 ? new java.util.Locale(parts[0], parts[1]) : new java.util.Locale(parts[0]));
+		app.tuxguitar.util.TGMessagesManager.getInstance().setResources(new app.tuxguitar.resource.TGResourceBundle(locale, new java.util.Properties()));
+		app.tuxguitar.audio.TGLivePlugins.getInstance(this.world.fixture().context).languageChanged();
+		this.shown = true;
+	}
 
 	@Given("TuxGuitar's language says {string} for the message {string}")
 	public void says(String text, String message) {
@@ -24,7 +41,7 @@ public class LanguageSteps {
 
 	@After
 	public void speakEnglish() {
-		if (!this.said.isEmpty()) {
+		if (!this.said.isEmpty() || this.shown) {
 			TuxGuitarMessages.speak(Map.of());
 		}
 	}

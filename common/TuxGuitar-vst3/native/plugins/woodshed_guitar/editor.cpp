@@ -325,6 +325,25 @@ tresult PLUGIN_API GuitarView::setContentScaleFactor(ScaleFactor factor) {
 }
 
 // the size at the scale: the design's width, or more when the texts need it, and the design's height
+void GuitarView::relabel() {
+	SetWindowTextW((HWND) load, wide(say("editor.load")).c_str());
+	SetWindowTextW((HWND) update, wide(say("editor.update")).c_str());
+	const char* names[] = {"editor.input-gain", "editor.output-level", "editor.quality"};
+	for (int row = 0; row < 3; row++) {
+		SetWindowTextW((HWND) labels[row], wide(say(names[row])).c_str());
+	}
+	LRESULT chosen = SendMessageW((HWND) quality, CB_GETCURSEL, 0, 0);
+	SendMessageW((HWND) quality, CB_RESETCONTENT, 0, 0);
+	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.full")).c_str());
+	SendMessageW((HWND) quality, CB_ADDSTRING, 0, (LPARAM) wide(say("editor.quality.light")).c_str());
+	SendMessageW((HWND) quality, CB_SETCURSEL, (WPARAM) chosen, 0);
+	refresh();
+	measured = measure(font);
+	RECT inside = {};
+	GetClientRect((HWND) window, &inside);
+	place(layOut(measured, std::max((int) inside.right, minimumWidth(measured, scale)), scale));
+}
+
 void GuitarView::rescale() {
 	HFONT made = messageFont((UINT) std::lround(USER_DEFAULT_SCREEN_DPI * scale));
 	measured = measure(made);
@@ -555,6 +574,8 @@ tresult PLUGIN_API GuitarView::setContentScaleFactor(ScaleFactor factor) {
 }
 
 void GuitarView::rescale() {}
+
+void GuitarView::relabel() {}
 
 tresult PLUGIN_API GuitarView::canResize() {
 	return kResultFalse;

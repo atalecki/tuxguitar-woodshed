@@ -35,7 +35,16 @@ int main() {
 	check("an argument twice, one not used", "a a", fill("{0} {0}", {"a", "b"}));
 	check("no arguments", "{0} left", fill("{0} left", {}));
 	check("an argument that holds a mark is not filled again", "{1}.nam and b", fill("{0} and {1}", {"{1}.nam", "b"}));
+	check("TuxGuitar's root language is English", std::to_string(kEnglish), std::to_string(languageOf("")));
+	check("a language by its tag", std::to_string(kGerman), std::to_string(languageOf("de")));
+	check("a language by the part of its tag before _", std::to_string(kGerman), std::to_string(languageOf("de_AT")));
+	check("a language without texts", "0", std::to_string(languageOf("pt_BR")));
+	tell("en");
 	check("the English shipped", "No profile: the dry guitar is heard", say("profile.none"));
 	check("the English shipped, filled", "Profile: Clean.nam", say("profile.name", {"Clean.nam"}));
+	tell("de");
+	check("the German shipped, as TuxGuitar told", "Profil: Clean.nam", say("profile.name", {"Clean.nam"}));
+	tell("pt_BR");
+	check("a language without texts says English", "Load profile...", say("editor.load"));
 	return (failures == 0 ? 0 : 1);
 }

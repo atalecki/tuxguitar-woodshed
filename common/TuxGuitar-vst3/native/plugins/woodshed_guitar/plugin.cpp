@@ -427,7 +427,20 @@ tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 		ProfileStatus now = status();
 		return report(attributes, now.name + "\n" + now.refusal + "\n" + now.notice + "\n" + now.loading);
 	}
-	return kNotImplemented;
+	return languageMessage(id, attributes);
+}
+
+// "Woodshed.language": the language TuxGuitar shows, its tag in the binary "language" (UTF-8: "de", "pt_BR"; empty for
+// English); an editor open says its texts in it at once; else kNotImplemented
+tresult GuitarPlugin::languageMessage(FIDString id, IAttributeList* attributes) {
+	if (std::strcmp(id, "Woodshed.language") != 0) {
+		return kNotImplemented;
+	}
+	tell(binary(attributes, "language"));
+	if (view) {
+		view->relabel();
+	}
+	return kResultOk;
 }
 
 // while its editor is open: "Woodshed.shown" answers what its lines show (read from its window), a line break

@@ -282,9 +282,36 @@ public final class TGVst3Instance implements AutoCloseable {
 	// already open is brought to the front. The window's caption is the title. False when it has none (or the platform
 	// is not supported)
 	public boolean openEditor(long owner, String title) throws TGVst3Exception {
-		int opened = this.host.call(this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(owner).writeString(title), in -> in.readInt());
-		LOG.debug(this.label() + EDITOR_OPENED[opened]);
-		return (opened != 0);
+		return this.openEditor(TGEditorTarget.floating(owner), title).isOpen();
+	}
+
+	// the plugin's own editor where the target says: floating (see above), or inside a window of TuxGuitar, as the
+	// host's reply says (EMBED_EDITOR). A plugin has one view at a time: an editor open elsewhere closes first
+	public TGVst3EditorOpened openEditor(TGEditorTarget target, String title) throws TGVst3Exception {
+		return (target.isEmbedded() ? this.embed(target, title) : this.floating(target, title));
+	}
+
+	private TGVst3EditorOpened embed(TGEditorTarget target, String title) throws TGVst3Exception {
+		TGVst3Request request = this.request(TGVst3Protocol.EMBED_EDITOR).writeLong(target.getParent()).writeDouble(target.getMaxShare());
+		TGVst3EditorOpened opened = this.host.call(request.writeString(title), TGVst3EditorOpened::read);
+		LOG.debug(this.label() + ": editor " + opened);
+		return opened;
+	}
+
+	private TGVst3EditorOpened floating(TGEditorTarget target, String title) throws TGVst3Exception {
+		TGVst3Request request = this.request(TGVst3Protocol.OPEN_EDITOR).writeLong(target.getOwner()).writeString(title);
+		for (int side : target.getFrame()) {
+			request.writeInt(side);
+		}
+		int[] opened = this.host.call(request, in -> new int[] {in.readInt(), in.readInt()});
+		LOG.debug(this.label() + EDITOR_OPENED[opened[0]] + (opened[0] == 2 ? " (" + TGVst3EditorWindow.awareness(opened[1]) + ")" : ""));
+		return new TGVst3EditorOpened(TGVst3EditorOpened.Kind.values()[opened[0]], 0, 0, false, 0);
+	}
+
+	// its editor inside a window of TuxGuitar takes the width of that window's inside now, when its view can be
+	// resized: the size it takes (kind NONE, 0 by 0, when no editor is inside a window)
+	public TGVst3EditorOpened fitEditor() throws TGVst3Exception {
+		return this.host.call(this.request(TGVst3Protocol.FIT_EDITOR), TGVst3EditorOpened::read, TGVst3Host.EDITOR_MILLIS);
 	}
 
 	// its own editor's window as the system shows it (for checks)
@@ -292,8 +319,9 @@ public final class TGVst3Instance implements AutoCloseable {
 		return this.host.call(this.request(TGVst3Protocol.EDITOR_WINDOW), TGVst3EditorWindow::read);
 	}
 
+	// TuxGuitar's window waits EDITOR_MILLIS at most (a host whose editor hangs is then taken for stopped)
 	public void closeEditor() throws TGVst3Exception {
-		this.host.call(this.request(TGVst3Protocol.CLOSE_EDITOR), in -> null);
+		this.host.call(this.request(TGVst3Protocol.CLOSE_EDITOR), in -> null, TGVst3Host.EDITOR_MILLIS);
 		LOG.debug(this.label() + ": editor closed");
 	}
 

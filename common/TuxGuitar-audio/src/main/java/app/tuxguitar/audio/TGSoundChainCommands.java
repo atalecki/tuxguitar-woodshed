@@ -1,7 +1,7 @@
 package app.tuxguitar.audio;
 
-import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import java.util.function.Supplier;
 
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
@@ -19,6 +19,8 @@ import app.tuxguitar.editor.action.TGActionProcessor;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.midi.synth.TGProgramElement;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
@@ -27,7 +29,8 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * the song at that moment (the track asked for then; an undo may have replaced its channel), a row being the editor's
  * (TGSoundChainRows: 0 the source, then each effect). Once an action is done the editor is told (finished, on the
  * action's thread), so it reads the chain again; a refused one tells nothing (the app shows why). Edit opens the row's
- * plugin's own editor where the placement says, or TuxGuitar's parameter editor, then handed to the editor to show.
+ * plugin's own editor where the placement says, or TuxGuitar's parameter editor, then handed to the editor (to show
+ * TuxGuitar's, or follow what becomes of the plugin's own), as the action opens it.
  */
 public final class TGSoundChainCommands {
 
@@ -75,17 +78,13 @@ public final class TGSoundChainCommands {
 	}
 
 	// the row's plugin's own editor opens where the placement says, its caption naming the track; or else TuxGuitar's
-	// parameter editor, handed to parameters once open
-	public void edit(int row, TGEditorPlacement placement, Consumer<TGPluginEditor> parameters) {
+	// parameter editor; either is handed to opened once open, by the action (the app may run it later, on its UI thread)
+	public void edit(int row, TGEditorPlacement placement, Consumer<TGPluginEditor> opened) {
 		TGActionProcessor processor = this.onRow(TGOpenPluginEditorAction.NAME, row);
 		placement.place(processor);
 		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, this.track.get());
-		this.run(processor, () -> this.opened(row, parameters));
-	}
-
-	private void opened(int row, Consumer<TGPluginEditor> parameters) {
-		this.finished.run();
-		Optional.ofNullable(TGLivePlugins.getInstance(this.context).parameterEditor(this.channel(), TGSoundChainRows.effect(row))).ifPresent(parameters);
+		processor.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OPENED, opened);
+		this.run(processor);
 	}
 
 	private TGActionProcessor withPlugin(String action, TGVst3Plugin plugin) {
@@ -99,6 +98,31 @@ public final class TGSoundChainCommands {
 		TGActionProcessor processor = new TGActionProcessor(this.context, action);
 		processor.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, TGSoundChainRows.effect(row));
 		return processor;
+	}
+
+	// the plugin of the row as the Sound Chain panel's editor area knows it (TGEditorDock.Element), or null when the row's
+	// is no VST3 plugin (General MIDI without a default instrument, an audio track's takes), no row is picked (-1) or no
+	// track is shown
+	public TGEditorDock.Element element(int row) {
+		if (row < 0 || this.track.get() == null) {
+			return null;
+		}
+		TGChannel channel = this.channel();
+		TGProgramElement plugin = TGDefaultInstrumentSource.install(this.context).edited(channel, TGSoundChainRows.effect(row));
+		return (plugin != null ? new TGEditorDock.Element(channel.getChannelId(), plugin.getId(), TGVst3Element.getClassId(plugin), TGVst3Element.getName(plugin), row) : null);
+	}
+
+	// the row of the element of the channel's chain when the track has that channel (a plugin asking for its editor),
+	// else -1
+	public int row(int channel, String id) {
+		TGTrack shown = this.track.get();
+		int rows = (shown != null && shown.getChannelId() == channel ? TGSoundChain.get(this.channel()).countOutputs() + 1 : 0);
+		return IntStream.range(0, rows).filter(row -> this.names(row, id)).findFirst().orElse(-1);
+	}
+
+	private boolean names(int row, String id) {
+		TGEditorDock.Element element = this.element(row);
+		return (element != null && element.getId().equals(id));
 	}
 
 	// the track's channel as the song has it now

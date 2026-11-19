@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -519,6 +520,77 @@ public class TestVst3Processors {
 
 	private static String problems(List<TGVst3PluginProcessor> processors) {
 		return processors.stream().map(TGVst3PluginProcessor::getProblem).collect(Collectors.joining(" | "));
+	}
+
+	// what the restart of each stopped plugin told: started again or left silent, hung or not, and whether it was the
+	// plugin that stopped
+	private final List<String> restarts = java.util.Collections.synchronizedList(new ArrayList<String>());
+
+	private void restartStopped(TGVst3Instance stopped) {
+		this.hosting.restartStopped((gone, started, hung, why) -> this.restarts.add((started != null ? "started again" : "left silent") + " " + hung + " " + (gone == stopped) + " " + why.getMessage()));
+	}
+
+	// until the processor runs a plugin again (5 s at most)
+	private static void untilOpen(TGVst3Processor processor) {
+		assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () -> {
+			while (!processor.isOpen()) {
+				Thread.sleep(10);
+			}
+		});
+	}
+
+	// restarting (as TuxGuitar plays live): a plugin whose host stopped by itself is opened again from its element, once,
+	// and whoever listens is told; stopped again, it is left silent until it is given its element again
+	@Test
+	public void aPluginWhoseHostStoppedIsStartedAgainOnceFromItsElement() throws Exception {
+		TGProgramElement element = element("Test Gain");
+		TGVst3Processor gain = (TGVst3Processor) effect(element);
+		TGVst3Instance first = gain.getInstance();
+		restartStopped(first);
+		TestPlugins.kill(first.getHost().getPid());
+		float[][] stopped = level(0.25f);
+		gain.process(stopped);
+		untilOpen(gain);
+		float[][] again = level(0.25f);
+		gain.process(again);
+		TestPlugins.kill(gain.getInstance().getHost().getPid());
+		gain.process(level(0.25f));
+		Thread.sleep(1000);
+		boolean silent = !gain.isOpen();
+		gain.restoreParameters(element.getParameters());
+		float[][] given = level(0.25f);
+		gain.process(given);
+		assertEquals("0.0 0.5 true 0.5", stopped[0][0] + " " + again[0][0] + " " + silent + " " + given[0][0]);
+		assertEquals("[started again false true the VST3 host stopped (exit code 1), left silent false false the VST3 host stopped (exit code 1)]",
+			this.restarts.toString());
+	}
+
+	// a plugin that cannot be started again (its host's program gone meanwhile) is left silent, saying why
+	@Test
+	public void aPluginThatCannotStartAgainIsLeftSilentSayingWhy(@TempDir File folder) throws Exception {
+		TGVst3Processor gain = (TGVst3Processor) effect(element("Test Gain"));
+		TGVst3Instance first = gain.getInstance();
+		restartStopped(first);
+		File missing = new File(folder, "tuxguitar-vst3-host.exe");
+		this.hosting.configure(missing, Arrays.asList(TestPlugins.folder()));
+		TestPlugins.kill(first.getHost().getPid());
+		gain.process(level(0.25f));
+		assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () -> {
+			while (this.restarts.isEmpty()) {
+				Thread.sleep(10);
+			}
+		});
+		assertEquals("[left silent false true the VST3 host stopped (exit code 1)] false the VST3 host did not start: " + missing, this.restarts + " " + gain.isOpen() + " " + gain.getLoggedProblem());
+	}
+
+	// without restarting (an export, the tests), a plugin whose host stopped stays silent
+	@Test
+	public void withoutRestartingAPluginWhoseHostStoppedStaysSilent() throws Exception {
+		TGVst3Processor gain = (TGVst3Processor) effect(element("Test Gain"));
+		TestPlugins.kill(gain.getInstance().getHost().getPid());
+		gain.process(level(0.25f));
+		Thread.sleep(500);
+		assertEquals("false []", gain.isOpen() + " " + this.restarts);
 	}
 
 	// the log keeps why in English, whatever language the user reads it in

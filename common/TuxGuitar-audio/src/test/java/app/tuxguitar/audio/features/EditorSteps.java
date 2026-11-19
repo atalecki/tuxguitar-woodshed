@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -13,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import app.tuxguitar.audio.TGDefaultInstrumentSource;
+import app.tuxguitar.audio.TGEditorArea;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGPluginEditor;
 import app.tuxguitar.audio.TGSoundChain;
@@ -24,6 +27,8 @@ import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGTrack;
+import app.tuxguitar.vst3.TGEditorTarget;
+import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3EditorWindow;
 import app.tuxguitar.vst3.TGVst3EffectProcessor;
 import app.tuxguitar.vst3.TGVst3Element;
@@ -55,6 +60,16 @@ public class EditorSteps {
 	private long tuxGuitarsWindow;
 	// the window of a plugin's own editor as a step noted it: its native handle and its frame on the screen
 	private String noted;
+	// TuxGuitar's window as the editor area: the test plugins' stand-in, made by a plugin of a host process of its own
+	// (closed after the scenario), and its native handle (0 until a step made it)
+	private TGVst3Instance standInMaker;
+	private long standIn;
+	// the editor a step opened inside TuxGuitar's window
+	private TGPluginEditor inside;
+	// the process id of the host of a plugin whose editor a step made hang
+	private long hungHost;
+	// the plugins that asked to show their editors, as TuxGuitar was told: "channel/element"
+	private final List<String> asked = new java.util.ArrayList<String>();
 
 	public EditorSteps(AudioWorld world, PlaySteps play, RecordingSteps recording) {
 		this.world = world;
@@ -118,10 +133,145 @@ public class EditorSteps {
 		return this.tuxGuitarsWindow;
 	}
 
+	@Given("I have opened the editor of VST3 effect {int} of track {int} from TuxGuitar's window")
 	@When("I open the editor of VST3 effect {int} of track {int} from TuxGuitar's window")
 	public void openTheEditorFromTuxGuitarsWindow(int effect, int track) throws TGVst3Exception {
-		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OWNER, tuxGuitarsWindow());
+		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_TARGET, TGEditorTarget.floating(tuxGuitarsWindow()));
 		openTheEditor(effect, track);
+	}
+
+	@Given("TuxGuitar's window is {int} by {int} inside")
+	public void tuxGuitarsWindowIs(int width, int height) throws TGVst3Exception {
+		TGVst3Hosting hosting = TGVst3Hosting.getInstance(world.fixture().context);
+		this.standInMaker = hosting.open(hosting.find("Test Gain"), 44100f, 512);
+		byte[] handle = this.standInMaker.message("TG.window", Map.of("awareness", 3L, "width", (long) width, "height", (long) height), Collections.<String, byte[]>emptyMap());
+		this.standIn = ByteBuffer.wrap(handle).order(ByteOrder.nativeOrder()).getLong();
+	}
+
+	@When("TuxGuitar's window becomes {int} by {int} inside")
+	public void tuxGuitarsWindowBecomes(int width, int height) throws TGVst3Exception {
+		this.standInMaker.message("TG.window-size", Map.of("window", this.standIn, "width", (long) width, "height", (long) height), Collections.<String, byte[]>emptyMap());
+	}
+
+	// inside TuxGuitar's window (600 by 400 unless a step made it), as the Sound Chain panel opens it in its area
+	@Given("I have opened the editor of VST3 effect {int} of track {int} inside TuxGuitar's window")
+	@When("I open the editor of VST3 effect {int} of track {int} inside TuxGuitar's window")
+	public void openTheEditorInside(int effect, int track) throws TGVst3Exception {
+		if (this.standIn == 0) {
+			tuxGuitarsWindowIs(600, 400);
+		}
+		world.fixture().actionContext.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_TARGET, TGEditorTarget.embedded(this.standIn, 0, TGEditorArea.MAX_SHARE));
+		openTheEditor(effect, track);
+		this.inside = editor(effect, track);
+	}
+
+	@Then("the plugin's own editor of {plugin} is inside TuxGuitar's window, {int} by {int}")
+	public void itsOwnEditorIsInside(Map.Entry<Integer, String> plugin, int width, int height) throws TGVst3Exception {
+		TGVst3EditorWindow window = running(plugin).getEditorWindow();
+		long end = System.currentTimeMillis() + 2000;
+		while (!window.isEmbedded() && System.currentTimeMillis() < end) {
+			java.util.concurrent.locks.LockSupport.parkNanos(5000000);
+			window = running(plugin).getEditorWindow();
+		}
+		assertEquals("true " + width + "x" + height, (window.getParent() == this.standIn) + " " + window.getInside());
+	}
+
+	@Then("the editor of {plugin} is too large for TuxGuitar's window, {string}")
+	public void itsEditorIsTooLarge(Map.Entry<Integer, String> plugin, String size) {
+		assertEquals("TOO_LARGE " + size, live().getEditor(plugin.getKey(), plugin.getValue()).getOpened().toString());
+	}
+
+	@Then("no editor of {plugin} is open")
+	public void noEditorIsOpen(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		assertEquals(0L, running(plugin).getEditorWindow().getWindow());
+	}
+
+	@Then("the editor opened inside TuxGuitar's window has moved out of it")
+	public void theEditorInsideHasMoved() {
+		assertEquals(TGPluginEditor.State.MOVED, this.inside.getState());
+	}
+
+	@When("I close the editor opened inside TuxGuitar's window")
+	public void closeTheEditorInside() {
+		live().close(this.inside);
+	}
+
+	@Then("the editor opened inside TuxGuitar's window is closed, with nothing left to fit")
+	public void theEditorInsideIsClosed() throws TGVst3Exception {
+		assertEquals("CLOSED " + TGVst3EditorOpened.NONE, this.inside.getState() + " " + live().fit(this.inside));
+	}
+
+	@Then("the editor of {plugin} was hidden by its close box")
+	public void itsEditorWasHiddenByItsCloseBox(Map.Entry<Integer, String> plugin) {
+		assertEquals(TGPluginEditor.State.HIDDEN, live().getEditor(plugin.getKey(), plugin.getValue()).getState());
+	}
+
+	@Given("the window of the plugin's own editor of {plugin} has been moved to {int}, {int}")
+	public void itsWindowHasBeenMoved(Map.Entry<Integer, String> plugin, int x, int y) throws TGVst3Exception {
+		running(plugin).message("TG.move-to", Map.of("width", (long) x, "height", (long) y), Collections.<String, byte[]>emptyMap());
+	}
+
+	@Given("I have closed the editor of {plugin}")
+	public void haveClosedTheEditor(Map.Entry<Integer, String> plugin) {
+		live().close(live().getEditor(plugin.getKey(), plugin.getValue()));
+	}
+
+	@Then("the window of the plugin's own editor of {plugin} is at {int}, {int}")
+	public void itsWindowIsAt(Map.Entry<Integer, String> plugin, int x, int y) throws TGVst3Exception {
+		String frame = running(plugin).getEditorWindow().getFrame();
+		assertEquals(x + "," + y, frame.substring(0, frame.indexOf(' ')));
+	}
+
+	// then the app drains
+	@When("the plugin of {plugin} asks to show its editor")
+	public void itAsksToShowItsEditor(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		live().setRequests((channel, element) -> this.asked.add(channel + "/" + element));
+		running(plugin).message("TG.request-editor", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+		live().drain();
+	}
+
+	@Then("TuxGuitar is asked to show the editor of {plugin}")
+	public void tuxGuitarIsAskedToShowTheEditor(Map.Entry<Integer, String> plugin) {
+		assertEquals("[" + plugin.getKey() + "/" + plugin.getValue() + "]", this.asked.toString());
+	}
+
+	// its code hangs for 20 s (a deadlock in its UI), the host process it runs in noted
+	@When("the editor of {plugin} stops responding")
+	public void itsEditorStopsResponding(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		TGVst3Instance hanging = running(plugin);
+		this.hungHost = hanging.getHost().getPid();
+		hanging.message("TG.hang-view", Collections.singletonMap("millis", 20000L), Collections.<String, byte[]>emptyMap());
+	}
+
+	// as the app polls every 100 ms, until the editor opened inside TuxGuitar's window is no longer open
+	@When("TuxGuitar watches its plugins for up to {int} seconds")
+	public void tuxGuitarWatchesItsPlugins(int seconds) throws InterruptedException {
+		long end = System.currentTimeMillis() + seconds * 1000L;
+		while (this.inside.isOpen() && System.currentTimeMillis() < end) {
+			live().poll();
+			Thread.sleep(100);
+		}
+	}
+
+	@Then("the editor opened inside TuxGuitar's window says its plugin stopped responding and was started again")
+	public void theEditorInsideSaysItsPluginWasStartedAgain() {
+		assertEquals("STOPPED true true", this.inside.getState() + " " + this.inside.isHung() + " " + this.inside.isRestarted());
+	}
+
+	@Then("the plugin of {plugin} runs in another host process, its {string} at {double}")
+	public void itRunsInAnotherHostProcess(Map.Entry<Integer, String> plugin, String title, double value) throws TGVst3Exception {
+		TGVst3Instance now = running(plugin);
+		assertEquals("true " + value, (now.getHost().getPid() != this.hungHost && now.getHost().isRunning()) + " " + now.getParameter(now.findParameter(title)));
+	}
+
+	@Given("the plugin of {plugin} makes its editor resizable")
+	public void itMakesItsEditorResizable(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		running(plugin).message("TG.resizable", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
+	}
+
+	@When("the editor opened inside TuxGuitar's window is fitted again")
+	public void theEditorInsideIsFittedAgain() throws TGVst3Exception {
+		live().fit(this.inside);
 	}
 
 	// as a crash ends it
