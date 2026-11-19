@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import app.tuxguitar.util.TGMessagesManager;
 
@@ -21,9 +22,12 @@ public final class MidiClickChoices {
 	private final MidiClickSoundsFolder folder;
 	private MidiClick click;
 
+	// from the click kept: an own sound of it no longer in the folder is the Click, as it plays
 	public MidiClickChoices(MidiClick click, MidiClickSoundsFolder folder) {
-		this.click = click;
 		this.folder = folder;
+		List<MidiClickSound> sounds = folder.sounds();
+		this.click = Stream.concat(click.getBeatOne().stream(), Stream.of(click.getOther())).filter(sound -> !sounds.contains(sound))
+			.reduce(click, MidiClick::without, (one, other) -> other);
 	}
 
 	// the other beats' choices: every sound

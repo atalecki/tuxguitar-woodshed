@@ -74,6 +74,17 @@ public class TestMidiClickChoices {
 		assertEquals(MidiClick.sameAccented(MidiClickSound.COWBELL, 6), choices.getClick());
 	}
 
+	// an own sound kept but no longer in the folder (deleted by hand) is the Click from the start, as it plays
+	@Test
+	public void anOwnSoundNoLongerInTheFolderIsTheClick() throws IOException {
+		MidiClickSound beep = this.folder().add(this.beep("Beep.wav"));
+		MidiClickSound gone = MidiClickSound.own("Gone.wav");
+
+		assertEquals(new MidiClick(MidiClickSound.CLICK, beep, 1), this.choices(new MidiClick(gone, beep, 1)).getClick());
+		assertEquals(new MidiClick(beep, MidiClickSound.CLICK, 1), this.choices(new MidiClick(beep, gone, 1)).getClick());
+		assertEquals(MidiClick.sameAccented(MidiClickSound.CLICK, 1), this.choices(MidiClick.sameAccented(gone, 1)).getClick());
+	}
+
 	// added: offered from now on, and chosen for the other beats
 	@Test
 	public void aSoundAddedIsChosenForTheOtherBeats() throws IOException {
