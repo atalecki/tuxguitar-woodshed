@@ -1,4 +1,4 @@
-package app.tuxguitar.audio;
+package app.tuxguitar.midi.synth;
 
 /**
  * Converts audio from one sample rate to another, keeping its pitch: each output sample is the input's samples around
@@ -8,7 +8,7 @@ package app.tuxguitar.audio;
  * computed once, each phase's summing to 1 (a constant level passes unchanged). Input samples on the output's samples
  * (every 147th at 44100 Hz, every 160th at 48000) pass as they are. Outside the input is silence.
  */
-final class TGResampler {
+public final class TGResampler {
 
 	static final int ZEROS = 16;
 
@@ -16,7 +16,7 @@ final class TGResampler {
 	}
 
 	// as many output samples as fit in the input's duration; the input itself at its own rate
-	static float[][] resample(float[][] input, int from, int to) {
+	public static float[][] resample(float[][] input, int from, int to) {
 		if (from == to) {
 			return input;
 		}

@@ -1,4 +1,4 @@
-package app.tuxguitar.audio;
+package app.tuxguitar.midi.synth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -54,8 +54,8 @@ public class TestResampler {
 		float[][] resampled = TGResampler.resample(click, 44100, 48000);
 		assertEquals(-0.25f, resampled[1][24000], 1e-6);
 		resampled[1][24000] = 0;
-		assertEquals("0.0", Float.toString(Meters.peak(resampled[0], 0, 48000)));
-		double ringing = Meters.peak(resampled[1], 0, 48000);
+		assertEquals("0.0", Float.toString(Signals.peak(resampled[0], 0, 48000)));
+		double ringing = Signals.peak(resampled[1], 0, 48000);
 		assertEquals(true, ringing > 0.01 && ringing < 0.125, "ringing " + ringing);
 	}
 
@@ -64,7 +64,7 @@ public class TestResampler {
 	@Test
 	public void aToneAboveTheNewNyquistFrequencyDoesNotAlias() {
 		float[] resampled = TGResampler.resample(sine(15000, 48000, 48000), 48000, 22050)[0];
-		assertEquals(0, Meters.peak(resampled, 200, resampled.length - 200), 0.005);
+		assertEquals(0, Signals.peak(resampled, 200, resampled.length - 200), 0.005);
 	}
 
 	// a constant level passes unchanged, up to the edges

@@ -1,5 +1,6 @@
 package app.tuxguitar.midi.synth.impl;
 
+import static app.tuxguitar.midi.synth.Signals.peak;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -79,14 +80,6 @@ public class TestClickProcessor {
 
 	private static float[] left(float sampleRate, Note... notes) {
 		return play(sampleRate, notes)[0];
-	}
-
-	private static float peak(float[] samples, int from, int to) {
-		float peak = 0;
-		for (int i = from; i < to; i++) {
-			peak = Math.max(peak, Math.abs(samples[i]));
-		}
-		return peak;
 	}
 
 	// its root mean square: a sine's, whatever its frequency, is its level over the square root of 2
