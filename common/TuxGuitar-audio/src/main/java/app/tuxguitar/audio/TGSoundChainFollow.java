@@ -6,6 +6,7 @@ import java.util.Objects;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGColor;
 import app.tuxguitar.song.models.TGSong;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
@@ -14,9 +15,10 @@ import app.tuxguitar.util.TGMessagesManager;
 /**
  * A sound chain editor that follows the caret's track (the Sound Chain panel): it reads the rows again (which asks what
  * the default instrument plays, TGDefaultInstrumentSource.play: that touches the disk) only when what it shows changed,
- * told by a key read cheaply on each update of the app: the song and the track (its position, its name), the track's
- * channel and that channel's instrument (its kind decides the default), the chain as its names read (TGSoundChain.read:
- * not the plugins' states, which an editor's gestures change), and the default instruments' stamp. After reading again,
+ * told by a key read cheaply on each update of the app: the song and the track (its position, its name, its colour),
+ * the track's channel and that channel's instrument (its kind decides the default), the track's sound (MIDI reads as the
+ * default source does), the chain as its names read (TGSoundChain.read: not the plugins' states, which an editor's
+ * gestures change), and the default instruments' stamp. After reading again,
  * another track picks its source; the same track keeps the row picked while it is there, as the Sound Chain dialog keeps
  * it.
  */
@@ -66,7 +68,9 @@ public final class TGSoundChainFollow {
 
 	public static Key key(TGTrack track, TGChannel channel, long stamp) {
 		TGSong song = track.getSong();
-		return new Key(track, channel, new Object[] {new Identity(song), track.getNumber(), channel.getChannelId(), track.getName(), channel.getBank(), channel.getProgram(), TGSoundChain.read(channel), stamp});
+		TGColor color = track.getColor();
+		return new Key(track, channel, new Object[] {new Identity(song), track.getNumber(), channel.getChannelId(), track.getName(), color.getR(), color.getG(), color.getB(), channel.getBank(),
+			channel.getProgram(), TGSoundMode.of(channel), TGSoundChain.read(channel), stamp});
 	}
 
 	// the caret's track (null: none) as the app's song has it now

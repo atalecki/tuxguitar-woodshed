@@ -196,6 +196,35 @@ class TestSoundChainRows {
 			own + " | " + midi.getMode() + " keep " + midi.canKeep() + " edit " + midi.canEdit(0) + " default " + midi.isDefault() + " | " + TGSoundChainRows.of(audio).getMode() + " | " + TGSoundChainRows.NONE.getMode());
 	}
 
+	// the Track panel's "Default instrument (<name>)": the default instrument that plays, else General MIDI (none plays,
+	// or what plays is not known)
+	@Test
+	void theDefaultInstrumentIsNamedByWhatPlays() {
+		TGDefaultPlay generalMidi = new TGDefaultPlay(TGInstrumentKind.GUITAR, null, null, TGDefaultPlay.Is.NO_DEFAULT);
+		assertEquals("Test Sine | GM | GM", TGSoundChainRows.of(this.guitar, sinePlays()).defaultName("GM") + " | "
+			+ TGSoundChainRows.of(this.guitar, generalMidi).defaultName("GM") + " | " + TGSoundChainRows.of(this.guitar).defaultName("GM"));
+	}
+
+	// what the Track panel shows of the track's sound: the switch (not on an audio track, nor without a track), the VST3
+	// instruments offered and the one picked, the General MIDI programs offered (numbered on a percussion channel) and
+	// the channel's
+	@Test
+	void whatTheTrackPanelOffersOfTheSound() {
+		TGChannel audio = this.fixture.songManager.getChannel(this.fixture.song, this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1)).getChannelId());
+		TGSoundChainRows own = TGSoundChainRows.of(this.guitar);
+		TGSoundChainRows byDefault = TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine());
+		List<TGVst3Plugin> offered = byDefault.instrumentChoices(Arrays.asList(SINE));
+		this.guitar.setProgram((short) 30);
+		this.guitar.setBank(TGChannel.DEFAULT_PERCUSSION_BANK);
+		TGSoundChainRows drums = TGSoundChainRows.of(this.guitar);
+		assertEquals("switch true false false | [null, Test Sine] 0 | [] -1 | 128 Program #30 30 | 0 -1",
+			"switch " + own.isSwitched() + " " + TGSoundChainRows.of(audio).isSwitched() + " " + TGSoundChainRows.NONE.isSwitched()
+			+ " | " + offered.stream().map(plugin -> (plugin != null ? plugin.getName() : "null")).collect(Collectors.toList()) + " " + byDefault.pickedInstrument(offered)
+			+ " | " + TGSoundChainRows.NONE.instrumentChoices(Arrays.asList(SINE)) + " " + TGSoundChainRows.NONE.pickedInstrument(offered)
+			+ " | " + drums.programChoices("Program").size() + " " + drums.programChoices("Program").get(30) + " " + drums.getProgram()
+			+ " | " + TGSoundChainRows.NONE.programChoices("Program").size() + " " + TGSoundChainRows.NONE.getProgram());
+	}
+
 	// no track: no rows
 	@Test
 	void noTrackHasNoRows() {

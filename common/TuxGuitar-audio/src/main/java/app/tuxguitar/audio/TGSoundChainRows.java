@@ -10,6 +10,7 @@ import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGDefaultSource;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
@@ -134,6 +135,39 @@ public final class TGSoundChainRows {
 	// whether the default instrument plays as the source, so it can be kept in the song (TGKeepDefaultInstrumentAction)
 	public boolean canKeep() {
 		return (this.isDefault() && this.play != null && this.play.getElement() != null);
+	}
+
+	// what the default instrument of the channel's kind plays, by name: its VST3 instrument, else General MIDI (none plays,
+	// or that is not known)
+	public String defaultName(String generalMidi) {
+		boolean plays = (this.play != null && this.play.getElement() != null);
+		return (plays ? TGVst3Element.getName(this.play.getElement()) : generalMidi);
+	}
+
+	// whether the track's sound switches between MIDI and VST3: a track's, not an audio track's (its takes)
+	public boolean isSwitched() {
+		return this.chain != null && !this.channel.isAudioChannel();
+	}
+
+	// the Track panel's VST3 instrument drop-down (TGTrackSoundChoices: null, the default, first); none without a track
+	public List<TGVst3Plugin> instrumentChoices(List<TGVst3Plugin> scanned) {
+		return (this.chain != null ? TGTrackSoundChoices.instruments(this.chain.getReceiver(), scanned) : new ArrayList<TGVst3Plugin>());
+	}
+
+	// the choice picked for the source; -1 for none
+	public int pickedInstrument(List<TGVst3Plugin> choices) {
+		return (this.chain != null ? TGTrackSoundChoices.picked(this.chain.getReceiver(), choices) : -1);
+	}
+
+	// the Track panel's General MIDI program drop-down, for the channel (numbered on a percussion channel, after the
+	// prefix); none without a track
+	public List<String> programChoices(String prefix) {
+		return (this.chain != null ? TGTrackSoundChoices.programs(this.channel.isPercussionChannel(), prefix) : new ArrayList<String>());
+	}
+
+	// the channel's General MIDI program; -1 without a track
+	public int getProgram() {
+		return (this.chain != null ? this.channel.getProgram() : -1);
 	}
 
 	// the row picked: its index, or -1 for none

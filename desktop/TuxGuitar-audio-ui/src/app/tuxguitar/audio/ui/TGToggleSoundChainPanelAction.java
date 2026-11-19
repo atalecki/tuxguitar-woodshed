@@ -8,16 +8,16 @@ import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.util.TGContext;
 
 /**
- * Shows the Sound Chain panel, or hides it (View > Sound Chain): on the UI thread, bindable to a key (F8 by default),
+ * Shows the Track panel and its editor area, or hides them (View > Sound Chain): on the UI thread, bindable to a key (F8 by default),
  * the menus updated after it.
  */
 final class TGToggleSoundChainPanelAction extends TGActionBase {
 
 	static final String NAME = "action.audio.toggle-sound-chain-panel";
 
-	private final TGSoundChainPanel panel;
+	private final TGTrackPanel panel;
 
-	private TGToggleSoundChainPanelAction(TGContext context, TGSoundChainPanel panel) {
+	private TGToggleSoundChainPanelAction(TGContext context, TGTrackPanel panel) {
 		super(context, NAME);
 		this.panel = panel;
 	}
@@ -26,7 +26,7 @@ final class TGToggleSoundChainPanelAction extends TGActionBase {
 		this.panel.toggle();
 	}
 
-	static void map(TGContext context, TGSoundChainPanel panel) {
+	static void map(TGContext context, TGTrackPanel panel) {
 		TGActionAdapterManager adapter = TGActionAdapterManager.getInstance(context);
 		TGActionManager.getInstance(context).mapAction(NAME, new TGToggleSoundChainPanelAction(context, panel));
 		adapter.getKeyBindingActionIds().addActionId(NAME);

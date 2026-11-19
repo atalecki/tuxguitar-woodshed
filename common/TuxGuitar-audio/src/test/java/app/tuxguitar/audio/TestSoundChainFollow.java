@@ -15,6 +15,7 @@ import app.tuxguitar.audio.TGSoundChainFollow.Key;
 import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.midi.synth.TGProgram;
+import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
 
@@ -72,11 +73,22 @@ class TestSoundChainFollow {
 			reads("an effect added", "true", () -> this.changedAfter(() -> this.change(this.guitar, chain -> chain.addOutput(TGSoundChain.source("echo"))))),
 			reads("the source", "true", () -> this.changedAfter(() -> this.change(this.guitar, chain -> chain.setReceiver(TGSoundChain.source("organ"))))),
 			reads("the track renamed", "true", () -> this.changedAfter(() -> this.guitar.setName("Lead"))),
+			reads("the track's colour", "true", () -> this.changedAfter(() -> this.guitar.getColor().setG(7))),
+			reads("the track's sound, its chain read the same", "true", () -> TuxGuitarMessages.english(this::switchedToMidi)),
 			reads("the channel's instrument", "true", () -> this.changedAfter(() -> this.channel(this.guitar).setProgram((short) 33))),
 			reads("the channel's bank", "true", () -> this.changedAfter(() -> this.channel(this.guitar).setBank((short) 128))),
 			reads("another channel", "true", () -> this.changedAfter(() -> this.guitar.setChannelId(this.other.getChannelId()))),
 			reads("the track's position", "true", () -> this.changedAfter(() -> this.guitar.setNumber(5))),
 			reads("a note entered", "false", () -> this.changedAfter(() -> this.fixture.note(this.fixture.beat(this.guitar.getMeasure(0), 0), 1, 3))));
+	}
+
+	// the default source switched to MIDI: both read as the General MIDI program (which needs the app's messages); the
+	// source "drone" again after
+	private String switchedToMidi() {
+		this.change(this.guitar, chain -> chain.setReceiver(TGSoundChain.source(GervillProcessorFactory.TYPE)));
+		String changed = this.changedAfter(() -> this.change(this.guitar, chain -> chain.setReceiver(TGSoundChain.midi())));
+		this.change(this.guitar, chain -> chain.setReceiver(TGSoundChain.source("drone")));
+		return changed;
 	}
 
 	// the row picked after reading again, as "<from> to <to>: <row>"

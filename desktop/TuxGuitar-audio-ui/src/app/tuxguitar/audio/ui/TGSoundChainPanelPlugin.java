@@ -8,17 +8,17 @@ import app.tuxguitar.util.plugin.TGPlugin;
 import app.tuxguitar.util.plugin.TGPluginManager;
 
 /**
- * The Sound Chain panel as a plugin of its own (Tools > Plugins: "TuxGuitar Sound Chain panel"), so it can be dropped
- * without a rebuild: connected, it docks the panel at the foot of the main window (TGSoundChainPanel), maps its toggle
- * (F8 by default, changeable in Tools > Keyboard Shortcuts) and adds View > Sound Chain, greyed while TuxGuitar's
- * audio is off; disconnected, all of it goes. The Sound Chain dialog and the plugins' editors do not depend on it.
+ * The Track panel as a plugin of its own (Tools > Plugins: "TuxGuitar Sound Chain panel"), so it can be dropped
+ * without a rebuild: connected, it docks the panel at the right of the main window and its editor area at the foot
+ * (TGTrackPanel), maps its toggle (F8 by default, changeable in Tools > Keyboard Shortcuts) and adds View > Sound
+ * Chain, greyed while TuxGuitar's audio is off; disconnected, all of it goes. The Sound Chain dialog and the plugins' editors do not depend on it.
  * Glue only; connected on the UI thread.
  */
 public class TGSoundChainPanelPlugin implements TGPlugin {
 
 	public static final String MODULE_ID = "tuxguitar-sound-chain-panel";
 
-	private TGSoundChainPanel panel;
+	private TGTrackPanel panel;
 	private TGViewMenuExtensions.Item item;
 
 	public String getModuleId() {
@@ -26,7 +26,7 @@ public class TGSoundChainPanelPlugin implements TGPlugin {
 	}
 
 	public void connect(TGContext context) {
-		this.panel = new TGSoundChainPanel(context, new TGConfigManager(context, MODULE_ID));
+		this.panel = new TGTrackPanel(context, new TGConfigManager(context, MODULE_ID));
 		this.panel.create(audio(context));
 		TGToggleSoundChainPanelAction.map(context, this.panel);
 		this.item = new TGViewMenuExtensions.Item("audio.sound-chain.panel", TGToggleSoundChainPanelAction.NAME, this.panel::isVisible, () -> audio(context));
