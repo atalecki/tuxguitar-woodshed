@@ -14,6 +14,7 @@ import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.MapProperties;
 import app.tuxguitar.audio.TestBackend;
 import app.tuxguitar.midi.synth.TGSynthModel;
+import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
 import app.tuxguitar.audio.action.TGRecordingVeto;
 import app.tuxguitar.audio.action.TGSetPluginStateAction;
 import app.tuxguitar.audio.undo.TGUndoableOnSuccess;
@@ -130,9 +131,11 @@ public class AudioWorld {
 		// as the app has edits during an interleaved practice session checked or end it
 		TGPracticeEdits.install(this.fixture.context);
 		TGThreadManager.getInstance(this.fixture.context).setThreadHandler(this.threads);
-		// a gesture in a plugin's editor changes the song by an action the module runs: the app maps it, undoable
-		this.fixture.map(new TGSetPluginStateAction(this.fixture.context));
+		// a gesture in a plugin's editor changes the song by an action the module runs (the first change in a default
+		// instrument's editor keeps it in the song): the app maps them, undoable however they are run
+		this.fixture.map(new TGSetPluginStateAction(this.fixture.context), new TGKeepDefaultInstrumentAction(this.fixture.context));
 		UndoableActions.install(this.fixture.context, TGSetPluginStateAction.NAME, new TGUndoableOnSuccess(new TGUndoableModifyChannelController()));
+		UndoableActions.install(this.fixture.context, TGKeepDefaultInstrumentAction.NAME, new TGUndoableOnSuccess(new TGUndoableModifyChannelController()));
 		TGUndoableManager.getInstance(this.fixture.context).setBuffer(this.undoHistory);
 		TGPropertiesManager.getInstance(this.fixture.context).setPropertiesFactory(MapProperties::new);
 		// as the app refuses, during a recording, the editing actions it disables while playing (desktop's

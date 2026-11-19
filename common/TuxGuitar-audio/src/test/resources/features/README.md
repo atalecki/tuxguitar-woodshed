@@ -369,7 +369,13 @@ These features change how TuxGuitar works today. They are requirements, not side
   the TuxGuitar Synthesizer, greyed with a line saying why otherwise (`TGDefaultInstrumentChoices.choosePort`). The Sound Chain dialog's source row says what a default source plays and
   why (`TGDefaultPlay`, from the same decision as `sourceFor`: `TGDefaultInstrumentSource.play`); "Keep in song"
   (`TGKeepDefaultInstrumentAction`, undoable) makes the default that plays the track's own instrument, its state taken
-  from a helper once restored (`TGPluginStates.kept`), so Woodshed Guitar's profile is in the song.
+  from a helper once restored (`TGPluginStates.kept`), so Woodshed Guitar's profile is in the song. Edit on a default
+  source opens the default instrument's own editor (`TGDefaultInstrumentSource.edited`, `TGOpenPluginEditorAction`):
+  its state once restored is taken as the song's (`TGLivePlugins`), and the first change made there (a gesture, a
+  profile loaded) keeps it in the song with that state, as Keep in song does (`ATTRIBUTE_STATE`), one undo step; the
+  same plugin goes on as the song's source with its editor open (synth-core hands the default's processor over to the
+  kept source, `TGSynthChannelProcessor.handOver`). Opening and closing it without a change keeps nothing, and what the
+  plugin does once the default is another one (the settings changed) keeps nothing either.
   Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`

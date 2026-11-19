@@ -179,8 +179,12 @@ public class GuitarSteps {
 	}
 
 	// the plugin of the track's source as it runs
-	private TGVst3Instance running(int track) throws TGVst3Exception {
-		return TGLivePlugins.getInstance(world.fixture().context).get(world.channel(world.track(track)).getChannelId(), "source");
+	// the plugin playing the track's source (its editor, when one is open)
+	// the track's own instrument, else the default instrument it plays as its source
+	TGVst3Instance running(int track) throws TGVst3Exception {
+		TGChannel channel = world.channel(world.track(track));
+		TGProgramElement byDefault = TGDefaultInstrumentSource.install(world.fixture().context).edited(channel);
+		return TGLivePlugins.getInstance(world.fixture().context).get(channel.getChannelId(), byDefault != null ? byDefault.getId() : "source");
 	}
 
 	// as its editor's Load profile... does, with the file of the scenario's folder; once it has loaded it, the app drains

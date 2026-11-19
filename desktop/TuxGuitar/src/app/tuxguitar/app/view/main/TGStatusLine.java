@@ -8,7 +8,7 @@ import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 /**
- * The line at the foot of the main window, under the fretboard, that shows a quiet hint (a plugin still loading, say):
+ * The line at the foot of the main window, under the fretboard and any panel docked there (TGBottomDock), that shows a quiet hint (a plugin still loading, say):
  * hidden, taking no room, while there is none. Glue only: what it shows is decided where the hint comes from. On the UI
  * thread.
  */
@@ -25,11 +25,11 @@ public class TGStatusLine {
 		return TGSingletonUtil.getInstance(context, TGStatusLine.class.getName(), TGStatusLine::new);
 	}
 
-	// below what the panel holds (its table layout ignores what is hidden)
-	void create(UIFactory factory, UIPanel bottom) {
+	// at the row of the panel at the foot of the window, its last (its table layout ignores what is hidden)
+	void create(UIFactory factory, UIPanel bottom, int row) {
 		this.label = factory.createLabel(bottom);
 		this.label.setVisible(false);
-		((UITableLayout) bottom.getLayout()).set(this.label, 2, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
+		((UITableLayout) bottom.getLayout()).set(this.label, row, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
 	}
 
 	// the hint, or none (null)

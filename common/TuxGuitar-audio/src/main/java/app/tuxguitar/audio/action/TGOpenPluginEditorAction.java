@@ -2,6 +2,7 @@ package app.tuxguitar.audio.action;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
+import app.tuxguitar.audio.TGDefaultInstrumentSource;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -17,8 +18,9 @@ import app.tuxguitar.vst3.TGVst3Exception;
 
 /**
  * Opens the editor of a VST3 plugin of the context's channel's sound chain: an effect by its number
- * (TGEffectAction.ATTRIBUTE_EFFECT), or, without one, the VST3 instrument that is the source. It changes nothing in the
- * song. Refused, saying why in TuxGuitar's language (a TGActionException, whose message an app shows), when that is no
+ * (TGEffectAction.ATTRIBUTE_EFFECT), or, without one, the VST3 instrument that is the source, or the default instrument
+ * the channel plays as its source (TGDefaultInstrumentSource.edited: the first change made there keeps it in the song,
+ * see TGLivePlugins). It changes nothing in the song. Refused, saying why in TuxGuitar's language (a TGActionException, whose message an app shows), when that is no
  * VST3 plugin (NO_EDITOR), or the plugin or its editor cannot be opened (TGLivePlugins): the message names it. The plugin's own editor is in a window the window given
  * (ATTRIBUTE_OWNER: TuxGuitar's main window) owns, or, without one, in a window of its own; its caption names the
  * plugin and the context's track (TGDocumentContextAttributes.ATTRIBUTE_TRACK), when there is one.
@@ -40,7 +42,7 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 		TGChannel channel = context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL);
 		Integer effect = context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT);
 		TGProgram chain = TGSoundChain.get(channel);
-		TGProgramElement plugin = TGSoundChain.plugin(chain, effect);
+		TGProgramElement plugin = this.edited(channel, chain, effect);
 		if (plugin == null) {
 			throw new TGActionException(TGMessagesManager.getProperty(NO_EDITOR, new Object[] {TGSoundChain.name(chain, effect, channel)}));
 		}
@@ -52,6 +54,12 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
 		}
+	}
+
+	// the chain's VST3 plugin; on the source, else the default instrument played there; null for none
+	private TGProgramElement edited(TGChannel channel, TGProgram chain, Integer effect) {
+		TGProgramElement plugin = TGSoundChain.plugin(chain, effect);
+		return (plugin != null || effect != null ? plugin : TGDefaultInstrumentSource.install(getContext()).edited(channel));
 	}
 
 	// the caption of the editor's window: the plugin's name, and the track's when the editor is opened for one

@@ -36,6 +36,14 @@ final class TestPluginHosting {
 		return hosting;
 	}
 
+	// closing: the plugins kept open, then the host processes (a test's @AutoClose)
+	static AutoCloseable closing(TGContext context) {
+		return () -> {
+			TGLivePlugins.getInstance(context).close();
+			TGVst3Hosting.getInstance(context).close();
+		};
+	}
+
 	// the channel opened on the synthesizer, its parameters (its sound chain among them) sent
 	static TGSynthChannel play(TGSynthModel synthesizer, TGSongManager songManager, TGSong song, TGChannel channel) throws MidiPlayerException {
 		TGSynthChannel played = (TGSynthChannel) synthesizer.openChannel(channel.getChannelId());

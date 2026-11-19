@@ -590,6 +590,52 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
     When I undo
     Then Woodshed Guitar of track 1 has "Quality" at 0.0
 
+  # Drawn at the scale of the screen its window is on, and stretched in width by the user: what the editor laid out is
+  # read from it (its layout itself is checked by woodshed-guitar-layout-test); how it looks is checked by hand (UAT)
+
+  Scenario: Woodshed Guitar's editor is drawn at its screen's scale
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    Then Woodshed Guitar's editor of track 1 is laid out at its window's scale
+    When Woodshed Guitar's editor of track 1 goes to a screen of 96 DPI
+    Then Woodshed Guitar's editor of track 1 is laid out at scale 1.0, about 460 by 230
+    When Woodshed Guitar's editor of track 1 goes to a screen of 144 DPI
+    Then Woodshed Guitar's editor of track 1 is laid out at scale 1.5, about 690 by 345
+
+  Scenario: Woodshed Guitar's editor stretches its sliders to the width it is given
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    And Woodshed Guitar's editor of track 1 has gone to a screen of 96 DPI
+    When I drag the border of Woodshed Guitar's editor of track 1 until it is 900 wide
+    Then Woodshed Guitar's editor of track 1 is 900 wide, its sliders 700 wide, every label holding its text
+
+  # a profile's line too long for the editor's width ends in "…", the whole line in a tooltip on it (its window's text
+  # stays the whole line, as a screen reader reads it); a line that fits shows whole, without a tooltip
+  Scenario: a profile name too long for Woodshed Guitar's editor ends in "…", the whole line in its tooltip
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And there is a NAM capture "Clean Channel Through A Vintage Four By Twelve Cabinet With Two Microphones.nam" that multiplies the signal by 1.0
+    And I have opened the editor of the source of track 1
+    And Woodshed Guitar's editor of track 1 has gone to a screen of 96 DPI
+    And I have dragged the border of Woodshed Guitar's editor of track 1 until it is 400 wide
+    When Woodshed Guitar of track 1 loads the NAM capture "Clean Channel Through A Vintage Four By Twelve Cabinet With Two Microphones.nam"
+    Then Woodshed Guitar's editor of track 1 shows its profile line cut, ending in "…", the whole line "Profile: Clean Channel Through A Vintage Four By Twelve Cabinet With Two Microphones.nam" in its tooltip
+
+  Scenario: a profile name that fits Woodshed Guitar's editor is shown whole, without a tooltip
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And there is a NAM capture "Clean Channel Through A Vintage Four By Twelve Cabinet With Two Microphones.nam" that multiplies the signal by 1.0
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Clean Channel Through A Vintage Four By Twelve Cabinet With Two Microphones.nam"
+    And I have opened the editor of the source of track 1
+    And Woodshed Guitar's editor of track 1 has gone to a screen of 96 DPI
+    When I drag the border of Woodshed Guitar's editor of track 1 until it is 900 wide
+    Then Woodshed Guitar's editor of track 1 shows its whole profile line "Profile: Clean Channel Through A Vintage Four By Twelve Cabinet With Two Microphones.nam", without a tooltip
+
+  Scenario: Woodshed Guitar's editor never cuts a label off
+    Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have opened the editor of the source of track 1
+    And Woodshed Guitar's editor of track 1 has gone to a screen of 96 DPI
+    When I drag the border of Woodshed Guitar's editor of track 1 until it is 200 wide
+    Then Woodshed Guitar's editor of track 1 is 320 wide, its sliders 120 wide, every label holding its text
+
   Scenario: Woodshed Guitar's editor shows its parameters as they are
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     And I have set "Output level" of the VST3 instrument of track 1 to -6.0

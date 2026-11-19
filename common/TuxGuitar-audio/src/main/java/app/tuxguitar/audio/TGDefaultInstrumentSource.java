@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.midi.synth.TGDefaultSource;
@@ -23,6 +24,7 @@ import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Plugin;
 import app.tuxguitar.vst3.TGVst3PluginProcessor;
+import app.tuxguitar.vst3.TGVst3State;
 
 /**
  * The default instruments the TuxGuitar Synthesizer's channels play, one per context, installed on its synth manager
@@ -49,6 +51,8 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	private final TGFallbackNotice notice = new TGFallbackNotice();
 	// the plugins of the scan the defaults were last tried with (a scan's list stays the same object until the next scan)
 	private List<TGVst3Plugin> scan;
+	// see getStamp: written by the threads that use defaults, scan or play them
+	private final AtomicLong stamp = new AtomicLong();
 
 	private TGDefaultInstrumentSource(TGContext context) {
 		this.context = context;
@@ -70,6 +74,7 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	public void use(TGDefaultInstruments defaults) {
 		this.defaults = defaults;
 		this.notice.tryAgain();
+		this.stamp.incrementAndGet();
 	}
 
 	// the defaults heard at once on the open song, as after a change of a sound chain: with the TuxGuitar Synthesizer as
@@ -113,6 +118,14 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		return true;
 	}
 
+	// goes up each time what the defaults play may have changed: other defaults used, another scan of the VST3 folders
+	// (seen here, without a channel asking), a default told to play General MIDI instead; so an editor showing what a
+	// channel plays (TGSoundChainFollow) asks again only then
+	public long getStamp() {
+		this.scanned(TGVst3Hosting.getInstance(this.context).getPlugins());
+		return this.stamp.get();
+	}
+
 	public TGDefaultInstruments getDefaults() {
 		return this.defaults;
 	}
@@ -136,6 +149,18 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	// has once opened and restored (Woodshed Guitar's holds the kind's profile); refused saying why when it does not open
 	public TGProgramElement kept(TGDefaultPlay play) throws TGVst3Exception {
 		return TGPluginStates.kept(this.context, play.getElement());
+	}
+
+	// the default instrument that plays as a song keeps it with the state given (what its editor made of it)
+	public TGProgramElement kept(TGDefaultPlay play, TGVst3State state) {
+		return TGPluginStates.kept(play.getElement(), state);
+	}
+
+	// the default instrument the channel plays as its source (its chain's source is the default, an instrument plays),
+	// whose editor Edit opens; null when it plays none (General MIDI, or an instrument of its own)
+	public TGProgramElement edited(TGChannel channel) {
+		TGDefaultPlay play = this.play(channel);
+		return (TGSoundChainRows.of(channel, play).canKeep() ? play.getElement() : null);
 	}
 
 	public TGDefaultPlay play(int bank, int program) {
@@ -176,6 +201,7 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 		if (plugins != this.scan) {
 			this.scan = plugins;
 			this.notice.tryAgain();
+			this.stamp.incrementAndGet();
 		}
 		return plugins;
 	}
@@ -217,6 +243,7 @@ public final class TGDefaultInstrumentSource implements TGDefaultSource {
 	private void fellBack(TGFallback fallback, String logged) {
 		if (this.notice.fellBack(fallback, TGDocumentManager.getInstance(this.context).getSong(), now())) {
 			LOG.warn(logged);
+			this.stamp.incrementAndGet();
 		}
 	}
 

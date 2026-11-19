@@ -9,17 +9,22 @@ import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.vst3.TGVst3Exception;
+import app.tuxguitar.vst3.TGVst3State;
 
 /**
  * The Sound Chain dialog's "Keep in song": the default instrument the channel plays (TGDefaultInstrumentSource.play)
  * becomes its own instrument, its state in the song (Woodshed Guitar's holds the kind's profile), so the channel no
  * longer follows the settings and sounds the same wherever the song opens; the effects stay. Refused when the source is
  * not the default or no default instrument plays (General MIDI does); refused saying why when the instrument does not
- * open.
+ * open. Kept with the state given (ATTRIBUTE_STATE), the first change made in the default instrument's own editor keeps it
+ * (TGLivePlugins).
  */
 public class TGKeepDefaultInstrumentAction extends TGSoundChainAction {
 
 	public static final String NAME = "action.audio.sound-chain.keep-default-instrument";
+	// the state the default instrument is kept with (TGVst3State: what the first change in its editor made of it, see
+	// TGLivePlugins); without one, the state it has once opened and restored
+	public static final String ATTRIBUTE_STATE = "keptState";
 
 	public TGKeepDefaultInstrumentAction(TGContext context) {
 		super(context, NAME);
@@ -31,8 +36,9 @@ public class TGKeepDefaultInstrumentAction extends TGSoundChainAction {
 		if (!TGSoundChainRows.of(channel, play).canKeep()) {
 			return false;
 		}
+		TGVst3State state = context.getAttribute(ATTRIBUTE_STATE);
 		try {
-			chain.setReceiver(defaults.kept(play));
+			chain.setReceiver(state != null ? defaults.kept(play, state) : defaults.kept(play));
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
 		}

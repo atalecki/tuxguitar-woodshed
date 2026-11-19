@@ -1,0 +1,5 @@
+### Plugin Information ###
+plugin.name=TuxGuitar Sound Chain panel
+plugin.description=The Sound Chain panel at the foot of the main window: the selected track's sound chain, and its changes,\nwithout opening the Sound Chain dialog. View > Sound Chain (F8) shows or hides it.
+plugin.author=TuxGuitar
+plugin.version=1.0

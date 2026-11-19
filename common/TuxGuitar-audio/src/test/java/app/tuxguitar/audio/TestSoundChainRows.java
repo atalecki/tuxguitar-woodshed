@@ -6,8 +6,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static app.tuxguitar.editor.action.SongActionFixture.reads;
+
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
@@ -52,6 +57,13 @@ class TestSoundChainRows {
 		assertEquals("Source: drone | 1. Test Gain | 2. [echo]", String.join(" | ", TGSoundChainRows.of(this.guitar).getRows("Source")));
 	}
 
+	// the Sound Chain panel's buttons: the same, without the effects' numbers (arrows show the order there)
+	@Test
+	void theElementsAsThePanelNamesThemWithoutNumbers() {
+		assertEquals("Source: drone | Test Gain | [echo] || ", String.join(" | ", TGSoundChainRows.of(this.guitar).getElements("Source")) + " || "
+			+ String.join(" | ", TGSoundChainRows.NONE.getElements("Source")));
+	}
+
 	// the source is not moved, removed or disabled; the first effect is not moved up; only a VST3 plugin has an editor
 	@Test
 	void whatCanBeDoneWithTheRowPicked() {
@@ -62,12 +74,9 @@ class TestSoundChainRows {
 	// kept; General MIDI playing, or an instrument of the track's own, cannot
 	@Test
 	void onlyADefaultSourcePlayingAnInstrumentCanBeKept() {
-		TGDefaultPlay plays = new TGDefaultPlay(TGInstrumentKind.GUITAR, TGDefaultInstrument.parse("7A1C0008544753494E45000000000008", "Test Sine").get(),
-			TGVst3Element.create("default-guitar", SINE), TGDefaultPlay.Is.PLAYED);
+		TGDefaultPlay plays = this.defaultSourcePlayingSine();
 		TGDefaultPlay generalMidi = new TGDefaultPlay(TGInstrumentKind.GUITAR, null, null, TGDefaultPlay.Is.NO_DEFAULT);
 		TGProgram chain = TGSoundChain.get(this.guitar);
-		chain.setReceiver(TGSoundChain.source(GervillProcessorFactory.TYPE));
-		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
 		String byDefault = TGSoundChainRows.of(this.guitar, plays).canKeep() + " " + TGSoundChainRows.of(this.guitar).canKeep() + " " + TGSoundChainRows.of(this.guitar, generalMidi).canKeep();
 		chain.setReceiver(TGVst3Element.create("source", SINE));
 		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
@@ -92,6 +101,59 @@ class TestSoundChainRows {
 		assertEquals("guitar: source true, add true false false, choose false true false | audio: source false, choose false",
 			"guitar: source " + guitar.canChooseSource() + ", add " + guitar.canAdd(GAIN) + " " + guitar.canAdd(SINE) + " " + guitar.canAdd(null) + ", choose " + guitar.canChoose(GAIN) + " " + guitar.canChoose(SINE) + " " + guitar.canChoose(null)
 			+ " | audio: source " + takes.canChooseSource() + ", choose " + takes.canChoose(SINE));
+	}
+
+	// the controls an app's editor enables for the row picked, the plugins picked in its drop-downs given
+	private static String enabled(TGSoundChainRows rows, int row, TGVst3Plugin effect, TGVst3Plugin instrument) {
+		return Arrays.stream(TGSoundChainRows.Control.values()).filter(control -> rows.isEnabled(control, row, effect, instrument)).map(Enum::name).collect(Collectors.joining(" "));
+	}
+
+	// each control enabled exactly as the dialog's buttons were: what can be added or chosen whatever the row, what the
+	// row allows, an audio channel's source chosen by no control, and nothing at all without a track; the panel's button
+	// opening the dialog, whenever there is a track
+	@TestFactory
+	Stream<DynamicTest> theControlsEnabledForEachKindOfRowPicked() {
+		TGChannel audio = this.fixture.songManager.getChannel(this.fixture.song, this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1)).getChannelId());
+		TGSoundChainRows guitar = TGSoundChainRows.of(this.guitar);
+		return Stream.of(
+			reads("none picked", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, -1, GAIN, SINE)),
+			reads("the source", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, GAIN, SINE)),
+			reads("the first effect", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT REMOVE TOGGLE EDIT OPEN_DIALOG", () -> enabled(guitar, 1, GAIN, SINE)),
+			reads("a later effect, disabled", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT MOVE_UP REMOVE TOGGLE OPEN_DIALOG", () -> enabled(guitar, 2, GAIN, SINE)),
+			reads("plugins picked of the other kind", "DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, SINE, GAIN)),
+			reads("no plugins to pick", "DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, null, null)),
+			reads("an audio channel's takes", "ADD_EFFECT OPEN_DIALOG", () -> enabled(TGSoundChainRows.of(audio), 0, GAIN, SINE)),
+			reads("no track", "", () -> enabled(TGSoundChainRows.NONE, 0, GAIN, SINE)));
+	}
+
+	// a default source that plays an instrument can be kept in the song, whatever row is picked; picked, its editor opens
+	// (the default's: the first change made there keeps it, TGLivePlugins)
+	@Test
+	void keepIsEnabledWhileTheDefaultInstrumentPlaysAndEditOnItsRow() {
+		TGSoundChainRows rows = TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine());
+		assertEquals("DEFAULT_INSTRUMENT KEEP OPEN_DIALOG | DEFAULT_INSTRUMENT KEEP EDIT OPEN_DIALOG", enabled(rows, -1, null, null) + " | " + enabled(rows, 0, null, null));
+	}
+
+	// General MIDI playing as the default source has no editor
+	@Test
+	void aDefaultSourcePlayingGeneralMidiHasNoEditor() {
+		TGDefaultPlay generalMidi = new TGDefaultPlay(TGInstrumentKind.GUITAR, null, null, TGDefaultPlay.Is.NO_DEFAULT);
+		assertEquals("false false", TGSoundChainRows.of(this.guitar, generalMidi).canEdit(0) + " " + TGSoundChainRows.of(this.guitar).canEdit(0));
+	}
+
+	// the guitar's source made the default instrument (stored as General MIDI), which plays Test Sine
+	private TGDefaultPlay defaultSourcePlayingSine() {
+		TGProgram chain = TGSoundChain.get(this.guitar);
+		chain.setReceiver(TGSoundChain.source(GervillProcessorFactory.TYPE));
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		return new TGDefaultPlay(TGInstrumentKind.GUITAR, TGDefaultInstrument.parse("7A1C0008544753494E45000000000008", "Test Sine").get(),
+			TGVst3Element.create("default-guitar", SINE), TGDefaultPlay.Is.PLAYED);
+	}
+
+	// no track: no rows
+	@Test
+	void noTrackHasNoRows() {
+		assertEquals("[]", TGSoundChainRows.NONE.getRows("Source").toString());
 	}
 
 	@Test

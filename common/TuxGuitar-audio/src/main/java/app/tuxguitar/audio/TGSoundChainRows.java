@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
@@ -18,6 +19,41 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * (TGDefaultPlay).
  */
 public final class TGSoundChainRows {
+
+	// what an app's sound chain editor can be asked to do, each enabled or greyed for the row picked (the one place that
+	// decides it): add the VST3 effect picked, make the VST3 instrument picked or the default instrument the source, keep
+	// the default instrument in the song, move the picked effect up, remove it, enable or disable it, open its editor;
+	// the Sound Chain panel opens the full dialog on its track
+	public enum Control {
+		ADD_EFFECT((rows, row, effect, instrument) -> rows.canAdd(effect)),
+		USE_AS_SOURCE((rows, row, effect, instrument) -> rows.canChoose(instrument)),
+		DEFAULT_INSTRUMENT((rows, row, effect, instrument) -> rows.canChooseSource()),
+		KEEP((rows, row, effect, instrument) -> rows.canKeep()),
+		MOVE_UP((rows, row, effect, instrument) -> rows.canMoveUp(row)),
+		REMOVE((rows, row, effect, instrument) -> rows.isEffect(row)),
+		TOGGLE((rows, row, effect, instrument) -> rows.isEffect(row)),
+		EDIT((rows, row, effect, instrument) -> rows.canEdit(row)),
+		OPEN_DIALOG((rows, row, effect, instrument) -> true);
+
+		private final Rule rule;
+
+		Control(Rule rule) {
+			this.rule = rule;
+		}
+	}
+
+	private interface Rule {
+		boolean allows(TGSoundChainRows rows, int row, TGVst3Plugin effect, TGVst3Plugin instrument);
+	}
+
+	// no track (no song shown yet): no rows, every control greyed; nothing else is asked of it
+	public static final TGSoundChainRows NONE = new TGSoundChainRows(null, null, null);
+
+	// whether the control is enabled for the row picked (-1: none), the plugins picked in the app's drop-downs given
+	// (null: none)
+	public boolean isEnabled(Control control, int row, TGVst3Plugin effect, TGVst3Plugin instrument) {
+		return this.chain != null && control.rule.allows(this, row, effect, instrument);
+	}
 
 	private final TGChannel channel;
 	private final TGProgram chain;
@@ -39,14 +75,23 @@ public final class TGSoundChainRows {
 		return new TGSoundChainRows(channel, TGSoundChain.get(channel), play);
 	}
 
-	// source: what the app calls the source
+	// source: what the app calls the source; each effect by its number (the Sound Chain dialog's list)
 	public List<String> getRows(String source) {
-		List<String> rows = new ArrayList<String>();
-		rows.add(source + ": " + this.source());
-		for (int i = 0; i < this.chain.countOutputs(); i++) {
-			rows.add((i + 1) + ". " + TGSoundChain.effect(this.chain.getOutput(i), this.channel));
+		List<String> elements = this.getElements(source);
+		return IntStream.range(0, elements.size()).mapToObj(row -> (row > 0 ? row + ". " : "") + elements.get(row)).collect(Collectors.toList());
+	}
+
+	// the same without the effects' numbers (the Sound Chain panel's buttons, arrows between them)
+	public List<String> getElements(String source) {
+		List<String> elements = new ArrayList<String>();
+		if (this.chain == null) {
+			return elements;
 		}
-		return rows;
+		elements.add(source + ": " + this.source());
+		for (int i = 0; i < this.chain.countOutputs(); i++) {
+			elements.add(TGSoundChain.effect(this.chain.getOutput(i), this.channel));
+		}
+		return elements;
 	}
 
 	// the source as the row names it: a default source says what plays and why, when that is known
@@ -83,8 +128,9 @@ public final class TGSoundChainRows {
 		return row > 1;
 	}
 
+	// a VST3 plugin's editor: an effect's, the source's, or, on the source's row, the default instrument's that plays
 	public boolean canEdit(int row) {
-		return row >= 0 && TGSoundChain.plugin(this.chain, effect(row)) != null;
+		return row >= 0 && (TGSoundChain.plugin(this.chain, effect(row)) != null || (row == 0 && this.canKeep()));
 	}
 
 	// the source is always enabled

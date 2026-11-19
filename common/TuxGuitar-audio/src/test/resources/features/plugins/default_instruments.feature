@@ -242,6 +242,78 @@ Feature: Default instruments by track kind
     And the refusal starts with "The VST3 plugin Test Sine could not be opened: "
     And track 1's sound chain reads "Steel String Acoustic Guitar"
 
+  # Edit on a default source (the Sound Chain dialog and panel alike) opens the default instrument's own editor. The first
+  # change made there keeps the default in the song with that change, as "Keep in song" does (its state, Woodshed
+  # Guitar's profile in it), as one undo step; the editor goes on editing the track's own instrument, and the track no
+  # longer follows the settings. Opening and closing the editor without a change keeps nothing
+  Scenario: Edit on a default source opens the default instrument's own editor, the song as it was
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have saved the song as a TuxGuitar file
+    When I open the editor of the source of track 1
+    Then the plugin's own editor of the default instrument of track 1 is open
+    And track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the song is not modified
+
+  Scenario: the first change made in a default instrument's editor keeps it in the song, with that change
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have opened the editor of the source of track 1
+    And I have saved the song as a TuxGuitar file
+    When the plugin loads the capture 7 into the default instrument of track 1 saying so
+    And the default instrument for guitar tracks is "Test Click"
+    Then track 1's sound chain reads "Test Sine"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Test Sine"
+    And the capture of the source of track 1 is 7
+    And the plugin's own editor of the source of track 1 is open
+    And the song is modified
+
+  Scenario: keeping a default instrument by the first change in its editor is one undo step
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have opened the editor of the source of track 1
+    And the plugin has loaded the capture 7 into the default instrument of track 1 saying so
+    When I undo
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the Sound Chain dialog's source row of track 1 reads "Source: Test Sine (default for guitar tracks)"
+
+  Scenario: a later change in the editor changes the track's own instrument, one undo step each
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have opened the editor of the source of track 1
+    And the plugin has loaded the capture 7 into the default instrument of track 1 saying so
+    And the plugin has loaded the capture 9 into the source of track 1 saying so
+    When I undo
+    Then the capture of the source of track 1 is 7
+    And track 1's sound chain reads "Test Sine"
+
+  Scenario: opening and closing a default instrument's editor without a change keeps nothing
+    Given the default instrument for guitar tracks is "Test Sine"
+    And I have opened the editor of the source of track 1
+    And I have saved the song as a TuxGuitar file
+    When I close the plugin's own editor of the default instrument of track 1 by its close box
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the song is not modified
+
+  Scenario: a control moved in Woodshed Guitar's editor of a default source keeps it in the song with its profile
+    Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is a NAM capture "Gain 3.nam" that multiplies the signal by 3.0
+    And the default instrument for guitar tracks is "Woodshed Guitar"
+    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    And I have opened the editor of the source of track 1
+    When I set "Output level" to -6.0 in Woodshed Guitar's editor of track 1
+    And the NAM capture "Gain 3.nam" has been moved away
+    Then track 1's sound chain reads "Woodshed Guitar"
+    And Woodshed Guitar of track 1 has "Output level" at -6.0
+    And Woodshed Guitar of track 1 plays the profile "Gain 3.nam"
+
+  Scenario: opening and closing Woodshed Guitar's editor of a default source keeps nothing, its profile loaded meanwhile
+    Given the VST3 folders hold the test plugins and TuxGuitar's own plugins
+    And there is a NAM capture "Gain 3.nam" that multiplies the signal by 3.0, with 5 MB of notes in it
+    And the default instrument for guitar tracks is "Woodshed Guitar"
+    And the guitar profile in the settings is the NAM capture "Gain 3.nam"
+    And I have opened the editor of the source of track 1
+    And I have saved the song as a TuxGuitar file
+    When I close the plugin's own editor of the default instrument of track 1 by its close box
+    Then track 1's sound chain reads "Steel String Acoustic Guitar"
+    And the song is not modified
+
   # an instrument the track chose itself is not a default: when it cannot be loaded the track stays silent, as before
   Scenario: an instrument of the track's own that cannot be loaded stays silent
     Given I have chosen the VST3 instrument "Test Sine" for track 1

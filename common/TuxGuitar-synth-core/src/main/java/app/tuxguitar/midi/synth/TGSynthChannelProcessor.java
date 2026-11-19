@@ -49,6 +49,16 @@ public class TGSynthChannelProcessor {
 		}
 	}
 
+	// the processor of the element (mapped) is the other element's from now on, when both are of the same type: opened
+	// for it next (addProcessor), it is given its parameters
+	public void handOver(TGProgramElement from, TGProgramElement to) {
+		synchronized (this.lock) {
+			if( from.getType().equals(to.getType()) ) {
+				this.processorMap.put(to, this.processorMap.remove(from));
+			}
+		}
+	}
+
 	public void openReceiver(TGContext context, TGProgramElement receiver) {
 		synchronized (this.lock) {
 			TGMidiProcessor processor = (TGMidiProcessor) this.getAudioProcessor(receiver);

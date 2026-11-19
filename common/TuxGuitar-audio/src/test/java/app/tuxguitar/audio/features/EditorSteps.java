@@ -9,13 +9,17 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import app.tuxguitar.audio.TGDefaultInstrumentSource;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGPluginEditor;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.audio.action.TGEffectAction;
 import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
+import app.tuxguitar.midi.synth.TGAudioProcessor;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGDuration;
@@ -26,6 +30,8 @@ import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
 import app.tuxguitar.vst3.TGVst3Instance;
+import app.tuxguitar.vst3.TGVst3InstrumentProcessor;
+import app.tuxguitar.vst3.TGVst3PluginProcessor;
 import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -128,14 +134,29 @@ public class EditorSteps {
 		return live().getEditor(channel(track).getChannelId(), effect(effect, track).getId());
 	}
 
-	@Then("the plugin's own editor of VST3 effect {int} of track {int} is open")
-	public void itsOwnEditorIsOpen(int effect, int track) {
-		assertTrue(editor(effect, track).isOwn());
+	// a plugin of a track's sound chain as a step names it: "VST3 effect N of track M", "the source of track M", or "the
+	// default instrument of track M" (what the track plays by default, as its source or not); read as its channel's id
+	// and its element's
+	@ParameterType("VST3 effect \\d+ of track \\d+|the source of track \\d+|the default instrument of track \\d+")
+	public Map.Entry<Integer, String> plugin(String words) {
+		Matcher named = Pattern.compile("(?:VST3 effect (\\d+)|the (source|default instrument)) of track (\\d+)").matcher(words);
+		named.matches();
+		int track = Integer.parseInt(named.group(3));
+		String element = (named.group(1) != null ? effect(Integer.parseInt(named.group(1)), track).getId() : instrument(named.group(2), track));
+		return Map.entry(channel(track).getChannelId(), element);
 	}
 
-	@Then("the plugin's own editor of the source of track {int} is open")
-	public void theSourcesOwnEditorIsOpen(int track) {
-		assertTrue(live().getEditor(channel(track).getChannelId(), "source").isOwn());
+	private String instrument(String instrument, int track) {
+		return (instrument.equals("source") ? "source" : TGDefaultInstrumentSource.install(world.fixture().context).play(channel(track)).getElement().getId());
+	}
+
+	private TGVst3Instance running(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		return live().get(plugin.getKey(), plugin.getValue());
+	}
+
+	@Then("the plugin's own editor of {plugin} is open")
+	public void itsOwnEditorIsOpen(Map.Entry<Integer, String> plugin) {
+		assertTrue(live().getEditor(plugin.getKey(), plugin.getValue()).isOwn());
 	}
 
 	@Then("the window of the plugin's own editor of VST3 effect {int} of track {int} is titled {string}")
@@ -225,30 +246,35 @@ public class EditorSteps {
 	// whether the plugin says it is dirty
 	@ParameterType("saying so|without saying so")
 	public Boolean saying(String saying) {
-		return saying.equals("saying so");
+		return !saying.startsWith("without");
 	}
 
 	// a capture loaded in the plugin's own editor (no gesture), the plugin saying it is dirty or not; then the app drains
-	@Given("the plugin has loaded the capture {int} into VST3 effect {int} of track {int} {saying}")
-	@When("the plugin loads the capture {int} into VST3 effect {int} of track {int} {saying}")
-	public void thePluginLoadsTheCapture(int capture, int effect, int track, boolean dirty) throws TGVst3Exception {
-		running(effect, track).message("TG.load", Map.of("capture", (long) capture, "dirty", dirty ? 1L : 0L), Collections.<String, byte[]>emptyMap());
+	@Given("the plugin has loaded the capture {int} into {plugin} {saying}")
+	@When("the plugin loads the capture {int} into {plugin} {saying}")
+	public void thePluginLoadsTheCapture(int capture, Map.Entry<Integer, String> plugin, boolean dirty) throws TGVst3Exception {
+		running(plugin).message("TG.load", Map.of("capture", (long) capture, "dirty", dirty ? 1L : 0L), Collections.<String, byte[]>emptyMap());
 		live().drain();
 	}
 
-	// its close box hides the window; the hide comes with a reply of the plugin's host, then the app drains
-	@When("I close the plugin's own editor of VST3 effect {int} of track {int} by its close box")
-	public void closeTheEditorByItsCloseBox(int effect, int track) throws TGVst3Exception {
-		TGVst3Instance plugin = running(effect, track);
+	// then the app drains
+	@When("I close the plugin's own editor of {plugin} by its close box")
+	public void closeTheEditorByItsCloseBox(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		closeBox(running(plugin));
+		live().drain();
+	}
+
+	// its close box hides the window; the hide comes with a reply of the plugin's host
+	public static void closeBox(TGVst3Instance plugin) throws TGVst3Exception {
 		plugin.message("TG.close-window", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
 		long end = System.currentTimeMillis() + 2000;
 		while (plugin.getEditorWindow().isShown() && System.currentTimeMillis() < end) {
 			java.util.concurrent.locks.LockSupport.parkNanos(5000000);
 		}
-		live().drain();
 	}
 
-	private static int capture(TGVst3Instance plugin) throws TGVst3Exception {
+	// the capture a test plugin plays
+	public static int capture(TGVst3Instance plugin) throws TGVst3Exception {
 		byte[] capture = plugin.message("TG.capture", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap());
 		return java.nio.ByteBuffer.wrap(capture).order(java.nio.ByteOrder.nativeOrder()).getInt();
 	}
@@ -256,12 +282,20 @@ public class EditorSteps {
 	// of the song: the plugin opened afresh from the element
 	@Then("the capture of VST3 effect {int} of track {int} is {int}")
 	public void theCaptureIs(int effect, int track, int capture) throws TGVst3Exception {
-		TGVst3EffectProcessor processor = new TGVst3EffectProcessor(TGVst3Hosting.getInstance(world.fixture().context));
+		theCaptureIs(new TGVst3EffectProcessor(TGVst3Hosting.getInstance(world.fixture().context)), effect(effect, track), capture);
+	}
+
+	@Then("the capture of the source of track {int} is {int}")
+	public void theSourcesCaptureIs(int track, int capture) throws TGVst3Exception {
+		theCaptureIs(new TGVst3InstrumentProcessor(TGVst3Hosting.getInstance(world.fixture().context)), TGSoundChain.get(channel(track)).getReceiver(), capture);
+	}
+
+	private static void theCaptureIs(TGVst3PluginProcessor processor, TGProgramElement element, int capture) throws TGVst3Exception {
 		try {
-			processor.restoreParameters(effect(effect, track).getParameters());
+			((TGAudioProcessor) processor).restoreParameters(element.getParameters());
 			assertEquals(capture, capture(processor.getInstance()));
 		} finally {
-			processor.close();
+			((TGAudioProcessor) processor).close();
 		}
 	}
 

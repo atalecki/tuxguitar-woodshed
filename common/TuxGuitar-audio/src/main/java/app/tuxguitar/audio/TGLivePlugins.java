@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.action.TGActionManager;
+import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
 import app.tuxguitar.audio.action.TGSetPluginStateAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.document.TGDocumentManager;
@@ -47,6 +49,11 @@ import app.tuxguitar.vst3.TGVst3State;
  * called the plugin (live, the audio thread), which only notes it. Draining, on the thread that edits the song (an
  * app's UI thread), changes the song: each element whose plugin ended gestures keeps that plugin's state, by one
  * TGSetPluginStateAction run on an action context of its own (one undo step per element).
+ *
+ * The default instrument a channel plays as its source (TGDefaultInstrumentSource.edited) is edited too, though it is
+ * no element of the song: the first change made in its editor keeps it in the song with that change (Keep in song,
+ * TGKeepDefaultInstrumentAction, one undo step), its plugin and editor going on as the source's; opening and closing its
+ * editor changes nothing, nor does what the plugin does once the default is another one (the settings changed).
  */
 public final class TGLivePlugins implements TGSynthChannelListener {
 
@@ -162,7 +169,7 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 
 	// the plugin kept open for the element, opened again when the song's element is not what it was opened with
 	private TGVst3Instance kept(int channel, String element) throws TGVst3Exception {
-		TGProgram chain = this.chain(channel);
+		TGProgram chain = this.chainOf(channel, element);
 		TGProgramElement song = TGSoundChain.element(chain, element);
 		Kept kept = this.kept.get(key(channel, element));
 		if (kept == null || !kept.follows(song)) {
@@ -188,8 +195,26 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 
 	// the sound chain of the channel of the document's song
 	private TGProgram chain(int channel) {
+		return TGSoundChain.get(this.channel(channel));
+	}
+
+	private TGChannel channel(int channel) {
 		TGDocumentManager document = TGDocumentManager.getInstance(this.context);
-		return TGSoundChain.get(document.getSongManager().getChannel(document.getSong(), channel));
+		return document.getSongManager().getChannel(document.getSong(), channel);
+	}
+
+	// the chain the element runs in: the song's, else, for the default instrument the channel plays as its source, a
+	// chain of its own
+	private TGProgram chainOf(int channel, String element) {
+		TGProgram chain = this.chain(channel);
+		TGProgramElement played = (TGSoundChain.element(chain, element) == null ? this.byDefault(channel, element) : null);
+		return (played != null ? TGPluginStates.alone(played) : chain);
+	}
+
+	// the default instrument the channel plays as its source, when it is the element; else null
+	private TGProgramElement byDefault(int channel, String element) {
+		TGProgramElement played = TGDefaultInstrumentSource.install(this.context).edited(this.channel(channel));
+		return (played != null && played.getId().equals(element) ? played : null);
 	}
 
 	// each plugin kept open whose element no render runs (nothing else calls it) is asked for its first parameter, so
@@ -232,16 +257,15 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	}
 
 	// the song's element keeps the plugin's state, one change of the song; none when the song holds that state already
-	// (an editor closed having changed nothing), nor for a plugin that is no element of the song's chain (a default
-	// instrument, TGDefaultInstrumentSource, loading its profile: a setting of the computer, not of the song)
+	// (an editor closed having changed nothing). A plugin that is no element of the song's chain is the default
+	// instrument the channel plays (TGDefaultInstrumentSource): kept in the song when its editor made the change, else
+	// not (it loaded its profile: a setting of the computer, not of the song)
 	private void store(int channel, String element, TGVst3Instance instance) {
-		if (TGSoundChain.element(this.chain(channel), element) == null) {
-			return;
-		}
+		boolean song = (TGSoundChain.element(this.chain(channel), element) != null);
 		try {
 			TGVst3State state = instance.getState();
-			if (!instance.isAgreed(state)) {
-				this.take(channel, element, instance, state);
+			if (!instance.isAgreed(state) && (song || this.edits(channel, element))) {
+				this.take(channel, element, instance, state, song);
 			}
 		} catch (TGVst3Exception | TGActionException e) {
 			// the plugin is gone, or the song refused the change: the song stays as it was
@@ -249,18 +273,42 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		}
 	}
 
-	private void take(int channel, String element, TGVst3Instance instance, TGVst3State state) {
+	// whether the element is the default instrument the channel plays as its source, edited in the editor open for it
+	private synchronized boolean edits(int channel, String element) {
+		Editor editor = this.editors.get(key(channel, element));
+		return (editor != null && editor.edits(this.byDefault(channel, element)));
+	}
+
+	// on an action context of its own: the song's element takes the state; or the default instrument is kept in the song
+	// as the channel's source with it, its plugin (and editor) the source's from then on
+	private void take(int channel, String element, TGVst3Instance instance, TGVst3State state, boolean song) {
 		TGDocumentManager document = TGDocumentManager.getInstance(this.context);
 		TGActionContext change = new TGActionContext() {
 		};
 		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG_MANAGER, document.getSongManager());
 		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_SONG, document.getSong());
-		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, document.getSongManager().getChannel(document.getSong(), channel));
+		change.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, this.channel(channel));
 		change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_ELEMENT, element);
 		change.setAttribute(TGSetPluginStateAction.ATTRIBUTE_STATE, state);
-		TGActionManager.getInstance(this.context).execute(TGSetPluginStateAction.NAME, change);
+		change.setAttribute(TGKeepDefaultInstrumentAction.ATTRIBUTE_STATE, state);
 		instance.agree(state);
-		this.took(channel, element, instance);
+		String kept = (song ? element : this.handOver(channel, element, TGSoundChain.source(TGVst3Element.INSTRUMENT).getId(), instance));
+		TGActionManager.getInstance(this.context).execute(song ? TGSetPluginStateAction.NAME : TGKeepDefaultInstrumentAction.NAME, change);
+		this.took(channel, kept, instance);
+	}
+
+	// the plugin of the element is the other element's from now on (the default instrument kept as the song's source):
+	// what it runs as, is kept open as, and its editor; what its editor does is the other element's
+	private synchronized String handOver(int channel, String from, String to, TGVst3Instance instance) {
+		this.listened(channel, to, instance);
+		move(this.running, key(channel, from), key(channel, to));
+		move(this.kept, key(channel, from), key(channel, to));
+		move(this.editors, key(channel, from), key(channel, to));
+		return to;
+	}
+
+	private static <T> void move(Map<String, T> map, String from, String to) {
+		Optional.ofNullable(map.remove(from)).ifPresent(value -> map.put(to, value));
 	}
 
 	// the plugin kept for the element did the change the song's element now holds, or gave the state it holds: it is not
@@ -287,8 +335,19 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 		}
 		TGVst3Instance instance = this.get(channel, element);
 		TGPluginEditor editor = new TGPluginEditor(this.ownEditor(instance, channel, element, owner, title), () -> rows(instance));
-		this.editors.put(key(channel, element), new Editor(editor, instance));
+		this.editors.put(key(channel, element), new Editor(editor, instance, this.edited(channel, element, instance)));
 		return editor;
+	}
+
+	// the default instrument the channel plays as its source, when the element is, its plugin's state once restored
+	// taken as what the song has (a change is what differs from it); else null
+	private TGProgramElement edited(int channel, String element, TGVst3Instance instance) throws TGVst3Exception {
+		TGProgramElement played = (TGSoundChain.element(this.chain(channel), element) == null ? this.byDefault(channel, element) : null);
+		if (played != null) {
+			TGPluginStates.restored(instance);
+			instance.agree(instance.getState());
+		}
+		return played;
 	}
 
 	// whether the plugin opened an editor of its own; refused naming the plugin and the reason
@@ -372,10 +431,18 @@ public final class TGLivePlugins implements TGSynthChannelListener {
 	private static final class Editor {
 		private final TGPluginEditor editor;
 		private final TGVst3Instance instance;
+		// the default instrument it was opened for, as it was then (null: an element of the song)
+		private final Map<String, String> byDefault;
 
-		Editor(TGPluginEditor editor, TGVst3Instance instance) {
+		Editor(TGPluginEditor editor, TGVst3Instance instance, TGProgramElement byDefault) {
 			this.editor = editor;
 			this.instance = instance;
+			this.byDefault = (byDefault != null ? new HashMap<String, String>(byDefault.getParameters()) : null);
+		}
+
+		// whether it edits the default instrument played now (it was opened for it, and the default is still that one)
+		boolean edits(TGProgramElement played) {
+			return (played != null && played.getParameters().equals(this.byDefault));
 		}
 
 		// the plugin's own editor closes (a plugin that is gone has none left to close), TuxGuitar's with it
