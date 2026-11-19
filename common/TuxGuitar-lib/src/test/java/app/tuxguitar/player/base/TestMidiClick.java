@@ -164,19 +164,22 @@ public class TestMidiClick {
 		return describe(MidiClick.read(config));
 	}
 
-	// a configuration kept before: the drum note's built-in sound (else the Click), beat 1 accented, the velocity as a
-	// volume, round(20 * log10(velocity / 127)) dB, from -30; the default one (Side Stick at 95) is the default click
-	@Test
-	public void keptBeforeAsANoteAndVelocityIsMigrated() {
-		assertEquals("accented wood-block 0 | accented click -3 | accented click -30 | accented hi-hat -6",
-			migrated(76, 127) + " | " + migrated(37, 95) + " | " + migrated(60, 1) + " | " + migrated(42, 64));
+	// each note and velocity (one after the other) kept before, migrated, joined by " | "
+	private static String migrated(int... notesAndVelocities) {
+		List<String> clicks = new java.util.ArrayList<String>();
+		for (int i = 0; i < notesAndVelocities.length; i += 2) {
+			clicks.add(migrated(notesAndVelocities[i], notesAndVelocities[i + 1]));
+		}
+		return String.join(" | ", clicks);
 	}
 
-	// kept before outside MIDI (edited by hand): the default click; the lowest and highest notes are MIDI
+	// a configuration kept before: the drum note's built-in sound (else the Click), beat 1 accented, the velocity as a
+	// volume, round(20 * log10(velocity / 127)) dB, from -30; the default one (Side Stick at 95) is the default click.
+	// Outside MIDI (edited by hand): the default click; the lowest and highest notes are MIDI
 	@Test
-	public void keptBeforeOutsideMidiIsTheDefault() {
-		assertEquals("accented click -3 | accented click -3 | accented click 0 | accented click 0", migrated(128, 127) + " | " + migrated(76, 0)
-			+ " | " + migrated(0, 127) + " | " + migrated(127, 127));
+	public void keptBeforeAsANoteAndVelocityIsMigrated() {
+		assertEquals("accented wood-block 0 | accented click -3 | accented click -30 | accented hi-hat -6", migrated(76, 127, 37, 95, 60, 1, 42, 64));
+		assertEquals("accented click -3 | accented click -3 | accented click 0 | accented click 0", migrated(128, 127, 76, 0, 0, 127, 127, 127));
 	}
 
 	// written, the note and velocity kept before are gone: the click is kept once
@@ -226,6 +229,30 @@ public class TestMidiClick {
 			+ (click.hashCode() == new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 3).hashCode()) + " " + click.equals(MidiClick.sameAccented(MidiClickSound.SNARE, 3))
 			+ " " + click.equals(new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 2)) + " " + click.equals(new MidiClick(MidiClickSound.CLAP, MidiClickSound.CLICK, 3))
 			+ " " + click.equals("clap snare 3"));
+	}
+
+	// one choice changed (Settings, Transport > Metronome Sound), the others kept
+	@Test
+	public void oneChoiceChangedTheOthersKept() {
+		MidiClick click = new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 3);
+		MidiClick accented = MidiClick.sameAccented(MidiClickSound.SNARE, 3);
+
+		assertEquals("clap cowbell 3 | accented cowbell 3 | accented snare 3 | hi-hat snare 3 | clap snare -7",
+			describe(click.withOther(MidiClickSound.COWBELL)) + " | " + describe(accented.withOther(MidiClickSound.COWBELL)) + " | "
+			+ describe(click.withBeatOne(java.util.Optional.empty())) + " | " + describe(accented.withBeatOne(java.util.Optional.of(MidiClickSound.HI_HAT)))
+			+ " | " + describe(click.withVolume(-7)));
+		assertThrows(IllegalArgumentException.class, () -> click.withVolume(MidiClick.MAX_VOLUME + 1));
+	}
+
+	// a sound removed: whatever played it plays the Click
+	@Test
+	public void withoutASoundItsChoicesAreTheClick() {
+		MidiClickSound mine = MidiClickSound.own("Mine.wav");
+
+		assertEquals("click click 4 | click snare 4 | clap click 4 | accented click 4 | clap snare 4",
+			describe(new MidiClick(mine, mine, 4).without(mine)) + " | " + describe(new MidiClick(mine, MidiClickSound.SNARE, 4).without(mine)) + " | "
+			+ describe(new MidiClick(MidiClickSound.CLAP, mine, 4).without(mine)) + " | " + describe(MidiClick.sameAccented(mine, 4).without(mine))
+			+ " | " + describe(new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 4).without(mine)));
 	}
 
 	// beat 1 of each measure: the first of each measure's worth of clicks, counted from 0

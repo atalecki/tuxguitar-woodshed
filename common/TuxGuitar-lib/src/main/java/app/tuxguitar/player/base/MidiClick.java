@@ -149,6 +149,29 @@ public final class MidiClick {
 		return parameters;
 	}
 
+	// beat 1 another sound, or (none) the other beats' sound accented; the rest as it is
+	public MidiClick withBeatOne(Optional<MidiClickSound> beatOne) {
+		return new MidiClick(beatOne, this.other, this.volume);
+	}
+
+	// the other beats another sound (Transport > Metronome Sound); beat 1 and the volume as they are
+	public MidiClick withOther(MidiClickSound other) {
+		return new MidiClick(Optional.ofNullable(this.beatOne), other, this.volume);
+	}
+
+	public MidiClick withVolume(int volume) {
+		return new MidiClick(Optional.ofNullable(this.beatOne), this.other, volume);
+	}
+
+	// the sound removed (an own one, see MidiClickSoundsFolder): beat 1 and the other beats the Click where they played it
+	public MidiClick without(MidiClickSound sound) {
+		return new MidiClick(Optional.ofNullable(this.beatOne).map(beat -> instead(beat, sound)), instead(this.other, sound), this.volume);
+	}
+
+	private static MidiClickSound instead(MidiClickSound chosen, MidiClickSound removed) {
+		return (chosen.equals(removed) ? MidiClickSound.CLICK : chosen);
+	}
+
 	// beat 1's sound; none when it is the other beats' sound, accented
 	public Optional<MidiClickSound> getBeatOne() {
 		return Optional.ofNullable(this.beatOne);
