@@ -74,6 +74,22 @@ public class TestEditorDock {
 			"open Test Gain in a window / TOO_LARGE audio.sound-chain.editor.too-large(Test Gain) [audio.sound-chain.editor.show]");
 	}
 
+	// the panel made narrower than the editor inside (fitted again, it is still wider than the area: it cannot shrink to
+	// it): the view inside closes and it opens in a window of its own, the area saying so with Show, as for one too large
+	// when it opened; an editor that shrank to the area's width stays, as does the one shown when another plugin's is
+	// fitted; the panel made wider again leaves it in its window
+	@Test
+	public void anEditorStillWiderThanTheAreaOnceFittedGoesToAWindowOfItsOwn() {
+		String tooLarge = " / TOO_LARGE audio.sound-chain.editor.too-large(Test Gain) [audio.sound-chain.editor.show]";
+		TGVst3EditorOpened wider = TGVst3EditorOpened.of(Kind.EMBEDDED, 200, 100, false, 180);
+		does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED))).does(() -> dock.fitted(GAIN, TGVst3EditorOpened.of(Kind.EMBEDDED, 280, 100, true, 280)))
+			.does(() -> dock.fitted(WOODSHED, wider)).does(() -> dock.fitted(GAIN, wider)).does(() -> dock.opened(GAIN, opened(Kind.OWNED)))
+			.does(() -> dock.fitted(GAIN, TGVst3EditorOpened.of(Kind.EMBEDDED, 200, 100, false, 900)));
+		sees("open Test Gain inside / OPENING", "nothing / OWN_EDITOR" + INSIDE_GAIN, "nothing / OWN_EDITOR" + INSIDE_GAIN, "nothing / OWN_EDITOR" + INSIDE_GAIN,
+			"close Test Gain, open Test Gain in a window" + tooLarge,
+			"nothing" + tooLarge, "nothing" + tooLarge);
+	}
+
 	// a plugin without an editor of its own: TuxGuitar's parameters show in the area, and close as a view does
 	@Test
 	public void aPluginWithoutAnEditorOfItsOwnShowsItsParameters() {

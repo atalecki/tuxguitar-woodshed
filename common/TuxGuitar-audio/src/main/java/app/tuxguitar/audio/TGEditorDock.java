@@ -16,17 +16,19 @@ import app.tuxguitar.vst3.TGVst3EditorOpened;
 import app.tuxguitar.vst3.TGVst3EditorOpened.Kind;
 
 /**
- * The Sound Chain panel's editor area (the room under the chain where the picked plugin's editor shows) as a state
+ * The Track panel's editor area (the room under the chain where the picked plugin's editor shows) as a state
  * machine, the only holder of its state: for each event (a chip picked, what the host did, Hide editor, the panel shown
  * or hidden, Open in window, Put back, a stop...) the step the area takes (the editor it closes, the one it opens and
  * where: inside the area, or in a window of its own) and what it shows then, with the line it says instead of an
  * editor. The panel executes the steps and holds no state of its own.
  *
- * Its rules: the picked plugin's editor shows inside the area unless the user hid it (Hide editor, remembered), the panel
- * is hidden (F8), or the plugin is remembered in a window of its own (Open in window, per plugin, until Put back in the
- * panel or that window's close box); an editor too large for the panel opens in a window of its own; a plugin has one
- * view at a time, so an editor opened elsewhere (the Sound Chain dialog's Edit) leaves the area saying so. A plugin
- * without an editor of its own shows TuxGuitar's parameters there. Not thread-safe: the UI thread only.
+ * Its rules: the picked plugin's editor shows inside the area unless the user hid it (Hide editor, remembered), the
+ * panel is hidden (F8), or the plugin is remembered in a window of its own (Open in window, per plugin, until Put back
+ * in the panel or that window's close box); an editor too large for the panel (higher than the limit, or wider than the
+ * panel when it opens or once the panel is made narrower, unable to shrink to it) opens in a window of its own, and
+ * stays there until shown anew; a plugin has one view at a time, so an editor opened elsewhere (the Sound Chain
+ * dialog's Edit) leaves the area saying so. A plugin without an editor of its own shows TuxGuitar's parameters there.
+ * Not thread-safe: the UI thread only.
  */
 public final class TGEditorDock {
 
@@ -218,12 +220,20 @@ public final class TGEditorDock {
 		return (this.awaits(element) ? this.shown(element, opened) : unwanted(element, opened.getKind()));
 	}
 
-	// the editor inside the area took another size (fitted to its width, or as its plugin asked)
+	// the editor inside the area took another size (fitted to its width, or as its plugin asked); still wider than the
+	// area (the panel made narrower than it can shrink to), it is too large for the panel: its view inside closes and it
+	// opens in a window of its own
 	public Step fitted(Element element, TGVst3EditorOpened fitted) {
-		if (this.shows == Shows.OWN_EDITOR && element.equals(this.element)) {
-			this.size = fitted;
+		if (this.shows != Shows.OWN_EDITOR || !element.equals(this.element)) {
+			return Step.NONE;
 		}
-		return Step.NONE;
+		this.size = fitted;
+		return (fitted.getWidth() > fitted.getAreaWidth() ? this.tooLarge() : Step.NONE);
+	}
+
+	private Step tooLarge() {
+		this.into(Shows.TOO_LARGE);
+		return new Step(this.element, this.element, How.IN_A_WINDOW);
 	}
 
 	// the button beside the line pressed
