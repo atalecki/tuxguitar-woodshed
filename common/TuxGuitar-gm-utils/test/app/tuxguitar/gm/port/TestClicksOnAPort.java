@@ -23,7 +23,8 @@ import app.tuxguitar.util.TGContext;
  * keeps its one channel. The Count In plays them here, one tick; the Metronome plays them on the same channel (see
  * lib's TestMidiPlayerMetronome).
  *
- * The Count In plays its one tick at 10 times the tempo, so it lasts some 50 ms. The port writes what it sends on MIDI
+ * The Count In plays its one tick at 10 times the tempo, so it lasts some 50 ms: a plain click (not beat 1) of the
+ * default click (the Click sound, GM note 37) at -3 dB, velocity round(127 * 10^(-3/20)) = 90. The port writes what it sends on MIDI
  * channel 9 as "cc CONTROLLER VALUE", "program VALUE", "on KEY VELOCITY" and "off KEY VELOCITY".
  */
 public class TestClicksOnAPort {
@@ -69,7 +70,7 @@ public class TestClicksOnAPort {
 		player.updateLoop(true);
 		countDown.start();
 
-		assertEquals("[cc 0 128, cc 0 128, program 0, cc 7 127, cc 10 64, on 37 95, off 37 95] | 1",
+		assertEquals("[cc 0 128, cc 0 128, program 0, cc 7 127, cc 10 64, on 37 90, off 37 90] | 1",
 				settingsAndNotes() + " | " + song.countChannels());
 	}
 
