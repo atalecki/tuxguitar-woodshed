@@ -30,6 +30,9 @@ import app.tuxguitar.util.TGContext;
  * speed while the one before plays (its timeline foresees it), and nothing is stretched again at a jump back or when
  * the same passage plays again at the same speed. The first stretch of a passage played at a new speed is still made
  * by the audio thread: it learns that playing started, where and how fast, only from the first block's transport.
+ * Where the transport says the song stops (on any frame of a block), the tap sounds up to the timeline's sample it
+ * stopped on, that many frames late as every track is, and nothing after it; then a monitored input sounds as while
+ * stopped.
  */
 public final class TGLiveTakes implements TGMidiProcessor {
 
@@ -47,7 +50,13 @@ public final class TGLiveTakes implements TGMidiProcessor {
 	private MidiTransport transport;
 	private int channel;
 	private int delay;
+	// the tap of the timeline followed; none once it has sounded up to where the song stopped
 	private TGTakeTap tap;
+	// whether the song played over the last frame the transport told; the timeline's sample of the next frame, and the
+	// one the song stopped on
+	private boolean playing;
+	private long next;
+	private long stopped;
 
 	TGLiveTakes(TGContext context) {
 		this(context, Executors.newSingleThreadExecutor(TGLiveTakes::daemon), TGWsolaStretcher::new);
@@ -108,14 +117,15 @@ public final class TGLiveTakes implements TGMidiProcessor {
 		TGTrack track = this.track(song);
 		TGAudioSession session = TGAudioSession.getInstance(this.context);
 		boolean monitored = (TGTrackSource.stopped(session.isArmed(track), session.getMonitoring(track)) == TGTrackSource.INPUT);
-		if (!this.transport.get(0).isPlaying()) {
-			this.followed.stop();
-			this.monitor(block, session, song, track, monitored);
-			return;
-		}
 		for (int span = 0; span < this.transport.count(); span++) {
-			int offset = this.transport.get(span).getFrame();
-			this.play(block, offset, TGLiveTimeline.end(this.transport, span, block[0].length) - offset, this.transport.get(span), session, song, track, monitored);
+			MidiTransport.Span told = this.transport.get(span);
+			int offset = told.getFrame();
+			int frames = TGLiveTimeline.end(this.transport, span, block[0].length) - offset;
+			if (told.isPlaying()) {
+				this.play(block, offset, frames, told, session, song, track, monitored);
+			} else {
+				this.stop(block, offset, frames, session, song, track, monitored);
+			}
 		}
 	}
 
@@ -129,13 +139,36 @@ public final class TGLiveTakes implements TGMidiProcessor {
 		this.deliver(session, song, track, from - offset, block[0].length, monitored);
 		this.tap.render(block, offset, frames, from);
 		this.ahead.after(this.tap, from + frames, Math.round(this.sampleRate));
+		this.next = this.followed.getPosition() + frames;
+		this.playing = true;
 	}
 
-	// while stopped, a monitored input sounds as it is delivered
-	private void monitor(float[][] block, TGAudioSession session, TGSong song, TGTrack track, boolean monitored) {
+	// the frames of the block from the offset, over which the song does not play: the tap's samples up to the one the
+	// song stopped on, late by plugin delay compensation (none once it has sounded them); then a monitored input
+	private void stop(float[][] block, int offset, int frames, TGAudioSession session, TGSong song, TGTrack track, boolean monitored) {
+		if (this.playing) {
+			this.stopped = this.next;
+			this.playing = false;
+		}
+		long from = this.next - this.delay;
+		int tail = (this.tap == null ? 0 : (int) Math.max(0, Math.min(frames, this.stopped - from)));
+		if (tail > 0) {
+			this.deliver(session, song, track, from - offset, block[0].length, monitored);
+			this.tap.render(block, offset, tail, from);
+		}
+		this.next += frames;
+		if (tail < frames) {
+			this.followed.stop();
+			this.tap = null;
+			this.monitor(block, offset + tail, offset + frames, session, song, track, monitored);
+		}
+	}
+
+	// while stopped, a monitored input sounds as it is delivered, over the frames of the block from and to
+	private void monitor(float[][] block, int from, int to, TGAudioSession session, TGSong song, TGTrack track, boolean monitored) {
 		this.deliver(session, song, track, 0, block[0].length, monitored);
 		for (int side = 0; monitored && side < block.length; side++) {
-			for (int i = 0; i < block[side].length; i++) {
+			for (int i = from; i < to; i++) {
 				block[side][i] += this.input.at(side, i);
 			}
 		}

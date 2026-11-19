@@ -329,6 +329,14 @@ public class LivePractisingSteps {
 		assertEquals(end, stopped(), within, turn + " ends, as heard, at sample " + end);
 	}
 
+	// the player stopped at the end of the block the output sounds the turn's end in, so many samples after Play: not
+	// before the end is heard, and not a block later
+	void assertStoppedAsHeard(long samples, String turn) {
+		long end = change + samples + world.chainDelay();
+		long stopped = stopped();
+		assertTrue(stopped >= end && stopped < end + BLOCK, turn + " ends, as heard, at sample " + end + "; the player stopped at " + stopped);
+	}
+
 	// where the turn (from 1) ends, as heard: where the next one starts
 	private int heardEnd(int turn) {
 		return (int) (planned.turnEnd(turn - 1) + world.chainDelay());

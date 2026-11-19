@@ -52,8 +52,7 @@ or later.
 
 ### What it tests
 
-Branch `feature/practice-texts-i18n` (the commit "lib, audio: the refusals of interleaved practice and click-up are
-said through TuxGuitar's translation files"). The error messages of Interleaved Practice and Interleaved Click-Up (a
+Commit `0a80dc603` on `feature/practice-texts-i18n` (its English pinned first in `00ce609bd`). The error messages of Interleaved Practice and Interleaved Click-Up (a
 session or click-up that cannot be played as set, a flag the session cannot take, a sequencer that cannot play
 practice, Record during practice) now come from the translation files, the measure, block or tempo they name too.
 Only English is filled in: in English they read exactly as before; in another language they read in English, never as
@@ -61,7 +60,7 @@ a raw key such as `transport.practice.refusal.repeat`.
 
 ### Setup
 
-Build and launch with the VS Code task **app: build + run** at the head of `feature/practice-texts-i18n`. Settings >
+Build and launch with the VS Code task **app: build + run** at commit `0a80dc603` or later. Settings >
 Sound: the TuxGuitar Sequencer. A song of at least 8 measures (a new song with measures added is enough).
 
 ### Steps

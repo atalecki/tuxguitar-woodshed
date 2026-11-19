@@ -247,7 +247,7 @@ Feature: Keeping audio in sync
 
   # live, each pass starts on the sample the last one ends on: the notes keep the beat across each jump back, and the
   # take with them. 600 samples of plugin delay compensation here, as the General MIDI drums gave before the built-in
-  # click (with none, see the pinned scenario below)
+  # click (with none, see the scenario below)
   Scenario: live, with Play looped on, the passes join on the sample
     Given I have turned Play looped on over measures 2 to 3
     And I have added the VST3 effect "Test Latency" to track 1
@@ -256,14 +256,29 @@ Feature: Keeping audio in sync
     Then the output's left side holds 24 clicks, one every 22050 samples within 1 sample
     And the output's right side holds 24 clicks, each within 1 samples of a click on its left side
 
-  # Pinned, odd (reported, not fixed): live, the take sounds on past the end of the last pass to the end of the block
-  # the song stops in, unless plugin delay compensation (none here) holds it back, so the right side holds the take's
-  # click of the beat after the last pass (at sample 529200); the notes on the left stop with the song
-  Scenario: live, with Play looped on and nothing delaying, the take sounds the beat after the last pass (pinned)
+  # live, the take stops where the song stops, as the notes do: with no plugin delay compensation the take's click of
+  # the beat after the last pass (at sample 529200) does not sound
+  Scenario: live, with Play looped on and nothing delaying, the take stops with the last pass
     Given I have turned Play looped on over measures 2 to 3
     When I play the song live from measure 2 beat 1 for 3 passes
     Then the output's left side holds 24 clicks, one every 22050 samples within 1 sample
-    And the output's right side holds 25 clicks, one every 22050 samples within 1 sample
+    And the output's right side holds 24 clicks, one every 22050 samples within 1 sample
+
+  # live, a take sounds up to the very sample its song stops on, as heard: the last pass's end (3 passes of 2 measures,
+  # 529200 samples), late by plugin delay compensation as every track is, and nothing after it
+  Scenario Outline: live, with Play looped on, a take is silent from where the last pass ends, as heard
+    Given track 2 has a take of a constant level of 0.25 from measure 1 beat 1 to the end of measure 4
+    And I have added the VST3 effect "Test Latency" to track 1
+    And I have set "Latency" of VST3 effect 1 of track 1 to <latency>
+    And I have turned Play looped on over measures 2 to 3
+    When I play the song live from measure 2 beat 1 for 3 passes
+    Then the output's right side is silent from 529200 samples after play started on, as heard, and sounds right before
+
+    Examples:
+      | latency |
+      | 0       |
+      | 600     |
+      | 1000    |
 
   # live, as offline, nothing drops out at the jump back, though the takes play late by the plugin delay compensation
   # (track 1's 600 samples here): the audio before the jump fades out over 256 samples (the second half of the fade
@@ -287,6 +302,18 @@ Feature: Keeping audio in sync
     When I play the song live from measure 2 beat 1
     Then the output's right side sounds from its first sample on
     And the output's right side sounds for at least 264000 samples, at most 0 samples at a time below half its peak
+
+  # live, where the song stops a monitored input goes on sounding as while stopped, from the sample the takes' sound
+  # ends on (late by plugin delay compensation, track 1's 600 samples here): it never drops out, to the last sample
+  Scenario: live, a monitored input sounds on where the song stops
+    Given I have added the VST3 effect "Test Latency" to track 1
+    And I have set "Latency" of VST3 effect 1 of track 1 to 600
+    And I have armed track 2
+    And I have set track 2's monitoring to Always
+    And the player plays a constant level of 0.25 on input channel 1
+    When I play the song live from measure 4 beat 1
+    Then the output's right side sounds from its first sample on
+    And the output's right side sounds to its last sample, at most 0 samples at a time below half its peak
 
   # monitored, the input sounds as the device delivers it, whatever pass plays; it never jumps, so unlike a take it does
   # not fade at the jump back: not one sample below half the level

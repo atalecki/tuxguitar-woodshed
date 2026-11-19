@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -178,6 +179,58 @@ public class TestLiveTakes {
 		this.play(10 * FRAMES, 48000);
 
 		assertEquals("[main 110250, main 120000] of 2 samples", this.stretches + " of " + this.given.size() + " samples");
+	}
+
+	// a take over measure 1 whose every sample is its own number, from 1, in place of the take of ones
+	private void numberedTake() {
+		this.track.getMeasure(0).removeTake(this.clip.getTake());
+		float[] samples = new float[2 * M];
+		for (int i = 0; i < samples.length; i++) {
+			samples[i] = i + 1;
+		}
+		this.track.getMeasure(0).addTakeClip(new TGTakeClip(new TGTake(2, samples, 44100), 0, BAR, 0, 120));
+	}
+
+	// plays from measure 1, the song stopping on the sample (the transport says so from its frame on), the takes late by
+	// the compensation; then 4 blocks more: the left side of what the takes sounded
+	private float[] playStoppingAt(long stop, int delay) {
+		this.takes.compensate(delay);
+		long start = this.fixture.song.getMeasureHeader(0).getStart();
+		TGTimeline device = new TGTimeline(this.fixture.song, TGSongTime.play(this.fixture.song, this.mode, start, Long.MAX_VALUE, 1), 44100);
+		float[] left = new float[(int) (stop / FRAMES + 4) * FRAMES];
+		for (int from = 0; from < left.length; from += FRAMES) {
+			this.tell(device, from, stop);
+			float[][] block = new float[2][FRAMES];
+			this.takes.process(block);
+			System.arraycopy(block[0], 0, left, from, FRAMES);
+		}
+		return left;
+	}
+
+	// the transport for the block from the sample: the song plays, up to the stop; past it, it does not
+	private void tell(TGTimeline device, long from, long stop) {
+		device.tell(this.transport, from, FRAMES);
+		this.transport.add((int) Math.max(0, Math.min(FRAMES, stop - from)), false, 120, 4, 4, 0, 0);
+	}
+
+	// how many samples sound, whether each is the take's own sample that many frames late, and the last that sounds
+	private static String heard(float[] left, int delay) {
+		int[] sounding = IntStream.range(0, left.length).filter(sample -> left[sample] != 0).toArray();
+		boolean own = IntStream.of(sounding).allMatch(sample -> left[sample] == sample - delay + 1);
+		return sounding.length + " samples, the take's own " + delay + " late: " + own + ", the last at " + sounding[sounding.length - 1];
+	}
+
+	// the song stops on sample 4396 (frame 300 of the 9th block): the takes sound the take up to its sample 4395, late by
+	// the compensation as every track is (none; 213 frames, the last one in the 10th block; 600), and nothing after it
+	@Test
+	public void whereTheSongStopsTheTakeSoundsUpToThatSampleLateByTheCompensation() {
+		this.numberedTake();
+		String none = heard(this.playStoppingAt(4396, 0), 0);
+		String one = heard(this.playStoppingAt(4396, 213), 213);
+		String more = heard(this.playStoppingAt(4396, 600), 600);
+
+		assertEquals("4396 samples, the take's own 0 late: true, the last at 4395 | 4396 samples, the take's own 213 late: true, the last at 4608 | "
+			+ "4396 samples, the take's own 600 late: true, the last at 4995", none + " | " + one + " | " + more);
 	}
 
 	// what the last play did not use is dropped (memory does not grow with each speed played): at 80%, at 50%, at 80%

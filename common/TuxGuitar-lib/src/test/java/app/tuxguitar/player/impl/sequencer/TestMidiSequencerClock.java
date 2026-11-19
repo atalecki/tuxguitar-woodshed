@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.DynamicTest;
@@ -428,20 +429,65 @@ public class TestMidiSequencerClock {
 		assertEquals("10 | 2000 2011", fromATempoChange + " | " + fromWherePlayingStarts);
 	}
 
-	// the last note is on tick 30: the sequencer stops once the output sounds past it, two blocks (1024 frames) later
-	// than it would without the delay
-	@Test
-	public void theSequencerStopsOnceTheOutputSoundsPastTheLastEvent() throws MidiPlayerException {
-		delay = 1024;
-		notes(0, 30);
+	// with the notes on the ticks and the output that many frames late, the blocks the sequencer plays from tick 0 until
+	// it stops (at most 10): what the reading reads after each
+	private List<String> playedUntilStopped(int delay, long[] ticks, Supplier<String> reading) throws MidiPlayerException {
+		this.delay = delay;
+		notes(ticks);
 		playToTheEndFrom(0);
-		int count = 0;
-		while (listener != null && count < 10) {
+		List<String> blocks = new ArrayList<String>();
+		while (playsOn(blocks)) {
 			blocks(1);
-			count++;
+			blocks.add(reading.get());
+		}
+		return blocks;
+	}
+
+	// whether the sequencer still plays on the clock, the blocks played fewer than 10
+	private boolean playsOn(List<String> blocks) {
+		return (listener != null && blocks.size() < 10);
+	}
+
+	// the last note is on tick 16384, on frame 376320 (a tick lasts 735/32 frames): the first frame of block 736. The
+	// transport is told block 735 plays to its end, and the song stops from the first frame of block 736
+	@Test
+	public void anEndOnABlocksFirstFrameStopsTheSongFromThatBlock() throws MidiPlayerException {
+		delay = 1024;
+		notes(0, 16384);
+		playToTheEndFrom(0);
+		blocks(734);
+		List<String> told = new ArrayList<String>();
+		for (int block = 0; block < 2; block++) {
+			blocks(1);
+			told.add(told(span -> String.valueOf(span.isPlaying())));
 		}
 
-		assertEquals("4 false", count + " " + sequencer.isRunning());
+		assertEquals("[@0 true q16043; , @0 false q16067; ]", told.toString());
+	}
+
+	// with notes on tick 0 and the last tick and the output that many frames late: how many blocks the sequencer plays
+	// until it stops, and whether it runs then
+	private String stoppedAfter(int delay, long last) throws MidiPlayerException {
+		int blocks = playedUntilStopped(delay, new long[] {0, last}, () -> "").size();
+		return blocks + " " + sequencer.isRunning();
+	}
+
+	// each on a sequencer of its own. The last note on tick 30 (frame 689): the sequencer stops once the output sounds it,
+	// two blocks (1024 frames) later than it would without the delay. The last note on tick 22 (frame 505, a tick lasting
+	// 22.97 frames), no delay: the output has sounded it by the end of the first block (frame 512, less than a tick past
+	// it), so the sequencer stops after that block, not a block later
+	@Test
+	public void theSequencerStopsAfterTheBlockTheOutputSoundsItsLastEventIn() throws MidiPlayerException {
+		assertEquals("4 false | 1 false", stoppedAfter(1024, 30) + " | " + new TestMidiSequencerClock().stoppedAfter(0, 22));
+	}
+
+	// the last note is on tick 30 (frame 689: frame 177 of the second block): the transport is told the song stops on that
+	// frame, and does not play over the blocks after it, while the sequencer plays on until the output sounds its end
+	@Test
+	public void theTransportIsToldTheSongStopsOnTheFrameItsEndSoundsOn() throws MidiPlayerException {
+		List<String> told = playedUntilStopped(1024, new long[] {0, 30}, () -> told(span -> String.valueOf(span.isPlaying())));
+
+		assertEquals("[@0 true q-1000; , @0 true q-977; @177 false q-969; , @0 false q-954; , @0 false q-930; ]", told.toString());
 	}
 
 	// the sequencer keeps the position on the audio thread, which must not allocate per block
