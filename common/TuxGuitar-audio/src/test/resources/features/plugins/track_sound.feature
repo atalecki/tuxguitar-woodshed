@@ -56,7 +56,8 @@ Feature: A track's sound, MIDI or VST3
     Then the Sound Chain dialog's source row of track 1 reads "Source: Test Sine (default for guitar tracks)"
     And track 1 sounds a 440 Hz tone and no 880 Hz tone above -60 dBFS in measures 1
 
-  # track 2 plays what track 1 plays, on a channel of its own, without the effect
+  # track 2 plays what track 1 plays, on a channel of its own, without the effect (its General MIDI harmonics checked on
+  # track 2: at half the level, track 1's sit at the -60 dBFS floor)
   Scenario: the effects apply on MIDI
     Given I have added a guitar track on a channel of its own
     And I have set the General MIDI program of track 2's channel to "Distortion Electric Guitar"
@@ -68,7 +69,7 @@ Feature: A track's sound, MIDI or VST3
     And I have set track 2's sound to MIDI
     When I play the song from measure 1 beat 1
     Then track 1 sounds 0.5 times what track 2 sounds, sample for sample within 0.001
-    And track 1 sounds a 880 Hz tone above -60 dBFS in measure 1
+    And track 2 sounds a 880 Hz tone above -60 dBFS in measure 1
 
   Scenario: the effects added on MIDI apply back on VST3
     Given I have added a guitar track on a channel of its own
