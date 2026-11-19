@@ -60,6 +60,51 @@ public class TestClickRecording {
 		assertEquals(1601, TGClickRecording.even(new float[][] {samples}, 44100).samples().length);
 	}
 
+	// a metronome sound starts on the beat: the silence before it goes but a millisecond, faded in from nothing;
+	// before it is below a hundredth of its peak (-40 dB)
+	@Test
+	public void theSilenceBeforeItGoesButAMillisecondFadedIn() throws IOException {
+		float[] sound = decay(1000, 0.5f, 44100, 4410, 4410);
+		sound[100] = 0.5f;
+		float[] samples = new float[3000 + sound.length];
+		java.util.Arrays.fill(samples, 0, 3000, 0.004f);
+		System.arraycopy(sound, 1, samples, 3000, sound.length - 1);
+		float[] evened = TGClickRecording.even(new float[][] {samples}, 44100).samples();
+
+		assertEquals(44 + sound.length - 1, evened.length);
+		assertEquals("0.0 0.002 " + sound[1], evened[0] + " " + evened[22] + " " + evened[44]);
+	}
+
+	// at a hundredth of its peak exactly, it has started
+	@Test
+	public void atAHundredthOfItsPeakItHasStarted() throws IOException {
+		float[] samples = new float[1200];
+		samples[1000] = 0.5f * 0.01f;
+		samples[1100] = 0.5f;
+
+		assertEquals(44 + 101, TGClickRecording.even(new float[][] {samples}, 44100).samples().length);
+	}
+
+	// one sounding at once keeps its first sample: nothing before it to fade in
+	@Test
+	public void oneSoundingAtOnceStartsAsItIs() throws IOException {
+		float[] samples = decay(1000, 0.5f, 44100, 4410, 4410);
+		samples[0] = 0.5f;
+
+		assertEquals(0.5f, TGClickRecording.even(new float[][] {samples}, 44100).samples()[0]);
+	}
+
+	// counted from where it starts (a millisecond before it sounds): its loudest, 1.9 seconds in, is kept
+	@Test
+	public void atMostTwoSecondsAreKeptFromWhereItStarts() throws IOException {
+		float[] samples = new float[22050 + 3 * 22050];
+		System.arraycopy(decay(440, 0.5f, 22050, 3 * 22050, 3 * 22050), 1, samples, 22051, 3 * 22050 - 1);
+		samples[22051 + 41895] = 1f;
+		float[] evened = TGClickRecording.even(new float[][] {samples}, 22050).samples();
+
+		assertEquals(2 * 22050 + " 0.5", evened.length + " " + evened[22 + 41895]);
+	}
+
 	@Test
 	public void atMostTwoSecondsAreKept() throws IOException {
 		assertEquals(2 * 22050, TGClickRecording.even(new float[][] {decay(440, 0.5f, 22050, 3 * 22050, 3 * 22050)}, 22050).samples().length);

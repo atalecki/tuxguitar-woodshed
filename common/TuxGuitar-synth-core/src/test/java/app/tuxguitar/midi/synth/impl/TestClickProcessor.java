@@ -360,19 +360,20 @@ public class TestClickProcessor {
 		assertArrayEquals(expected, told(MidiClick.sameAccented(loud, 0).toParameters(folder.getPath()), 44100, new Note(MidiClick.ACCENTED, 127, 0))[0]);
 	}
 
-	// a recording sounds as long as it is (the snare's 1.3 s), not the code-made Click's 30 ms
+	// a recording sounds as long as it is (the snare's 1.3 s), not the code-made Click's 30 ms: its last frame is heard
 	@Test
 	public void aRecordingSoundsAsLongAsItIs() {
 		ClickProcessor click = toldOnly(MidiClickSound.SNARE);
 		click.sendNoteOn(MidiClick.PLAIN, 127, -1, false, 0);
+		int last = (TGClickSounds.recording(MidiClickSound.SNARE, null).samples().length - 1) / FRAMES;
 		float[][] block = new float[2][FRAMES];
 		float late = 0;
-		for (int b = 0; b < 100; b++) {
+		for (int b = 0; b <= last; b++) {
 			click.process(block);
-			late = (b == 99 ? peak(block[0], 0, FRAMES) : late);
+			late = (b == last ? peak(block[0], 0, FRAMES) : late);
 		}
 
-		assertTrue(late > 0.0001, "sounds 1.1 s on: " + late);
+		assertTrue(last > 100 && late > 0, "sounds in block " + last + ": " + late);
 	}
 
 	// a click sounds the sounds the processor was told when its note reached it, to its end, whatever it is told after

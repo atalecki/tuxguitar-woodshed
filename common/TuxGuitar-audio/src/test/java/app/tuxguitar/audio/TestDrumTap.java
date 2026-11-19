@@ -95,7 +95,8 @@ public class TestDrumTap {
 		assertEquals("true 0.0", (Meters.peak(woodBlock[0], 13000, 14000) > 0.001) + " " + Meters.peak(click[0], 13000, 14000));
 	}
 
-	// the user's own sound from the folder of own sounds; with no folder it cannot be read, and the Click plays
+	// the user's own sound from the folder of own sounds (a clap: it still sounds after the code-made Click's 30 ms); with
+	// no folder it cannot be read, and the Click plays
 	@Test
 	public void playsTheUsersOwnSoundFromTheirFolder(@org.junit.jupiter.api.io.TempDir java.io.File folder) throws Exception {
 		try (java.io.InputStream clap = ClickProcessor.class.getResourceAsStream("click-sounds/clap.wav")) {
@@ -107,7 +108,7 @@ public class TestDrumTap {
 		MidiClick own = MidiClick.sameAccented(MidiClickSound.own("Mine.wav"), 0);
 		float[][] mine = TGDrumTap.render(timeline, own, folder.getPath(), TGClicks.NONE);
 
-		assertEquals("true", Boolean.toString(Meters.peak(mine[0], 1800, 2500) > 0.1));
+		assertEquals("true", Boolean.toString(Meters.peak(mine[0], 1500, 2500) > 0.01));
 		assertSides(clicks(timeline, 0, java.util.Set.of(), 0), TGDrumTap.render(timeline, own, null, TGClicks.NONE));
 	}
 

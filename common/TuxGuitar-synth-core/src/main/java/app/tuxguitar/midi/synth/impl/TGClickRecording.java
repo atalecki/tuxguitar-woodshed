@@ -2,16 +2,18 @@ package app.tuxguitar.midi.synth.impl;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 import app.tuxguitar.midi.synth.TGResampler;
 import app.tuxguitar.midi.synth.TGWaveReader;
 
 /**
  * A recording a click plays (a built-in sound, or a WAV file of the user's own, see MidiClickSound), evened as it is
- * read so that every sound clicks alike at the same volume: one channel (the file's channels averaged), the silence
+ * read so that every sound clicks alike at the same volume, on the beat: one channel (the file's channels averaged),
+ * the silence before it trimmed but a millisecond, faded in (it starts at a hundredth of its peak, -40 dB), the silence
  * after it trimmed (below a thousandth of its peak, -60 dB), at most LONGEST seconds, its peak PEAK (the code-made
  * Click's level, see ClickProcessor). Immutable. The built-in recordings ship evened (see the README of click-sounds):
- * evening them again changes nothing but the last bit.
+ * evening them again changes nothing but the last bit, and fades their first millisecond (below -40 dB) once more.
  */
 public final class TGClickRecording {
 
@@ -19,6 +21,9 @@ public final class TGClickRecording {
 	public static final int LONGEST = 2;
 	// below this part of its peak a sample is silence
 	private static final float SILENCE = 0.001f;
+	// from this part of its peak (-40 dB) a sound has started: the silence before it goes but 1 / PRE_ROLL second
+	private static final float ONSET = 0.01f;
+	private static final int PRE_ROLL = 1000;
 	// a pitched rate is rounded to this many Hz, so that its ratio to the synthesizer's reduces (see TGResampler)
 	private static final int ROUNDING = 100;
 
@@ -38,27 +43,53 @@ public final class TGClickRecording {
 
 	// the channels at the rate, evened; refused when silent
 	public static TGClickRecording even(float[][] channels, int sampleRate) throws IOException {
-		float[] mono = mix(channels, Math.min(channels[0].length, LONGEST * sampleRate));
+		float[] mono = mix(channels);
 		float peak = peak(mono);
 		if (peak == 0) {
 			throw new IOException("no sound in the file");
 		}
-		float[] evened = new float[sounding(mono, peak * SILENCE)];
+		int onset = above(mono, peak * ONSET);
+		int start = Math.max(0, onset - sampleRate / PRE_ROLL);
+		float[] kept = Arrays.copyOfRange(mono, start, Math.min(mono.length, start + LONGEST * sampleRate));
+		fadeIn(kept, onset - start);
+		return evened(kept, sampleRate);
+	}
+
+	// a sound (not silent), the silence after it trimmed, its peak brought to PEAK
+	private static TGClickRecording evened(float[] sound, int sampleRate) {
+		float peak = peak(sound);
+		float[] evened = new float[sounding(sound, peak * SILENCE)];
 		for (int i = 0; i < evened.length; i++) {
-			evened[i] = mono[i] * PEAK / peak;
+			evened[i] = sound[i] * PEAK / peak;
 		}
 		return new TGClickRecording(evened, sampleRate);
 	}
 
-	// the first so many frames of the channels, added: evened, the same as averaged
-	private static float[] mix(float[][] channels, int frames) {
-		float[] mono = new float[frames];
+	// the channels, added: evened, the same as averaged
+	private static float[] mix(float[][] channels) {
+		float[] mono = new float[channels[0].length];
 		for (float[] channel : channels) {
-			for (int i = 0; i < frames; i++) {
+			for (int i = 0; i < mono.length; i++) {
 				mono[i] += channel[i];
 			}
 		}
 		return mono;
+	}
+
+	// the first sample at or above the level
+	private static int above(float[] samples, float level) {
+		int index = 0;
+		while (Math.abs(samples[index]) < level) {
+			index++;
+		}
+		return index;
+	}
+
+	// the first so many samples rise from nothing to as they are, so that what is left before a sound does not pop
+	private static void fadeIn(float[] samples, int length) {
+		for (int i = 0; i < length; i++) {
+			samples[i] *= (float) i / length;
+		}
 	}
 
 	private static float peak(float[] samples) {

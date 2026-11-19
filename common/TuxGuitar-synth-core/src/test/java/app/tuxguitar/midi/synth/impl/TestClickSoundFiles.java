@@ -22,13 +22,13 @@ import app.tuxguitar.player.base.MidiClickSound;
 public class TestClickSoundFiles {
 
 	private static final Map<String, String> SHIPPED = new TreeMap<String, String>(Map.of(
-		"wood-block", "ad109957c89e3b27f8c6a76ca693c7f3d7e28e04ffebf895bdb16120b9c69947",
-		"cowbell", "d1ad588e749d1109a9388b46c5fd0826582150491650a724b77b8818641b8225",
-		"snare", "6035cc9c2b8f060d3e191fe158748822e814261dc55c61a12ec582668712a3ed",
-		"side-stick", "35e0450203ccdd832b0c70a16a0481e0c4b820eb44b74332f800fcbfc22137b3",
-		"claves", "3a6fc1a4760b9b08c4ba9ca7d97990bfbe46902cc2f7d6a81c348c785c897f1b",
-		"hi-hat", "a8807f285c297c1ac0d767e9762d9a982898de6b4597fd2b32274fc546bcf93c",
-		"clap", "033c6410f3508238ef1c32c14b6f4fb1b348ef79d5c61c2abd1239e7c7fd6b3c"));
+		"wood-block", "2f827c865a3e57082c03651d5cd5e91aa223125e08ef8ca3f8e3571348d2dda5",
+		"cowbell", "31ffeb1a49f59c7fdbbc60552187bcfc7951f51b90b977be196e254ba1bf5206",
+		"snare", "d1aa619fdf5aabcdeb27702056d2705721b63d348f80f62d483a764f2e96727c",
+		"side-stick", "b529eb7b1a24ffb06689417491a18775ca84fc0d8f0aae4ba7065d6c1522da41",
+		"claves", "529d8d6465b0608ff4154014838f5e09e8fe160c88a02153730d82a71b363df2",
+		"hi-hat", "503362c73f37d0a339a13d12d0b1f3c6b85fdab32091b90c18a6132b160468f6",
+		"clap", "84ea7879b02d28e5e8e3f6a9785f68a7923e534ab288f6204db3db99d4a35658"));
 
 	private static String sha256(byte[] bytes) throws Exception {
 		StringBuilder hex = new StringBuilder();
@@ -67,6 +67,23 @@ public class TestClickSoundFiles {
 		for (Map.Entry<String, String> file : SHIPPED.entrySet()) {
 			assertTrue(readme.contains("| " + file.getKey() + ".wav |") && readme.contains(file.getValue()), file.getKey());
 		}
+	}
+
+	// each sounds on the beat: as shipped, its first sample at a hundredth of its peak (-40 dB) is within 1 ms
+	@Test
+	public void eachStartsOnTheBeat() throws Exception {
+		Map<String, Integer> onsets = new TreeMap<String, Integer>();
+		for (MidiClickSound sound : MidiClickSound.BUILT_IN) {
+			if (sound.isRecording()) {
+				try (InputStream in = TGClickSounds.open(sound, null)) {
+					float[] samples = app.tuxguitar.midi.synth.TGWaveReader.readSamples(in, app.tuxguitar.midi.synth.TGWaveReader.readFormat(in))[0];
+					float peak = app.tuxguitar.midi.synth.Signals.peak(samples, 0, samples.length);
+					onsets.put(sound.getId(), (int) java.util.stream.IntStream.range(0, samples.length).filter(i -> Math.abs(samples[i]) >= peak / 100).findFirst().getAsInt());
+				}
+			}
+		}
+
+		assertTrue(onsets.values().stream().allMatch(frame -> frame <= 44), "frames at 44100 Hz: " + onsets);
 	}
 
 	// evened again, each is what was shipped: 44100 Hz, its peak 0.5, at most 2 seconds

@@ -62,7 +62,7 @@ public class TestClickSounds {
 
 	@Test
 	public void aBuiltInRecordingIsOneTuxGuitarShips() {
-		assertEquals(10006, TGClickSounds.recording(MidiClickSound.CLAP, null).samples().length);
+		assertEquals(8120, TGClickSounds.recording(MidiClickSound.CLAP, null).samples().length);
 	}
 
 	@Test
