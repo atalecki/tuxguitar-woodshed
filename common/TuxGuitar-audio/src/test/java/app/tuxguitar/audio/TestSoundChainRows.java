@@ -65,6 +65,18 @@ class TestSoundChainRows {
 			+ String.join(" | ", TGSoundChainRows.NONE.getElements("Source")));
 	}
 
+	// a VST3 element naming no plugin (the Synthesizer dialog adds one by its type alone) is read by its type, and has
+	// no editor to open
+	@Test
+	void aVst3ElementNamingNoPluginIsReadByItsTypeWithoutAnEditor() {
+		TGProgram chain = TGSoundChain.get(this.guitar);
+		chain.setReceiver(TGSoundChain.source(TGVst3Element.INSTRUMENT));
+		chain.getOutput(0).getParameters().clear();
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		TGSoundChainRows rows = TGSoundChainRows.of(this.guitar);
+		assertEquals("Source: vst3-instrument | vst3-effect | [echo] edit false false", String.join(" | ", rows.getElements("Source")) + " edit " + rows.canEdit(0) + " " + rows.canEdit(1));
+	}
+
 	// the meters under the panel's buttons, and the track's output: an effect switched off measures nothing
 	@Test
 	void theMetersReadTheSourceEachEffectOnAndTheOutput() {
