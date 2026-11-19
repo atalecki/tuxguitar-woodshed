@@ -18,6 +18,12 @@ public final class TGEditorArea {
 	// in units, for a view pixelHeight pixels high, the area being pixelWidth pixels and unitWidth units wide (a part of
 	// a unit counts whole); 0 while the area has no width in pixels
 	public static int height(int pixelHeight, int pixelWidth, int unitWidth) {
-		return (pixelWidth > 0 ? (int) Math.ceil((double) pixelHeight * unitWidth / pixelWidth) : 0);
+		return units(pixelHeight, pixelWidth, unitWidth);
+	}
+
+	// pixels (a height or a width) in units, the area being pixelWidth pixels and unitWidth units wide (a part of a unit
+	// counts whole); 0 while the area has no width in pixels
+	public static int units(int pixels, int pixelWidth, int unitWidth) {
+		return (pixelWidth > 0 ? (int) Math.ceil((double) pixels * unitWidth / pixelWidth) : 0);
 	}
 }

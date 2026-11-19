@@ -90,6 +90,45 @@ public class TestEditorDock {
 			"nothing" + tooLarge, "nothing" + tooLarge);
 	}
 
+	// Show on the too-large line: once the area is as wide as the editor (its width in the area's units: the pixels the
+	// host said, over the area's pixels then, times its units then), the editor goes back inside, the host judging it
+	// again (too large again, as for its height, its window opens again); narrower, or its width not known (the area's
+	// never told), its window comes to the front. Here the screen scales 150 %: the area 300 units, 450 pixels; the editor
+	// 600 pixels, so 400 units
+	@Test
+	public void showPutsAnEditorTooLargeBackInsideOnceTheAreaIsWideEnough() {
+		String tooLarge = " / TOO_LARGE audio.sound-chain.editor.too-large(Test Gain) [audio.sound-chain.editor.show]";
+		TGVst3EditorOpened large = TGVst3EditorOpened.of(Kind.TOO_LARGE, 600, 100, false, 450);
+		does(() -> dock.press()).does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, large)).does(() -> dock.opened(GAIN, opened(Kind.OWNED))).does(() -> dock.press());
+		dock.refits(300);
+		does(() -> dock.picked(null)).does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, large)).does(() -> dock.opened(GAIN, opened(Kind.OWNED)));
+		dock.refits(399);
+		does(() -> dock.press());
+		dock.refits(400);
+		does(() -> dock.press()).does(() -> dock.opened(GAIN, large)).does(() -> dock.opened(GAIN, opened(Kind.OWNED)));
+		dock.refits(600);
+		does(() -> dock.press()).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED)));
+		sees("nothing / NOTHING", "open Test Gain inside / OPENING", "open Test Gain in a window" + tooLarge, "nothing" + tooLarge, "open Test Gain in a window" + tooLarge,
+			"nothing / NOTHING", "open Test Gain inside / OPENING", "open Test Gain in a window" + tooLarge, "nothing" + tooLarge,
+			"open Test Gain in a window" + tooLarge,
+			"open Test Gain inside / OPENING", "open Test Gain in a window" + tooLarge, "nothing" + tooLarge,
+			"open Test Gain inside / OPENING", "nothing / OWN_EDITOR" + INSIDE_GAIN);
+	}
+
+	// an editor sent to its own window by the area made narrower: Show puts it back once the area is wide enough again
+	@Test
+	public void showPutsAnEditorTheNarrowerAreaSentToItsWindowBackOnceWideEnough() {
+		dock.refits(300);
+		dock.picked(GAIN);
+		dock.opened(GAIN, opened(Kind.EMBEDDED));
+		dock.refits(150);
+		dock.fitted(GAIN, TGVst3EditorOpened.of(Kind.EMBEDDED, 200, 100, false, 150));
+		does(() -> dock.press());
+		dock.refits(200);
+		does(() -> dock.press());
+		sees("open Test Gain in a window / TOO_LARGE audio.sound-chain.editor.too-large(Test Gain) [audio.sound-chain.editor.show]", "open Test Gain inside / OPENING");
+	}
+
 	// a plugin without an editor of its own: TuxGuitar's parameters show in the area, and close as a view does
 	@Test
 	public void aPluginWithoutAnEditorOfItsOwnShowsItsParameters() {

@@ -68,7 +68,7 @@ public final class TGEditorDock {
 	static {
 		PRESSED.put(Shows.OWN_EDITOR, TGEditorDock::popOut);
 		PRESSED.put(Shows.OWN_WINDOW, TGEditorDock::putBack);
-		PRESSED.put(Shows.TOO_LARGE, TGEditorDock::showWindow);
+		PRESSED.put(Shows.TOO_LARGE, TGEditorDock::showTooLarge);
 		PRESSED.put(Shows.STOPPED, TGEditorDock::again);
 	}
 
@@ -98,6 +98,8 @@ public final class TGEditorDock {
 	// the size of the editor inside, as the host said it last, and the area's width in units when last asked
 	private TGVst3EditorOpened size = TGVst3EditorOpened.NONE;
 	private int unitWidth;
+	// the width of the editor too large for the panel, in the area's units (0: not known)
+	private int largeWidth;
 
 	public TGEditorDock(Collection<String> pinned, boolean hidden) {
 		this.pinned = new TreeSet<String>(pinned);
@@ -228,12 +230,19 @@ public final class TGEditorDock {
 			return Step.NONE;
 		}
 		this.size = fitted;
-		return (fitted.getWidth() > fitted.getAreaWidth() ? this.tooLarge() : Step.NONE);
+		return (fitted.getWidth() > fitted.getAreaWidth() ? this.tooLarge(fitted) : Step.NONE);
 	}
 
-	private Step tooLarge() {
+	private Step tooLarge(TGVst3EditorOpened fitted) {
 		this.into(Shows.TOO_LARGE);
+		this.largeWidth = this.units(fitted);
 		return new Step(this.element, this.element, How.IN_A_WINDOW);
+	}
+
+	// the editor's width in the area's units, the area as wide in pixels as the host said and in units as last told; 0
+	// while either is not known
+	private int units(TGVst3EditorOpened opened) {
+		return TGEditorArea.units(opened.getWidth(), opened.getAreaWidth(), this.unitWidth);
 	}
 
 	// the button beside the line pressed
@@ -256,7 +265,14 @@ public final class TGEditorDock {
 	private Step shown(Element element, TGVst3EditorOpened opened) {
 		this.size = opened;
 		this.into(this.shows == Shows.TOO_LARGE ? Shows.TOO_LARGE : OPENED.get(opened.getKind()));
-		return (opened.getKind() == Kind.TOO_LARGE ? new Step(null, element, How.IN_A_WINDOW) : Step.NONE);
+		return (opened.getKind() == Kind.TOO_LARGE ? this.window(element, opened) : Step.NONE);
+	}
+
+	// too large for the area: its width kept (Show tries the area again once it is that wide), it opens in a window of
+	// its own
+	private Step window(Element element, TGVst3EditorOpened large) {
+		this.largeWidth = this.units(large);
+		return new Step(null, element, How.IN_A_WINDOW);
 	}
 
 	private static Step unwanted(Element opened, Kind kind) {
@@ -269,7 +285,14 @@ public final class TGEditorDock {
 		return (waits && opened.equals(this.element));
 	}
 
-	// Show (an editor too large for the panel): its window comes to the front
+	// Show on the too-large line: the editor goes inside the area again once the area is as wide as it (the host judges it
+	// again, its height too: too large still, its window opens again); else its window comes to the front
+	private Step showTooLarge() {
+		boolean fits = (this.largeWidth != 0 && this.largeWidth <= this.unitWidth);
+		return (fits ? this.inside() : this.showWindow());
+	}
+
+	// an editor too large for the panel: its window comes to the front
 	public Step showWindow() {
 		return new Step(null, this.element, How.IN_A_WINDOW);
 	}
@@ -284,6 +307,11 @@ public final class TGEditorDock {
 	// Put back in the panel: forgotten, the editor goes inside the area again (the host closes its window)
 	public Step putBack() {
 		this.pinned.remove(this.element.classId);
+		return this.inside();
+	}
+
+	// the editor opens inside the area (the host closes its window, the plugin as it was)
+	private Step inside() {
 		this.into(Shows.OPENING);
 		return new Step(null, this.element, How.INSIDE);
 	}
