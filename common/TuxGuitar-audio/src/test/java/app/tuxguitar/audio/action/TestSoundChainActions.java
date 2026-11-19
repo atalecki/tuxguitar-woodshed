@@ -7,11 +7,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGSoundChain;
+import app.tuxguitar.audio.TGSoundChainRows;
+import app.tuxguitar.audio.TGSoundMode;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
@@ -157,6 +160,78 @@ public class TestSoundChainActions {
 		assertEquals("gervill success", run(guitar, new TGChooseGeneralMidiAction(fixture.context)));
 		assertEquals("gervill", run(guitar, new TGChooseTakesAction(fixture.context)));
 		assertEquals("takes success", run(audio, new TGChooseTakesAction(fixture.context)));
+	}
+
+	// a track's sound switched: the chain as run reads it, then the sound the track has after
+	private String toMidi(TGChannel channel) {
+		return run(channel, new TGSetMidiSoundAction(fixture.context)) + " " + TGSoundMode.of(channel);
+	}
+
+	private String toVst3(TGChannel channel) {
+		return run(channel, new TGSetVst3SoundAction(fixture.context)) + " " + TGSoundMode.of(channel);
+	}
+
+	private String choose(TGVst3Plugin instrument) {
+		fixture.actionContext.setAttribute(TGAddVst3EffectAction.ATTRIBUTE_PLUGIN, instrument);
+		return run(guitar, new TGChooseVst3InstrumentAction(fixture.context));
+	}
+
+	// MIDI plays the General MIDI program in place of the VST3 instrument, which the song keeps, its state and id with
+	// it, while on MIDI; the switch back restores it. The effects stay in both
+	@Test
+	public void theVst3InstrumentMidiReplacesIsKeptAndTheSwitchBackRestoresIt() {
+		choose(SYNTH);
+		setState("source", 7);
+		add(GAIN);
+		String midi = toMidi(guitar);
+		String back = toVst3(guitar);
+		TGProgramElement restored = TGSoundChain.get(guitar).getReceiver();
+		assertEquals("gervill > Gain success MIDI | Synth > Gain success VST3 | source Bw==",
+			midi + " | " + back + " | " + restored.getId() + " " + restored.getParameters().get("vst3.state"));
+	}
+
+	// the default source (no instrument of the track's own) switched to MIDI keeps nothing: back, it is the default again
+	@Test
+	public void theDefaultSourceSwitchedToMidiAndBackIsTheDefaultAgain() {
+		assertEquals("gervill success MIDI | gervill success VST3 | default source", toMidi(guitar) + " | " + toVst3(guitar) + " | "
+			+ (TGSoundChainRows.of(guitar).isDefault() ? "default " : "") + TGSoundChain.get(guitar).getReceiver().getId());
+	}
+
+	// a switch to the sound the track has is refused; an audio channel has neither (its source is its takes)
+	@Test
+	public void aSwitchToTheSoundTheTrackHasOrOnAnAudioChannelIsRefused() {
+		TGChannel audio = fixture.songManager.getChannel(fixture.song, fixture.songManager.addAudioTrack(fixture.song, TGAudioInput.mono(1)).getChannelId());
+		assertEquals("gervill VST3 | gervill success MIDI | gervill MIDI | takes TAKES | takes TAKES",
+			toVst3(guitar) + " | " + toMidi(guitar) + " | " + toMidi(guitar) + " | " + toMidi(audio) + " | " + toVst3(audio));
+	}
+
+	// the instrument kept is the song's only while on MIDI: changes of the effects keep it, another source chosen drops
+	// it (back from MIDI then, nothing is restored but the default)
+	@Test
+	public void theInstrumentKeptStaysThroughEffectChangesAndGoesWithAnotherSource() {
+		choose(SYNTH);
+		toMidi(guitar);
+		add(GAIN);
+		String throughEffects = toVst3(guitar);
+		toMidi(guitar);
+		run(guitar, new TGChooseGeneralMidiAction(fixture.context));
+		toMidi(guitar);
+		assertEquals("Synth > Gain success VST3 | gervill > Gain success VST3", throughEffects + " | " + toVst3(guitar));
+	}
+
+	// the instrument kept is in the channel's parameters under keys of its own, only while on MIDI
+	@Test
+	public void theInstrumentKeptHasKeysOfItsOwnOnlyWhileOnMidi() {
+		choose(SYNTH);
+		toMidi(guitar);
+		String midi = kept();
+		toVst3(guitar);
+		assertEquals("[sound.kept.enabled, sound.kept.id, sound.kept.param.0.name, sound.kept.param.0.value, sound.kept.param.1.name, "
+			+ "sound.kept.param.1.value, sound.kept.param.2.name, sound.kept.param.2.value, sound.kept.param.count, sound.kept.type] | []", midi + " | " + kept());
+	}
+
+	private String kept() {
+		return keys().stream().filter(key -> key.startsWith("sound.kept.")).collect(Collectors.toList()).toString();
 	}
 
 	private void parameter(String key, String value) {

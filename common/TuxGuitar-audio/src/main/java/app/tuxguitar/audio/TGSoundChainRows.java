@@ -8,7 +8,7 @@ import java.util.stream.IntStream;
 import app.tuxguitar.midi.synth.TGLevels;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
-import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
+import app.tuxguitar.midi.synth.TGDefaultSource;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
@@ -31,6 +31,8 @@ public final class TGSoundChainRows {
 		USE_AS_SOURCE((rows, row, effect, instrument) -> rows.canChoose(instrument)),
 		DEFAULT_INSTRUMENT((rows, row, effect, instrument) -> rows.canChooseSource()),
 		KEEP((rows, row, effect, instrument) -> rows.canKeep()),
+		TO_MIDI((rows, row, effect, instrument) -> rows.getMode() == TGSoundMode.VST3),
+		TO_VST3((rows, row, effect, instrument) -> rows.getMode() == TGSoundMode.MIDI),
 		MOVE_UP((rows, row, effect, instrument) -> rows.canMoveUp(row)),
 		REMOVE((rows, row, effect, instrument) -> rows.isEffect(row)),
 		TOGGLE((rows, row, effect, instrument) -> rows.isEffect(row)),
@@ -119,9 +121,14 @@ public final class TGSoundChainRows {
 		return (this.play != null && this.isDefault() ? this.play.say(name) : name);
 	}
 
-	// whether the source is the default instrument of the channel's kind (stored as General MIDI)
+	// the sound the track has (TGSoundMode), the switch between MIDI and VST3 showing it; null without a track
+	public TGSoundMode getMode() {
+		return (this.chain != null ? TGSoundMode.of(this.channel, this.chain) : null);
+	}
+
+	// whether the source is the default instrument of the channel's kind (stored as General MIDI that gives way to it)
 	public boolean isDefault() {
-		return GervillProcessorFactory.TYPE.equals(this.chain.getReceiver().getType());
+		return TGDefaultSource.givesWay(this.chain.getReceiver());
 	}
 
 	// whether the default instrument plays as the source, so it can be kept in the song (TGKeepDefaultInstrumentAction)
