@@ -82,6 +82,21 @@ public class TestEditorDock {
 	}
 
 	// Hide editor gives the room back (the view closes) until Show editor, whatever is picked meanwhile; remembered
+	// the area shows the parameter rows of the plugin picked once its editor opened as TuxGuitar's: not of another, not of
+	// one with its own editor, not once another is picked
+	@Test
+	public void theAreaShowsTheParameterRowsOfThePickedPluginWithoutAnEditor() {
+		List<String> rows = new ArrayList<String>();
+		dock.picked(GAIN);
+		rows.add("opening " + dock.parameters(GAIN));
+		dock.opened(GAIN, opened(Kind.NONE));
+		rows.add("gain " + dock.parameters(GAIN) + " woodshed " + dock.parameters(WOODSHED));
+		dock.picked(WOODSHED);
+		dock.opened(WOODSHED, opened(Kind.EMBEDDED));
+		rows.add("gain " + dock.parameters(GAIN) + " woodshed " + dock.parameters(WOODSHED));
+		assertEquals("[opening false, gain true woodshed false, gain false woodshed false]", rows.toString());
+	}
+
 	@Test
 	public void hideEditorClosesTheViewUntilShowEditor() {
 		does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED))).does(() -> dock.visibility(true, true)).does(() -> dock.picked(WOODSHED)).does(() -> dock.visibility(false, true));

@@ -51,13 +51,12 @@ final class TGSoundChainButtons {
 	// the row's plugin's own editor opens floating over TuxGuitar's main window, or else TuxGuitar's parameter editor,
 	// over the window given
 	static void edit(TGContext context, TGSoundChainCommands commands, TGTrack track, int row, Consumer<Runnable> later, UIWindow parent) {
-		Integer effect = TGSoundChainRows.effect(row);
-		commands.edit(row, TGNativeWindow.floating(context), editor -> later.accept(() -> parameters(context, track, effect, editor, parent)));
+		commands.edit(row, TGNativeWindow.floating(context), editor -> later.accept(() -> parameters(context, track, commands, row, editor, parent)));
 	}
 
-	private static void parameters(TGContext context, TGTrack track, Integer effect, TGPluginEditor editor, UIWindow parent) {
+	private static void parameters(TGContext context, TGTrack track, TGSoundChainCommands commands, int row, TGPluginEditor editor, UIWindow parent) {
 		if (!editor.isOwn()) {
-			new TGPluginParametersDialog(context, track, effect, editor).open(parent);
+			new TGPluginParametersDialog(context, track, commands, row, editor).open(parent);
 		}
 	}
 

@@ -2,10 +2,13 @@ package app.tuxguitar.audio.ui;
 
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import app.tuxguitar.app.TuxGuitar;
+import app.tuxguitar.app.system.keybindings.KeyBindingActionManager;
 import app.tuxguitar.app.view.main.TGBottomDock;
 import app.tuxguitar.app.view.main.TGWindow;
 import app.tuxguitar.audio.TGEditorDock;
@@ -13,6 +16,7 @@ import app.tuxguitar.audio.TGEditorDock.Element;
 import app.tuxguitar.audio.TGEditorDock.How;
 import app.tuxguitar.audio.TGEditorDock.Line;
 import app.tuxguitar.audio.TGEditorDock.Step;
+import app.tuxguitar.audio.TGEditorKeys;
 import app.tuxguitar.audio.TGEditorPlacement;
 import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGPluginEditor;
@@ -32,10 +36,12 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * The Sound Chain panel's editor area, under its chain and action lines: the picked plugin's own editor inside it
  * (a window of the plugin's host process, a child of this area's native window), as wide as the area when it can be,
  * as high as it needs (Q3: no border to drag), with a line above naming it and offering Open in window; or a line saying
- * where the editor is instead (in a window of its own, too large for the panel, stopped). TGEditorDock decides all of
+ * where the editor is instead (in a window of its own, too large for the panel, stopped); for a plugin without an editor
+ * of its own, TuxGuitar's parameter rows under that line (TGSoundChainParameterRoom). TGEditorDock decides all of
  * it; this executes its steps (TGLivePlugins closes a view, TGSoundChainCommands opens an editor where the step says)
  * and shows what it shows, on the UI thread. What Hide editor and Open in window remember is kept in the panel's config
- * at once. Glue only.
+ * at once. While the editor inside has the focus, TuxGuitar's shortcuts with Ctrl, Alt or a function key typed there come
+ * to the area (the host passes them), whose key listener runs them; plain keys stay with the plugin. Glue only.
  */
 final class TGSoundChainEditorArea {
 
@@ -57,6 +63,8 @@ final class TGSoundChainEditorArea {
 	private final UIButton button;
 	private final UIPanel area;
 	private final UIPanel parent;
+	// TuxGuitar's parameter rows of a plugin without an editor of its own
+	private final TGSoundChainParameterRoom room;
 
 	TGSoundChainEditorArea(TGContext context, UIFactory factory, UIPanel parent, int row, TGSoundChainCommands commands, TGConfigManager config) {
 		this.context = context;
@@ -74,11 +82,20 @@ final class TGSoundChainEditorArea {
 		headerLayout.set(this.button, 1, 2, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_CENTER, false, false);
 		this.area = factory.createPanel(parent, false);
 		this.area.addResizeListener(event -> this.resized());
+		KeyBindingActionManager.getInstance(context).appendListenersTo(this.area);
 		((UITableLayout) parent.getLayout()).set(this.header, row, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false, 1, 1, null, null, 2f);
 		((UITableLayout) parent.getLayout()).set(this.area, row + 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false, 1, 1, null, null, 0f);
-		this.placements.put(How.INSIDE, TGEditorPlacement.embedded(() -> TGNativeWindow.handle(this.area), this::owner));
+		this.placements.put(How.INSIDE, TGEditorPlacement.embedded(() -> TGNativeWindow.handle(this.area), this::owner, this::keys));
 		this.placements.put(How.IN_A_WINDOW, TGNativeWindow.floating(context));
+		this.room = new TGSoundChainParameterRoom(context, factory, parent, row + 2);
 		this.show();
+	}
+
+	// TuxGuitar's shortcuts with Ctrl, Alt or a function key, as bound now (TGEditorKeys): typed in the editor inside the
+	// area, they come to the area, whose key listener runs them
+	private int[] keys() {
+		List<List<String>> shortcuts = KeyBindingActionManager.getInstance(this.context).getKeyBindingActions().stream().map(action -> action.getCombination().getKeyStrings()).collect(Collectors.toList());
+		return TGEditorKeys.passed(shortcuts);
 	}
 
 	private long owner() {
@@ -121,12 +138,22 @@ final class TGSoundChainEditorArea {
 
 	// the step done (the view closed, the editor opened where it says), what the dock remembers kept, what it shows shown
 	private void run(Step step) {
-		Optional.ofNullable(step.getClose()).map(this.editors::remove).ifPresent(TGLivePlugins.getInstance(this.context)::close);
+		Optional.ofNullable(step.getClose()).ifPresent(this::close);
 		Optional.ofNullable(step.getOpen()).ifPresent(element -> this.open(element, step.getHow()));
 		this.config.setValue(HIDDEN, this.dock.isHidden());
 		this.config.setValue(POPPED_OUT, TGEditorDock.pinned(this.dock.getPinned()));
 		this.config.save();
 		this.show();
+	}
+
+	// the element's view in the area closes: its own editor, or TuxGuitar's parameter rows
+	private void close(Element element) {
+		Optional.ofNullable(this.editors.remove(element)).ifPresent(this::close);
+	}
+
+	private void close(TGPluginEditor editor) {
+		TGLivePlugins.getInstance(this.context).close(editor);
+		this.room.close(editor);
 	}
 
 	private void open(Element element, How how) {
@@ -137,10 +164,15 @@ final class TGSoundChainEditorArea {
 	private void opened(Element element, TGPluginEditor editor) {
 		this.editors.put(element, editor);
 		editor.watch(() -> this.later(() -> this.followed(element, editor)));
-		this.run(this.dock.opened(element, editor.getOpened()));
+		Step step = this.dock.opened(element, editor.getOpened());
+		if (this.dock.parameters(element)) {
+			this.room.show(editor, (parameter, plain) -> this.commands.set(element.getRow(), parameter, plain));
+		}
+		this.run(step);
 	}
 
 	private void followed(Element element, TGPluginEditor editor) {
+		this.room.follow(editor);
 		this.run(this.dock.followed(element, editor, this.editors.get(element) == editor));
 	}
 

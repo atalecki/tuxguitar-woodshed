@@ -21,16 +21,19 @@ import app.tuxguitar.audio.action.TGMoveEffectUpAction;
 import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
 import app.tuxguitar.audio.action.TGRemoveEffectAction;
 import app.tuxguitar.audio.action.TGSetEffectEnabledAction;
+import app.tuxguitar.audio.action.TGSetPluginParameterAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgram;
+import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.thread.TGThreadHandler;
 import app.tuxguitar.thread.TGThreadLoop;
 import app.tuxguitar.thread.TGThreadPriority;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Exception;
 import app.tuxguitar.vst3.TGVst3Hosting;
 
@@ -55,7 +58,8 @@ class TestSoundChainCommands {
 		TGThreadManagerAtOnce.install(this.fixture.context);
 		this.fixture.map(new TGAddVst3EffectAction(this.fixture.context), new TGChooseVst3InstrumentAction(this.fixture.context), new TGChooseGeneralMidiAction(this.fixture.context),
 			new TGKeepDefaultInstrumentAction(this.fixture.context), new TGMoveEffectUpAction(this.fixture.context), new TGRemoveEffectAction(this.fixture.context),
-			new TGSetEffectEnabledAction(this.fixture.context), new TGOpenPluginEditorAction(this.fixture.context));
+			new TGSetEffectEnabledAction(this.fixture.context), new TGOpenPluginEditorAction(this.fixture.context),
+			new TGSetPluginParameterAction(this.fixture.context));
 		TGProgram chain = TGSoundChain.get(this.channel(this.track));
 		chain.setReceiver(TGSoundChain.source("drone"));
 		TGSoundChain.save(this.channel(this.track), chain, this.fixture.songManager.getFactory());
@@ -128,8 +132,8 @@ class TestSoundChainCommands {
 	}
 
 	// Edit asks the action to open the picked effect's editor, placed as the editor says (floating: owned by the window
-	// given; embedded: inside the area given, at most the height given, the window given kept as its owner), titled with
-	// the track
+	// given; embedded: inside the area given, at most the height given, passing the keys given, the window given kept as
+	// its owner), titled with the track
 	@Test
 	void editOpensThePickedPluginsEditorWhereThePlacementSays() {
 		List<String> asked = new ArrayList<String>();
@@ -141,9 +145,9 @@ class TestSoundChainCommands {
 			}
 		});
 		this.commands.edit(2, TGEditorPlacement.floating(() -> 42L), editor -> asked.add("parameters"));
-		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L), editor -> asked.add("parameters"));
+		this.commands.edit(0, TGEditorPlacement.embedded(() -> 5L, () -> 7L, () -> new int[] {0x277}), editor -> asked.add("parameters"));
 		String track = " track " + this.track.getName() + " channel " + this.track.getChannelId();
-		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, owned by 7" + track + "] [done, done]", asked + " " + this.told);
+		assertEquals("[effect 2 floating, owned by 42" + track + ", effect null inside 5, at most 0.5 of its window high, passing [631], owned by 7" + track + "] [done, done]", asked + " " + this.told);
 	}
 
 	// the app runs the action later on its UI thread (its interceptor), after the command returned: the editor is handed
@@ -229,6 +233,23 @@ class TestSoundChainCommands {
 		List<String> parameters = new ArrayList<String>();
 		this.commands.edit(0, TGEditorPlacement.floating(() -> 0L), editor -> parameters.add("tone " + editor.getParameters()));
 		assertEquals("[tone [Level]] [done, done]", parameters + " " + this.told);
+	}
+
+	// a value set in TuxGuitar's parameter rows of the default the source plays (its parameter editor open) keeps it in the
+	// song with that value, as the Parameters window does: the source is the track's own Test Tone, Level 0.5 in the song
+	@Test
+	void aValueSetInTheParameterRowsOfTheDefaultKeepsItWithThatValue() {
+		this.channel(this.track).setProgram((short) 25);
+		TGDefaultInstrument tone = TGDefaultInstrument.parse(this.hosting.find("Test Tone").getClassId(), "Test Tone").get();
+		TGDefaultInstrumentSource.install(this.fixture.context).use(TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, tone));
+		this.commands.useDefault();
+		List<TGPluginEditor> opened = new ArrayList<TGPluginEditor>();
+		this.commands.edit(0, TGEditorPlacement.floating(() -> 0L), opened::add);
+		TGPluginEditor editor = opened.get(0);
+		this.commands.set(0, editor.getRows().get(0).getId(), 0.5);
+		TGProgramElement source = TGSoundChain.plugin(TGSoundChain.get(this.channel(this.track)), null);
+		String kept = (source != null ? TGVst3Element.getName(source) + " with 0.5 " + source.getParameters().containsValue("0.5") : "General MIDI");
+		assertEquals("Test Tone with 0.5 true [done, done, done]", kept + " " + this.told);
 	}
 
 	// the threads the app starts, run at once on the caller's
