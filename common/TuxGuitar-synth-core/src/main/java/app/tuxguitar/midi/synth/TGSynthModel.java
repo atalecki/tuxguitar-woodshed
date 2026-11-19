@@ -39,6 +39,8 @@ public class TGSynthModel implements MidiSynthesizer, MidiSampleClock{
 	private volatile TGSynthChannel[] channels;
 	private volatile Listener listener;
 	private final MidiTransport transport = new MidiTransport();
+	// what each point of its sound measures while someone shows it
+	private final TGLevels levels = new TGLevels();
 	private volatile int outputLatency;
 	private final List<TGSynthChannelListener> channelListeners = new CopyOnWriteArrayList<TGSynthChannelListener>();
 
@@ -232,5 +234,9 @@ public class TGSynthModel implements MidiSynthesizer, MidiSampleClock{
 
 	public TGContext getContext() {
 		return context;
+	}
+
+	public TGLevels getLevels() {
+		return this.levels;
 	}
 }
