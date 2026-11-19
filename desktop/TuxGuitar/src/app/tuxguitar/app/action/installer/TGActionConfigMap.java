@@ -128,6 +128,7 @@ import app.tuxguitar.app.action.impl.track.TGToggleLyricEditorAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenClickUpDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenPracticeDialogAction;
 import app.tuxguitar.app.action.impl.transport.TGOpenTransportModeDialogAction;
+import app.tuxguitar.app.action.impl.transport.TGSetMetronomeSoundAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayPauseAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportPlayStopAction;
 import app.tuxguitar.app.action.impl.transport.TGTransportSetLoopEHeaderAction;
@@ -570,6 +571,7 @@ public class TGActionConfigMap extends TGActionMap<TGActionConfig> {
 		this.map(TGTransportPlayStopAction.NAME, LOCKABLE | SHORTCUT);
 		this.map(TGTransportStopAction.NAME, LOCKABLE | SHORTCUT);
 		this.map(TGTransportMetronomeAction.NAME, LOCKABLE | SHORTCUT);
+		this.map(TGSetMetronomeSoundAction.NAME, LOCKABLE, UPDATE_ITEMS_CTL);
 		this.map(TGTransportCountDownAction.NAME, LOCKABLE | SHORTCUT);
 		this.map(TGTransportModeAction.NAME, LOCKABLE, UPDATE_SONG_CTL);
 		this.map(TGTransportPractiseAction.NAME, LOCKABLE);

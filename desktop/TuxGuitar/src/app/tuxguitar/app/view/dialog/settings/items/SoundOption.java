@@ -7,18 +7,15 @@ import java.util.function.Function;
 import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.app.system.config.TGConfigKeys;
 import app.tuxguitar.app.view.dialog.settings.TGSettingsEditor;
-import app.tuxguitar.player.base.MidiClick;
 import app.tuxguitar.player.base.MidiOutputPort;
 import app.tuxguitar.player.base.MidiSequencer;
 import app.tuxguitar.ui.UIFactory;
 import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.toolbar.UIToolBar;
 import app.tuxguitar.ui.widget.UIDropDownSelect;
-import app.tuxguitar.ui.widget.UILabel;
 import app.tuxguitar.ui.widget.UILayoutContainer;
 import app.tuxguitar.ui.widget.UIPanel;
 import app.tuxguitar.ui.widget.UISelectItem;
-import app.tuxguitar.ui.widget.UISpinner;
 import app.tuxguitar.util.TGSynchronizer;
 
 public class SoundOption extends TGSettingsOption {
@@ -36,8 +33,7 @@ public class SoundOption extends TGSettingsOption {
 	private UIDropDownSelect<MidiOutputPort> mpCombo;
 
 	//**Count In / Metronome click**//
-	private UISpinner clickNote;
-	private UISpinner clickVelocity;
+	private TGClickSoundSettings click;
 
 	//**What plugins add**//
 	private List<TGSoundSettings> extensions;
@@ -85,9 +81,8 @@ public class SoundOption extends TGSettingsOption {
 		clickComposite.setLayout(clickCompositeLayout);
 		this.indent(clickComposite, 6, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false);
 
-		MidiClick click = MidiClick.read(getConfig());
-		this.clickNote = this.createClickSpinner(clickComposite, 1, "midi.click.note", 0, click.getNote());
-		this.clickVelocity = this.createClickSpinner(clickComposite, 3, "midi.click.velocity", 1, click.getVelocity());
+		this.click = new TGClickSoundSettings(getConfig(), getWindow());
+		this.click.create(uiFactory, clickComposite);
 
 		this.createExtensions(7);
 		this.loadConfig();
@@ -111,20 +106,6 @@ public class SoundOption extends TGSettingsOption {
 		MidiOutputPort port = this.mpCombo.getSelectedValue();
 		String key = (port != null ? port.getKey() : null);
 		this.extensions.forEach(extension -> extension.portChosen(key));
-	}
-
-	// a label and a spinner from the minimum to 127 (a MIDI note or velocity), in the columns from the given one
-	private UISpinner createClickSpinner(UIPanel parent, int column, String key, int minimum, int value) {
-		UITableLayout layout = (UITableLayout) parent.getLayout();
-		UILabel label = getUIFactory().createLabel(parent);
-		label.setText(TuxGuitar.getProperty(key) + ":");
-		layout.set(label, 1, column, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, false, false);
-		UISpinner spinner = getUIFactory().createSpinner(parent);
-		spinner.setMinimum(minimum);
-		spinner.setMaximum(127);
-		spinner.setValue(value);
-		layout.set(spinner, 1, column + 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, false, false);
-		return spinner;
 	}
 
 	public void loadConfig(){
@@ -173,13 +154,13 @@ public class SoundOption extends TGSettingsOption {
 		return Optional.ofNullable(key).flatMap(wanted -> items.stream().filter(item -> wanted.equals(keyOf.apply(item))).findFirst());
 	}
 
-	// the click is kept whether or not the devices were listed yet: its spinners are filled at once
+	// the click is kept whether or not the devices were listed yet: its choices are shown at once
 	public void updateConfig(){
 		if(this.initialized){
 			this.updateKey(TGConfigKeys.MIDI_SEQUENCER, this.msCombo, MidiSequencer::getKey);
 			this.updateKey(TGConfigKeys.MIDI_PORT, this.mpCombo, MidiOutputPort::getKey);
 		}
-		new MidiClick(this.clickNote.getValue(), this.clickVelocity.getValue()).write(getConfig());
+		this.click.keep();
 		this.extensions.forEach(TGSoundSettings::keep);
 	}
 
@@ -196,7 +177,7 @@ public class SoundOption extends TGSettingsOption {
 			getConfig().setValue(TGConfigKeys.MIDI_PORT, getDefaults().getValue(TGConfigKeys.MIDI_PORT));
 			getConfig().setValue(TGConfigKeys.MIDI_SEQUENCER, getDefaults().getValue(TGConfigKeys.MIDI_SEQUENCER));
 		}
-		MidiClick.DEFAULT.write(getConfig());
+		this.click.keepDefaults();
 		this.extensions.forEach(TGSoundSettings::keepDefaults);
 	}
 }

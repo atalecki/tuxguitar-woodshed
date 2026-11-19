@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import app.tuxguitar.midi.synth.TGResampler;
 import app.tuxguitar.song.models.TGTake;
 
 /**

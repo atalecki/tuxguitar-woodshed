@@ -3,6 +3,7 @@ package app.tuxguitar.player.base;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +61,8 @@ public class MidiPlayer{
 	private boolean changeTickPosition;
 	private boolean metronomeEnabled;
 	private MidiClick click = MidiClick.DEFAULT;
+	// the folder of the user's own click sounds (see MidiClickSound.own); null until given
+	private String clickSoundsFolder;
 	private int metronomeTrack;
 	private int infoTrack;
 	private int loopSHeader;
@@ -858,6 +861,7 @@ public class MidiPlayer{
 	// without one); CLICKS is sent a new percussion channel's settings
 	private void updateClickChannel(int own) throws MidiPlayerException {
 		if( own == MidiSampleClock.DRUMS ){
+			this.sendClick(this.click);
 			TGChannel percussion = this.getSongManager().getPercussionChannel(this.getSong());
 			TGChannel levels = (percussion != null ? percussion : this.getSongManager().getFactory().newChannel());
 			this.getOutputTransmitter().sendControlChange(own, MidiControllers.VOLUME, (int)((this.getVolume() / 10.00) * levels.getVolume()));
@@ -950,30 +954,32 @@ public class MidiPlayer{
 	}
 
 	private void updateParameters(TGChannel tgChannel) {
-		try {
-			this.lock();
-			this.updateParameter(tgChannel, MidiParameters.SENDING_PARAMS, Boolean.TRUE.toString());
-
-			Iterator<TGChannelParameter> parameters = tgChannel.getParameters();
-			while( parameters.hasNext() ){
-				TGChannelParameter tgChannelParameter = parameters.next();
-				this.updateParameter(tgChannel, tgChannelParameter.getKey(), tgChannelParameter.getValue());
-			}
-			if( tgChannel.isAudioChannel() ){
-				this.updateParameter(tgChannel, MidiParameters.AUDIO_CHANNEL, Boolean.TRUE.toString());
-			}
-
-			this.updateParameter(tgChannel, MidiParameters.SENDING_PARAMS, Boolean.FALSE.toString());
-		} finally {
-			this.unlock();
+		Map<String, String> parameters = new LinkedHashMap<String, String>();
+		Iterator<TGChannelParameter> channelParameters = tgChannel.getParameters();
+		while( channelParameters.hasNext() ){
+			TGChannelParameter tgChannelParameter = channelParameters.next();
+			parameters.put(tgChannelParameter.getKey(), tgChannelParameter.getValue());
 		}
+		if( tgChannel.isAudioChannel() ){
+			parameters.put(MidiParameters.AUDIO_CHANNEL, Boolean.TRUE.toString());
+		}
+		this.sendParameters(tgChannel.getChannelId(), parameters);
 	}
 
-	private void updateParameter(TGChannel tgChannel, String key, String value){
+	// the parameters, in order, between the two SENDING_PARAMS that tell the channel they are all of them
+	private void sendParameters(int channelId, Map<String, String> parameters) {
+		this.runLocked(() -> {
+			this.updateParameter(channelId, MidiParameters.SENDING_PARAMS, Boolean.TRUE.toString());
+			parameters.forEach((key, value) -> this.updateParameter(channelId, key, value));
+			this.updateParameter(channelId, MidiParameters.SENDING_PARAMS, Boolean.FALSE.toString());
+		});
+	}
+
+	private void updateParameter(int channelId, String key, String value){
 		try {
 			this.lock();
 
-			getOutputTransmitter().sendParameter(tgChannel.getChannelId(), key, value);
+			getOutputTransmitter().sendParameter(channelId, key, value);
 		} catch (MidiPlayerException e) {
 			e.printStackTrace();
 		} finally {
@@ -1112,8 +1118,45 @@ public class MidiPlayer{
 		return this.click;
 	}
 
+	// the drums of a synthesizer that has them (see sendClick) are told it at once
 	public void setClick(MidiClick click) {
 		this.click = click;
+		this.sendClick(click);
+	}
+
+	public String getClickSoundsFolder() {
+		return this.clickSoundsFolder;
+	}
+
+	// where the user's own click sounds are, told the drums of a synthesizer that has them at once
+	public void setClickSoundsFolder(String folder) {
+		this.clickSoundsFolder = folder;
+		this.sendClick(this.click);
+	}
+
+	// the drums of a synthesizer that has them (the TuxGuitar Synthesizer's built-in click), when open, are told the
+	// click: its sounds and volume, and the folder of the user's own sounds (see MidiClick.toParameters; the offline
+	// drums are told the same, see TGDrumTap); a port plays a click's drum note at its velocity, and is told nothing
+	void sendClick(MidiClick click) {
+		this.runLocked(() -> {
+			if( this.hasDrums() ){
+				this.sendParameters(MidiSampleClock.DRUMS, click.toParameters(this.clickSoundsFolder));
+			}
+		});
+	}
+
+	// Settings' Try, on a thread of its own: beat 1 of the click, then an other beat a moment later, on the channel
+	// Count In clicks on; the player's click stays as it was (see MidiClickTry)
+	public void tryClick(MidiClick click) {
+		TGThreadManager.getInstance(this.context).start(() -> new MidiClickTry(this, click).play());
+	}
+
+	// sends the click's notes to the channel, as Count In does
+	void sendClickNote(int channelId, MidiClick click, boolean accented) throws MidiPlayerException {
+		int note = click.getNote(channelId, accented);
+		int velocity = click.getVelocity(channelId, accented);
+		this.getOutputTransmitter().sendNoteOn(channelId, note, velocity, -1, false);
+		this.getOutputTransmitter().sendNoteOff(channelId, note, velocity, -1, false);
 	}
 
 	public void setMetronomeEnabled(boolean metronomeEnabled) {

@@ -32,6 +32,7 @@ public class TransportMenuItem extends TGMenuItem {
 	private UIMenuActionItem play;
 	private UIMenuActionItem stop;
 	private UIMenuCheckableItem metronome;
+	private MetronomeSoundMenuItem metronomeSound;
 	private UIMenuCheckableItem countDown;
 	private UIMenuActionItem mode;
 	private UIMenuActionItem practice;
@@ -64,6 +65,10 @@ public class TransportMenuItem extends TGMenuItem {
 		//--METRONOME--
 		this.metronome = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.metronome", TGTransportMetronomeAction.NAME, null);
 		this.metronome.addSelectionListener(this.createActionProcessor(TGTransportMetronomeAction.NAME));
+
+		//--METRONOME SOUND--
+		this.metronomeSound = new MetronomeSoundMenuItem(this.transportMenuItem.getMenu().createSubMenuItem());
+		this.metronomeSound.showItems();
 
 		//--COUNTDOWN--
 		this.countDown = this.named(this.transportMenuItem.getMenu().createCheckItem(), "transport.count-down", TGTransportCountDownAction.NAME, null);
@@ -115,6 +120,7 @@ public class TransportMenuItem extends TGMenuItem {
 		this.repeatStep.setEnabled(TGTransportStepAction.isEnabled(this.findContext()));
 		this.previousStep.setEnabled(TGTransportStepAction.isEnabled(this.findContext()));
 		this.metronome.setChecked(TuxGuitar.getInstance().getPlayer().isMetronomeEnabled());
+		this.metronomeSound.update();
 		this.countDown.setChecked(TuxGuitar.getInstance().getPlayer().getCountDown().isEnabled());
 		this.loopSHeader.setEnabled( pm.isLoop() );
 		this.loopSHeader.setChecked( isMeasure(measure, pm.getLoopSHeader()) );
@@ -138,7 +144,7 @@ public class TransportMenuItem extends TGMenuItem {
 	}
 
 	public void loadProperties() {
-		this.loadNames();
+		this.loadNames(this.metronomeSound);
 	}
 
 	public void loadIcons(){

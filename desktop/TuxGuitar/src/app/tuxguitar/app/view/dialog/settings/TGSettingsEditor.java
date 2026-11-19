@@ -33,6 +33,9 @@ import app.tuxguitar.util.properties.TGProperties;
 
 public class TGSettingsEditor{
 
+	// the page to open on: an option's class (e.g. SoundOption.class); else the first page
+	public static final String ATTRIBUTE_PAGE = TGSettingsOption.class.getName();
+
 	private TGViewContext context;
 	private TGCursorController cursorController;
 	private TGConfigManager config;
@@ -117,7 +120,7 @@ public class TGSettingsEditor{
 		initOptions(toolBar, option);
 
 		if( this.options.size() > 0 ){
-			select(this.options.get(0));
+			select(this.opening());
 		}
 	}
 
@@ -133,6 +136,12 @@ public class TGSettingsEditor{
 		for(TGSettingsOption option : this.options) {
 			option.createOption();
 		}
+	}
+
+	// the page asked for (ATTRIBUTE_PAGE), else the first
+	private TGSettingsOption opening() {
+		Object page = this.context.getAttribute(ATTRIBUTE_PAGE);
+		return this.options.stream().filter(option -> option.getClass().equals(page)).findFirst().orElse(this.options.get(0));
 	}
 
 	public void loadCursor(UICursor cursor) {

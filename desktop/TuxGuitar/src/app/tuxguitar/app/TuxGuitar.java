@@ -48,6 +48,7 @@ import app.tuxguitar.editor.undo.TGUndoableManager;
 import app.tuxguitar.event.TGEventManager;
 import app.tuxguitar.io.base.TGFileFormatManager;
 import app.tuxguitar.player.base.MidiClick;
+import app.tuxguitar.player.base.MidiClickSoundsFolder;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.impl.sequencer.MidiSequencerProviderImpl;
@@ -353,7 +354,8 @@ public class TuxGuitar {
 		//check midi port
 		getPlayer().openOutputPort(getConfig().getStringValue(TGConfigKeys.MIDI_PORT), true);
 
-		//the Count In / Metronome click
+		//the Count In / Metronome click, and where the user's own click sounds are
+		getPlayer().setClickSoundsFolder(MidiClickSoundsFolder.user().getPath());
 		getPlayer().setClick(MidiClick.read(getConfig()));
 	}
 

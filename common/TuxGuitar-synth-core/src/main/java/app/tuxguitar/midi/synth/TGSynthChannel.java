@@ -1,6 +1,8 @@
 package app.tuxguitar.midi.synth;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
@@ -9,6 +11,7 @@ import app.tuxguitar.player.base.MidiChannel;
 import app.tuxguitar.player.base.MidiControllers;
 import app.tuxguitar.player.base.MidiParameters;
 import app.tuxguitar.player.base.MidiPlayerException;
+import app.tuxguitar.player.base.MidiSampleClock;
 import app.tuxguitar.song.models.TGChannel;
 
 public class TGSynthChannel implements MidiChannel {
@@ -303,10 +306,15 @@ public class TGSynthChannel implements MidiChannel {
 		this.toSource(source -> source.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0));
 	}
 
+	// the parameters sent between the two SENDING_PARAMS are the channel's: its sound chain, or, on the drums
+	// (MidiSampleClock.DRUMS), the click their built-in click plays (see ClickProcessor)
 	public void sendParameter(String key, String value) throws MidiPlayerException {
 		if( MidiParameters.SENDING_PARAMS.equals(key) ) {
 			if( Boolean.valueOf(value)) {
 				this.parameters.clear();
+			} else if( this.id == MidiSampleClock.DRUMS ) {
+				Map<String, String> click = new HashMap<String, String>(this.parameters.getProperties());
+				this.toSource(source -> source.restoreParameters(click));
 			} else {
 				this.chain = this.customProgram();
 				if( this.chain != null ) {
