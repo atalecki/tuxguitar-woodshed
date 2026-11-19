@@ -71,10 +71,13 @@ public class TGSynthManager {
 		return this.getAllSupportedTypes(this.getExtensions(TGAudioProcessorFactory.class));
 	}
 
+	// the types offered to be chosen alone (not a VST3 plugin's, whose element names its plugin)
 	private List<String> getAllSupportedTypes(List<? extends TGAbstractProcessorFactory<?>> factories){
 		List<String> allSupportedTypes = new ArrayList<String>();
 		for(TGAbstractProcessorFactory<?> factory : factories) {
-			allSupportedTypes.add(factory.getType());
+			if( factory.isChosenByType() ) {
+				allSupportedTypes.add(factory.getType());
+			}
 		}
 		return allSupportedTypes;
 	}
