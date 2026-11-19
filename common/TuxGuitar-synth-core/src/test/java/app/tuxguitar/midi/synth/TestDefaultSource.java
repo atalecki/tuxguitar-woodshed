@@ -135,6 +135,48 @@ public class TestDefaultSource {
 		this.channel.sendParameter(prefix + ".type", type);
 	}
 
+	// a chain whose source is General MIDI marked as the source's parameter says ("true": plain General MIDI, a track's
+	// sound set to MIDI), with its effects
+	private void sendMarkedChain(String mark, String... effects) throws MidiPlayerException {
+		this.channel.sendParameter(MidiParameters.SENDING_PARAMS, Boolean.TRUE.toString());
+		send(TGSynthChannel.SOUND_CHAIN_PREFIX, "midi", GervillProcessorFactory.TYPE);
+		this.channel.sendParameter(TGSynthChannel.SOUND_CHAIN_PREFIX + ".param.count", "1");
+		this.channel.sendParameter(TGSynthChannel.SOUND_CHAIN_PREFIX + ".param.0.name", TGDefaultSource.PLAIN_GENERAL_MIDI);
+		this.channel.sendParameter(TGSynthChannel.SOUND_CHAIN_PREFIX + ".param.0.value", mark);
+		sendEffects(effects);
+		this.channel.sendParameter(MidiParameters.SENDING_PARAMS, Boolean.FALSE.toString());
+	}
+
+	// a track's sound set to MIDI: its program plays, never the default of its kind (none is opened), its effects kept
+	@Test
+	public void aChainWhoseSourceIsPlainGeneralMidiPlaysItsProgramNotTheDefault() throws MidiPlayerException {
+		sendMarkedChain(Boolean.TRUE.toString(), "lift");
+		sendBankAndProgram(0, 25);
+
+		assertEquals(level(GERVILL + 0.1f) + " 0", sounds() + " " + this.guitar.created.size());
+	}
+
+	// a mark that does not say "true" marks nothing: the default plays
+	@Test
+	public void aGeneralMidiSourceMarkedOtherThanTrueTakesTheDefault() throws MidiPlayerException {
+		sendMarkedChain(Boolean.FALSE.toString());
+		sendBankAndProgram(0, 25);
+
+		assertEquals(level(GUITAR), sounds());
+	}
+
+	// pinned as it is (odd): an instrument of the channel's own given a General MIDI source of the same id ("source"), on a
+	// kind without a default, goes on sounding on its processor, which is given General MIDI's parameters; the plain
+	// General MIDI source of a track's sound set to MIDI has an id of its own ("midi") so it does not meet this
+	@Test
+	public void pinnedAnInstrumentOfItsOwnGivenGeneralMidiOfTheSameIdGoesOnSoundingWithoutADefault() throws MidiPlayerException {
+		sendChain("own");
+		sendBankAndProgram(0, 5);
+		sendChain(GervillProcessorFactory.TYPE);
+
+		assertEquals("source true " + level(OWN), this.playing(this.own.last()));
+	}
+
 	private void sendBankAndProgram(int bank, int program) throws MidiPlayerException {
 		this.channel.sendControlChange(MidiControllers.BANK_SELECT, bank);
 		this.channel.sendProgramChange(program);
