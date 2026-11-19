@@ -67,8 +67,4 @@ public final class TGMeterReading {
 	public int hashCode() {
 		return Arrays.hashCode(this.peaks) * 31 + Arrays.hashCode(this.holds);
 	}
-
-	public String toString() {
-		return "peak " + Arrays.toString(this.peaks) + " hold " + Arrays.toString(this.holds) + (this.clipped ? " clipped" : "") + (this.on ? "" : " off");
-	}
 }
