@@ -22,7 +22,7 @@ public class TGResetClipIndicatorAction extends TGActionBase {
 	protected void processAction(TGActionContext context) {
 		TGTrack track = context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK);
 		if (track.isAudio()) {
-			TGAudioSession.getInstance(getContext()).getInputMeter(track).resetClipIndicator();
+			TGAudioSession.getInstance(getContext()).getInputLevel(track).resetClipIndicator();
 			context.setAttribute(ATTRIBUTE_SUCCESS, Boolean.TRUE);
 		}
 	}

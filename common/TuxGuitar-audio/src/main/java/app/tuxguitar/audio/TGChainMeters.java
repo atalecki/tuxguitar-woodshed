@@ -23,7 +23,7 @@ public final class TGChainMeters {
 
 	private List<TGLevels.Key> rows = Collections.emptyList();
 	// the meter of each tap read, by the tap: kept across the rows followed
-	private final Map<TGLevelTap, Meter> meters = new IdentityHashMap<TGLevelTap, Meter>();
+	private final Map<TGLevelTap, TGTapMeter> meters = new IdentityHashMap<TGLevelTap, TGTapMeter>();
 	// the levels read last
 	private TGLevels levels;
 	// whether the player played at the last reading: shown while it plays, no Play has started yet
@@ -72,29 +72,7 @@ public final class TGChainMeters {
 		return (this.levels != null && key != null ? this.levels.tap(key) : null);
 	}
 
-	private Meter meter(TGLevelTap tap) {
-		return this.meters.computeIfAbsent(tap, Meter::new);
-	}
-
-	// a tap as one meter reads it: where it read up to, and how the meter moves
-	private static final class Meter {
-
-		private final TGLevelTap tap;
-		private final TGMeterBallistics ballistics = new TGMeterBallistics();
-		private final float[] peaks = new float[TGLevelTap.SIDES];
-		private long cursor;
-
-		Meter(TGLevelTap tap) {
-			this.tap = tap;
-		}
-
-		TGMeterReading read(long now) {
-			this.cursor = this.tap.read(this.cursor, this.peaks);
-			return this.ballistics.next(this.peaks, this.tap.getClips(), now);
-		}
-
-		void clear() {
-			this.ballistics.clear(this.tap.getClips());
-		}
+	private TGTapMeter meter(TGLevelTap tap) {
+		return this.meters.computeIfAbsent(tap, key -> new TGTapMeter(key, key::getClips));
 	}
 }

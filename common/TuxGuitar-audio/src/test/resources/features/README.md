@@ -561,9 +561,10 @@ These features change how TuxGuitar works today. They are requirements, not side
   `Always`: the input is heard whenever the track is armed, and the track's takes are not, so I can practise along with
   the song without recording. `Off`: the input is never heard. Whatever the monitoring, while recording the armed
   track's takes are silent where it records (inside the punch range, or everywhere without one).
-- **Input level**: the peak of what a track's input channel(s) delivered in the last second, in dBFS (the higher of
-  the two for a pair). At -0.1 dBFS or above the input is **clipping**; it shows **has clipped** until I reset it. An
-  armed track's input level follows its input whenever the audio device runs: stopped, playing and recording.
+- **Input level**: the peak of what a track's input channel(s) delivered over about the last two thirds of a second
+  (the newest 56 blocks of 512 frames), in dBFS (the higher of the two for a pair). At -0.1 dBFS or above the input is
+  **clipping**; it shows **has clipped** until I reset it. An armed track's input level follows its input whenever the
+  audio device runs: stopped, playing and recording.
 - **Round trip**: output latency + the plugin delay compensation of what I hear + input latency + recording offset.
   A take is placed earlier by its round trip, so one recorded against General MIDI tracks lands on the beat although
   Gervill sounds them 600 samples late (at 44100 Hz). The Count In and the Metronome add nothing to it.

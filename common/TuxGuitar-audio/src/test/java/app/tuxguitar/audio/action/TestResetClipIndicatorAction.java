@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.audio.TGAudioDevice;
 import app.tuxguitar.audio.TGAudioSession;
-import app.tuxguitar.audio.TGInputMeter;
+import app.tuxguitar.audio.TGInputLevel;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.song.models.TGAudioInput;
@@ -34,7 +34,7 @@ public class TestResetClipIndicatorAction {
 	}
 
 	private String reset(TGTrack track) {
-		TGInputMeter meter = session.getInputMeter(track);
+		TGInputLevel meter = session.getInputLevel(track);
 		meter.deliver(new float[][] {{1f}});
 		fixture.actionContext.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, track);
 		fixture.execute(new TGResetClipIndicatorAction(fixture.context));

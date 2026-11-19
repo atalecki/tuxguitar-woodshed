@@ -5,10 +5,8 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.audio.TGChainMeters;
 import app.tuxguitar.audio.TGLiveLevels;
-import app.tuxguitar.audio.TGMeterLook;
 import app.tuxguitar.audio.TGMeterReading;
 import app.tuxguitar.midi.synth.TGLevels;
 import app.tuxguitar.player.base.MidiPlayer;
@@ -84,11 +82,7 @@ final class TGSoundChainMeters {
 		boolean playing = MidiPlayer.getInstance(this.context).isRunning();
 		List<TGMeterReading> readings = this.meters.next(TGLiveLevels.getInstance(this.context).get(), System.currentTimeMillis(), playing);
 		for (int meter = 0; meter < Math.min(readings.size(), this.canvases.size()); meter++) {
-			this.canvases.get(meter).show(readings.get(meter), this.tip(this.names.get(meter), readings.get(meter)));
+			this.canvases.get(meter).show(readings.get(meter), this.names.get(meter));
 		}
-	}
-
-	private String tip(String name, TGMeterReading reading) {
-		return TGMeterLook.tip(name, reading, TuxGuitar.getProperty("audio.sound-chain.meter.read"), TuxGuitar.getProperty("audio.sound-chain.meter.off"), TuxGuitar.getProperty("audio.sound-chain.meter.clipped"));
 	}
 }

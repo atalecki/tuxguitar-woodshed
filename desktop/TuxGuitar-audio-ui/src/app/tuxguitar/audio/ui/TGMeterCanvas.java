@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import app.tuxguitar.app.TuxGuitar;
 import app.tuxguitar.audio.TGMeterLook;
 import app.tuxguitar.audio.TGMeterLook.Role;
 import app.tuxguitar.audio.TGMeterLook.Shape;
@@ -64,8 +65,13 @@ final class TGMeterCanvas {
 
 	// a meter of one bar (the louder side), in the group's cell, as wide as the cell
 	static TGMeterCanvas mono(UIFactory factory, UIAppearance appearance, UIPanel group, int row, int column, Runnable clicked) {
+		return one(factory, appearance, group, row, column, null, BAR, clicked);
+	}
+
+	// a meter of one bar (the louder side), as wide (null: the cell's width) and high as given
+	static TGMeterCanvas one(UIFactory factory, UIAppearance appearance, UIPanel group, int row, int column, Float width, float height, Runnable clicked) {
 		TGMeterCanvas meter = new TGMeterCanvas(factory, appearance, group, false, text -> { }, clicked);
-		((UITableLayout) group.getLayout()).set(meter.canvas, row, column, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_TOP, true, false, 1, 1, null, BAR, 0f);
+		((UITableLayout) group.getLayout()).set(meter.canvas, row, column, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false, 1, 1, width, height, 0f);
 		return meter;
 	}
 
@@ -76,9 +82,9 @@ final class TGMeterCanvas {
 		return meter;
 	}
 
-	// drawn again only when it reads differently
-	void show(TGMeterReading reading, String tip) {
-		this.canvas.setToolTipText(tip);
+	// the reading of the meter so named; drawn again only when it reads differently
+	void show(TGMeterReading reading, String name) {
+		this.canvas.setToolTipText(TGMeterLook.tip(name, reading, TuxGuitar.getProperty("audio.sound-chain.meter.read"), TuxGuitar.getProperty("audio.sound-chain.meter.off"), TuxGuitar.getProperty("audio.sound-chain.meter.clipped")));
 		this.number.accept(TGMeterLook.number(reading));
 		if (!reading.equals(this.reading)) {
 			this.reading = reading;

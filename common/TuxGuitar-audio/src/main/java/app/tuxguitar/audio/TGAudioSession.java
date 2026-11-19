@@ -33,7 +33,7 @@ public final class TGAudioSession {
 	private final Set<TGTrack> armedTracks = ConcurrentHashMap.newKeySet();
 	// kept while a track is disarmed and armed again
 	private final Map<TGTrack, TGMonitoring> monitoring = new ConcurrentHashMap<TGTrack, TGMonitoring>();
-	private final Map<TGTrack, TGInputMeter> meters = new ConcurrentHashMap<TGTrack, TGInputMeter>();
+	private final Map<TGTrack, TGInputLevel> meters = new ConcurrentHashMap<TGTrack, TGInputLevel>();
 	private volatile TGAudioDevice device;
 	private TGPunchRange punchRange;
 	// the song the punch range was set on: a song opened later has none
@@ -116,14 +116,14 @@ public final class TGAudioSession {
 			int frames = Math.min(BLOCK, count - done);
 			for (TGTrack track : this.getArmedTracks(song)) {
 				TGAudioInput input = songManager.getChannel(song, track.getChannelId()).getAudioInput();
-				this.getInputMeter(track).deliver(this.device.capture(input, from + done, frames));
+				this.getInputLevel(track).deliver(this.device.capture(input, from + done, frames));
 			}
 		}
 	}
 
-	// the track's input level, at the audio device's rate
-	public TGInputMeter getInputMeter(TGTrack track) {
-		return this.meters.computeIfAbsent(track, key -> new TGInputMeter(this.device.getSampleRate()));
+	// the track's input level (made the first time it is asked)
+	public TGInputLevel getInputLevel(TGTrack track) {
+		return this.meters.computeIfAbsent(track, key -> new TGInputLevel());
 	}
 
 	public int getRecordingOffset() {

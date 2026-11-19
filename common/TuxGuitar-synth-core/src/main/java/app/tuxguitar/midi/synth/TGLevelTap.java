@@ -17,6 +17,8 @@ public final class TGLevelTap {
 	static final int BLOCKS = 64;
 	// how far behind the block being written a reader stays, so the oldest block it reads is not being overwritten
 	static final int MARGIN = 8;
+	// the newest blocks a reader reads at most
+	public static final int NEWEST = BLOCKS - MARGIN;
 	// left and right: what read() fills
 	public static final int SIDES = 2;
 
@@ -60,7 +62,7 @@ public final class TGLevelTap {
 	public long read(long from, float[] peak) {
 		long to = this.written;
 		java.util.Arrays.fill(peak, 0f);
-		for (long block = Math.max(from, to - (BLOCKS - MARGIN)); block < to; block++) {
+		for (long block = Math.max(from, to - NEWEST); block < to; block++) {
 			int slot = (int) (block % BLOCKS);
 			for (int side = 0; side < SIDES; side++) {
 				peak[side] = Math.max(peak[side], this.peaks[side][slot]);

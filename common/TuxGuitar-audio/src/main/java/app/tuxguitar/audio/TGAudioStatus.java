@@ -36,7 +36,7 @@ public final class TGAudioStatus {
 		if (session.getDevice() == null) {
 			return new TGAudioStatus(NO_DEVICE, false, Collections.<Meter>emptyList());
 		}
-		List<Meter> meters = session.getArmedTracks(TGDocumentManager.getInstance(context).getSong()).stream().map(track -> new Meter(track, session.getInputMeter(track))).collect(Collectors.toList());
+		List<Meter> meters = session.getArmedTracks(TGDocumentManager.getInstance(context).getSong()).stream().map(track -> new Meter(track, session.getInputLevel(track))).collect(Collectors.toList());
 		boolean recording = session.isRecording();
 		return new TGAudioStatus(recording ? RECORDING : NOT_RECORDING, !recording && !meters.isEmpty() && TGPracticeUnderWay.getInstance(context).getCourse() == null, meters);
 	}
@@ -71,13 +71,15 @@ public final class TGAudioStatus {
 		private final int percent;
 		private final String level;
 		private final boolean clipped;
+		private final TGInputLevel input;
 
-		private Meter(TGTrack track, TGInputMeter meter) {
+		private Meter(TGTrack track, TGInputLevel meter) {
 			double level = meter.getLevel();
 			this.track = track;
 			this.percent = TGMeterScale.percent(level);
 			this.level = TGMeterScale.number(level) + " dBFS";
 			this.clipped = meter.hasClipped();
+			this.input = meter;
 		}
 
 		public TGTrack getTrack() {
@@ -94,6 +96,11 @@ public final class TGAudioStatus {
 
 		public boolean hasClipped() {
 			return this.clipped;
+		}
+
+		// the level itself, which a meter reads (TGTapMeter) as the Sound Chain panel's do
+		public TGInputLevel getInput() {
+			return this.input;
 		}
 	}
 }

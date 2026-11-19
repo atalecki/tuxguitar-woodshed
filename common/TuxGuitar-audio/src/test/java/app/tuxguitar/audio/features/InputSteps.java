@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 
-import app.tuxguitar.audio.TGInputMeter;
+import app.tuxguitar.audio.TGInputLevel;
 import app.tuxguitar.audio.TGRenderer;
 import app.tuxguitar.audio.action.TGPlayAction;
 import app.tuxguitar.audio.action.TGAddAudioTrackAction;
@@ -75,8 +75,8 @@ public class InputSteps {
 		world.fixture().actionContext.setAttribute(TGPlayAction.ATTRIBUTE_RENDER, renderer.listen(seconds * world.device().getSampleRate()));
 	}
 
-	private TGInputMeter meter(int number) {
-		return world.session().getInputMeter(world.track(number));
+	private TGInputLevel meter(int number) {
+		return world.session().getInputLevel(world.track(number));
 	}
 
 	@Then("track {int}'s input level reads {double} dBFS within 0.01 dB")
