@@ -196,8 +196,7 @@ public class MidiPlayer{
 	public void practise(TGPracticeCourse course) throws MidiPlayerException, TGPracticeRefusal {
 		MidiSequencer sequencer = this.getSequencer();
 		if( !sequencer.takesEventsWhilePlaying() ){
-			throw new TGPracticeRefusal(course.getModeName() + " needs a sequencer that takes turns added while it plays, and \"" + sequencer.getName()
-				+ "\" does not: choose the TuxGuitar Sequencer in Settings > Sound.");
+			throw new TGPracticeRefusal("transport.practice.refusal.sequencer", course.getModeName(), sequencer.getName());
 		}
 		this.runLocked(() -> {
 			this.stop();

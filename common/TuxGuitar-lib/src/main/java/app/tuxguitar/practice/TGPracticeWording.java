@@ -2,6 +2,8 @@ package app.tuxguitar.practice;
 
 import java.util.stream.Stream;
 
+import app.tuxguitar.util.TGMessagesManager;
+
 /**
  * The words the app shows for practice, looked up in its messages (keys and their arguments) so that it words them in
  * its own language. A turn under the Transport window's position: of interleaved practice, "Turn 3 of 12: Line 5"
@@ -15,7 +17,11 @@ import java.util.stream.Stream;
  * 3") or a run (transport.click-up.sections.&lt;kind&gt;), its tempo by transport.click-up.tempo.&lt;mode&gt;. And the
  * label of a field of a range of units: as it is, or, when the range is given in another kind (beats in measures), in
  * that kind (transport.practice.range.&lt;kind&gt;: "Pool from (measures)"); the label of the units per block by the
- * kind (transport.practice.units-per-block.&lt;kind&gt;: "Measures per block").
+ * kind (transport.practice.units-per-block.&lt;kind&gt;: "Measures per block"). And the parts of a refusal (TGPracticeRefusal):
+ * a kind's noun for so many units (transport.practice.noun.&lt;kind&gt; for one, nouns for any other count: "measure",
+ * "measures"), a block by its unit (transport.practice.refusal.unit.&lt;kind&gt;: "Line 3", "Measure 2 beat 3") or by its
+ * first and last unit (transport.practice.refusal.block.&lt;kind&gt;: "The block of lines 1–2"), a tempo of the ladder
+ * ("1%", "1 bpm").
  */
 public final class TGPracticeWording {
 
@@ -23,6 +29,9 @@ public final class TGPracticeWording {
 	public interface Messages {
 		String get(String key, String[] arguments);
 	}
+
+	// TuxGuitar's own messages, in its language: English where the language does not say a message (TGMessagesManager)
+	public static final Messages APP = TGMessagesManager::getProperty;
 
 	private static final String[] NONE = new String[0];
 
@@ -45,22 +54,40 @@ public final class TGPracticeWording {
 		return messages.get("transport.practice.units-per-block." + kind.getName(), NONE);
 	}
 
+	// the noun of the kind for so many units: "measure" for one, "measures" for any other count
+	static String noun(TGPracticeUnitKind kind, int count, Messages messages) {
+		return messages.get("transport.practice." + (count == 1 ? "noun." : "nouns.") + kind.getName(), NONE);
+	}
+
+	// a block of one unit by the unit, "Line 3"; of more, by its first and last, "The block of lines 1–2"
+	static String block(TGPracticeBlock block, Messages messages) {
+		if (block.getFrom().equals(block.getTo())) {
+			return messages.get("transport.practice.refusal.unit." + block.getFrom().getKind().getName(), place(block.getFrom()));
+		}
+		return run("transport.practice.refusal.block.", block.getFrom(), block.getTo(), messages);
+	}
+
+	// a tempo of the ladder in its mode: "60%", "60 bpm"
+	static String tempo(TGClickUpTempoMode mode, int value, Messages messages) {
+		return messages.get("transport.click-up.tempo." + mode.getName(), new String[] {String.valueOf(value)});
+	}
+
 	private static String step(TGPracticeTurn turn, TGClickUpStep step, Messages messages) {
-		String tempo = messages.get("transport.click-up.tempo." + step.getTempoMode().getName(), new String[] {String.valueOf(step.getRung())});
+		String tempo = tempo(step.getTempoMode(), step.getRung(), messages);
 		return messages.get("transport.click-up.step", new String[] {String.valueOf(turn.getTurn()), String.valueOf(turn.getTurns()), sections(turn, messages), tempo});
 	}
 
 	// one section by its place ("line 3", "measure 2 beat 3"), a run by the places of its first and last ("lines 2–3")
 	private static String sections(TGPracticeTurn turn, Messages messages) {
 		if (isRun(turn)) {
-			return run("transport.click-up.sections.", turn, messages);
+			return run("transport.click-up.sections.", turn.getFrom(), turn.getTo(), messages);
 		}
 		return messages.get("transport.click-up.section." + turn.getFrom().getKind().getName(), place(turn.getFrom()));
 	}
 
 	// a run by the places of its first and last unit, in the key of the prefix and their kind
-	private static String run(String prefix, TGPracticeTurn turn, Messages messages) {
-		return messages.get(prefix + turn.getFrom().getKind().getName(), arguments(place(turn.getFrom()), place(turn.getTo()), NONE));
+	private static String run(String prefix, TGPracticeUnit from, TGPracticeUnit to, Messages messages) {
+		return messages.get(prefix + from.getKind().getName(), arguments(place(from), place(to), NONE));
 	}
 
 	// a beat's measure and its beat in it; any other unit's number
@@ -100,7 +127,7 @@ public final class TGPracticeWording {
 	private static String[] named(TGPracticeTurn turn, Messages messages) {
 		TGPracticeUnit unit = turn.getFrom();
 		if (isRun(turn)) {
-			return new String[] {run("transport.practice.block.", turn, messages)};
+			return new String[] {run("transport.practice.block.", turn.getFrom(), turn.getTo(), messages)};
 		}
 		if (unit.getKind() == TGPracticeUnitKind.BEAT) {
 			return place(unit);

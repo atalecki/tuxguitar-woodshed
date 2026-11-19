@@ -34,10 +34,10 @@ public final class TGClickUpLadder {
 	// the click-up as set, or the reason it cannot be played
 	public static TGClickUpLadder of(TGClickUpSettings settings, TGSong song) throws TGPracticeRefusal {
 		TGPracticeGrouping grouping = TGPracticeGrouping.of(settings.getMeasuresPerLine(), settings.getLinesPerPage());
-		List<TGPracticeUnit> sections = grouping.units(settings.getUnit(), settings.getPassageFrom(), settings.getPassageTo(), song, "passage");
+		List<TGPracticeUnit> sections = grouping.units(settings.getUnit(), settings.getPassageFrom(), settings.getPassageTo(), song, "transport.click-up.refusal.passage");
 		int[] rungs = rungs(settings.getTempoMode(), settings.getStart(), settings.getGoal(), settings.getIncrement());
 		if (settings.getPasses() < 1) {
-			throw new TGPracticeRefusal("A step needs at least 1 pass.");
+			throw new TGPracticeRefusal("transport.click-up.refusal.passes");
 		}
 		int writtenBpm = song.getMeasureHeader(sections.get(0).getFirst() - 1).getTempo().getQuarterValue();
 		return new TGClickUpLadder(steps(sections, rungs, settings.getTempoMode(), writtenBpm), settings, writtenBpm);
@@ -69,13 +69,13 @@ public final class TGClickUpLadder {
 	// not land on it; or the reason it cannot be climbed
 	private static int[] rungs(TGClickUpTempoMode mode, int start, int goal, int increment) throws TGPracticeRefusal {
 		if (start < 1) {
-			throw new TGPracticeRefusal("The ladder starts below " + mode.reading(1) + ".");
+			throw new TGPracticeRefusal("transport.click-up.refusal.start", TGPracticeWording.tempo(mode, 1, TGPracticeWording.APP));
 		}
 		if (goal < start) {
-			throw new TGPracticeRefusal("The ladder's goal is below its start.");
+			throw new TGPracticeRefusal("transport.click-up.refusal.goal");
 		}
 		if (increment < 1) {
-			throw new TGPracticeRefusal("The ladder climbs by less than " + mode.reading(1) + ".");
+			throw new TGPracticeRefusal("transport.click-up.refusal.increment", TGPracticeWording.tempo(mode, 1, TGPracticeWording.APP));
 		}
 		int climbs = (goal - start) / increment;
 		int[] rungs = new int[climbs + ((goal - start) % increment == 0 ? 1 : 2)];

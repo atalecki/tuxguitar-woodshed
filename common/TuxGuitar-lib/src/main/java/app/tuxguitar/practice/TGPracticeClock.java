@@ -27,13 +27,13 @@ public final class TGPracticeClock {
 	// the clock as set, or the reason it cannot time a session
 	public static TGPracticeClock of(TGPracticeSettings settings) throws TGPracticeRefusal {
 		if (settings.getTurnMinutes() < 1) {
-			throw new TGPracticeRefusal("A turn needs at least 1 minute.");
+			throw new TGPracticeRefusal("transport.practice.refusal.turn-minutes");
 		}
 		if (settings.getBreakSeconds() < 0) {
-			throw new TGPracticeRefusal("A break cannot be shorter than 0 seconds.");
+			throw new TGPracticeRefusal("transport.practice.refusal.break-seconds");
 		}
 		if (settings.getSessionMinutes() < settings.getTurnMinutes()) {
-			throw new TGPracticeRefusal("A session needs at least the minutes of one turn.");
+			throw new TGPracticeRefusal("transport.practice.refusal.session-minutes");
 		}
 		return new TGPracticeClock(settings);
 	}

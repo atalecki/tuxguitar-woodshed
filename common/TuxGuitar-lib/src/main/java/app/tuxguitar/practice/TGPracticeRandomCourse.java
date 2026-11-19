@@ -3,6 +3,7 @@ package app.tuxguitar.practice;
 import java.util.Optional;
 
 import app.tuxguitar.song.models.TGMeasureHeader;
+import app.tuxguitar.util.TGMessagesManager;
 
 /**
  * Interleaved practice's course: each turn's block chosen at random by the session's chooser (TGPracticeChooser), then
@@ -40,7 +41,7 @@ final class TGPracticeRandomCourse implements TGPracticeCourse {
 	}
 
 	public String getModeName() {
-		return "Interleaved practice";
+		return TGMessagesManager.getProperty("transport.practice.mode");
 	}
 
 	public boolean isTimed() {

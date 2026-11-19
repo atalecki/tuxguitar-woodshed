@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionException;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.player.base.MidiSequencer;
 import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
 import app.tuxguitar.practice.TGClickUpSettings;
@@ -35,16 +36,18 @@ public class TestTransportClickUpAction extends PracticeActionTest {
 		return settings;
 	}
 
-	// starts the click-up: the refusal's message, or "started"; then whether there are steps to go back over, and the
+	// starts the click-up: the refusal's message in English, or "started"; then whether there are steps to go back over, and the
 	// settings shown next
 	private String start(TGClickUpSettings settings) {
 		fixture.actionContext.setAttribute(TGTransportClickUpAction.ATTRIBUTE_SETTINGS, settings);
-		String outcome = "started";
-		try {
-			fixture.execute(new TGTransportClickUpAction(fixture.context));
-		} catch (TGActionException refused) {
-			outcome = refused.getMessage();
-		}
+		String outcome = TuxGuitarMessages.english(() -> {
+			try {
+				fixture.execute(new TGTransportClickUpAction(fixture.context));
+				return "started";
+			} catch (TGActionException refused) {
+				return refused.getMessage();
+			}
+		});
 		return outcome + " | " + TGTransportStepAction.isEnabled(fixture.context) + " | " + shown();
 	}
 

@@ -85,14 +85,15 @@ public final class TGPracticeUnit {
 	}
 
 	// "line 3", a beat "measure 2 beat 3"
-	String name() {
+	private String name() {
 		if (this.kind == TGPracticeUnitKind.BEAT) {
 			return TGPracticeUnitKind.MEASURE.getName() + " " + this.first + " " + this.kind.getName() + " " + this.number;
 		}
 		return this.kind.getName() + " " + this.number;
 	}
 
-	// "Line 3", a beat "Measure 2 beat 3"
+	// "Line 3", a beat "Measure 2 beat 3": a reading for tests and logs, in English; the app names a unit in its own language
+	// (TGPracticeWording)
 	public String toString() {
 		String name = this.name();
 		return Character.toUpperCase(name.charAt(0)) + name.substring(1);

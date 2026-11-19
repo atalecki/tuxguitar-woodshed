@@ -70,6 +70,16 @@ Feature: Interleaved practice
       | 1x   | on           | line    | lines 1 to 2      | 6     | 0        | 4        | refused, saying "A line needs at least 1 measure."                                            |
       | 1x   | on           | page    | pages 1 to 2      | 6     | 4        | 0        | refused, saying "A page needs at least 1 line."                                               |
 
+  # every text TuxGuitar shows goes through its translations (common/resources/lang/messages*.properties): a refusal is
+  # said as the language TuxGuitar shows says it, the unit or block it names too, in English where a language does not
+  # say it (its file lacks the message, as every language but English does now)
+  Scenario: a session's refusal is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} käme zweimal hintereinander." for the message "transport.practice.refusal.repeat"
+    And TuxGuitar's language says "Takt {0}" for the message "transport.practice.refusal.unit.measure"
+    And I have turned interleaved practice's "No consecutive repeats" on
+    When I start interleaved practice of measures over measures 5 to 5 for 2 turns, with lines of 4 measures and pages of 4 lines
+    Then starting is refused, saying "Takt 5 käme zweimal hintereinander."
+
   # Count In
 
   Scenario Outline: each turn's Count In is in its first measure's time signature and tempo, at the Percentage of Tempo

@@ -170,13 +170,12 @@ public class TestPracticeChooser {
 
 	// the flag set after the turn: the steps that follow see it, as the app sets it once it is not refused
 	private String flagDuring(TGPracticeChooser chooser, int measure, int difficulty) {
-		try {
-			chooser.checkFlag(measure, difficulty);
-			song.getMeasureHeader(measure - 1).setDifficulty(difficulty);
-			return "flagged";
-		} catch (TGPracticeRefusal refusal) {
-			return refusal.getMessage();
+		String outcome = PracticeRefusals.outcome(() -> chooser.checkFlag(measure, difficulty));
+		if (!outcome.equals("accepted")) {
+			return outcome;
 		}
+		song.getMeasureHeader(measure - 1).setDifficulty(difficulty);
+		return "flagged";
 	}
 
 	@Test

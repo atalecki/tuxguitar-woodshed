@@ -16,6 +16,7 @@ import org.junit.jupiter.api.TestFactory;
 
 import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.document.TGDocumentContextAttributes;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.editor.action.composition.TGChangeDifficultyAction;
@@ -180,16 +181,18 @@ public class TestPracticeEdits {
 			return during(before, last, edit, Edits::flags);
 		}
 
-		// "the refusal's message (go on without one) | the reading of the song | whether the session has ended"
+		// "the refusal's message in English (go on without one) | the reading of the song | whether the session has ended"
 		String during(Consumer<Edits> before, int last, Consumer<Edits> edit, Function<Edits, String> reading) throws TGPracticeRefusal {
 			before.accept(this);
 			underWay(last);
-			String outcome = "go on";
-			try {
-				edit.accept(this);
-			} catch (TGActionException refused) {
-				outcome = refused.getMessage();
-			}
+			String outcome = TuxGuitarMessages.english(() -> {
+				try {
+					edit.accept(this);
+					return "go on";
+				} catch (TGActionException refused) {
+					return refused.getMessage();
+				}
+			});
 			return outcome + " | " + reading.apply(this) + " | " + session.isEnded();
 		}
 

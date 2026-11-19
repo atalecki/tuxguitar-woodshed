@@ -33,10 +33,11 @@ public final class TGPracticeBlock {
 	static List<TGPracticeBlock> blocks(List<TGPracticeUnit> pool, int units) throws TGPracticeRefusal {
 		TGPracticeUnitKind kind = pool.get(0).getKind();
 		if (units < 1) {
-			throw new TGPracticeRefusal("A block needs at least 1 " + kind.getName() + ".");
+			throw new TGPracticeRefusal("transport.practice.refusal.units-per-block", TGPracticeWording.noun(kind, 1, TGPracticeWording.APP));
 		}
 		if (units > pool.size()) {
-			throw new TGPracticeRefusal("A block of " + units + " " + kind.getName(units) + " does not fit in the pool's " + pool.size() + " " + kind.getName(pool.size()) + ".");
+			throw new TGPracticeRefusal("transport.practice.refusal.block-too-big", String.valueOf(units), TGPracticeWording.noun(kind, units, TGPracticeWording.APP),
+				String.valueOf(pool.size()), TGPracticeWording.noun(kind, pool.size(), TGPracticeWording.APP));
 		}
 		List<TGPracticeUnit> copy = Collections.unmodifiableList(new ArrayList<TGPracticeUnit>(pool));
 		return IntStream.rangeClosed(0, pool.size() - units).mapToObj(first -> new TGPracticeBlock(copy, first, first + units - 1)).collect(Collectors.toList());
@@ -60,17 +61,9 @@ public final class TGPracticeBlock {
 		return this.pool.get(this.last);
 	}
 
-	// a block of one unit, as the unit: "Measure 5"; of more, by its first and last: "The block of measures 1–2", "The
-	// block of measure 3 beat 4 to measure 4 beat 1"
+	// a reading for tests and logs, in English: a block of one unit as the unit, "Measure 5"; of more, its first and
+	// last, "Measure 1 to Measure 2". The app names a block in its own language (TGPracticeWording)
 	public String toString() {
-		TGPracticeUnit from = this.getFrom();
-		TGPracticeUnit to = this.getTo();
-		if (this.first == this.last) {
-			return from.toString();
-		}
-		if (from.getKind() == TGPracticeUnitKind.BEAT) {
-			return "The block of " + from.name() + " to " + to.name();
-		}
-		return "The block of " + from.getKind().getName(2) + " " + from.getNumber() + "\u2013" + to.getNumber();
+		return (this.first == this.last ? this.getFrom().toString() : this.getFrom() + " to " + this.getTo());
 	}
 }

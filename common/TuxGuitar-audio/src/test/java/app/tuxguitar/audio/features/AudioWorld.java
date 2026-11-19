@@ -17,6 +17,7 @@ import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.audio.action.TGRecordingVeto;
 import app.tuxguitar.audio.action.TGSetPluginStateAction;
 import app.tuxguitar.audio.undo.TGUndoableOnSuccess;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.undo.impl.channel.TGUndoableModifyChannelController;
 import app.tuxguitar.editor.action.composition.TGChangeTempoRangeAction;
 import app.tuxguitar.editor.action.composition.TGChangeTimeSignatureAction;
@@ -87,27 +88,10 @@ import app.tuxguitar.song.models.TGTrack;
  */
 public class AudioWorld {
 
-	// TuxGuitar's English messages, which name the General MIDI programs and a new song's channel and track; Maven runs
-	// the tests in the module folder. Loaded before the first song is made, so every scenario's song is named alike
-	private static final String MESSAGES = "../resources/lang/messages.properties";
-	private static final java.util.Properties ENGLISH = new java.util.Properties();
-
-	static {
-		try (java.io.Reader in = new java.io.InputStreamReader(new java.io.FileInputStream(MESSAGES), java.nio.charset.StandardCharsets.UTF_8)) {
-			ENGLISH.load(in);
-		} catch (java.io.IOException e) {
-			throw new java.io.UncheckedIOException(e);
-		}
-		speak(Map.of());
-	}
-
-	// TuxGuitar's messages: English, but for those a language says its own way (as TGResourceBundle reads a language's
-	// file over messages.properties); none, English again
-	static void speak(Map<String, String> said) {
-		java.util.Properties properties = new java.util.Properties();
-		properties.putAll(ENGLISH);
-		properties.putAll(said);
-		app.tuxguitar.util.TGMessagesManager.getInstance().setResources(new app.tuxguitar.resource.TGResourceBundle(java.util.Locale.ENGLISH, properties));
+	// TuxGuitar's messages, English: they name the General MIDI programs and a new song's channel and track. Spoken before
+	// each scenario's song is made, so every scenario's song is named alike, whatever a test before spoke
+	{
+		TuxGuitarMessages.speak(Map.of());
 	}
 
 	private final SongActionFixture fixture = SongActionFixture.onDocument();

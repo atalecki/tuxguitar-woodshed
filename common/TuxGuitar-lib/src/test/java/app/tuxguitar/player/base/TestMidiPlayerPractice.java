@@ -9,6 +9,7 @@ import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.practice.PracticeRefusals;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
@@ -267,13 +268,7 @@ public class TestMidiPlayerPractice {
 	public void aSequencerThatCannotTakeTurnsAddedWhilePlayingRefusesASession() throws Exception {
 		player.loadSequencer(new FakeSequencer(new ArrayList<String>()));
 		session = TGPracticeSession.start(settings, fixture.song);
-		String refusal;
-		try {
-			player.practise(session, SEED);
-			refusal = "started";
-		} catch (TGPracticeRefusal refused) {
-			refusal = refused.getMessage();
-		}
+		String refusal = PracticeRefusals.played(() -> player.practise(session, SEED));
 		assertEquals("Interleaved practice needs a sequencer that takes turns added while it plays, and \"fake\" does not:"
 			+ " choose the TuxGuitar Sequencer in Settings > Sound. | false false false", refusal + " | " + state());
 	}

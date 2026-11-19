@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.practice.TGPracticeCourse;
 import app.tuxguitar.practice.TGPracticeUnderWay;
+import app.tuxguitar.practice.TGPracticeWording;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
 
@@ -48,11 +49,12 @@ public final class TGAudioStatus {
 
 	/**
 	 * Why Record cannot start now, during a practice session under way, playing or paused (an app greys Record out and
-	 * the record action refuses, saying so); null when no session is under way.
+	 * the record action refuses, saying so in TuxGuitar's language: transport.practice.refusal.record); null when no
+	 * session is under way.
 	 */
 	public static String practiceRefusal(TGContext context) {
 		TGPracticeCourse course = TGPracticeUnderWay.getInstance(context).getCourse();
-		return (course != null ? course.getModeName() + " is under way: stop it to record." : null);
+		return (course != null ? TGPracticeWording.APP.get("transport.practice.refusal.record", new String[] {course.getModeName()}) : null);
 	}
 
 	/**

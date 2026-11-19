@@ -53,7 +53,7 @@ moving the caret moves only the caret (`TGPracticeCaret.movesPlayer`: the caret,
 First, Previous, Next and Last, moves the player only while the song plays outside a session). The marker actions and
 their undoable edit are editor-utils' (`TGUpdateMarkerAction`, `TGRemoveMarkerAction`, `TGUndoableMarkerGeneric`).
 Record is refused during a session, saying why (`TGAudioStatus.practiceRefusal`, which `TGRecordAction` throws as a
-`TGActionException`), and `TGAudioStatus.canRecord` is false then, so Tools > Record is greyed out. The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
+`TGActionException`), and `TGAudioStatus.canRecord` is false then, so Tools > Record is greyed out. Every refusal of interleaved practice and click-up (`TGPracticeRefusal`, the Record refusal, the sequencer's) is said as TuxGuitar's language says its message (`transport.practice.refusal.*`, `transport.click-up.refusal.*`, the parts it names too: a unit's noun, the unit or block, the tempo, the mode), English where a language lacks it. The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
 Live practice scenarios play on the live device as the
 other live scenarios do (`LivePractisingSteps`). Known and pinned, not fixed (ordinary playback): offline, a note ending
 where the song ends or a loop jumps back is never sent its note off (`TestGeneralMidiRender.pinnedDefect...`); live, a

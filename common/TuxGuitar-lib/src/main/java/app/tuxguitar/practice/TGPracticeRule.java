@@ -27,11 +27,11 @@ final class TGPracticeRule {
 	// keep it have one)
 	static TGPracticeRefusal refusal(List<TGPracticeBlock> pool, int[] weights) {
 		int heaviest = TGPracticeArrangement.majority(weights);
-		TGPracticeBlock block = pool.get(heaviest);
+		String block = TGPracticeWording.block(pool.get(heaviest), TGPracticeWording.APP);
 		if (pool.size() == 1) {
-			return new TGPracticeRefusal(block + " would come twice in a row.");
+			return new TGPracticeRefusal("transport.practice.refusal.repeat", block);
 		}
-		return new TGPracticeRefusal(block + " comes up " + weights[heaviest] + " times in a cycle of " + TGPracticeArrangement.total(weights)
-			+ " turns and would come twice in a row.");
+		return new TGPracticeRefusal("transport.practice.refusal.repeat-in-cycle", block, String.valueOf(weights[heaviest]),
+			String.valueOf(TGPracticeArrangement.total(weights)));
 	}
 }

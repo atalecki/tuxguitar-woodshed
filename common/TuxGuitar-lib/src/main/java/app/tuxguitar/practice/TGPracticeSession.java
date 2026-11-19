@@ -68,14 +68,14 @@ public final class TGPracticeSession {
 			return TGPracticeClock.of(settings);
 		}
 		if (settings.getTurns() < 1) {
-			throw new TGPracticeRefusal("A session needs at least 1 turn.");
+			throw new TGPracticeRefusal("transport.practice.refusal.turns");
 		}
 		return null;
 	}
 
 	// the blocks of the pool's units, so many units each
 	private static List<TGPracticeBlock> pool(TGPracticeGrouping grouping, TGPracticeSettings settings, TGSong song) throws TGPracticeRefusal {
-		List<TGPracticeUnit> units = grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "pool");
+		List<TGPracticeUnit> units = grouping.units(settings.getUnit(), settings.getPoolFrom(), settings.getPoolTo(), song, "transport.practice.refusal.pool");
 		return TGPracticeBlock.blocks(units, settings.getUnitsPerBlock());
 	}
 

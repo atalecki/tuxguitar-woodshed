@@ -1,7 +1,6 @@
 package app.tuxguitar.practice;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,8 +54,7 @@ public class TestPracticeCourse {
 		settings.setPool(1, 2);
 		TGPracticeCourse course = course();
 		course.next();
-		assertEquals("Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row.",
-			assertThrows(TGPracticeRefusal.class, () -> course.checkFlag(2, 3)).getMessage());
+		assertEquals("Measure 2 comes up 3 times in a cycle of 4 turns and would come twice in a row.", PracticeRefusals.outcome(() -> course.checkFlag(2, 3)));
 	}
 
 	// interleaved practice's own Count In before each turn (on until turned off), whatever the function's Count In: as

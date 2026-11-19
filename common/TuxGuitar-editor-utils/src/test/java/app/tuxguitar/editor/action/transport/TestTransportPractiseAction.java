@@ -2,9 +2,12 @@ package app.tuxguitar.editor.action.transport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionException;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.player.impl.sequencer.MidiSequencerImpl;
 import app.tuxguitar.practice.TGPracticeSettings;
 
@@ -23,15 +26,23 @@ public class TestTransportPractiseAction extends PracticeActionTest {
 		return settings;
 	}
 
-	// starts the session: the refusal's message, or "started"; then whether a session is held and the settings shown next
+	// starts the session: the refusal's message in English, or "started"; then whether a session is held and the
+	// settings shown next
 	private String start(TGPracticeSettings settings) {
+		return start(Map.of(), settings);
+	}
+
+	// the same, the refusal in English but for the messages the language says its own way
+	private String start(Map<String, String> said, TGPracticeSettings settings) {
 		fixture.actionContext.setAttribute(TGTransportPractiseAction.ATTRIBUTE_SETTINGS, settings);
-		String outcome = "started";
-		try {
-			fixture.execute(new TGTransportPractiseAction(fixture.context));
-		} catch (TGActionException refused) {
-			outcome = refused.getMessage();
-		}
+		String outcome = TuxGuitarMessages.said(said, () -> {
+			try {
+				fixture.execute(new TGTransportPractiseAction(fixture.context));
+				return "started";
+			} catch (TGActionException refused) {
+				return refused.getMessage();
+			}
+		});
 		return outcome + " | " + player.isPractising() + " | " + shown();
 	}
 
@@ -61,5 +72,14 @@ public class TestTransportPractiseAction extends PracticeActionTest {
 	public void aSequencerThatCannotPlayASessionRefusesItSayingWhy() {
 		assertEquals("Interleaved practice needs a sequencer that takes turns added while it plays, and \"" + player.getSequencer().getName()
 			+ "\" does not: choose the TuxGuitar Sequencer in Settings > Sound. | false | measure 1-4 6", start(settings(1, 4, 6)));
+	}
+
+	// a made-up German, the practice named in it too
+	@Test
+	public void aSequencersRefusalIsSaidInTuxGuitarsLanguage() {
+		Map<String, String> german = Map.of("transport.practice.refusal.sequencer", "{0} braucht einen anderen Sequencer als \"{1}\".",
+			"transport.practice.mode", "Verschachteltes Üben");
+		assertEquals("Verschachteltes Üben braucht einen anderen Sequencer als \"" + player.getSequencer().getName() + "\". | false | measure 1-4 6",
+			start(german, settings(1, 4, 6)));
 	}
 }
