@@ -15,7 +15,7 @@ Feature: Hosting VST3 plugins
   Scenario: scanning the VST3 folders lists VST3 effects and VST3 instruments apart
     When I scan the VST3 folders
     Then the VST3 effects read "Test Clip 0.5, Test Drone, Test Echo, Test Gain, Test Hang, Test Latency, Test Stereo, Test Tempo"
-    And the VST3 instruments read "Test Click, Test Sine"
+    And the VST3 instruments read "Test Click, Test Sine, Test Tone"
 
   Scenario: a VST 2 plugin in the VST3 folders is not listed
     Given the VST3 folders also hold the VST 2 plugin "Old Amp"
@@ -26,7 +26,7 @@ Feature: Hosting VST3 plugins
   # what a scan reports, an app shows the user (the desktop: in the Sound Chain dialog)
   Scenario: the scan reports how many VST3 effects and VST3 instruments it found, and where it looked
     When I scan the VST3 folders
-    Then the scan reports "VST3 effects found: 8. VST3 instruments found: 2."
+    Then the scan reports "VST3 effects found: 8. VST3 instruments found: 3."
     And the scan reports a line starting "Folders scanned: "
 
   Scenario: a folder of NAM captures named like a VST3 plugin is skipped, and the scan reports why and which plugins play the captures

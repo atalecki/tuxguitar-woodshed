@@ -42,6 +42,11 @@ public final class TGPluginEditor {
 		return this.rows;
 	}
 
+	// whether a row shows the parameter (by its id) at the plain value
+	boolean shows(int parameter, double plain) {
+		return this.rows.stream().anyMatch(row -> row.getId() == parameter && row.getPlain() == plain);
+	}
+
 	// the titles of the rows
 	public List<String> getParameters() {
 		return this.rows.stream().map(TGPluginParameterRow::getTitle).collect(Collectors.toList());

@@ -25,7 +25,7 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
 
   Scenario: Woodshed Guitar is offered as a VST3 instrument with the others
     When I scan the VST3 folders
-    Then the VST3 instruments read "Test Click, Test Sine, Woodshed Guitar"
+    Then the VST3 instruments read "Test Click, Test Sine, Test Tone, Woodshed Guitar"
 
   # The voice
 

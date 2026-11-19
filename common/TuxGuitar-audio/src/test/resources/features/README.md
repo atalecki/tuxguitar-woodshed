@@ -375,7 +375,18 @@ These features change how TuxGuitar works today. They are requirements, not side
   profile loaded) keeps it in the song with that state, as Keep in song does (`ATTRIBUTE_STATE`), one undo step; the
   same plugin goes on as the song's source with its editor open (synth-core hands the default's processor over to the
   kept source, `TGSynthChannelProcessor.handOver`). Opening and closing it without a change keeps nothing, and what the
-  plugin does once the default is another one (the settings changed) keeps nothing either.
+  plugin does once the default is another one (the settings changed) keeps nothing either. Undoing that keep hands the
+  processor back to the default (synth-core hands it over whichever way the source changes between the default and the
+  track's own of the same type), which then goes back to how its plugin opened and loads the profile the settings
+  choose (`TGVst3Processor`); its editor stays open where it was, agreeing with the default as it was when it opened, so
+  its next change keeps it again, and Redo leaves it open too (`TGLivePlugins`: an editor follows its plugin to the
+  element it runs as; one never opened for the default closes). These scenarios keep the synthesizer's channels open
+  and send them after each action, as the app does ("the TuxGuitar Synthesizer runs the song's sound chains").
+  A default without an editor of its own (`Test Tone`) opens TuxGuitar's parameter editor instead
+  (`TGLivePlugins.parameterEditor`, from the same decision as Edit: `TGDefaultInstrumentSource.edited(channel, effect)`);
+  the first value set there that its plugin does not hold keeps the default in the song with that value, as one change
+  (`TGSetPluginParameterAction`, `TGLivePlugins.keepDefault`: its state as when the editor opened, then the parameter),
+  and the editor goes on as the source's; undone, it stays open on the default, as above.
   Woodshed Guitar is the guitar and bass default until another (or General
   MIDI, an empty class id) is set (`TGDefaultInstruments.WOODSHED_GUITAR`), playing the kind's profile: the one set
   for the kind, else the one TuxGuitar ships for it in `profiles` next to its own plugins folder (`RiffSmith Clean.nam`
@@ -634,10 +645,11 @@ These features change how TuxGuitar works today. They are requirements, not side
 | `Test Tempo` | VST3 effect | passes the signal and records the tempo, time signature, play state and musical position it is given | 0 | 0 |
 | `Test Sine` | VST3 instrument | a sine at each note's pitch, peaking at 0.5 × velocity / 127, following per-note tuning | 0 | 0 |
 | `Test Click` | VST3 instrument | a click of +0.5 at the start of each note, delayed by its parameter `Latency` (0 by default) | `Latency` | 0 |
+| `Test Tone` | VST3 instrument | `Test Sine`'s tones at its parameter `Level` (1.0 by default); no editor of its own | 0 | 0 |
 | `Test Capture` (planned) | VST3 effect | a capture player: multiplies the signal by the gain its NAM capture holds (1.0 with none), and reports the capture it plays; the capture's path is in its state | 0 | 0 |
 
 Each test plugin keeps a state of 1 KB that changes with its parameters and its preset, so saving can be checked byte
-for byte, and has its own editor (except `Test Clip 0.5`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
+for byte, and has its own editor (except `Test Clip 0.5` and `Test Tone`) with presets; `Test Gain`'s preset `Loud` sets `Gain` to 4.0. "The plugin sets X to v" is the plugin doing
 it from its own editor, as one gesture (begin edit, changes, end edit). "Track N's plugin loading "X" as Play starts" is
 the plugin, as Play starts, telling its host it restores its state in the background (`IProgress`,
 `AsyncStateRestoration`, its description X; none without), as a plugin loading a file on a thread of its own does, until

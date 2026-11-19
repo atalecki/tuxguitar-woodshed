@@ -53,6 +53,8 @@ public class EditorSteps {
 	private byte[] beforePreset;
 	// the native handle of TuxGuitar's window, once a step opened one
 	private long tuxGuitarsWindow;
+	// the window of a plugin's own editor as a step noted it: its native handle and its frame on the screen
+	private String noted;
 
 	public EditorSteps(AudioWorld world, PlaySteps play, RecordingSteps recording) {
 		this.world = world;
@@ -159,6 +161,28 @@ public class EditorSteps {
 		assertTrue(live().getEditor(plugin.getKey(), plugin.getValue()).isOwn());
 	}
 
+	@Given("I have noted the window of the plugin's own editor of {plugin}")
+	public void noteTheWindow(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		this.noted = window(plugin);
+	}
+
+	private String window(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		TGVst3EditorWindow window = running(plugin).getEditorWindow();
+		return window.getWindow() + " " + window.getFrame() + " shown " + window.isShown();
+	}
+
+	@Then("the plugin's own editor of {plugin} is open in the window noted, where it was")
+	public void itsOwnEditorIsOpenInTheWindowNoted(Map.Entry<Integer, String> plugin) throws TGVst3Exception {
+		itsOwnEditorIsOpen(plugin);
+		assertEquals(this.noted, window(plugin));
+	}
+
+	// the plugin as the synthesizer runs it
+	@Then("the running plugin of {plugin} plays the capture {int}")
+	public void theRunningPluginPlaysTheCapture(Map.Entry<Integer, String> plugin, int capture) throws TGVst3Exception {
+		assertEquals(capture, capture(running(plugin)));
+	}
+
 	@Then("the window of the plugin's own editor of VST3 effect {int} of track {int} is titled {string}")
 	public void itsOwnEditorsWindowIsTitled(int effect, int track, String title) throws TGVst3Exception {
 		assertEquals(title, running(effect, track).getEditorWindow().getTitle());
@@ -178,6 +202,12 @@ public class EditorSteps {
 	@Then("TuxGuitar's parameter editor of VST3 effect {int} of track {int} is open")
 	public void theParameterEditorIsOpen(int effect, int track) {
 		assertFalse(editor(effect, track).isOwn());
+	}
+
+	@Then("TuxGuitar's parameter editor of {plugin} is open, reading {string}")
+	public void theParameterEditorIsOpenReading(Map.Entry<Integer, String> plugin, String parameters) {
+		TGPluginEditor editor = live().getEditor(plugin.getKey(), plugin.getValue());
+		assertEquals("false " + parameters, editor.isOwn() + " " + String.join(", ", editor.getParameters()));
 	}
 
 	@Then("the parameters of VST3 effect {int} of track {int} read {string}")

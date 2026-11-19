@@ -156,6 +156,19 @@ class TestSoundChainCommands {
 		assertEquals("[clip Ceiling] [done, done, done, done]", parameters + " " + this.told);
 	}
 
+	// so is the default instrument a source plays (General MIDI for a guitar track: its default) when it has no editor of
+	// its own
+	@Test
+	void aDefaultSourceWithoutItsOwnEditorHandsTheParameterEditor() {
+		this.channel(this.track).setProgram((short) 25);
+		TGDefaultInstrument tone = TGDefaultInstrument.parse(this.hosting.find("Test Tone").getClassId(), "Test Tone").get();
+		TGDefaultInstrumentSource.install(this.fixture.context).use(TGDefaultInstruments.NONE.with(TGInstrumentKind.GUITAR, tone));
+		this.commands.useDefault();
+		List<String> parameters = new ArrayList<String>();
+		this.commands.edit(0, TGEditorPlacement.floating(() -> 0L), editor -> parameters.add("tone " + editor.getParameters()));
+		assertEquals("[tone [Level]] [done, done]", parameters + " " + this.told);
+	}
+
 	// the threads the app starts, run at once on the caller's
 	private static final class TGThreadManagerAtOnce implements TGThreadHandler {
 

@@ -7,7 +7,6 @@ import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.TGActionBase;
-import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGTrack;
@@ -41,10 +40,9 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 	protected void processAction(TGActionContext context) {
 		TGChannel channel = context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL);
 		Integer effect = context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT);
-		TGProgram chain = TGSoundChain.get(channel);
-		TGProgramElement plugin = this.edited(channel, chain, effect);
+		TGProgramElement plugin = TGDefaultInstrumentSource.install(getContext()).edited(channel, effect);
 		if (plugin == null) {
-			throw new TGActionException(TGMessagesManager.getProperty(NO_EDITOR, new Object[] {TGSoundChain.name(chain, effect, channel)}));
+			throw new TGActionException(TGMessagesManager.getProperty(NO_EDITOR, new Object[] {TGSoundChain.name(TGSoundChain.get(channel), effect, channel)}));
 		}
 		Long owner = context.getAttribute(ATTRIBUTE_OWNER);
 		String title = title(plugin, context.getAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK));
@@ -54,12 +52,6 @@ public class TGOpenPluginEditorAction extends TGActionBase {
 		} catch (TGVst3Exception e) {
 			throw new TGActionException(e.getMessage(), e);
 		}
-	}
-
-	// the chain's VST3 plugin; on the source, else the default instrument played there; null for none
-	private TGProgramElement edited(TGChannel channel, TGProgram chain, Integer effect) {
-		TGProgramElement plugin = TGSoundChain.plugin(chain, effect);
-		return (plugin != null || effect != null ? plugin : TGDefaultInstrumentSource.install(getContext()).edited(channel));
 	}
 
 	// the caption of the editor's window: the plugin's name, and the track's when the editor is opened for one

@@ -93,7 +93,7 @@ public class TestVst3Processors {
 		List<String> read = new ArrayList<String>();
 		this.hosting.getPlugins().forEach(plugin -> read.add(plugin.getName() + (plugin.isInstrument() ? " (instrument)" : "")));
 		assertEquals(Arrays.asList("Test Click (instrument)", "Test Clip 0.5", "Test Drone", "Test Echo", "Test Gain", "Test Hang", "Test Latency",
-			"Test Sine (instrument)", "Test Stereo", "Test Tempo"), read);
+			"Test Sine (instrument)", "Test Stereo", "Test Tempo", "Test Tone (instrument)"), read);
 		assertNull(this.hosting.find("Old Amp"));
 	}
 
@@ -101,10 +101,7 @@ public class TestVst3Processors {
 	// background (it is busy meanwhile); the element sent again (each Play) loads it no more, another profile is loaded
 	@Test
 	public void woodshedGuitarLoadsTheProfileItsElementNamesOnce(@TempDir File folder) throws Exception {
-		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder(), new File(TestPlugins.nativeBuild(), "plugins/VST3")));
-		this.hosting.scan();
-		TGProgramElement element = TGVst3Element.create("default-guitar", this.hosting.find("Woodshed Guitar"));
-		TGVst3Element.setProfile(element, TestPlugins.gain3(folder).getPath());
+		TGProgramElement element = this.woodshedDefault(folder);
 		TGVst3Processor woodshed = (TGVst3Processor) open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
 		boolean loading = woodshed.isBusy();
 		TestPlugins.untilRestored(woodshed.getInstance());
@@ -116,6 +113,36 @@ public class TestVst3Processors {
 		woodshed.restoreParameters(element.getParameters());
 		TestPlugins.untilRestored(woodshed.getInstance());
 		assertEquals("true false Other.nam", loading + " " + again + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+	}
+
+	// a default instrument's element given again after an element's state (the default kept in the song, its plugin going
+	// on as the song's source, then the keep undone): the plugin goes back to how it opened and loads the profile again,
+	// in the background, as a default opened afresh; what the state held is gone
+	@Test
+	public void woodshedGuitarGivenItsDefaultAgainAfterAStateGoesBackToItAndLoadsTheProfileAgain(@TempDir File folder) throws Exception {
+		TGProgramElement element = this.woodshedDefault(folder);
+		TGVst3Processor woodshed = (TGVst3Processor) open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
+		TestPlugins.untilRestored(woodshed.getInstance());
+		int level = woodshed.getInstance().findParameter("Output level");
+		double opened = woodshed.getInstance().getParameter(level);
+		woodshed.getInstance().setParameter(level, -6.0);
+		TGProgramElement kept = TGVst3Element.create("source", this.hosting.find("Woodshed Guitar"));
+		TGVst3Element.setState(kept, woodshed.getInstance().getState());
+		woodshed.restoreParameters(kept.getParameters());
+		woodshed.restoreParameters(element.getParameters());
+		boolean loading = woodshed.isBusy();
+		TestPlugins.untilRestored(woodshed.getInstance());
+		assertEquals("true " + opened + " Gain 3.nam", loading + " " + woodshed.getInstance().getParameter(level) + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+	}
+
+	// the default instrument for guitar tracks as Woodshed Guitar, with TuxGuitar's own plugins scanned: its element names
+	// the profile (a capture multiplying by 3), it holds no state of its own
+	private TGProgramElement woodshedDefault(File folder) throws Exception {
+		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder(), new File(TestPlugins.nativeBuild(), "plugins/VST3")));
+		this.hosting.scan();
+		TGProgramElement element = TGVst3Element.create("default-guitar", this.hosting.find("Woodshed Guitar"));
+		TGVst3Element.setProfile(element, TestPlugins.gain3(folder).getPath());
+		return element;
 	}
 
 	// whether the folders were scanned yet: a scan that found nothing is a scan, unlike none at all (a plugin not found
@@ -136,7 +163,7 @@ public class TestVst3Processors {
 		File refused = new File(folder, "NamModels.vst3");
 		refused.mkdir();
 		this.hosting.configure(TestPlugins.host(), Arrays.asList(folder, TestPlugins.folder()));
-		assertEquals(10, this.hosting.scan().size());
+		assertEquals(11, this.hosting.scan().size());
 		List<TGVst3SkippedModule> skipped = this.hosting.getSkipped();
 		assertEquals(Arrays.asList(refused), skipped.stream().map(TGVst3SkippedModule::getModule).collect(Collectors.toList()));
 		assertTrue(skipped.get(0).getReason().startsWith("not a VST3 module: " + refused.getPath()), skipped.get(0).getReason());

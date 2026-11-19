@@ -249,18 +249,52 @@ public class TestDefaultSource {
 
 	// the default kept in the song as the channel's own instrument (a chain whose source is of the default's type, the
 	// state it had) goes on playing on the processor the default played on, given the chain's source (a plugin's editor
-	// open on it stays open); given General MIDI again, the default opens afresh
+	// open on it stays open)
 	@Test
 	public void aDefaultKeptAsTheChannelsOwnInstrumentGoesOnPlayingOnItsProcessor() throws MidiPlayerException {
-		sendChain(GervillProcessorFactory.TYPE);
-		sendBankAndProgram(0, 25);
-		FakeProcessors.Source played = this.guitar.last();
+		FakeProcessors.Source played = this.playTheGuitarsDefault();
 		sendChain("guitar");
-		String kept = this.guitar.created.size() + " " + (this.guitar.last() == played) + " " + played.isOpen() + " " + this.channel.getProgram().getReceiver().getId() + " "
-			+ (this.channel.getProcessor().getAudioProcessor(this.channel.getProgram().getReceiver()) == played) + " " + sounds();
+
+		assertEquals("1 true true source true " + level(GUITAR), this.guitar.created.size() + " " + (this.guitar.last() == played) + " " + played.isOpen() + " " + this.playing(played));
+	}
+
+	// the keep undone (General MIDI again): the default goes on playing on the processor once more, given the default's
+	// element (an editor open on it stays open, the plugin as the default has it); kept again (a redo), it goes on too
+	@Test
+	public void aKeptDefaultGivenGeneralMidiAgainGoesOnPlayingOnItsProcessorAsTheDefault() throws MidiPlayerException {
+		FakeProcessors.Source played = this.playTheGuitarsDefault();
+		sendChain("guitar");
+		sendChain(GervillProcessorFactory.TYPE);
+		String undone = this.guitar.created.size() + " " + this.playing(played);
+		sendChain("guitar");
+
+		assertEquals("1 default-guitar true " + level(GUITAR) + " | 1 source true " + level(GUITAR), undone + " | " + this.guitar.created.size() + " " + this.playing(played));
+	}
+
+	// any instrument of the track's own of the default's type goes on as the default the same way: General MIDI chosen,
+	// its processor is given the default's element
+	@Test
+	public void anInstrumentOfItsOwnOfTheDefaultsTypeGivenGeneralMidiGoesOnPlayingOnItsProcessorAsTheDefault() throws MidiPlayerException {
+		sendChain("guitar");
+		sendBankAndProgram(0, 25);
+		FakeProcessors.Source own = this.guitar.last();
 		sendChain(GervillProcessorFactory.TYPE);
 
-		assertEquals("1 true true source true " + level(GUITAR) + " | 2 false", kept + " | " + this.guitar.created.size() + " " + played.isOpen());
+		assertEquals("1 default-guitar true " + level(GUITAR), this.guitar.created.size() + " " + this.playing(own));
+	}
+
+	// the guitar's default played as the source of a chain whose source is General MIDI: its processor
+	private FakeProcessors.Source playTheGuitarsDefault() throws MidiPlayerException {
+		sendChain(GervillProcessorFactory.TYPE);
+		sendBankAndProgram(0, 25);
+		return this.guitar.last();
+	}
+
+	// what the channel plays the processor as: the id of the program's source, whether the processor is the one mapped to
+	// it, what the chain sounds
+	private String playing(FakeProcessors.Source processor) {
+		TGProgramElement source = this.channel.getProgram().getReceiver();
+		return source.getId() + " " + (this.channel.getProcessor().getAudioProcessor(source) == processor) + " " + sounds();
 	}
 
 	// a default closed meanwhile (a bank select without a chain) is no longer played: the track's own instrument opens

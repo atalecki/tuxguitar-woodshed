@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.audio.action.TGKeepDefaultInstrumentAction;
+import app.tuxguitar.audio.action.TGSetPluginParameterAction;
 import app.tuxguitar.audio.action.TGSetPluginStateAction;
 import app.tuxguitar.audio.features.EditorSteps;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -47,6 +48,8 @@ public class TestDefaultInstrumentEditor {
 	// the changes of the song, in order: the action and the element
 	private final List<String> changes = new ArrayList<String>();
 	private TGVst3Hosting hosting;
+	// the live synthesizer, once a test plays on it
+	private TGSynthModel synthesizer;
 	// after each test: the plugins kept open, then the host processes
 	@AutoClose
 	private final AutoCloseable plugins = TestPluginHosting.closing(this.fixture.context);
@@ -162,16 +165,120 @@ public class TestDefaultInstrumentEditor {
 	// again after the change), whose editor stays open
 	@Test
 	public void theDefaultTheSynthesizerPlaysKeptGoesOnPlayingWithItsEditorOpen() throws Exception {
-		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
-		synthesizer.addChannelListener(this.live);
-		TGSynthChannel channel = TestPluginHosting.play(synthesizer, this.fixture.songManager, this.fixture.song, this.guitar);
-		channel.sendProgramChange(this.guitar.getProgram());
+		TGSynthChannel channel = this.played();
 		this.edit();
 		TGVst3Instance edited = plugin("default-guitar");
 		boolean runs = (running(channel) == edited);
 		this.load(edited, 7);
-		TGMidiTaps.sendParameters(synthesizer, this.fixture.songManager, this.fixture.song, this.guitar.getChannelId());
-		assertEquals("true | true true Test Sine capture 7", runs + " | " + (running(channel) == edited) + " " + (this.live.getEditor(this.guitar.getChannelId(), "source") != null) + " " + this.song());
+		this.send();
+		assertEquals("true | true true Test Sine capture 7", runs + " | " + (running(channel) == edited) + " " + this.editing("source") + " " + this.song());
+	}
+
+	// the keep the first change made undone (the song's chain as it was, sent again): the synthesizer plays the default on
+	// the same plugin again, as the settings have it, and its editor goes on as the default's: the next change keeps it
+	// again
+	@Test
+	public void theKeepUndoneTheDefaultsEditorGoesOnAndItsNextChangeKeepsItAgain() throws Exception {
+		TGSynthChannel channel = this.played();
+		TGProgram before = TGSoundChain.get(this.guitar);
+		this.edit();
+		TGVst3Instance edited = plugin("default-guitar");
+		this.load(edited, 7);
+		this.send();
+		this.undo(before);
+		String undone = (running(channel) == edited) + " " + this.editing("default-guitar") + " " + this.editing("source") + " " + this.song() + " " + EditorSteps.capture(edited);
+		this.load(edited, 9);
+		assertEquals("true true false General MIDI 0 | Test Sine capture 9 [keep, keep]", undone + " | " + this.song() + " " + this.changes);
+	}
+
+	// an editor opened on the source the default was kept as (Keep in song) never edited the default: the keep undone, it
+	// closes, as when the plugin stops running
+	@Test
+	public void anEditorOpenedOnTheKeptSourceClosesOnceTheKeepIsUndone() throws Exception {
+		this.played();
+		TGProgram before = TGSoundChain.get(this.guitar);
+		TGProgram chain = TGSoundChain.get(this.guitar);
+		chain.setReceiver(TGDefaultInstrumentSource.install(this.fixture.context).kept(TGDefaultInstrumentSource.install(this.fixture.context).play(this.guitar)));
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		this.send();
+		TGPluginEditor editor = this.live.openEditor(this.guitar.getChannelId(), "source", 0, "");
+		this.undo(before);
+		assertEquals("false false false", editor.isOpen() + " " + this.editing("default-guitar") + " " + this.editing("source"));
+	}
+
+	// the guitar's channel as the live synthesizer plays it, telling this listener each chain it runs
+	private TGSynthChannel played() throws Exception {
+		this.synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
+		this.synthesizer.addChannelListener(this.live);
+		TGSynthChannel channel = TestPluginHosting.play(this.synthesizer, this.fixture.songManager, this.fixture.song, this.guitar);
+		channel.sendProgramChange(this.guitar.getProgram());
+		return channel;
+	}
+
+	// the guitar's chain sent to the synthesizer again, as the app does after a change
+	private void send() throws Exception {
+		TGMidiTaps.sendParameters(this.synthesizer, this.fixture.songManager, this.fixture.song, this.guitar.getChannelId());
+	}
+
+	// as an undo: the guitar's chain as it was, sent again
+	private void undo(TGProgram before) throws Exception {
+		TGSoundChain.save(this.guitar, before, this.fixture.songManager.getFactory());
+		this.send();
+	}
+
+	private boolean editing(String element) {
+		return (this.live.getEditor(this.guitar.getChannelId(), element) != null);
+	}
+
+	// a default without an editor of its own (Test Tone) is edited in TuxGuitar's parameter editor: the first value set
+	// there keeps it in the song with that value (one change of the song), the editor going on as the source's
+	@Test
+	public void theFirstValueSetInTheDefaultsParameterEditorKeepsItInTheSongWithThatValue() throws TGVst3Exception {
+		this.useDefault("Test Tone");
+		TGPluginEditor editor = this.edit();
+		String opened = editor.isOwn() + " " + editor.getParameters() + " " + this.level();
+		boolean set = this.set(editor, 0.5);
+		assertEquals("false [Level] General MIDI | true Test Tone at 0.5 true", opened + " | " + set + " " + this.level() + " " + this.editing("source"));
+	}
+
+	// setting the value the default has keeps nothing; nor does a value set while no editor is open for it
+	@Test
+	public void theValueTheDefaultHasOrOneSetWithoutItsEditorKeepsNothing() throws TGVst3Exception {
+		this.useDefault("Test Tone");
+		TGPluginEditor editor = this.edit();
+		boolean same = this.set(editor, 1.0);
+		this.live.close();
+		boolean closed = this.set(editor, 0.5);
+		assertEquals("false false General MIDI", same + " " + closed + " " + this.level());
+	}
+
+	// the parameter of the row titled Level set to the value on the guitar's source, as the parameter editor sets it;
+	// whether the song changed
+	private boolean set(TGPluginEditor editor, double value) {
+		TGPluginParameterRow level = editor.getRows().get(editor.getParameters().indexOf("Level"));
+		TGActionContext context = this.fixture.actionContext;
+		context.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_CHANNEL, this.guitar);
+		context.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_PARAMETER, level.getId());
+		context.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_VALUE, value);
+		context.setAttribute(TGSetPluginParameterAction.ATTRIBUTE_SUCCESS, Boolean.FALSE);
+		this.fixture.execute(new TGSetPluginParameterAction(this.fixture.context));
+		return Boolean.TRUE.equals(context.getAttribute(TGSetPluginParameterAction.ATTRIBUTE_SUCCESS));
+	}
+
+	// the guitar's source as the song has it: the VST3 instrument with its Level as a plugin opened afresh from it reads
+	// it, else "General MIDI"
+	private String level() throws TGVst3Exception {
+		TGProgramElement source = TGSoundChain.plugin(TGSoundChain.get(this.guitar), null);
+		if (source == null) {
+			return "General MIDI";
+		}
+		TGVst3InstrumentProcessor fresh = new TGVst3InstrumentProcessor(this.hosting);
+		try {
+			fresh.restoreParameters(source.getParameters());
+			return TGVst3Element.getName(source) + " at " + fresh.getInstance().getParameter(fresh.getInstance().findParameter("Level"));
+		} finally {
+			fresh.close();
+		}
 	}
 
 	private static TGVst3Instance running(TGSynthChannel channel) {

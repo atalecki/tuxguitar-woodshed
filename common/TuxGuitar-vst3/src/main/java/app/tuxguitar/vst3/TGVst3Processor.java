@@ -34,7 +34,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	private TGVst3Exception problem;
 	// the state the plugin opened with
 	private TGVst3State opened;
-	// the profile it was asked to load since it opened (see load), or null
+	// the profile it was asked to load since it opened or last took an element's state (see load), or null
 	private String profile;
 
 	TGVst3Processor(TGVst3Hosting hosting, boolean instrument) {
@@ -78,7 +78,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 
 	// the element's state, else the one the plugin opened with (a plugin running an element the song changed goes back to
 	// it; one running the same element again keeps what its editor did since); an element without a state that names a
-	// profile (a default instrument's) has it loaded
+	// profile (a default instrument's) has it loaded, from the state it opened with
 	private void restore(Map<String, String> parameters) throws TGVst3Exception {
 		if (this.instance == null) {
 			return;
@@ -90,12 +90,15 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 			return;
 		}
 		this.instance.restore(state != null ? state : this.opened, TGVst3Element.parameters(parameters));
+		this.profile = null;
 	}
 
 	// Woodshed Guitar loads the profile, as its editor's Load profile... does, in the background (it restores its state
-	// meanwhile, so Play waits for it, see isBusy), unless it was asked to since it opened
+	// meanwhile, so Play waits for it, see isBusy), unless it was asked to since it opened or last took an element's state
+	// (a default kept in the song, then the keep undone: the default is as it was opened afresh, its editor's changes gone)
 	private void load(String profile) throws TGVst3Exception {
 		if (!profile.equals(this.profile)) {
+			this.instance.restore(this.opened, Collections.<Integer, Double>emptyMap());
 			this.instance.message(LOAD, Collections.<String, Long>emptyMap(), Collections.singletonMap("path", profile.getBytes(StandardCharsets.UTF_8)));
 			this.profile = profile;
 		}
