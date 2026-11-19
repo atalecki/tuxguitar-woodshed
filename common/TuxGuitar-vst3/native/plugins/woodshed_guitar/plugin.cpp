@@ -242,10 +242,11 @@ void GuitarPlugin::endRestoring() {
 	restoring = false;
 }
 
-void GuitarPlugin::loadProfile(const std::string& path) {
+void GuitarPlugin::loadProfile(const std::string& path, bool told) {
 	Job job;
 	job.kind = Job::kLoad;
 	job.path = path;
+	job.told = told;
 	post(job);
 }
 
@@ -277,7 +278,8 @@ void GuitarPlugin::apply(const Loaded& loaded) {
 	}
 }
 
-// a load taken becomes the profile (the host is told the plugin changed), or is refused, the profile kept
+// a load taken becomes the profile (the host told the plugin changed when the user asked for it), or is refused, the
+// profile kept
 void GuitarPlugin::applyLoad(const Loaded& loaded) {
 	refusal = loaded.refusal;
 	if (!refusal.empty()) {
@@ -287,7 +289,7 @@ void GuitarPlugin::applyLoad(const Loaded& loaded) {
 	path = loaded.job.path;
 	contents = loaded.job.contents;
 	FUnknownPtr<IComponentHandler2> handler(componentHandler);
-	if (handler) {
+	if (handler && loaded.job.told) {
 		handler->setDirty(true);
 	}
 }
@@ -415,12 +417,15 @@ static tresult report(IAttributeList* attributes, const std::string& text) {
 	return attributes->setBinary("report", text.data(), (uint32) text.size());
 }
 
-// "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does;
+// "Woodshed.load" loads the profile at the "path" (UTF-8 bytes), as the editor's Load profile... does, unless "host"
+// is given (not 0): the host asks for it (the profile a default instrument's element names), which is not told as a change;
 // "Woodshed.profile" answers the status: the profile's name, the refusal, the notice and the capture being loaded, a
 // line break between; else kNotImplemented
 tresult GuitarPlugin::profileMessage(FIDString id, IAttributeList* attributes) {
 	if (std::strcmp(id, "Woodshed.load") == 0) {
-		loadProfile(binary(attributes, "path"));
+		int64 host = 0;
+		attributes->getInt("host", host);
+		loadProfile(binary(attributes, "path"), host == 0);
 		return kResultOk;
 	}
 	if (std::strcmp(id, "Woodshed.profile") == 0) {

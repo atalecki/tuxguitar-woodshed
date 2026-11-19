@@ -96,6 +96,7 @@ public class GuitarSteps {
 	}
 
 	@Given("there is a NAM capture {string} that multiplies the signal by {double}")
+	@Given("the file {string} has since been changed to a NAM capture that multiplies the signal by {double}")
 	public void thereIsANamCapture(String name, double gain) throws IOException {
 		capture(name, "0.7.0", "Linear", gain, 44100);
 	}

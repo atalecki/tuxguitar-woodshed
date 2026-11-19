@@ -26,6 +26,9 @@ struct Job {
 	std::string path;
 	std::string contents;
 	uint64_t number = 0;
+	// a load the user asked for (the editor's), which the host is told once it becomes the profile; not one the host
+	// asked for
+	bool told = true;
 };
 
 // what a job found: the profile's path and contents (a load's: the file's), why the capture was refused (the profile

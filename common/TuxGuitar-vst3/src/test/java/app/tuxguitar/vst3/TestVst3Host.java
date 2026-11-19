@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -251,6 +252,28 @@ public class TestVst3Host {
 		second.setState(state);
 		assertEquals("[profile] true Gain 3.nam", state.getResources().keySet() + " " + Arrays.equals(Files.readAllBytes(capture.toPath()), state.getResources().get("profile"))
 			+ " " + TestPlugins.profile(second).split("\n")[0]);
+	}
+
+	// a profile loaded as the editor's Load profile... loads it is a change of the plugin, which tells its host it is
+	// dirty; the same profile loaded because the host asked for it ("host": the profile a default instrument's element
+	// names, loaded again after an Undo) is no change the user made, and is not told
+	@Test
+	public void aProfileTheHostAsksWoodshedGuitarToLoadIsLoadedAndToldAsNoChange(@TempDir File folder) throws Exception {
+		File capture = TestPlugins.gain3(folder);
+
+		assertEquals("Gain 3.nam: DIRTY 0 | Gain 3.nam: ", loadHeard(capture, Collections.<String, Long>emptyMap()) + " | " + loadHeard(capture, Map.of("host", 1L)));
+	}
+
+	// a Woodshed Guitar asked to load the capture: once it has, the profile it holds and the changes it told
+	private String loadHeard(File capture, Map<String, Long> asked) throws TGVst3Exception {
+		TGVst3Instance woodshed = this.woodshed();
+		List<TGVst3Notice> notices = Collections.synchronizedList(new ArrayList<TGVst3Notice>());
+		woodshed.setListener(notice -> Optional.of(notice).filter(dirty -> dirty.getKind() == TGVst3Notice.Kind.DIRTY).ifPresent(notices::add));
+		woodshed.message("Woodshed.load", asked, Collections.singletonMap("path", capture.getPath().getBytes(StandardCharsets.UTF_8)));
+		while (!TestPlugins.profile(woodshed).endsWith("\n")) {
+			Thread.onSpinWait();
+		}
+		return TestPlugins.profile(woodshed).split("\n")[0] + ": " + heard(notices);
 	}
 
 	// Woodshed Guitar, TuxGuitar's own plugin
