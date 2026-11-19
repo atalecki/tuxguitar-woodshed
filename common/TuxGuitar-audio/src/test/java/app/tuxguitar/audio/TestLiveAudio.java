@@ -3,6 +3,7 @@ package app.tuxguitar.audio;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -312,6 +313,22 @@ class TestLiveAudio {
 			live.close();
 			hosting.close();
 		}
+	}
+
+	// with or without a device: the opened synthesizer's levels are the live levels (the meters'), until it closes
+	@Test
+	void theOpenedSynthesizersLevelsAreTheLiveLevelsUntilItCloses() {
+		TGLiveLevels live = TGLiveLevels.getInstance(this.fixture.context);
+		openPort();
+		TGSynthModel opened = this.synthesizer;
+		assertSame(opened.getLevels(), live.get());
+		this.player.closeOutputPort();
+		assertNull(live.get());
+		this.open(settings("ASIO", "Interface", 2, 0));
+		openPort();
+		assertSame(this.synthesizer.getLevels(), live.get());
+		this.player.closeOutputPort();
+		assertNull(live.get());
 	}
 
 	// what an app installs gives the synthesizer VST3 effects and instruments to run

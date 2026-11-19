@@ -20,8 +20,7 @@ public final class TGMeterBallistics {
 	private final long[] heldAt = new long[SIDES];
 	// the time of the last reading
 	private long last;
-	// the clips its point had counted at the last reading, and those acknowledged
-	private long seen;
+	// the clips of its point acknowledged
 	private long acknowledged;
 
 	// the reading after the newest peaks of each side (amplitudes, since the last reading) and the clips its point has
@@ -29,7 +28,6 @@ public final class TGMeterBallistics {
 	public TGMeterReading next(float[] peaks, long clips, long now) {
 		double fall = falling(now - this.last);
 		this.last = now;
-		this.seen = clips;
 		double[] shownPeaks = new double[SIDES];
 		double[] shownHolds = new double[SIDES];
 		for (int side = 0; side < SIDES; side++) {
@@ -60,8 +58,8 @@ public final class TGMeterBallistics {
 		return (level < TGMeterScale.FLOOR ? Double.NEGATIVE_INFINITY : level);
 	}
 
-	// the lamp goes out: the clips counted so far are acknowledged
-	public void clear() {
-		this.acknowledged = this.seen;
+	// the lamp goes out: the clips its point has counted (so far) are acknowledged
+	public void clear(long clips) {
+		this.acknowledged = clips;
 	}
 }

@@ -11,6 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.management.ManagementFactory;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -215,6 +218,14 @@ public class TestLevels {
 		this.render();
 		this.model.closeChannels();
 		assertEquals(1, this.levels.tap(Key.effect(CHANNEL, "eightfold")).getClips());
+	}
+
+	// a meter that clears every lamp reads them all
+	@Test
+	public void everyTapIsListedTheMastersToo() throws MidiPlayerException {
+		this.play(program("source", "twice"));
+		Set<TGLevelTap> taps = new HashSet<TGLevelTap>(this.levels.taps());
+		assertEquals(new HashSet<TGLevelTap>(Arrays.asList(this.levels.master(), this.levels.tap(Key.source(CHANNEL)), this.levels.tap(Key.effect(CHANNEL, "twice")), this.levels.tap(Key.out(CHANNEL)))), taps);
 	}
 
 	@Test

@@ -1,8 +1,10 @@
 package app.tuxguitar.midi.synth;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,8 +79,15 @@ public final class TGLevels {
 		return this.taps.get(key);
 	}
 
-	// the point's tap, made when missing; never by the audio thread
-	synchronized TGLevelTap open(Key key) {
+	// every tap there is now, the master's too
+	public Collection<TGLevelTap> taps() {
+		List<TGLevelTap> taps = new ArrayList<TGLevelTap>(this.taps.values());
+		taps.add(this.master);
+		return taps;
+	}
+
+	// the point's tap, made when missing: by the thread that opens chains, never by the audio thread
+	public synchronized TGLevelTap open(Key key) {
 		TGLevelTap tap = this.taps.get(key);
 		if( tap == null ) {
 			tap = new TGLevelTap();

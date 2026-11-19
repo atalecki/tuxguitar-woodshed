@@ -17,7 +17,8 @@ public final class TGLevelTap {
 	static final int BLOCKS = 64;
 	// how far behind the block being written a reader stays, so the oldest block it reads is not being overwritten
 	static final int MARGIN = 8;
-	static final int SIDES = 2;
+	// left and right: what read() fills
+	public static final int SIDES = 2;
 
 	private final float[][] peaks = new float[SIDES][BLOCKS];
 	// written last by measure (a volatile store), so the peaks before it are visible to a reader that reads it first

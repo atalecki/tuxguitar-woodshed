@@ -134,7 +134,7 @@ public class TestMeterBallistics {
 	void clearingPutsTheLampOutUntilTheNextClip() {
 		this.clips = 1;
 		this.at(0, FULL);
-		this.meter.clear();
+		this.meter.clear(this.clips);
 		assertFalse(this.at(100, 0f).isClipped());
 		this.clips = 2;
 		assertTrue(this.at(200, FULL).isClipped());
