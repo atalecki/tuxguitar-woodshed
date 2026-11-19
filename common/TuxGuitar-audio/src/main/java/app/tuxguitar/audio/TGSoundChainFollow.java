@@ -13,7 +13,7 @@ import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.TGMessagesManager;
 
 /**
- * A sound chain editor that follows the caret's track (the Sound Chain panel): it reads the rows again (which asks what
+ * A sound chain editor that follows the caret's track (the Track panel): it reads the rows again (which asks what
  * the default instrument plays, TGDefaultInstrumentSource.play: that touches the disk) only when what it shows changed,
  * told by a key read cheaply on each update of the app: the song and the track (its position, its name, its colour),
  * the track's channel and that channel's instrument (its kind decides the default), the track's sound (MIDI reads as the

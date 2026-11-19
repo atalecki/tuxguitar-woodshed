@@ -155,7 +155,7 @@ public final class TGSoundChainCommands {
 		return processor;
 	}
 
-	// the plugin of the row as the Sound Chain panel's editor area knows it (TGEditorDock.Element), or null when the row's
+	// the plugin of the row as the Track panel's editor area knows it (TGEditorDock.Element), or null when the row's
 	// is no VST3 plugin (General MIDI without a default instrument, an audio track's takes), no row is picked (-1) or no
 	// track is shown
 	public TGEditorDock.Element element(int row) {

@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Which of TuxGuitar's shortcuts a plugin's editor inside the Sound Chain panel hands to TuxGuitar while it has the focus
+ * Which of TuxGuitar's shortcuts a plugin's editor inside the Track panel hands to TuxGuitar while it has the focus
  * (Q5): those with Ctrl or Alt, and those on a function key (F8, F5...), so they always work; plain keys (Space,
  * letters, arrows, Enter, with or without Shift) stay with the plugin. A shortcut is its keys' names as TuxGuitar's key
  * bindings write them ("Ctrl", "Shift", "Alt", "F8", "z", "Left"...); a key passed is a Windows virtual-key code with

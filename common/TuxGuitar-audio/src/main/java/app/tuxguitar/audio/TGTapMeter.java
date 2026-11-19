@@ -6,7 +6,7 @@ import app.tuxguitar.midi.synth.TGLevelTap;
 
 /**
  * A tap as one shown meter reads it: where it read up to, and how the meter moves (TGMeterBallistics). Its lamp counts
- * the clips the supplier gives: the tap's own (the Sound Chain panel's meters), or those since a reset kept elsewhere
+ * the clips the supplier gives: the tap's own (the Track panel's meters), or those since a reset kept elsewhere
  * (an armed track's input, TGInputLevel). On the thread that shows it; the tap is read without a lock.
  */
 public final class TGTapMeter {

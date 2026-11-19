@@ -1,7 +1,7 @@
 package app.tuxguitar.audio;
 
 /**
- * The Sound Chain panel's editor area as numbers: how high an editor inside it may be (a share of TuxGuitar's window,
+ * The Track panel's editor area as numbers: how high an editor inside it may be (a share of TuxGuitar's window,
  * the rest is the score's), and how high the area is for an editor the host reports in device pixels. The toolkit lays
  * the area out in units of its own (scaled pixels), so the height is the view's pixels times the area's units over its
  * pixels across: no toolkit's zoom is asked, whatever its scaling does.
