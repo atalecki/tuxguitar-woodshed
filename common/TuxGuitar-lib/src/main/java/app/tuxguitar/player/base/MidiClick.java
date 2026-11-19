@@ -1,10 +1,10 @@
 package app.tuxguitar.player.base;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.UnaryOperator;
 
 import app.tuxguitar.song.models.TGTimeSignature;
@@ -136,9 +136,10 @@ public final class MidiClick {
 		config.remove(VELOCITY);
 	}
 
-	// what a synthesizer's drums are told: the sounds and the volume, and the folder of the user's own sounds when given
+	// what a synthesizer's drums are told, by key: the sounds and the volume, and the folder of the user's own sounds when
+	// given
 	public Map<String, String> toParameters(String folder) {
-		Map<String, String> parameters = new HashMap<String, String>();
+		Map<String, String> parameters = new TreeMap<String, String>();
 		parameters.put(BEAT_ONE, (this.beatOne != null ? this.beatOne.getId() : SAME_ACCENTED));
 		parameters.put(OTHER, this.other.getId());
 		parameters.put(VOLUME, Integer.toString(this.volume));

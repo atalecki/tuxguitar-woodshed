@@ -63,9 +63,9 @@ public class TestMidiPlayerMetronome {
 		return received.stream().filter(line -> line.startsWith(id + " ")).collect(Collectors.toList());
 	}
 
-	// what the clock's drums channel was sent
+	// what the clock's drums channel was sent, but the click's parameters (see TestMidiPlayerClickSounds)
 	private List<String> drums() {
-		return channel(MidiSampleClock.DRUMS);
+		return channel(MidiSampleClock.DRUMS).stream().filter(line -> !line.contains(" param ")).collect(Collectors.toList());
 	}
 
 	// a new percussion channel's settings, as the player sends every channel's (scaled by its volume, 10 the whole)
