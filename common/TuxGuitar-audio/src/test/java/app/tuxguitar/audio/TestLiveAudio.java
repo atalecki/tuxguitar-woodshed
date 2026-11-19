@@ -28,6 +28,7 @@ import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.midi.synth.TGSynthChannel;
+import app.tuxguitar.midi.synth.TGDefaultSource;
 import app.tuxguitar.midi.synth.TGSynthManager;
 import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.midi.synth.TGSynthOutput;
@@ -318,6 +319,15 @@ class TestLiveAudio {
 	void installedTheSynthesizerRunsVst3EffectsAndInstruments() {
 		TGSynthManager manager = TGSynthManager.getInstance(this.fixture.context);
 		assertEquals("true true", (manager.findAudioProcessorFactory(TGVst3Element.EFFECT) != null) + " " + (manager.findMidiProcessorFactory(TGVst3Element.INSTRUMENT) != null));
+	}
+
+	// what an app installs has the synthesizer's channels without an instrument of their own play the default instrument
+	// of their kind, from one source, installed once however often the app installs
+	@Test
+	void installedChannelsPlayTheDefaultInstrumentsOfOneSource() {
+		TGLiveAudio.install(this.fixture.context, id -> false);
+		List<TGDefaultSource> sources = new ArrayList<TGDefaultSource>(TGSynthManager.getInstance(this.fixture.context).getExtensions(TGDefaultSource.class));
+		assertEquals(Arrays.asList(TGDefaultInstrumentSource.install(this.fixture.context)), sources);
 	}
 
 	private List<String> logged(Runnable code) {

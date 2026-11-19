@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import app.tuxguitar.midi.synth.TGProgram;
+import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
@@ -12,31 +13,56 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * What an app shows of a channel's sound chain to edit it, read at one moment: a row per element (the source, then each
  * effect in processing order by its number, a disabled one in brackets) and, for the row picked (-1: none), what can be
  * done with it: an effect is removed, enabled or disabled, moved up unless it is the first; a VST3 plugin's editor
- * opens. A VST3 effect is added, a VST3 instrument or the General MIDI program made the source, except on an audio
- * channel, whose source is its takes.
+ * opens. A VST3 effect is added, a VST3 instrument or the default instrument of the channel's kind made the source,
+ * except on an audio channel, whose source is its takes. A default source's row says what plays and why
+ * (TGDefaultPlay).
  */
 public final class TGSoundChainRows {
 
 	private final TGChannel channel;
 	private final TGProgram chain;
+	// what the channel plays without an instrument of its own, or null when that is not known
+	private final TGDefaultPlay play;
 
-	private TGSoundChainRows(TGChannel channel, TGProgram chain) {
+	private TGSoundChainRows(TGChannel channel, TGProgram chain, TGDefaultPlay play) {
 		this.channel = channel;
 		this.chain = chain;
+		this.play = play;
 	}
 
 	public static TGSoundChainRows of(TGChannel channel) {
-		return new TGSoundChainRows(channel, TGSoundChain.get(channel));
+		return of(channel, null);
+	}
+
+	// with what the channel plays as its default source (TGDefaultInstrumentSource.play), read at the same moment
+	public static TGSoundChainRows of(TGChannel channel, TGDefaultPlay play) {
+		return new TGSoundChainRows(channel, TGSoundChain.get(channel), play);
 	}
 
 	// source: what the app calls the source
 	public List<String> getRows(String source) {
 		List<String> rows = new ArrayList<String>();
-		rows.add(source + ": " + TGSoundChain.name(this.chain.getReceiver(), this.channel));
+		rows.add(source + ": " + this.source());
 		for (int i = 0; i < this.chain.countOutputs(); i++) {
 			rows.add((i + 1) + ". " + TGSoundChain.effect(this.chain.getOutput(i), this.channel));
 		}
 		return rows;
+	}
+
+	// the source as the row names it: a default source says what plays and why, when that is known
+	private String source() {
+		String name = TGSoundChain.name(this.chain.getReceiver(), this.channel);
+		return (this.play != null && this.isDefault() ? this.play.say(name) : name);
+	}
+
+	// whether the source is the default instrument of the channel's kind (stored as General MIDI)
+	public boolean isDefault() {
+		return GervillProcessorFactory.TYPE.equals(this.chain.getReceiver().getType());
+	}
+
+	// whether the default instrument plays as the source, so it can be kept in the song (TGKeepDefaultInstrumentAction)
+	public boolean canKeep() {
+		return (this.isDefault() && this.play != null && this.play.getElement() != null);
 	}
 
 	// the row picked: its index, or -1 for none

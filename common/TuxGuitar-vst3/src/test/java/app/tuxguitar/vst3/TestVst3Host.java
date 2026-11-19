@@ -238,26 +238,18 @@ public class TestVst3Host {
 	// a state given back with it plays that profile
 	@Test
 	public void thePartsAPluginKeepsApartComeBackWithItsState(@TempDir File folder) throws Exception {
-		File capture = gain3(folder);
+		File capture = TestPlugins.gain3(folder);
 		TGVst3Instance first = this.woodshed();
 		load(first, capture);
 		// it loads on a thread of its own: once it says it loads nothing (its status's fourth line), it has
-		while (!profile(first).endsWith("\n")) {
+		while (!TestPlugins.profile(first).endsWith("\n")) {
 			Thread.onSpinWait();
 		}
 		TGVst3State state = first.getState();
 		TGVst3Instance second = this.woodshed();
 		second.setState(state);
 		assertEquals("[profile] true Gain 3.nam", state.getResources().keySet() + " " + Arrays.equals(Files.readAllBytes(capture.toPath()), state.getResources().get("profile"))
-			+ " " + profile(second).split("\n")[0]);
-	}
-
-	// a NAM capture "Gain 3.nam" in the folder, multiplying the signal by 3
-	private static File gain3(File folder) throws Exception {
-		File capture = new File(folder, "Gain 3.nam");
-		Files.write(capture.toPath(), ("{\"version\": \"0.7.0\", \"architecture\": \"Linear\", \"config\": {\"receptive_field\": 1, \"bias\": false, "
-			+ "\"in_channels\": 1, \"out_channels\": 1}, \"weights\": [3.0], \"sample_rate\": 44100}").getBytes(StandardCharsets.UTF_8));
-		return capture;
+			+ " " + TestPlugins.profile(second).split("\n")[0]);
 	}
 
 	// Woodshed Guitar, TuxGuitar's own plugin
@@ -268,11 +260,6 @@ public class TestVst3Host {
 
 	private static void load(TGVst3Instance woodshed, File capture) throws TGVst3Exception {
 		woodshed.message("Woodshed.load", Collections.<String, Long>emptyMap(), Collections.singletonMap("path", capture.getPath().getBytes(StandardCharsets.UTF_8)));
-	}
-
-	// its status: the profile, the refusal, the notice and the capture being loaded, a line break between
-	private static String profile(TGVst3Instance woodshed) throws TGVst3Exception {
-		return new String(woodshed.message("Woodshed.profile", Collections.<String, Long>emptyMap(), Collections.<String, byte[]>emptyMap()), StandardCharsets.UTF_8);
 	}
 
 	// a plugin restoring its state in the background (it told its host, IProgress) is restoring until it says it has
@@ -360,13 +347,13 @@ public class TestVst3Host {
 	@Test
 	public void woodshedGuitarRestoringItsStateSaysTheFileItLoads(@TempDir File folder) throws Exception {
 		File large = large(folder);
-		File capture = gain3(folder);
+		File capture = TestPlugins.gain3(folder);
 		TGVst3Instance woodshed = this.woodshed();
 		load(woodshed, large);
 		String first = woodshed.getRestoring();
 		load(woodshed, capture);
 		String second = woodshed.getRestoring();
-		untilRestored(woodshed);
+		TestPlugins.untilRestored(woodshed);
 		assertEquals("Large.nam, Gain 3.nam, null", first + ", " + second + ", " + woodshed.getRestoring());
 	}
 
@@ -375,11 +362,11 @@ public class TestVst3Host {
 	@Test
 	public void woodshedGuitarRestoresItsStateUntilTheProfileItLoadsIsReady(@TempDir File folder) throws Exception {
 		TGVst3Instance woodshed = this.woodshed();
-		File capture = gain3(folder);
+		File capture = TestPlugins.gain3(folder);
 		load(woodshed, capture);
 		boolean loading = woodshed.isRestoring();
-		untilRestored(woodshed);
-		String loaded = profile(woodshed);
+		TestPlugins.untilRestored(woodshed);
+		String loaded = TestPlugins.profile(woodshed);
 		load(woodshed, capture);
 		assertEquals("true Gain 3.nam\n\n\n true", loading + " " + loaded + " " + woodshed.isRestoring());
 	}
@@ -391,26 +378,17 @@ public class TestVst3Host {
 		TGVst3Instance woodshed = this.woodshed();
 		load(woodshed, capture);
 		load(woodshed, capture);
-		untilRestored(woodshed);
-		assertEquals("Large.nam\n\n\n", profile(woodshed));
+		TestPlugins.untilRestored(woodshed);
+		assertEquals("Large.nam\n\n\n", TestPlugins.profile(woodshed));
 	}
 
 	// a NAM capture "Large.nam" in the folder, multiplying the signal by 3, with 5 MB of notes: it takes a while to load
 	private static File large(File folder) throws Exception {
 		File capture = new File(folder, "Large.nam");
-		byte[] gain3 = Files.readAllBytes(gain3(folder).toPath());
+		byte[] gain3 = Files.readAllBytes(TestPlugins.gain3(folder).toPath());
 		Files.write(capture.toPath(), Arrays.copyOf(gain3, gain3.length - 1));
 		Files.write(capture.toPath(), (", \"metadata\": {\"notes\": \"" + String.join("", Collections.nCopies(5 * 1024 * 1024, "n")) + "\"}}").getBytes(StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.APPEND);
 		return capture;
-	}
-
-	// waits, 10 seconds at most, until it says it restores its state no more (its host asked meanwhile)
-	private static void untilRestored(TGVst3Instance instance) {
-		assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
-			while (instance.isRestoring(Duration.ofMinutes(1).toMillis())) {
-				Thread.onSpinWait();
-			}
-		});
 	}
 
 	// what was delayed past the block still sounds in the next one, unless the plugin was reset

@@ -19,6 +19,7 @@ import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.midi.synth.TGSynthManager;
 import app.tuxguitar.midi.synth.TGSynthModel;
+import app.tuxguitar.midi.synth.TGSynthSettings;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.player.base.MidiParameters;
 import app.tuxguitar.player.base.MidiPlayerException;
@@ -36,8 +37,8 @@ import app.tuxguitar.util.TGContext;
 
 /**
  * The taps of the channels of tracks with notes, headless: the TuxGuitar Synthesizer's channels at the audio device's
- * rate, each playing the General MIDI program of its channel through Gervill (the programs kept in the synthesizer's
- * settings are not read here), fed the events of the MIDI sequence parser on the timeline's clock and rendered in
+ * rate, each playing its sound chain, else the default instrument of its kind, else the General MIDI program of its
+ * channel (through Gervill, or as the synthesizer's settings keep it, as live), fed the events of the MIDI sequence parser on the timeline's clock and rendered in
  * blocks of 512 samples. Before each block its events go to the synthesizer's receiver of their frames, as the
  * sequencer sends them live: a note starts on its own sample, and is heard from it (the chain's latency is taken out,
  * see TGBlocks). Each tap is the channel's chain before Volume and Balance, left and right, with that latency.
@@ -105,7 +106,9 @@ public final class TGMidiTaps {
 		waitWhileLoading(model);
 	}
 
-	// General MIDI programs from Gervill for every bank and program
+	// General MIDI programs from Gervill for every bank and program, those the synthesizer's settings keep as they keep
+	// them (as the live synthesizer loads them); a channel without an instrument of its own plays the default instrument
+	// of its kind first, as live (TGDefaultSource)
 	static TGSynthModel model(TGContext context, int sampleRate) {
 		TGSynthManager manager = TGSynthManager.getInstance(context);
 		if (manager.findMidiProcessorFactory(GervillProcessorFactory.TYPE) == null) {
@@ -117,6 +120,7 @@ public final class TGMidiTaps {
 				model.getProgram(bank, program).copyFrom(generalMidi(bank, program));
 			}
 		}
+		new TGSynthSettings(context).loadPrograms(model);
 		return model;
 	}
 

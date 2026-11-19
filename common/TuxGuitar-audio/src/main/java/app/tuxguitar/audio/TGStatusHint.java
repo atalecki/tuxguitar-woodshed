@@ -11,7 +11,8 @@ import app.tuxguitar.util.singleton.TGSingletonUtil;
 /**
  * The one quiet hint an app shows on its status line (the line under the fretboard): why Record was just refused (the
  * last time it was pressed, for REFUSAL_MILLIS after or until its cause no longer holds, whichever comes first), else
- * the hint of a plugin Play stopped waiting for (TGLoadingHint). An app reads it as often as it likes, off its UI
+ * that a default instrument did not play and General MIDI plays instead (TGDefaultInstrumentSource.getNotice), else the
+ * hint of a plugin Play stopped waiting for (TGLoadingHint). An app reads it as often as it likes, off its UI
  * thread; null for none.
  */
 public final class TGStatusHint {
@@ -20,6 +21,8 @@ public final class TGStatusHint {
 	static final long REFUSAL_MILLIS = 5000;
 
 	private final Supplier<String> loading;
+	// that a default instrument did not play (TGFallbackNotice), or null
+	private final Supplier<String> fallback;
 	// what Record needs, as it is now
 	private final Supplier<TGRecordConditions> conditions;
 	// now, in milliseconds
@@ -27,15 +30,16 @@ public final class TGStatusHint {
 	// Record's last refusal, and when; null when it was not refused
 	private volatile Refused refused;
 
-	TGStatusHint(Supplier<String> loading, Supplier<TGRecordConditions> conditions, LongSupplier clock) {
+	TGStatusHint(Supplier<String> loading, Supplier<String> fallback, Supplier<TGRecordConditions> conditions, LongSupplier clock) {
 		this.loading = loading;
+		this.fallback = fallback;
 		this.conditions = conditions;
 		this.clock = clock;
 	}
 
 	public static TGStatusHint getInstance(TGContext context) {
 		return TGSingletonUtil.getInstance(context, TGStatusHint.class.getName(),
-			key -> new TGStatusHint(TGLoadingHint.install(key)::getText, () -> TGRecordConditions.of(key, TGDocumentManager.getInstance(key).getSong()),
+			key -> new TGStatusHint(TGLoadingHint.install(key)::getText, TGDefaultInstrumentSource.install(key)::getNotice, () -> TGRecordConditions.of(key, TGDocumentManager.getInstance(key).getSong()),
 				() -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime())));
 	}
 
@@ -47,7 +51,13 @@ public final class TGStatusHint {
 	public String getText() {
 		Refused refused = this.refused;
 		String told = (refused != null ? refused.told(this.clock.getAsLong(), this.conditions) : null);
-		return (told != null ? told : this.loading.get());
+		return (told != null ? told : this.quiet());
+	}
+
+	// that a default instrument did not play, else the loading hint
+	private String quiet() {
+		String fallback = this.fallback.get();
+		return (fallback != null ? fallback : this.loading.get());
 	}
 
 	private static final class Refused {

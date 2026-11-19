@@ -8,8 +8,9 @@ import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.util.TGContext;
 
 /**
- * Makes the channel's General MIDI program (its Bank and Program) the source of its sound chain again; the effects stay.
- * Refused on an audio channel.
+ * Makes the default instrument of the channel's kind the source of its sound chain again (the Sound Chain dialog's
+ * "Default instrument"; stored as the General MIDI program, its Bank and Program, which a channel without a default
+ * plays); the effects stay. Refused on an audio channel.
  */
 public class TGChooseGeneralMidiAction extends TGSoundChainAction {
 

@@ -1,5 +1,6 @@
 package app.tuxguitar.vst3;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,8 @@ import app.tuxguitar.player.base.MidiTransport;
 abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcessor {
 
 	static final int FRAMES = TGAudioBuffer.BUFFER_SIZE / 2;
+	// the message Woodshed Guitar loads a profile by ("path": the file, UTF-8)
+	private static final String LOAD = "Woodshed.load";
 
 	private final TGVst3Hosting hosting;
 	private final boolean instrument;
@@ -31,6 +34,8 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	private TGVst3Exception problem;
 	// the state the plugin opened with
 	private TGVst3State opened;
+	// the profile it was asked to load since it opened (see load), or null
+	private String profile;
 
 	TGVst3Processor(TGVst3Hosting hosting, boolean instrument) {
 		this.hosting = hosting;
@@ -68,16 +73,32 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		this.instance = this.hosting.open(wanted, this.sampleRate, FRAMES);
 		this.opened = this.instance.getState();
 		this.problem = null;
+		this.profile = null;
 	}
 
 	// the element's state, else the one the plugin opened with (a plugin running an element the song changed goes back to
-	// it; one running the same element again keeps what its editor did since)
+	// it; one running the same element again keeps what its editor did since); an element without a state that names a
+	// profile (a default instrument's) has it loaded
 	private void restore(Map<String, String> parameters) throws TGVst3Exception {
 		if (this.instance == null) {
 			return;
 		}
 		TGVst3State state = TGVst3Element.state(parameters);
+		String profile = parameters.get(TGVst3Element.PROFILE);
+		if (state == null && profile != null) {
+			this.load(profile);
+			return;
+		}
 		this.instance.restore(state != null ? state : this.opened, TGVst3Element.parameters(parameters));
+	}
+
+	// Woodshed Guitar loads the profile, as its editor's Load profile... does, in the background (it restores its state
+	// meanwhile, so Play waits for it, see isBusy), unless it was asked to since it opened
+	private void load(String profile) throws TGVst3Exception {
+		if (!profile.equals(this.profile)) {
+			this.instance.message(LOAD, Collections.<String, Long>emptyMap(), Collections.singletonMap("path", profile.getBytes(StandardCharsets.UTF_8)));
+			this.profile = profile;
+		}
 	}
 
 	public void storeParameters(Map<String, String> parameters) {
@@ -152,6 +173,10 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	// as the user is told it, when it is read (TGVst3Exception.getLocalizedMessage)
 	public String getProblem() {
 		return (this.problem != null ? this.problem.getLocalizedMessage() : null);
+	}
+
+	public String getLoggedProblem() {
+		return (this.problem != null ? this.problem.getMessage() : null);
 	}
 
 	public int getLatency() {

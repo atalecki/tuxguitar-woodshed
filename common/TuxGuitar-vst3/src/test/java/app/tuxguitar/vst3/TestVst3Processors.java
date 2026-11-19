@@ -97,6 +97,38 @@ public class TestVst3Processors {
 		assertNull(this.hosting.find("Old Amp"));
 	}
 
+	// a default instrument's element (no state of its own) names the profile Woodshed Guitar loads once it opens, in the
+	// background (it is busy meanwhile); the element sent again (each Play) loads it no more, another profile is loaded
+	@Test
+	public void woodshedGuitarLoadsTheProfileItsElementNamesOnce(@TempDir File folder) throws Exception {
+		this.hosting.configure(TestPlugins.host(), Arrays.asList(TestPlugins.folder(), new File(TestPlugins.nativeBuild(), "plugins/VST3")));
+		this.hosting.scan();
+		TGProgramElement element = TGVst3Element.create("default-guitar", this.hosting.find("Woodshed Guitar"));
+		TGVst3Element.setProfile(element, TestPlugins.gain3(folder).getPath());
+		TGVst3Processor woodshed = (TGVst3Processor) open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
+		boolean loading = woodshed.isBusy();
+		TestPlugins.untilRestored(woodshed.getInstance());
+		woodshed.restoreParameters(element.getParameters());
+		boolean again = woodshed.isBusy();
+		File other = new File(folder, "Other.nam");
+		java.nio.file.Files.copy(TestPlugins.gain3(folder).toPath(), other.toPath());
+		TGVst3Element.setProfile(element, other.getPath());
+		woodshed.restoreParameters(element.getParameters());
+		TestPlugins.untilRestored(woodshed.getInstance());
+		assertEquals("true false Other.nam", loading + " " + again + " " + TestPlugins.profile(woodshed.getInstance()).split("\n", -1)[0]);
+	}
+
+	// whether the folders were scanned yet: a scan that found nothing is a scan, unlike none at all (a plugin not found
+	// before then may yet be installed)
+	@Test
+	public void theHostingSaysWhetherItScannedYet(@TempDir File folder) throws TGVst3Exception {
+		TGVst3Hosting fresh = TGVst3Hosting.getInstance(new TGContext());
+		fresh.configure(TestPlugins.host(), Arrays.asList(folder));
+		boolean before = fresh.hasScanned();
+		fresh.scan();
+		assertEquals("false true 0", before + " " + fresh.hasScanned() + " " + fresh.getPlugins().size());
+	}
+
 	// a module the host refuses (here a folder named like a bundle that holds no plugin, as NAM captures are kept in) is
 	// left out of the plugins and kept with the host's reason, until the next scan
 	@Test
@@ -460,6 +492,17 @@ public class TestVst3Processors {
 
 	private static String problems(List<TGVst3PluginProcessor> processors) {
 		return processors.stream().map(TGVst3PluginProcessor::getProblem).collect(Collectors.joining(" | "));
+	}
+
+	// the log keeps why in English, whatever language the user reads it in
+	@Test
+	public void anEffectWhoseHostDidNotStartKeepsWhyInEnglishForTheLog(@TempDir File folder) throws TGVst3Exception {
+		File missing = new File(folder, "tuxguitar-vst3-host.exe");
+		this.hosting.configure(missing, Arrays.asList(TestPlugins.folder()));
+		TGVst3PluginProcessor failed = (TGVst3PluginProcessor) effect(element("Test Gain"));
+		Map<String, String> german = Collections.singletonMap("audio.vst3-host.not-started", "der VST3-Host startete nicht: {0}");
+		String told = TuxGuitarMessages.said(german, failed::getProblem);
+		assertEquals("der VST3-Host startete nicht: " + missing + " | the VST3 host did not start: " + missing, told + " | " + TuxGuitarMessages.said(german, failed::getLoggedProblem));
 	}
 
 	@Test

@@ -279,23 +279,31 @@ public class ListeningSteps {
 
 	@Then("the output holds a {int} Hz tone above -60 dBFS in measure(s) {measures}")
 	public void theOutputHoldsAToneIn(int frequency, List<Integer> measures) {
+		assertAbove(heard().left(), frequency, measures);
+	}
+
+	@Then("track {int} sounds a {int} Hz tone above -60 dBFS in measure(s) {measures}")
+	public void soundsAToneAbove(int number, int frequency, List<Integer> measures) {
+		assertAbove(tap(number), frequency, measures);
+	}
+
+	private void assertAbove(float[] samples, int frequency, List<Integer> measures) {
 		for (int measure : measures) {
-			assertTrue(outputLevel(frequency, measure) >= SILENT, "measure " + measure + ": " + outputLevel(frequency, measure));
+			assertTrue(level(samples, frequency, measure) >= SILENT, "measure " + measure + ": " + level(samples, frequency, measure));
 		}
 	}
 
 	@Then("the output holds no {int} Hz tone above -60 dBFS in measure(s) {measures}")
 	public void theOutputHoldsNoToneIn(int frequency, List<Integer> measures) {
 		for (int measure : measures) {
-			assertTrue(outputLevel(frequency, measure) < SILENT, "measure " + measure + ": " + outputLevel(frequency, measure));
+			assertTrue(level(heard().left(), frequency, measure) < SILENT, "measure " + measure + ": " + level(heard().left(), frequency, measure));
 		}
 	}
 
 	// the measure, but for FADE samples at each end
-	private double outputLevel(int frequency, int measure) {
+	private double level(float[] samples, int frequency, int measure) {
 		int[] bounds = heard().measure(measure);
-		float[] left = heard().left();
-		return Meters.level(left, bounds[0] + FADE, bounds[1] - FADE, frequency, TestInterface.SAMPLE_RATE);
+		return Meters.level(samples, bounds[0] + FADE, bounds[1] - FADE, frequency, TestInterface.SAMPLE_RATE);
 	}
 
 	@Then("track {int} sounds a {int} Hz tone within 1% in measures {int} to {int}")

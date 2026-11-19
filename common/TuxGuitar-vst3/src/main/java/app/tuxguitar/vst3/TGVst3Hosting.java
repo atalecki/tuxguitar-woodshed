@@ -31,6 +31,7 @@ public final class TGVst3Hosting {
 	private List<File> folders = Collections.emptyList();
 	private List<TGVst3Plugin> plugins = Collections.emptyList();
 	private List<TGVst3SkippedModule> skipped = Collections.emptyList();
+	private boolean scanned;
 	private final List<String> stops = new ArrayList<String>();
 	// the host processes of the plugins opened, until each is closed or found stopped
 	private final List<TGVst3Host> hosts = new ArrayList<TGVst3Host>();
@@ -115,6 +116,7 @@ public final class TGVst3Hosting {
 		found.sort(Comparator.comparing(TGVst3Plugin::getName));
 		this.plugins = Collections.unmodifiableList(found);
 		this.skipped = Collections.unmodifiableList(skipped);
+		this.scanned = true;
 		LOG.info("VST3 scan done: " + found.size() + " plugins in " + (modules.size() - skipped.size()) + " modules, " + skipped.size()
 				+ " skipped, in " + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) + " ms");
 		return this.plugins;
@@ -135,6 +137,11 @@ public final class TGVst3Hosting {
 	// the modules the last scan left out, in the order it met them
 	public synchronized List<TGVst3SkippedModule> getSkipped() {
 		return this.skipped;
+	}
+
+	// whether a scan has been done: before the first, no plugin is known, installed or not
+	public synchronized boolean hasScanned() {
+		return this.scanned;
 	}
 
 	// as the last scan found them
