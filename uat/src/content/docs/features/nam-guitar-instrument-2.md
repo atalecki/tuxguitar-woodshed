@@ -51,5 +51,5 @@ later on the branch.
   capture loaded while playing. This page checks what a person hears and sees with real captures.
 - Exports wait for a capture still loading, so an export always plays it from its first note. Since slice 3, Play waits
   for it too (see **Woodshed Guitar, slice 3**).
-- Known, pinned, not part of this slice: a parameter that TuxGuitar sets on a plugin kept open while nothing plays it
-  is left out of the saved song.
+- Fixed on `fix/kept-plugin-parameter-save` (page **Saving a plugin edited while nothing plays it**): a parameter that
+  TuxGuitar sets on a plugin kept open while nothing plays it was left out of the saved song.
