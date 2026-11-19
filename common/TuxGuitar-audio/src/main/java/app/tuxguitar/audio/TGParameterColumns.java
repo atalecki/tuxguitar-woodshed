@@ -9,7 +9,18 @@ package app.tuxguitar.audio;
  */
 public final class TGParameterColumns {
 
+	// a row's slider, never narrower nor wider (in the toolkit's units, which follow the screen's scale): however wide
+	// the area, a row's title, slider, value and Set stay together at its left
+	public static final int NARROWEST_SLIDER = 240;
+	public static final int WIDEST_SLIDER = 400;
+
 	private TGParameterColumns() {
+	}
+
+	// each row's slider in the rows' width, laid out in that many columns, a column cellWidth wide with the narrowest
+	// slider: the narrowest, widened by what each column has to spare, up to the widest
+	public static int slider(int width, int columns, int cellWidth) {
+		return Math.min(WIDEST_SLIDER, NARROWEST_SLIDER + Math.max(0, width / columns - cellWidth));
 	}
 
 	// how many columns of rows cellWidth units wide fit width units: at least one, never more than there are rows

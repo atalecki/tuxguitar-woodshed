@@ -46,3 +46,5 @@ Close any running TuxGuitar first. Build and launch with the VS Code task **app:
   the area shows rows (TestEditorDock). This page checks what is seen.
 - The Parameters window and the panel use the same rows (TGPluginParameterRowsView); in the window the extra width of a
   resized window now goes to the sliders only.
+- Later, `fix/parameter-slider-width` stops a slider at about 400 pixels (step 6's slider no longer takes all the
+  spare width): see "Parameter sliders keep their row together".

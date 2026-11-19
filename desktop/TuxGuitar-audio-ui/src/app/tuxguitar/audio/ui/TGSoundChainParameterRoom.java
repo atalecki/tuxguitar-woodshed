@@ -1,5 +1,8 @@
 package app.tuxguitar.audio.ui;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import app.tuxguitar.app.view.main.TGBottomDock;
@@ -17,7 +20,8 @@ import app.tuxguitar.util.TGContext;
 /**
  * The room of the Sound Chain panel's editor area for TuxGuitar's parameter rows (TGPluginParameterRowsView) of the
  * plugin shown when it has no editor of its own, and of every plugin where the host embeds none (Linux, macOS): the rows
- * in as many columns as the panel's width holds, the room as high as the longest column but at most half of TuxGuitar's
+ * in as many columns as the panel's width holds, each slider widened by what its column spares but never stretched
+ * across the panel (TGParameterColumns.slider), the room as high as the longest column but at most half of TuxGuitar's
  * window, the rows scrolling inside it beyond that (TGParameterColumns). Empty, it takes no room. Glue only.
  */
 final class TGSoundChainParameterRoom {
@@ -29,10 +33,11 @@ final class TGSoundChainParameterRoom {
 	private final UIPanel parent;
 	private final UIScrollBarPanel room;
 	private Optional<TGPluginParameterRowsView> rows = Optional.empty();
-	// one column of the rows shown: its width, and the height of a row
+	// one column of the rows shown (its sliders the narrowest): its width, and the height of a row
 	private int cellWidth;
 	private int rowHeight;
-	private int columns;
+	// how the rows were last laid out: their columns, and their sliders' width
+	private List<Integer> laidOut = Collections.emptyList();
 
 	TGSoundChainParameterRoom(TGContext context, UIFactory factory, UIPanel parent, int row) {
 		this.context = context;
@@ -75,11 +80,17 @@ final class TGSoundChainParameterRoom {
 		this.fit();
 	}
 
-	// the panel's width changed: the rows take as many columns as it holds now
+	// the panel's width changed: the rows take as many columns as it holds now, their sliders what those spare
 	private void resized() {
-		if (this.columns() != this.columns) {
+		if (!this.layout().equals(this.laidOut)) {
 			this.fit();
 		}
+	}
+
+	// the columns the panel's width holds, and the sliders' width in the room's width (inside its scroll bar)
+	private List<Integer> layout() {
+		int columns = this.columns();
+		return Arrays.asList(columns, TGParameterColumns.slider(Math.round(this.room.getChildArea().getWidth()), columns, this.cellWidth));
 	}
 
 	private int columns() {
@@ -90,15 +101,16 @@ final class TGSoundChainParameterRoom {
 		return this.rows.map(TGPluginParameterRowsView::count).orElse(0);
 	}
 
-	// the rows in columns, the room as high as they need (at most its share of TuxGuitar's window)
+	// the rows in columns, the room as high as they need (at most its share of TuxGuitar's window); the sliders' width
+	// once the scroll bar shows or not
 	private void fit() {
-		this.columns = this.columns();
-		this.rows.ifPresent(shown -> shown.columns(this.columns));
 		int window = Math.round(TGWindow.getInstance(this.context).getWindow().getBounds().getHeight());
-		int rows = TGParameterColumns.rows(this.count(), this.columns);
+		int rows = TGParameterColumns.rows(this.count(), this.columns());
 		int height = TGParameterColumns.height(rows, this.rowHeight, window);
 		this.room.setVisible(height > 0);
 		this.room.getVScroll().setVisible(TGParameterColumns.scrolls(rows, this.rowHeight, window));
+		this.laidOut = this.layout();
+		this.rows.ifPresent(shown -> shown.columns(this.laidOut.get(0), this.laidOut.get(1)));
 		((UITableLayout) this.parent.getLayout()).set(this.room, UITableLayout.PACKED_HEIGHT, (float) height);
 		this.room.layout();
 		TGBottomDock.getInstance(this.context).layout();

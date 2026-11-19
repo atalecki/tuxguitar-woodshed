@@ -23,7 +23,8 @@ import app.tuxguitar.util.TGContext;
 /**
  * TuxGuitar's parameter rows of a plugin without an editor of its own (TGPluginEditor's rows), in any container (the
  * Parameters window, the Sound Chain panel's editor area): a row per parameter, its title, a slider over its range, its
- * plain value and Set, laid out in columns (TGParameterColumns: down each column first). A slider moved, once it rests,
+ * plain value and Set, laid out in columns (TGParameterColumns: down each column first), each slider as wide as its
+ * container gives it, within bounds (TGParameterColumns.slider: a row stays together however wide the container). A slider moved, once it rests,
  * or a value typed and set, is handed to the setter: one undoable change of the song (TGSoundChainCommands.set). Glue
  * only: the rows decide positions and values, the editor when it follows its plugin.
  */
@@ -52,7 +53,7 @@ final class TGPluginParameterRowsView {
 		this.panel = factory.createPanel(parent, false);
 		this.panel.setLayout(new UITableLayout());
 		editor.getRows().forEach(row -> this.rows.add(new Row(factory, row)));
-		this.columns(1);
+		this.columns(1, TGParameterColumns.NARROWEST_SLIDER);
 	}
 
 	UIPanel getControl() {
@@ -67,17 +68,17 @@ final class TGPluginParameterRowsView {
 		return this.rows.size();
 	}
 
-	// the size of the rows in one column, in the toolkit's units
+	// the size of the rows in one column, their sliders the narrowest, in the toolkit's units
 	UISize measure() {
 		this.panel.computePackedSize(null, null);
 		return this.panel.getPackedSize();
 	}
 
-	// the rows laid out in that many columns, down each column first
-	void columns(int columns) {
+	// the rows laid out in that many columns, down each column first, their sliders that wide (TGParameterColumns.slider)
+	void columns(int columns, int slider) {
 		int rows = TGParameterColumns.rows(this.rows.size(), columns);
 		for (int i = 0; i < this.rows.size(); i++) {
-			this.rows.get(i).place(TGParameterColumns.row(i, rows) + 1, TGParameterColumns.column(i, rows) * CELLS);
+			this.rows.get(i).place(TGParameterColumns.row(i, rows) + 1, TGParameterColumns.column(i, rows) * CELLS, slider);
 		}
 	}
 
@@ -124,10 +125,10 @@ final class TGPluginParameterRowsView {
 			this.show(row);
 		}
 
-		// at that row of the table, its cells from the column after first
-		void place(int number, int first) {
+		// at that row of the table, its cells from the column after first, its slider that wide
+		void place(int number, int first, int width) {
 			layout().set(this.title, number, first + 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, false, false);
-			layout().set(this.slider, number, first + 2, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false, 1, 1, 240f, null, null);
+			layout().set(this.slider, number, first + 2, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, false, false, 1, 1, (float) width, null, null);
 			layout().set(this.value, number, first + 3, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, false, false, 1, 1, 80f, null, null);
 			layout().set(this.set, number, first + 4, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_FILL, false, false, 1, 1, 80f, 25f, null);
 		}
