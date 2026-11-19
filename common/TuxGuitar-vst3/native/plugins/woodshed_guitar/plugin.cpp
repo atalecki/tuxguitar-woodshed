@@ -2,6 +2,7 @@
 
 #include "editor.h"
 #include "state.h"
+#include "text.h"
 
 #include "public.sdk/source/main/pluginfactory.h"
 #include "public.sdk/source/vst/utility/stringconvert.h"
@@ -22,8 +23,6 @@ namespace {
 const int kVoices = 32;
 // below this the plugin sounds nothing
 const float kSilence = 1e-6f;
-// what the plugin says when the profile's file is no longer the profile's contents
-const char kFileChanged[] = "The profile file has changed since it was loaded.";
 
 // the largest absolute sample
 float peak(const float* signal, int32 frames) {
@@ -269,7 +268,7 @@ void GuitarPlugin::apply(const Loaded& loaded) {
 		applyLoad(loaded);
 		return;
 	}
-	notice = (loaded.changed ? kFileChanged : "");
+	notice = (loaded.changed ? say("profile.changed") : std::string());
 	if (!loaded.refusal.empty()) {
 		refusal = loaded.refusal;
 		path.clear();

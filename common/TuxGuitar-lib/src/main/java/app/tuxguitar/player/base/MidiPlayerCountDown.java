@@ -30,9 +30,9 @@ public class MidiPlayerCountDown {
 			this.running = true;
 
 			int channelId = this.player.getCountInChannelId();
-			TGMeasureHeader header = this.findMeasureHeader();
-			if( header != null ){
-				this.playTicks(channelId, header);
+			Start start = this.findStart();
+			if( start != null ){
+				this.playTicks(channelId, start.header, start.from);
 			}
 
 			this.running = false;
@@ -42,8 +42,9 @@ public class MidiPlayerCountDown {
 	}
 
 	// one tick per beat of the header's time signature (unless a tick count is set), at the header's tempo scaled
-	// exactly by the tempo percent; the first of each measure of its time signature accented
-	private void playTicks(int channelId, TGMeasureHeader header) throws MidiPlayerException, InterruptedException {
+	// exactly by the tempo percent; accented as MidiClick.isCountInAccented says before a start that many ticks into
+	// the header's measure
+	private void playTicks(int channelId, TGMeasureHeader header, long from) throws MidiPlayerException, InterruptedException {
 		double tgTempo = ((header.getTempo().getQuarterValue() * (double) this.getTempoPercent()) / DEFAULT_TEMPO_PERCENT);
 		long tgLength = header.getTimeSignature().getDenominator().getTime();
 		long tickLength = (long)(1000.00 * (60.00 / tgTempo * tgLength) / TGDuration.QUARTER_TIME);
@@ -58,7 +59,7 @@ public class MidiPlayerCountDown {
 				tickStart += tickLength;
 				tickIndex ++;
 				if( tickIndex <= localTickCount ){
-					int note = click.getNote(channelId, MidiClick.isAccented(tickIndex - 1, header.getTimeSignature().getNumerator()));
+					int note = click.getNote(channelId, MidiClick.isCountInAccented(tickIndex - 1, localTickCount, header.getTimeSignature(), from));
 					this.player.getOutputTransmitter().sendNoteOn(channelId, note, click.getVelocity(), -1, false);
 					this.pause( 1 );
 					this.player.getOutputTransmitter().sendNoteOff(channelId, note, click.getVelocity(), -1, false);
@@ -92,6 +93,13 @@ public class MidiPlayerCountDown {
 	}
 
 	public TGMeasureHeader findMeasureHeader(){
+		Start start = this.findStart();
+		return (start != null ? start.header : null);
+	}
+
+	// where playing starts: the measure the player's tick is in, as the song plays it, and how far into it (ticks); null
+	// outside every measure played
+	private Start findStart(){
 		long tick = this.player.getTickPosition();
 		long startPoint = this.player.getLoopSPosition();
 		long start = startPoint;
@@ -109,11 +117,21 @@ public class MidiPlayerCountDown {
 
 				//verifico si es el compas correcto
 				if(tick >= start && tick < (start + length )){
-					return header;
+					return new Start(header, tick - start);
 				}
 			}
 		}
 		return null;
+	}
+
+	private static final class Start {
+		private final TGMeasureHeader header;
+		private final long from;
+
+		private Start(TGMeasureHeader header, long from) {
+			this.header = header;
+			this.from = from;
+		}
 	}
 
 	public boolean isRunning() {

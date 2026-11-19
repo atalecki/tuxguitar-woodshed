@@ -1,5 +1,6 @@
 package app.tuxguitar.player.base;
 
+import app.tuxguitar.song.models.TGTimeSignature;
 import app.tuxguitar.song.models.TGVelocities;
 import app.tuxguitar.util.configuration.TGConfigManager;
 
@@ -69,10 +70,24 @@ public final class MidiClick {
 
 	/**
 	 * Whether a click is accented: of clicks counted in measures of that many beats (the Metronome's beats of a
-	 * measure; Count In's clicks, in measures of the time signature it leads into), the first of each measure is beat 1.
-	 * The click counts from 0.
+	 * measure; Count In's, see isCountInAccented), the first of each measure is beat 1. The click counts from 0, the
+	 * clicks before it from -1 back.
 	 */
 	public static boolean isAccented(int click, int beats) {
 		return (click % beats == 0);
+	}
+
+	/**
+	 * Whether a Count In click is accented, live and offline, before the player's start and a practice turn's: of so
+	 * many clicks (counting from 0) a beat apart before a start that many ticks into a measure of the time signature,
+	 * those on beat 1, counted backwards from the start, so the accents fall on the bar lines before it. 6 clicks before
+	 * beat 1 of 4/4 are "3 4 | 1 2 3 4", 2 before 3/4 "2 3" (no accent), 4 before beat 3 of 4/4 "3 4 | 1 2". Before a
+	 * start between two beats no click falls on a beat of the song: its first click is accented, then the first of
+	 * each measure's worth after it.
+	 */
+	public static boolean isCountInAccented(int click, int clicks, TGTimeSignature signature, long from) {
+		long beat = signature.getDenominator().getTime();
+		int first = (from % beat == 0 ? (int) (from / beat) - clicks : 0);
+		return isAccented(first + click, signature.getNumerator());
 	}
 }

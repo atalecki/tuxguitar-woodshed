@@ -50,7 +50,8 @@ private:
 	};
 	static const Steinberg::Vst::ParamID kNoEdit = 0;
 
-	void addSlider(int row, Steinberg::Vst::ParamID id, const wchar_t* name, double minimum, double maximum);
+	// name: the key of its text (text.h)
+	void addSlider(int row, Steinberg::Vst::ParamID id, const char* name, double minimum, double maximum);
 
 	GuitarPlugin* plugin;
 	void* window = nullptr;

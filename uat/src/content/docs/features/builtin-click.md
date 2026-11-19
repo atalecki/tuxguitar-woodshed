@@ -8,18 +8,21 @@ sidebar:
 ## What it tests
 
 Commits `4e98b272d` to `78e1d7b58` on `feature/builtin-click` (`51b2ae767`, `9ad052c96` and `2a45b9cf9` are the
-change; the others are its spec, tests, a refactor and the settings label), and the accent on beat 1, `8ce6c57a6`.
+change; the others are its spec, tests, a refactor and the settings label), the accent on beat 1, `8ce6c57a6`, and
+Count In counting back from where the song starts, `64a02336a` on `feature/countin-downbeat-i18n`.
 On the TuxGuitar Synthesizer, Count In and the Metronome no longer play Gervill's General MIDI drum kit (a side stick by
 default). They sound the **built-in click**: a short, bright blip (a 1500 Hz tone that dies away within 30 ms) at the
 click sound's velocity. **Beat 1 of each measure is accented**: a higher (2000 Hz) and slightly louder (+3 dB) blip with
-the same short shape. The Metronome accents the first beat of every measure, as the measure's time signature says; Count
-In accents the first click of each measure it counts. It now sounds for Count In too when the song has a percussion track (before, that Count In played the
+the same short shape. The Metronome accents the first beat of every measure, as the measure's time signature says. Count
+In counts backwards from where the song starts, so its accents fall on the bar lines before the downbeat: 6 clicks
+before 4/4 sound "3 4 | 1 2 3 4", 2 before 3/4 "2 3" (no accent); before a start on beat 3 it counts "3 4 | 1 2";
+before a start between two beats its first click is accented, as before. It now sounds for Count In too when the song has a percussion track (before, that Count In played the
 percussion track's own drum sound). Its level and pan follow the percussion track's Volume and Balance, as the drums
 did. Any other MIDI Port still clicks the General MIDI drum note, unchanged.
 
 ## Setup
 
-Build and launch with the VS Code task **app: build + run**, at commit `8ce6c57a6` or later. Use headphones for
+Build and launch with the VS Code task **app: build + run**, at commit `64a02336a` or later. Use headphones for
 step 6.
 
 You need two songs, saved first:
@@ -30,6 +33,8 @@ You need two songs, saved first:
   Percussion Channel on the new track's channel, Volume full, Balance centre. Save it as `click-b.tg`.
 - **Song C**, for the accent in other meters: Song A saved as `click-c.tg`, then measure 2 set to 3/4 and measure 3 to
   5/4 (Composition > Time Signature, "to the end" unticked, each time with the caret in that measure).
+- **Song D**, for a start inside a measure: Song A saved as `click-d.tg`, then measure 1's whole note replaced by eight
+  eighth notes C, so the caret can stop on every half beat.
 
 Settings > Sound: MIDI Port "TuxGuitar Synthesizer" (choose an audio device in Tools > Audio Device... if asked). The
 click sound is the default: Drum note 37, Velocity 95.
@@ -48,9 +53,14 @@ click sound is the default: Drum note 37, Velocity 95.
 | 8 | Stop. Open Song A (no percussion track). Count In and Metronome on. Press Play. | Four blips (the first accented), then a blip on every beat (beat 1 accented), as loud as in step 2 and in the centre. | not run |
 | 9 | Stop. Open Song C. Metronome on, Count In off. Press Play. | Measure 1: accent, then 3 plain blips; measure 2 (3/4): accent, then 2; measure 3 (5/4): accent, then 4; measure 4: accent, then 3. The accent always lands on the first beat of the measure the cursor is in. | not run |
 | 10 | Stop. Put the caret in measure 1 beat 3 of Song A and press Play (Metronome on). | The first blip (beat 3) is plain; the accent comes on beat 1 of measure 2. | not run |
-| 11 | Stop. Transport > Count In ticks: 8 (Song A, Count In on). Press Play. | Eight blips before the guitar, the 1st and the 5th accented (two counted measures). Put the ticks back as they were afterwards. | not run |
-| 12 | Stop. Settings > Sound: MIDI Port "Gervill" (or, on Windows, "Microsoft GS Wavetable Synth"), Drum note 37. Press Play on Song A. | General MIDI side-stick clicks, as before this change, for Count In and the Metronome, all alike (no accent on another MIDI Port). | not run |
-| 13 | Stop. Settings > Sound: Drum note 42, OK. Press Play. | A closed hi-hat instead of the side stick: other MIDI Ports still play the drum note, every beat the same. | not run |
+| 11 | Stop. Transport > Count In ticks: 8 (Song A, Count In on, Metronome off). Press Play. | Eight blips before the guitar, the 1st and the 5th accented (two counted measures). | not run |
+| 12 | Stop. Count In ticks: 6. Press Play. | Six blips, counted "3 4, ONE 2 3 4": the 3rd is the accented one, and the guitar comes in on the beat after the 6th, where the next accent would fall. Before this change the 1st and 5th were accented. | not run |
+| 13 | Stop. Open Song C, Count In ticks: 2. Put the caret in measure 2 (3/4) and press Play. | Two plain blips ("2 3"), then the guitar from measure 2: no accent, as the bar line is not in the count. | not run |
+| 14 | Stop. Count In ticks back to 0 (one per beat). Open Song D, put the caret on the 5th eighth note of measure 1 (beat 3) and press Play. | Four blips counted "3 4, ONE 2": the 3rd is accented, and the first note sounds a beat after the 4th, on beat 3, so the count runs straight on into it. | not run |
+| 15 | Stop. Put the caret on the 4th eighth note of measure 1 (half way through beat 2) and press Play. | Four blips, the 1st accented, as before this change: no blip falls on a beat of the song, so the count starts with its own accent. The first note sounds a beat after the 4th blip. | not run |
+| 16 | Stop. Open Song A. Count In ticks: 6. Transport > Interleaved Practice..., each turn a measure, pool 1 to 4, 2 turns, Start. | Before each turn six blips, the 3rd accented ("3 4, ONE 2 3 4"), the turn's measure right after. Put the Count In ticks back to 0 afterwards. | not run |
+| 17 | Stop. Settings > Sound: MIDI Port "Gervill" (or, on Windows, "Microsoft GS Wavetable Synth"), Drum note 37. Press Play on Song A. | General MIDI side-stick clicks, as before this change, for Count In and the Metronome, all alike (no accent on another MIDI Port). | not run |
+| 18 | Stop. Settings > Sound: Drum note 42, OK. Press Play. | A closed hi-hat instead of the side stick: other MIDI Ports still play the drum note, every beat the same. | not run |
 
 ## Notes
 
@@ -58,7 +68,8 @@ click sound is the default: Drum note 37, Velocity 95.
   rise, falling by e every 5 ms, silent at 30 ms, level velocity / 127, left = right, any note; the accent 2000 Hz and
   3 dB louder with the same envelope), which clicks are accented live and offline (the feature
   `transport/the_click_accent`, lib's `TestMidiPlayerMetronome`, `TestMidiPlayerCountDown` and `TestSequenceParserTurn`:
-  time signature changes, a start mid-measure, 8 and 6 Count In ticks, other MIDI Ports unaccented), that the
+  time signature changes, a start mid-measure, 8 and 6 Count In ticks, Count In counted back from a start on beat 1, on
+  beat 3 and between two beats, and before practice turns, lib's `TestMidiClick`, other MIDI Ports unaccented), that the
   synthesizer's own drums play it with no latency (`TestSynthClock`), the drum tap offline (`TestDrumTap`), that the
   clicks follow the percussion channel's Volume and Balance (`TestDrumMix`, lib's `TestMidiPlayerMetronome`), that
   Count In goes to the drums with a percussion track too (lib's `TestMidiPlayerCountDown`), and that the clicks add no

@@ -97,12 +97,13 @@ public class TestMidiPlayerPractice {
 
 	// the Count In's clicks from the frame, then the measure's note
 	private static String turn(long frame, int measure) {
-		return clicks(frame) + ", " + (frame + 4 * BEAT) + " 1 " + (64 + measure);
+		return clicks(frame, 1) + ", " + (frame + 4 * BEAT) + " 1 " + (64 + measure);
 	}
 
-	// the Count In's 4 clicks from the frame: the drums' accented note (76) on the first, the plain one (77) on the others
-	private static String clicks(long frame) {
-		return IntStream.range(0, 4).mapToObj(click -> (frame + click * BEAT) + (click == 0 ? " -2 76" : " -2 77")).collect(Collectors.joining(", "));
+	// the Count In's 4 clicks from the frame before the beat (from 1) of a 4/4 measure: the drums' accented note (76) on
+	// the one on beat 1, counted back from that beat, the plain one (77) on the others (before beat 2: "2 3 4 | 1")
+	private static String clicks(long frame, int beat) {
+		return IntStream.range(0, 4).mapToObj(click -> (frame + click * BEAT) + ((beat - 1 + click) % 4 == 0 ? " -2 76" : " -2 77")).collect(Collectors.joining(", "));
 	}
 
 	private String state() {
@@ -348,6 +349,6 @@ public class TestMidiPlayerPractice {
 
 	// the Count In's clicks from the frame, then the beat's note and its joint's
 	private static String beat(long frame, int beat) {
-		return clicks(frame) + ", " + (frame + 4 * BEAT) + " 1 " + BEAT_KEYS[beat] + ", " + (frame + 5 * BEAT) + " 1 " + BEAT_KEYS[beat + 1];
+		return clicks(frame, beat) + ", " + (frame + 4 * BEAT) + " 1 " + BEAT_KEYS[beat] + ", " + (frame + 5 * BEAT) + " 1 " + BEAT_KEYS[beat + 1];
 	}
 }

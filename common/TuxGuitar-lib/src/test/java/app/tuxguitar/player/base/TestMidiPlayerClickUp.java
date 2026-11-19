@@ -81,11 +81,12 @@ public class TestMidiPlayerClickUp {
 	}
 
 	// the step played (its beat, first and last measure) from the frame, counted in by so many clicks (the drums' accented
-	// note, 76, on the first of each 4/4 measure they count, the plain one, 77, on the others), added to those started:
+	// note, 76, on beat 1 of each 4/4 measure, counted back from the step's first measure, the plain one, 77, on the
+	// others: 2 clicks are "3 4", both plain), added to those started:
 	// where the step after it starts
 	private static long step(List<String> started, int clicks, long at, int[] played) {
 		long beat = played[0];
-		LongStream.range(0, clicks).forEach(click -> started.add((at + click * beat) + (click % 4 == 0 ? " -2 76" : " -2 77")));
+		LongStream.range(0, clicks).forEach(click -> started.add((at + click * beat) + ((clicks - click) % 4 == 0 ? " -2 76" : " -2 77")));
 		IntStream.rangeClosed(played[1], played[2]).forEach(measure -> started.add((at + (clicks + 4 * (measure - played[1])) * beat) + " 1 " + (64 + measure)));
 		return at + (clicks + 4 * (played[2] - played[1] + 1)) * beat;
 	}

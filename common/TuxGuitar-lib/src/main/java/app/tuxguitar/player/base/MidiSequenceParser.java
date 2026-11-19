@@ -184,7 +184,8 @@ public class MidiSequenceParser {
 
 	// from the turn's start (its break's, if any): its first measure's time signature and tempo; after its break, a click
 	// on each beat of its Count In on the Metronome's channel (none without one), on the info track, which no mute or solo
-	// silences; the first of each measure it counts accented
+	// silences; accented as the player's Count In (MidiClick.isCountInAccented), before where the turn starts in its first
+	// measure
 	private void addCountIn(MidiSequenceHelper sh, MidiPracticeTurn turn) {
 		TGMeasureHeader first = turn.getFirst();
 		long tick = getTick(turn.getStart());
@@ -192,7 +193,7 @@ public class MidiSequenceParser {
 		this.addTempo(sh, first.getTempo(), tick);
 		for (int click = 0; click < turn.getClicks() && this.metronomeChannelId != NO_METRONOME_CHANNEL; click++) {
 			long start = turn.getCountIn() + click * turn.getBeat();
-			this.addClick(sh, getInfoTrack(), start, turn.getBeat(), MidiClick.isAccented(click, first.getTimeSignature().getNumerator()));
+			this.addClick(sh, getInfoTrack(), start, turn.getBeat(), MidiClick.isCountInAccented(click, turn.getClicks(), first.getTimeSignature(), turn.getSpan().getStart() - first.getStart()));
 		}
 	}
 

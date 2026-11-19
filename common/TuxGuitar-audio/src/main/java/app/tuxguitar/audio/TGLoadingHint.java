@@ -8,6 +8,7 @@ import app.tuxguitar.event.TGEvent;
 import app.tuxguitar.event.TGEventManager;
 import app.tuxguitar.player.base.MidiPlayerEvent;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Instance;
 
@@ -15,11 +16,16 @@ import app.tuxguitar.vst3.TGVst3Instance;
  * The quiet hint an app shows while a plugin Play stopped waiting for still loads: Play waits for the plugins of the
  * song's chains that restore their state in the background, for a while at most (TGVst3Instance.isRestoring); when it
  * starts while one still restores, the hint names it and what it loads ("Woodshed Guitar is still loading Clean.nam";
- * "... its sound" when the plugin did not say), until that plugin has finished (or no longer runs). Play that waited
+ * "... its sound" when the plugin did not say), in TuxGuitar's language (the messages LOADING and SOUND), until that
+ * plugin has finished (or no longer runs). Play that waited
  * until they were ready shows none. An app reads the hint as often as it likes, off its UI thread (each read asks the
  * plugins' hosts); null for none.
  */
 public final class TGLoadingHint {
+
+	// the messages it is said in: "{0} is still loading {1}" (the plugin, what it loads), "{0} is still loading its sound"
+	private static final String LOADING = "audio.loading-hint";
+	private static final String SOUND = "audio.loading-hint.sound";
 
 	// the plugins of the live renders still restoring when Play last started (see TGLivePlugins.getRunning): no lock is
 	// held while their hosts are asked, so a slow host never holds Play up
@@ -55,10 +61,15 @@ public final class TGLoadingHint {
 		for (TGVst3Instance instance : waited) {
 			String what = instance.getRestoring();
 			if (what != null) {
-				return instance.getName() + " is still loading " + (what.isEmpty() ? "its sound" : what);
+				return text(instance.getName(), what);
 			}
 			waited.remove(instance);
 		}
 		return null;
+	}
+
+	// as TuxGuitar's language says it (TGMessagesManager: English where it does not)
+	private static String text(String plugin, String what) {
+		return (what.isEmpty() ? TGMessagesManager.getProperty(SOUND, new Object[] {plugin}) : TGMessagesManager.getProperty(LOADING, new Object[] {plugin, what}));
 	}
 }

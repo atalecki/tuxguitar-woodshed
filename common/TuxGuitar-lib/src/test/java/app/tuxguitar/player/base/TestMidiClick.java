@@ -102,6 +102,39 @@ public class TestMidiClick {
 			java.util.stream.IntStream.range(0, 8).mapToObj(click -> MidiClick.isAccented(click, 3)).collect(java.util.stream.Collectors.toList()).toString());
 	}
 
+	// the accents of so many Count In clicks before a start that many ticks into a measure of numerator/denominator, "x"
+	// for an accented click, "." for a plain one
+	private static String countIn(int clicks, int numerator, int denominator, long from) {
+		app.tuxguitar.song.models.TGTimeSignature signature = new app.tuxguitar.song.factory.TGFactory().newTimeSignature();
+		signature.setNumerator(numerator);
+		signature.getDenominator().setValue(denominator);
+		return java.util.stream.IntStream.range(0, clicks).mapToObj(click -> MidiClick.isCountInAccented(click, clicks, signature, from) ? "x" : ".")
+			.collect(java.util.stream.Collectors.joining());
+	}
+
+	// counted backwards from the start, in its measure's time signature: the clicks on beat 1 are accented. 4/4: 4
+	// clicks "1 2 3 4", 6 "3 4 | 1 2 3 4", 9 "4 | 1 2 3 4 | 1 2 3 4"; 3/4: 2 "2 3"; 6/8 (6 eighths): 8 "5 6 | 1 2 3 4 5 6"
+	@Test
+	public void countInAccentsTheBarLinesBeforeTheDownbeat() {
+		assertEquals("x... ..x... .x...x... .. ..x.....", countIn(4, 4, 4, 0) + " " + countIn(6, 4, 4, 0) + " " + countIn(9, 4, 4, 0)
+			+ " " + countIn(2, 3, 4, 0) + " " + countIn(8, 6, 8, 0));
+	}
+
+	// before beat 3 of 4/4 (1920 ticks in): 4 clicks "3 4 | 1 2", 2 "1 2", 3 "4 | 1 2"; before beat 2 of 6/8 (480 ticks
+	// in): 3 "5 6 1"
+	@Test
+	public void countInBeforeAStartOnABeatLeadsIntoThatBeat() {
+		assertEquals("..x. x. .x. ..x", countIn(4, 4, 4, 1920) + " " + countIn(2, 4, 4, 1920) + " " + countIn(3, 4, 4, 1920)
+			+ " " + countIn(3, 6, 8, 480));
+	}
+
+	// before a start between two beats no click falls on a beat of the song: the first is accented, then the first of
+	// each measure's worth after it, as before (half way through beat 2 of 4/4: 960 + 480 ticks in; of 3/4)
+	@Test
+	public void countInBeforeAStartBetweenTwoBeatsAccentsItsFirstClick() {
+		assertEquals("x...x. x..x", countIn(6, 4, 4, 1440) + " " + countIn(4, 3, 4, 1440));
+	}
+
 	// on a synthesizer's own drums (the built-in click) an accented and a plain note; elsewhere the drum note either way
 	@Test
 	public void aClickOnTheDrumsIsAccentedOrPlainAndElsewhereTheDrumNote() {

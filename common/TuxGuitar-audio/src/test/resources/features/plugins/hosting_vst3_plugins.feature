@@ -478,6 +478,23 @@ Feature: Hosting VST3 plugins
     When I play the song live from measure 1 beat 1, track 1's plugin loading as Play starts, until measure 3 beat 1
     Then until measure 3 beat 1 the app's loading hint read "Test Sine is still loading its sound", and nothing from then on
 
+  # every text TuxGuitar shows goes through its translations (common/resources/lang/messages*.properties): the hint is
+  # said as the language TuxGuitar shows says it ("{0}" the plugin, "{1}" what it loads), in English where a language
+  # does not say it (its file lacks the message, as every language but English does now)
+  Scenario: the loading hint is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} lädt noch {1}" for the message "audio.loading-hint"
+    And track 1 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1, track 1's plugin loading "Big Room.wav" as Play starts, until measure 3 beat 1, then "Hall.wav" from measure 4 beat 1
+    Then until measure 3 beat 1 the app's loading hint read "Test Sine lädt noch Big Room.wav", and nothing from then on
+
+  Scenario: the hint of a plugin that does not say what it loads is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} lädt noch seinen Klang" for the message "audio.loading-hint.sound"
+    And track 1 has a quarter note on every beat
+    And I have chosen the VST3 instrument "Test Sine" for track 1
+    When I play the song live from measure 1 beat 1, track 1's plugin loading as Play starts, until measure 3 beat 1
+    Then until measure 3 beat 1 the app's loading hint read "Test Sine lädt noch seinen Klang", and nothing from then on
+
   Scenario: Play that waited until a plugin had loaded shows no hint, even when the plugin loads again as the song plays
     Given track 1 has a quarter note on every beat
     And I have chosen the VST3 instrument "Test Sine" for track 1

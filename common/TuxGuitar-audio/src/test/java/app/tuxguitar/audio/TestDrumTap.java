@@ -59,14 +59,14 @@ public class TestDrumTap {
 		assertArrayEquals(expected, tap[1]);
 	}
 
-	// one Count In tick: one click, from the first sample on (no latency)
+	// one Count In tick: one click, from the first sample on (no latency); plain, the beat before beat 1 being beat 4
 	@Test
 	public void isTheBuiltInClickOnTheCountInsClick() {
 		countDown.setEnabled(true);
 		countDown.setTickCount(1);
 		TGTimeline timeline = fromMeasure2();
 
-		assertSides(clicks(timeline, 95, java.util.Set.of(0L), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
+		assertSides(clicks(timeline, 95, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
 	}
 
 	// the velocity sets its level; the drum note (a closed hi-hat) is for other MIDI Ports
@@ -76,7 +76,7 @@ public class TestDrumTap {
 		countDown.setTickCount(1);
 		TGTimeline timeline = fromMeasure2();
 
-		assertSides(clicks(timeline, 127, java.util.Set.of(0L), 0), TGDrumTap.render(timeline, new MidiClick(42, 127)));
+		assertSides(clicks(timeline, 127, java.util.Set.of(), 0), TGDrumTap.render(timeline, new MidiClick(42, 127)));
 	}
 
 	// stopped 1000 samples in, just after the Count In's click: the tap ends there, holding what the click sounds by then
@@ -87,7 +87,7 @@ public class TestDrumTap {
 		TGTimeline timeline = fromMeasure2().until(1000);
 
 		assertEquals(1000, timeline.length());
-		assertSides(clicks(timeline, 95, java.util.Set.of(0L), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
+		assertSides(clicks(timeline, 95, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
 	}
 
 	// as many Count In clicks as Metronome clicks (4 each, a beat of 22050 samples apart): the Metronome's on measure 2's

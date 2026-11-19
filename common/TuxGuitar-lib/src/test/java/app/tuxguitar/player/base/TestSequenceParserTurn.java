@@ -90,12 +90,24 @@ public class TestSequenceParserTurn {
 			parsed(turn, false, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
 
-	// on a synthesizer's own drums (the built-in click) the first click of each measure it counts is accented
-	@Test
-	public void onTheDrumsATurnsCountInAccentsTheFirstClickOfEachMeasureItCounts() {
+	// the notes of the turn's Count In clicks (on the info track) on a synthesizer's own drums (the built-in click)
+	private String drumClicks(MidiPracticeTurn turn) {
 		song.metronomeChannelId = MidiSampleClock.DRUMS;
-		assertEquals("k76 k77 k77 k77 k76 k77", java.util.Arrays.stream(parsed(turn(2, 2, 0, 6), false, "on").split(", "))
-			.filter(event -> event.contains(" t0 ")).map(event -> event.replaceAll(".* (k\\d+) .*", "$1")).collect(java.util.stream.Collectors.joining(" ")));
+		return java.util.Arrays.stream(parsed(turn, false, "on").split(", ")).filter(event -> event.contains(" t0 "))
+			.map(event -> event.replaceAll(".* (k\\d+) .*", "$1")).collect(java.util.stream.Collectors.joining(" "));
+	}
+
+	// a turn's Count In is accented as the player's (MidiClick.isCountInAccented): counted backwards from the turn's
+	// first measure, 6 clicks in 4/4 are "3 4 | 1 2 3 4"
+	@Test
+	public void onTheDrumsATurnsCountInAccentsTheBarLineBeforeItsFirstMeasure() {
+		assertEquals("k77 k77 k76 k77 k77 k77", drumClicks(turn(2, 2, 0, 6)));
+	}
+
+	// a turn of beats from beat 3 (a click-up step's) is led into beat 3: 4 clicks in 4/4 are "3 4 | 1 2"
+	@Test
+	public void onTheDrumsATurnFromBeat3CountsInToBeat3() throws TGPracticeRefusal {
+		assertEquals("k77 k77 k76 k77", drumClicks(beats(1, 3, 4, 960, 4)));
 	}
 
 	@Test
