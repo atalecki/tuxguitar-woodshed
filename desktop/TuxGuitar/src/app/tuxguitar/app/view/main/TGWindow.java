@@ -90,6 +90,8 @@ public class TGWindow implements TGEventListener {
 		topContainerLayout.set(tgTabFolder.getControl(), UITableLayout.PACKED_WIDTH, 0f);
 		topContainerLayout.set(tgTabFolder.getControl(), UITableLayout.PACKED_HEIGHT, 0f);
 
+		TGRightDock.getInstance(this.context).create(uiFactory, topContainer, 3);
+
 		TGWindowDivider tgWindowDivider = new TGWindowDivider(this.context);
 		tgWindowDivider.createDivider(this.window);
 

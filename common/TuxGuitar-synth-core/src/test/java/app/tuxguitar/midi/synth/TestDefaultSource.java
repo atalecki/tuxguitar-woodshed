@@ -135,6 +135,58 @@ public class TestDefaultSource {
 		this.channel.sendParameter(prefix + ".type", type);
 	}
 
+	// a chain whose source is General MIDI marked as the source's parameter says ("true": plain General MIDI, a track's
+	// sound set to MIDI), with its effects
+	private void sendMarkedChain(String mark, String... effects) throws MidiPlayerException {
+		this.channel.sendParameter(MidiParameters.SENDING_PARAMS, Boolean.TRUE.toString());
+		send(TGSynthChannel.SOUND_CHAIN_PREFIX, "midi", GervillProcessorFactory.TYPE);
+		this.channel.sendParameter(TGSynthChannel.SOUND_CHAIN_PREFIX + ".param.count", "1");
+		this.channel.sendParameter(TGSynthChannel.SOUND_CHAIN_PREFIX + ".param.0.name", TGDefaultSource.PLAIN_GENERAL_MIDI);
+		this.channel.sendParameter(TGSynthChannel.SOUND_CHAIN_PREFIX + ".param.0.value", mark);
+		sendEffects(effects);
+		this.channel.sendParameter(MidiParameters.SENDING_PARAMS, Boolean.FALSE.toString());
+	}
+
+	// a track's sound set to MIDI: its program plays, never the default of its kind (none is opened), its effects kept
+	@Test
+	public void aChainWhoseSourceIsPlainGeneralMidiPlaysItsProgramNotTheDefault() throws MidiPlayerException {
+		sendMarkedChain(Boolean.TRUE.toString(), "lift");
+		sendBankAndProgram(0, 25);
+
+		assertEquals(level(GERVILL + 0.1f) + " 0", sounds() + " " + this.guitar.created.size());
+	}
+
+	// a mark that does not say "true" marks nothing: the default plays
+	@Test
+	public void aGeneralMidiSourceMarkedOtherThanTrueTakesTheDefault() throws MidiPlayerException {
+		sendMarkedChain(Boolean.FALSE.toString());
+		sendBankAndProgram(0, 25);
+
+		assertEquals(level(GUITAR), sounds());
+	}
+
+	// a source of the same id ("source") but of another type in place of the one playing, on a kind without a default:
+	// the processor that played closes and one of the new type opens and plays, either way (before, the processor of the
+	// old type was kept and given the new source's parameters: silence with a real plugin). Read as "<the old processor
+	// open> <processors of the new type made> <what sounds>"
+	@Test
+	public void aSourceOfTheSameIdAndAnotherTypeClosesTheOldProcessorAndPlays() throws MidiPlayerException {
+		sendChain("own");
+		sendBankAndProgram(0, 5);
+		String toGeneralMidi = this.switched(GervillProcessorFactory.TYPE, this.gervill);
+		String toOwn = this.switched("own", this.own);
+
+		assertEquals("false 1 " + level(GERVILL) + " | false 1 " + level(OWN), toGeneralMidi + " | " + toOwn);
+	}
+
+	// the source playing switched to the type given, its factory given
+	private String switched(String then, FakeProcessors.SourceFactory made) throws MidiPlayerException {
+		TGMidiProcessor played = this.channel.getProcessor().getProcessor();
+		int before = made.created.size();
+		sendChain(then);
+		return played.isOpen() + " " + (made.created.size() - before) + " " + sounds();
+	}
+
 	private void sendBankAndProgram(int bank, int program) throws MidiPlayerException {
 		this.channel.sendControlChange(MidiControllers.BANK_SELECT, bank);
 		this.channel.sendProgramChange(program);

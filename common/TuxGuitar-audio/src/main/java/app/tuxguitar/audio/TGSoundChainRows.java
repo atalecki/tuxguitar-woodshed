@@ -8,8 +8,9 @@ import java.util.stream.IntStream;
 import app.tuxguitar.midi.synth.TGLevels;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
-import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
+import app.tuxguitar.midi.synth.TGDefaultSource;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
@@ -31,6 +32,8 @@ public final class TGSoundChainRows {
 		USE_AS_SOURCE((rows, row, effect, instrument) -> rows.canChoose(instrument)),
 		DEFAULT_INSTRUMENT((rows, row, effect, instrument) -> rows.canChooseSource()),
 		KEEP((rows, row, effect, instrument) -> rows.canKeep()),
+		TO_MIDI((rows, row, effect, instrument) -> rows.getMode() == TGSoundMode.VST3),
+		TO_VST3((rows, row, effect, instrument) -> rows.getMode() == TGSoundMode.MIDI),
 		MOVE_UP((rows, row, effect, instrument) -> rows.canMoveUp(row)),
 		REMOVE((rows, row, effect, instrument) -> rows.isEffect(row)),
 		TOGGLE((rows, row, effect, instrument) -> rows.isEffect(row)),
@@ -119,14 +122,52 @@ public final class TGSoundChainRows {
 		return (this.play != null && this.isDefault() ? this.play.say(name) : name);
 	}
 
-	// whether the source is the default instrument of the channel's kind (stored as General MIDI)
+	// the sound the track has (TGSoundMode), the switch between MIDI and VST3 showing it; null without a track
+	public TGSoundMode getMode() {
+		return (this.chain != null ? TGSoundMode.of(this.channel, this.chain) : null);
+	}
+
+	// whether the source is the default instrument of the channel's kind (stored as General MIDI that gives way to it)
 	public boolean isDefault() {
-		return GervillProcessorFactory.TYPE.equals(this.chain.getReceiver().getType());
+		return TGDefaultSource.givesWay(this.chain.getReceiver());
 	}
 
 	// whether the default instrument plays as the source, so it can be kept in the song (TGKeepDefaultInstrumentAction)
 	public boolean canKeep() {
 		return (this.isDefault() && this.play != null && this.play.getElement() != null);
+	}
+
+	// what the default instrument of the channel's kind plays, by name: its VST3 instrument, else General MIDI (none plays,
+	// or that is not known)
+	public String defaultName(String generalMidi) {
+		boolean plays = (this.play != null && this.play.getElement() != null);
+		return (plays ? TGVst3Element.getName(this.play.getElement()) : generalMidi);
+	}
+
+	// whether the track's sound switches between MIDI and VST3: a track's, not an audio track's (its takes)
+	public boolean isSwitched() {
+		return this.chain != null && !this.channel.isAudioChannel();
+	}
+
+	// the Track panel's VST3 instrument drop-down (TGTrackSoundChoices: null, the default, first); none without a track
+	public List<TGVst3Plugin> instrumentChoices(List<TGVst3Plugin> scanned) {
+		return (this.chain != null ? TGTrackSoundChoices.instruments(this.chain.getReceiver(), scanned) : new ArrayList<TGVst3Plugin>());
+	}
+
+	// the choice picked for the source; -1 for none
+	public int pickedInstrument(List<TGVst3Plugin> choices) {
+		return (this.chain != null ? TGTrackSoundChoices.picked(this.chain.getReceiver(), choices) : -1);
+	}
+
+	// the Track panel's General MIDI program drop-down, for the channel (numbered on a percussion channel, after the
+	// prefix); none without a track
+	public List<String> programChoices(String prefix) {
+		return (this.chain != null ? TGTrackSoundChoices.programs(this.channel.isPercussionChannel(), prefix) : new ArrayList<String>());
+	}
+
+	// the channel's General MIDI program; -1 without a track
+	public int getProgram() {
+		return (this.chain != null ? this.channel.getProgram() : -1);
 	}
 
 	// the row picked: its index, or -1 for none

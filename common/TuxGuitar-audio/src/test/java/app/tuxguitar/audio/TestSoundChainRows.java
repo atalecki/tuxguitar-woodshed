@@ -137,13 +137,14 @@ class TestSoundChainRows {
 		TGChannel audio = this.fixture.songManager.getChannel(this.fixture.song, this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1)).getChannelId());
 		TGSoundChainRows guitar = TGSoundChainRows.of(this.guitar);
 		return Stream.of(
-			reads("none picked", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, -1, GAIN, SINE)),
-			reads("the source", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, GAIN, SINE)),
-			reads("the first effect", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT REMOVE TOGGLE EDIT OPEN_DIALOG", () -> enabled(guitar, 1, GAIN, SINE)),
-			reads("a later effect, disabled", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT MOVE_UP REMOVE TOGGLE OPEN_DIALOG", () -> enabled(guitar, 2, GAIN, SINE)),
-			reads("plugins picked of the other kind", "DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, SINE, GAIN)),
-			reads("no plugins to pick", "DEFAULT_INSTRUMENT OPEN_DIALOG", () -> enabled(guitar, 0, null, null)),
+			reads("none picked", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT TO_MIDI OPEN_DIALOG", () -> enabled(guitar, -1, GAIN, SINE)),
+			reads("the source", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT TO_MIDI OPEN_DIALOG", () -> enabled(guitar, 0, GAIN, SINE)),
+			reads("the first effect", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT TO_MIDI REMOVE TOGGLE EDIT OPEN_DIALOG", () -> enabled(guitar, 1, GAIN, SINE)),
+			reads("a later effect, disabled", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT TO_MIDI MOVE_UP REMOVE TOGGLE OPEN_DIALOG", () -> enabled(guitar, 2, GAIN, SINE)),
+			reads("plugins picked of the other kind", "DEFAULT_INSTRUMENT TO_MIDI OPEN_DIALOG", () -> enabled(guitar, 0, SINE, GAIN)),
+			reads("no plugins to pick", "DEFAULT_INSTRUMENT TO_MIDI OPEN_DIALOG", () -> enabled(guitar, 0, null, null)),
 			reads("an audio channel's takes", "ADD_EFFECT OPEN_DIALOG", () -> enabled(TGSoundChainRows.of(audio), 0, GAIN, SINE)),
+			reads("a track on MIDI", "ADD_EFFECT USE_AS_SOURCE DEFAULT_INSTRUMENT TO_VST3 OPEN_DIALOG", () -> enabled(this.onMidi(), 0, GAIN, SINE)),
 			reads("no track", "", () -> enabled(TGSoundChainRows.NONE, 0, GAIN, SINE)));
 	}
 
@@ -152,7 +153,7 @@ class TestSoundChainRows {
 	@Test
 	void keepIsEnabledWhileTheDefaultInstrumentPlaysAndEditOnItsRow() {
 		TGSoundChainRows rows = TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine());
-		assertEquals("DEFAULT_INSTRUMENT KEEP OPEN_DIALOG | DEFAULT_INSTRUMENT KEEP EDIT OPEN_DIALOG", enabled(rows, -1, null, null) + " | " + enabled(rows, 0, null, null));
+		assertEquals("DEFAULT_INSTRUMENT KEEP TO_MIDI OPEN_DIALOG | DEFAULT_INSTRUMENT KEEP TO_MIDI EDIT OPEN_DIALOG", enabled(rows, -1, null, null) + " | " + enabled(rows, 0, null, null));
 	}
 
 	// General MIDI playing as the default source has no editor
@@ -167,8 +168,61 @@ class TestSoundChainRows {
 		TGProgram chain = TGSoundChain.get(this.guitar);
 		chain.setReceiver(TGSoundChain.source(GervillProcessorFactory.TYPE));
 		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		return sinePlays();
+	}
+
+	// the guitars' default, Test Sine, plays
+	private static TGDefaultPlay sinePlays() {
 		return new TGDefaultPlay(TGInstrumentKind.GUITAR, TGDefaultInstrument.parse("7A1C0008544753494E45000000000008", "Test Sine").get(),
 			TGVst3Element.create("default-guitar", SINE), TGDefaultPlay.Is.PLAYED);
+	}
+
+	// the guitar's sound set to MIDI: its source plain General MIDI (the switch's own, TGSetMidiSoundAction's)
+	private TGSoundChainRows onMidi() {
+		TGProgram chain = TGSoundChain.get(this.guitar);
+		chain.setReceiver(TGSoundChain.midi());
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		return TGSoundChainRows.of(this.guitar, sinePlays());
+	}
+
+	// the sound a track has: VST3 (an instrument of its own, or the default), MIDI (plain General MIDI, no default in
+	// its place: nothing to keep, no editor), an audio track's takes; no track, none
+	@Test
+	void theSoundTheTrackHas() {
+		TGChannel audio = this.fixture.songManager.getChannel(this.fixture.song, this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1)).getChannelId());
+		String own = TGSoundChainRows.of(this.guitar).getMode() + " " + TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine()).getMode();
+		TGSoundChainRows midi = this.onMidi();
+		assertEquals("VST3 VST3 | MIDI keep false edit false default false | TAKES | null",
+			own + " | " + midi.getMode() + " keep " + midi.canKeep() + " edit " + midi.canEdit(0) + " default " + midi.isDefault() + " | " + TGSoundChainRows.of(audio).getMode() + " | " + TGSoundChainRows.NONE.getMode());
+	}
+
+	// the Track panel's "Default instrument (<name>)": the default instrument that plays, else General MIDI (none plays,
+	// or what plays is not known)
+	@Test
+	void theDefaultInstrumentIsNamedByWhatPlays() {
+		TGDefaultPlay generalMidi = new TGDefaultPlay(TGInstrumentKind.GUITAR, null, null, TGDefaultPlay.Is.NO_DEFAULT);
+		assertEquals("Test Sine | GM | GM", TGSoundChainRows.of(this.guitar, sinePlays()).defaultName("GM") + " | "
+			+ TGSoundChainRows.of(this.guitar, generalMidi).defaultName("GM") + " | " + TGSoundChainRows.of(this.guitar).defaultName("GM"));
+	}
+
+	// what the Track panel shows of the track's sound: the switch (not on an audio track, nor without a track), the VST3
+	// instruments offered and the one picked, the General MIDI programs offered (numbered on a percussion channel) and
+	// the channel's
+	@Test
+	void whatTheTrackPanelOffersOfTheSound() {
+		TGChannel audio = this.fixture.songManager.getChannel(this.fixture.song, this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1)).getChannelId());
+		TGSoundChainRows own = TGSoundChainRows.of(this.guitar);
+		TGSoundChainRows byDefault = TGSoundChainRows.of(this.guitar, this.defaultSourcePlayingSine());
+		List<TGVst3Plugin> offered = byDefault.instrumentChoices(Arrays.asList(SINE));
+		this.guitar.setProgram((short) 30);
+		this.guitar.setBank(TGChannel.DEFAULT_PERCUSSION_BANK);
+		TGSoundChainRows drums = TGSoundChainRows.of(this.guitar);
+		assertEquals("switch true false false | [null, Test Sine] 0 | [] -1 | 128 Program #30 30 | 0 -1",
+			"switch " + own.isSwitched() + " " + TGSoundChainRows.of(audio).isSwitched() + " " + TGSoundChainRows.NONE.isSwitched()
+			+ " | " + offered.stream().map(plugin -> (plugin != null ? plugin.getName() : "null")).collect(Collectors.toList()) + " " + byDefault.pickedInstrument(offered)
+			+ " | " + TGSoundChainRows.NONE.instrumentChoices(Arrays.asList(SINE)) + " " + TGSoundChainRows.NONE.pickedInstrument(offered)
+			+ " | " + drums.programChoices("Program").size() + " " + drums.programChoices("Program").get(30) + " " + drums.getProgram()
+			+ " | " + TGSoundChainRows.NONE.programChoices("Program").size() + " " + TGSoundChainRows.NONE.getProgram());
 	}
 
 	// no track: no rows

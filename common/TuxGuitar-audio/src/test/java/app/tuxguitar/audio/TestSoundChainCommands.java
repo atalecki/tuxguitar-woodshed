@@ -21,14 +21,19 @@ import app.tuxguitar.audio.action.TGMoveEffectUpAction;
 import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
 import app.tuxguitar.audio.action.TGRemoveEffectAction;
 import app.tuxguitar.audio.action.TGSetEffectEnabledAction;
+import app.tuxguitar.audio.action.TGSetMidiSoundAction;
 import app.tuxguitar.audio.action.TGSetPluginParameterAction;
+import app.tuxguitar.audio.action.TGSetVst3SoundAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.editor.action.TGActionBase;
+import app.tuxguitar.editor.action.channel.TGUpdateChannelAction;
+import app.tuxguitar.editor.action.track.TGSetTrackInfoAction;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGColor;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.thread.TGThreadHandler;
 import app.tuxguitar.thread.TGThreadLoop;
@@ -59,7 +64,8 @@ class TestSoundChainCommands {
 		this.fixture.map(new TGAddVst3EffectAction(this.fixture.context), new TGChooseVst3InstrumentAction(this.fixture.context), new TGChooseGeneralMidiAction(this.fixture.context),
 			new TGKeepDefaultInstrumentAction(this.fixture.context), new TGMoveEffectUpAction(this.fixture.context), new TGRemoveEffectAction(this.fixture.context),
 			new TGSetEffectEnabledAction(this.fixture.context), new TGOpenPluginEditorAction(this.fixture.context),
-			new TGSetPluginParameterAction(this.fixture.context));
+			new TGSetPluginParameterAction(this.fixture.context), new TGSetMidiSoundAction(this.fixture.context), new TGSetVst3SoundAction(this.fixture.context),
+			new TGUpdateChannelAction(this.fixture.context), new TGSetTrackInfoAction(this.fixture.context));
 		TGProgram chain = TGSoundChain.get(this.channel(this.track));
 		chain.setReceiver(TGSoundChain.source("drone"));
 		TGSoundChain.save(this.channel(this.track), chain, this.fixture.songManager.getFactory());
@@ -116,6 +122,30 @@ class TestSoundChainCommands {
 		boolean byDefault = TGSoundChainRows.of(this.channel(this.track)).isDefault();
 		this.commands.keep();
 		assertEquals("Source: Test Sine [done] | true | Source: Test Sine [done, done, done] false", chosen + " | " + byDefault + " | " + this.read(this.track) + " " + TGSoundChainRows.of(this.channel(this.track)).isDefault());
+	}
+
+	// the Track panel's MIDI | VST3 switch, and the General MIDI program picked on MIDI (a change of the channel), each a
+	// change told
+	@Test
+	void theSoundIsSwitchedAndTheProgramPicked() {
+		this.commands.useAsSource(this.hosting.find("Test Sine"));
+		this.commands.toMidi();
+		String midi = TGSoundMode.of(this.channel(this.track)) + " " + this.told.size();
+		this.commands.program((short) 30);
+		String program = this.channel(this.track).getProgram() + " " + this.told.size();
+		this.commands.toVst3();
+		assertEquals("MIDI 2 | 30 3 | Source: Test Sine [done, done, done, done]", midi + " | " + program + " | " + this.read(this.track));
+	}
+
+	// the Track panel's header: the track's name and colour, each one change of the track's info, told; the name it has
+	// already changes nothing
+	@Test
+	void theTracksNameAndColourAreChangedTheSameNameNot() {
+		this.commands.rename("Lead");
+		this.commands.recolor(TGColor.newColor(1, 2, 3));
+		this.commands.rename("Lead");
+		TGColor color = this.track.getColor();
+		assertEquals("Lead 1,2,3 [done, done]", this.track.getName() + " " + color.getR() + "," + color.getG() + "," + color.getB() + " " + this.told);
 	}
 
 	// the panel follows the caret's track: each command acts on the track it is given then

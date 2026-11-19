@@ -13,11 +13,16 @@ import app.tuxguitar.audio.action.TGMoveEffectUpAction;
 import app.tuxguitar.audio.action.TGOpenPluginEditorAction;
 import app.tuxguitar.audio.action.TGRemoveEffectAction;
 import app.tuxguitar.audio.action.TGSetEffectEnabledAction;
+import app.tuxguitar.audio.action.TGSetMidiSoundAction;
 import app.tuxguitar.audio.action.TGSetPluginParameterAction;
+import app.tuxguitar.audio.action.TGSetVst3SoundAction;
 import app.tuxguitar.document.TGDocumentContextAttributes;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.action.TGActionProcessor;
+import app.tuxguitar.editor.action.channel.TGUpdateChannelAction;
+import app.tuxguitar.editor.action.track.TGSetTrackInfoAction;
 import app.tuxguitar.song.models.TGChannel;
+import app.tuxguitar.song.models.TGColor;
 import app.tuxguitar.song.models.TGTrack;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.midi.synth.TGProgramElement;
@@ -25,13 +30,14 @@ import app.tuxguitar.vst3.TGVst3Element;
 import app.tuxguitar.vst3.TGVst3Plugin;
 
 /**
- * What a sound chain editor (the Sound Chain dialog, the Sound Chain panel) asks of a track's sound chain: each a sound
- * chain action, run as the app runs actions (TGActionProcessor: on a thread of its own), on the channel the track has in
- * the song at that moment (the track asked for then; an undo may have replaced its channel), a row being the editor's
- * (TGSoundChainRows: 0 the source, then each effect). Once an action is done the editor is told (finished, on the
- * action's thread), so it reads the chain again; a refused one tells nothing (the app shows why). Edit opens the row's
- * plugin's own editor where the placement says, or TuxGuitar's parameter editor, then handed to the editor (to show
- * TuxGuitar's, or follow what becomes of the plugin's own), as the action opens it.
+ * What a sound chain editor (the Sound Chain dialog, the Track panel) asks of a track's sound chain (and the Track
+ * panel of the track: its sound, General MIDI program, name and colour): each an action, run as the app runs actions
+ * (TGActionProcessor: on a thread of its own), on the channel the track has in the song at that moment (the track asked
+ * for then; an undo may have replaced its channel), a row being the editor's (TGSoundChainRows: 0 the source, then each
+ * effect). Once an action is done the editor is told (finished, on the action's thread), so it reads the chain again; a
+ * refused one tells nothing (the app shows why). Edit opens the row's plugin's own editor where the placement says, or
+ * TuxGuitar's parameter editor, then handed to the editor (to show TuxGuitar's, or follow what becomes of the plugin's
+ * own), as the action opens it.
  */
 public final class TGSoundChainCommands {
 
@@ -61,6 +67,44 @@ public final class TGSoundChainCommands {
 	// the default instrument that plays is kept in the song as the track's own
 	public void keep() {
 		this.run(new TGActionProcessor(this.context, TGKeepDefaultInstrumentAction.NAME));
+	}
+
+	// the track's sound set to MIDI (its General MIDI program played as it is), or back to VST3
+	public void toMidi() {
+		this.run(new TGActionProcessor(this.context, TGSetMidiSoundAction.NAME));
+	}
+
+	public void toVst3() {
+		this.run(new TGActionProcessor(this.context, TGSetVst3SoundAction.NAME));
+	}
+
+	// the General MIDI program the track's channel plays: a change of the channel, as the channel settings make it
+	public void program(short program) {
+		TGActionProcessor processor = new TGActionProcessor(this.context, TGUpdateChannelAction.NAME);
+		processor.setAttribute(TGUpdateChannelAction.ATTRIBUTE_PROGRAM, program);
+		this.run(processor);
+	}
+
+	// the track's name, its colour: each a change of the track's info, as Track Properties makes it; the name it has
+	// already changes nothing
+	public void rename(String name) {
+		if (!name.equals(this.track.get().getName())) {
+			this.info(name, this.track.get().getColor());
+		}
+	}
+
+	public void recolor(TGColor color) {
+		this.info(this.track.get().getName(), color);
+	}
+
+	private void info(String name, TGColor color) {
+		TGTrack track = this.track.get();
+		TGActionProcessor processor = new TGActionProcessor(this.context, TGSetTrackInfoAction.NAME);
+		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, track);
+		processor.setAttribute(TGSetTrackInfoAction.ATTRIBUTE_TRACK_NAME, name);
+		processor.setAttribute(TGSetTrackInfoAction.ATTRIBUTE_TRACK_COLOR, color);
+		processor.setAttribute(TGSetTrackInfoAction.ATTRIBUTE_TRACK_OFFSET, track.getOffset());
+		this.run(processor);
 	}
 
 	public void moveUp(int row) {

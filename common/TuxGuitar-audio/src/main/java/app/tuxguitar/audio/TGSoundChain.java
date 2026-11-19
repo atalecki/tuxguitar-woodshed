@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.StringJoiner;
 
+import app.tuxguitar.midi.synth.TGDefaultSource;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGProgramPropertiesUtil;
@@ -30,6 +31,10 @@ public final class TGSoundChain {
 	public static final String TAKES = "takes";
 	// the name of that source in TuxGuitar's language: "takes"
 	private static final String TAKES_NAME = "audio.source.takes";
+	// the id of the source of a track's sound set to MIDI (midi)
+	private static final String MIDI_ID = "midi";
+	// the keys of the instrument a track's sound set to MIDI replaced, kept while on MIDI (kept)
+	private static final String KEPT_PREFIX = "sound.kept";
 
 	private TGSoundChain() {
 	}
@@ -120,14 +125,34 @@ public final class TGSoundChain {
 		return source;
 	}
 
+	// the source of a track's sound set to MIDI: General MIDI marked plain, so no default plays in its place; of an id of
+	// its own, apart from the VST3 instrument's ("source") the song keeps meanwhile (kept), as elements are known by id
+	// (the live plugins, the editor area)
+	public static TGProgramElement midi() {
+		TGProgramElement midi = source(GervillProcessorFactory.TYPE);
+		midi.setId(MIDI_ID);
+		midi.setParameter(TGDefaultSource.PLAIN_GENERAL_MIDI, Boolean.TRUE.toString());
+		return midi;
+	}
+
+	// the instrument a track's sound set to MIDI replaced, kept while on MIDI; null for none
+	public static TGProgramElement kept(TGChannel channel) {
+		return TGProgramPropertiesUtil.getElement(properties(channel), KEPT_PREFIX);
+	}
+
 	// the chain into the channel's parameters, under the sound chain's keys; the custom program's are dropped
 	public static void save(TGChannel channel, TGProgram chain, TGFactory factory) {
-		List<TGChannelParameter> parameters = parameters(channel, chain, factory);
+		save(channel, chain, kept(channel), factory);
+	}
+
+	// with the instrument the song keeps while on MIDI (null: none), saved only when the chain's source is MIDI's
+	public static void save(TGChannel channel, TGProgram chain, TGProgramElement instrument, TGFactory factory) {
+		List<TGChannelParameter> parameters = parameters(channel, chain, instrument, factory);
 		channel.removeParameters();
 		parameters.forEach(channel::addParameter);
 	}
 
-	private static List<TGChannelParameter> parameters(TGChannel channel, TGProgram chain, TGFactory factory) {
+	private static List<TGChannelParameter> parameters(TGChannel channel, TGProgram chain, TGProgramElement instrument, TGFactory factory) {
 		List<TGChannelParameter> parameters = new ArrayList<TGChannelParameter>();
 		Iterator<TGChannelParameter> kept = channel.getParameters();
 		while (kept.hasNext()) {
@@ -138,6 +163,9 @@ public final class TGSoundChain {
 		}
 		TGSynthChannelProperties saved = new TGSynthChannelProperties();
 		TGProgramPropertiesUtil.setProgram(saved, TGSynthChannel.SOUND_CHAIN_PREFIX, chain);
+		if (instrument != null && TGSoundMode.isMidi(chain.getReceiver())) {
+			TGProgramPropertiesUtil.setElement(saved, KEPT_PREFIX, instrument);
+		}
 		saved.getProperties().forEach((key, value) -> {
 			TGChannelParameter parameter = factory.newChannelParameter();
 			parameter.setKey(key);
@@ -148,7 +176,7 @@ public final class TGSoundChain {
 	}
 
 	private static boolean isChainKey(String key) {
-		return (key.startsWith(TGSynthChannel.SOUND_CHAIN_PREFIX + ".") || key.startsWith(TGSynthChannel.CUSTOM_PROGRAM_PREFIX + "."));
+		return (key.startsWith(TGSynthChannel.SOUND_CHAIN_PREFIX + ".") || key.startsWith(TGSynthChannel.CUSTOM_PROGRAM_PREFIX + ".") || key.startsWith(KEPT_PREFIX + "."));
 	}
 
 	private static TGSynthChannelProperties properties(TGChannel channel) {

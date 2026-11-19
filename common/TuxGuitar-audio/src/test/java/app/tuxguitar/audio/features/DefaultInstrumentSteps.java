@@ -23,6 +23,7 @@ import app.tuxguitar.audio.TGStatusHint;
 import app.tuxguitar.event.TGEventListener;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGSynthChannel;
+import app.tuxguitar.midi.synth.impl.GervillProcessor;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.song.models.TGChannel;
@@ -60,7 +61,12 @@ public class DefaultInstrumentSteps {
 
 	@ParameterType("guitar|bass|drums|other")
 	public TGInstrumentKind kind(String kind) {
-		return TGInstrumentKind.valueOf(kind.toUpperCase(Locale.ROOT));
+		return named(TGInstrumentKind.class, kind);
+	}
+
+	// the constant a step names in any case
+	static <E extends Enum<E>> E named(Class<E> type, String name) {
+		return Enum.valueOf(type, name.toUpperCase(Locale.ROOT));
 	}
 
 	private TGDefaultInstrumentSource source() {
@@ -161,7 +167,7 @@ public class DefaultInstrumentSteps {
 	}
 
 	// the source of the track's channel as the TuxGuitar Synthesizer has it now: its plugin's name, "(not open)" when it
-	// did not open; "nothing" when the synthesizer has not opened the channel
+	// did not open; "General MIDI" when General MIDI plays it; "nothing" when the synthesizer has not opened the channel
 	@Then("track {int}'s channel plays {string} before any Play")
 	public void theChannelPlays(int track, String name) {
 		TGSynthChannel channel = world.synthesizer().getChannelById(world.channel(world.track(track)).getChannelId());
@@ -169,6 +175,9 @@ public class DefaultInstrumentSteps {
 	}
 
 	private static String playing(TGSynthChannel channel) {
+		if (channel.getProcessor().getProcessor() instanceof GervillProcessor) {
+			return "General MIDI";
+		}
 		boolean open = channel.getProcessor().getProcessor().isOpen();
 		return TGVst3Element.getName(channel.getProgram().getReceiver()) + (open ? "" : " (not open)");
 	}

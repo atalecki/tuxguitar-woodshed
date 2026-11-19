@@ -19,6 +19,7 @@ import app.tuxguitar.audio.TGLivePlugins;
 import app.tuxguitar.audio.TGPluginEditor;
 import app.tuxguitar.audio.TGPluginParameterRow;
 import app.tuxguitar.audio.TGSoundChain;
+import app.tuxguitar.audio.TGSoundMode;
 import app.tuxguitar.audio.action.TGAddVst3EffectAction;
 import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.audio.action.TGChooseGeneralMidiAction;
@@ -29,7 +30,9 @@ import app.tuxguitar.audio.action.TGEffectAction;
 import app.tuxguitar.audio.action.TGMoveEffectUpAction;
 import app.tuxguitar.audio.action.TGRemoveEffectAction;
 import app.tuxguitar.audio.action.TGSetEffectEnabledAction;
+import app.tuxguitar.audio.action.TGSetMidiSoundAction;
 import app.tuxguitar.audio.action.TGSetPluginParameterAction;
+import app.tuxguitar.audio.action.TGSetVst3SoundAction;
 import app.tuxguitar.audio.action.TGSoundChainAction;
 import app.tuxguitar.audio.undo.TGUndoableOnSuccess;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -279,6 +282,29 @@ public class PluginSteps {
 	public void haveKeptTheDefaultInstrument(int track) {
 		keepTheDefaultInstrument(track);
 		assertTrue(world.succeeded(), world.refusal());
+	}
+
+	// the sound a track has: MIDI, VST3, or an audio track's takes
+	@ParameterType("MIDI|VST3|takes")
+	public TGSoundMode trackSound(String sound) {
+		return DefaultInstrumentSteps.named(TGSoundMode.class, sound);
+	}
+
+	// the Track panel's MIDI | VST3 switch, one change of the track's sound chain
+	@When("I set track {int}'s sound to {trackSound}")
+	public void setTheSound(int track, TGSoundMode sound) {
+		change(track, sound == TGSoundMode.MIDI ? new TGSetMidiSoundAction(world.fixture().context) : new TGSetVst3SoundAction(world.fixture().context));
+	}
+
+	@Given("I have set track {int}'s sound to {trackSound}")
+	public void haveSetTheSound(int track, TGSoundMode sound) {
+		setTheSound(track, sound);
+		assertTrue(world.succeeded());
+	}
+
+	@Then("track {int}'s sound is {trackSound}")
+	public void theSoundIs(int track, TGSoundMode sound) {
+		assertEquals(sound, TGSoundMode.of(world.channel(world.track(track))));
 	}
 
 	@When("I give track {int}'s channel the source \"takes\"")

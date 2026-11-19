@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
-
 import app.tuxguitar.player.base.MidiChannel;
 import app.tuxguitar.player.base.MidiControllers;
 import app.tuxguitar.player.base.MidiParameters;
@@ -270,9 +268,9 @@ public class TGSynthChannel implements MidiChannel {
 	}
 
 	// General MIDI with its source replaced by the default instrument of the channel's kind, when the channel has a
-	// program and its kind has one: a chain's source only when it is General MIDI
+	// program and its kind has one: a chain's source only when it gives way (General MIDI not marked plain)
 	private TGProgram withDefault(TGProgram generalMidi) {
-		boolean takesDefault = (this.chain == null || GervillProcessorFactory.TYPE.equals(this.chain.getReceiver().getType()));
+		boolean takesDefault = (this.chain == null || TGDefaultSource.givesWay(this.chain.getReceiver()));
 		TGProgramElement byDefault = (takesDefault ? this.defaultSource() : null);
 		if( byDefault == null ) {
 			return generalMidi;
