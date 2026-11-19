@@ -9,10 +9,10 @@ import app.tuxguitar.util.plugin.TGPluginManager;
 
 /**
  * The Track panel as a plugin of its own (Tools > Plugins: "TuxGuitar Sound Chain panel"), so it can be dropped
- * without a rebuild: connected, it docks the panel at the right of the main window and its editor area at the foot
+ * without a rebuild: connected, it docks the panel, the picked plugin's editor in it, at the right of the main window
  * (TGTrackPanel), maps its toggle (F8 by default, changeable in Tools > Keyboard Shortcuts) and adds View > Sound
- * Chain, greyed while TuxGuitar's audio is off; disconnected, all of it goes. The Sound Chain dialog and the plugins' editors do not depend on it.
- * Glue only; connected on the UI thread.
+ * Chain, greyed while TuxGuitar's audio is off; disconnected, all of it goes. The Sound Chain dialog and the plugins'
+ * editors do not depend on it. Glue only; connected on the UI thread.
  */
 public class TGSoundChainPanelPlugin implements TGPlugin {
 
