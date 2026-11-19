@@ -115,7 +115,7 @@ public class MidiSequenceParser {
 		this.metronomeChannelId = metronomeChannelId;
 	}
 
-	// the drum note and velocity of the Metronome's ticks
+	// the sounds and volume of the Metronome's ticks
 	public void setMetronomeClick(MidiClick metronomeClick) {
 		this.metronomeClick = metronomeClick;
 	}
@@ -429,7 +429,7 @@ public class MidiSequenceParser {
 
 	// the click sound on the Metronome's channel, accented or not
 	private void addClick(MidiSequenceHelper sh, int track, long start, long length, boolean accented) {
-		addNote(sh, track, this.metronomeClick.getNote(this.metronomeChannelId, accented), start, length, this.metronomeClick.getVelocity(), this.metronomeChannelId, -1, false);
+		addNote(sh, track, this.metronomeClick.getNote(this.metronomeChannelId, accented), start, length, this.metronomeClick.getVelocity(this.metronomeChannelId, accented), this.metronomeChannelId, -1, false);
 	}
 
 	// the 7-bit value (fixed to the MIDI range) and the exact semitones of a bend

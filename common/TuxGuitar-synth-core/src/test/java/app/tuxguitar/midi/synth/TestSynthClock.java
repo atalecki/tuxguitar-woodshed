@@ -8,11 +8,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.midi.synth.impl.ClickProcessor;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
+import app.tuxguitar.player.base.MidiChannel;
+import app.tuxguitar.player.base.MidiClick;
+import app.tuxguitar.player.base.MidiClickSound;
 import app.tuxguitar.player.base.MidiParameters;
 import app.tuxguitar.player.base.MidiSampleClock;
 import app.tuxguitar.player.base.MidiPlayerException;
@@ -108,6 +112,34 @@ public class TestSynthClock {
 
 		assertArrayEquals(expected, block[0]);
 		assertEquals("true 0 0", this.model.hasDrums() + " " + gervill.created.size() + " " + this.model.getLatency());
+	}
+
+	// the drums told the click's sounds and volume, as the player sends them (MidiPlayer.setClick): their built-in click
+	// plays them, the drums staying open
+	@Test
+	public void itsDrumsPlayTheClickTheyAreTold() throws MidiPlayerException {
+		MidiClick click = new MidiClick(MidiClickSound.CLAP, MidiClickSound.WOOD_BLOCK, -6);
+		MidiChannel drums = this.model.openChannel(MidiSampleClock.DRUMS);
+		drums.sendParameter(MidiParameters.SENDING_PARAMS, Boolean.TRUE.toString());
+		for (Map.Entry<String, String> parameter : click.toParameters(null).entrySet()) {
+			drums.sendParameter(parameter.getKey(), parameter.getValue());
+		}
+		drums.sendParameter(MidiParameters.SENDING_PARAMS, Boolean.FALSE.toString());
+		this.model.at(40).sendNoteOn(MidiSampleClock.DRUMS, MidiClick.PLAIN, 127, -1, false);
+		ClickProcessor told = new ClickProcessor();
+		told.restoreParameters(click.toParameters(null));
+		told.sendNoteOn(MidiClick.PLAIN, 127, -1, false, 40);
+		float[][] block = new float[2][512];
+		float[][] expected = new float[2][512];
+		float peak = 0;
+		for (int b = 0; b < 4; b++) {
+			this.model.getChannelById(MidiSampleClock.DRUMS).fillChain(block);
+			told.process(expected);
+			peak = Math.max(peak, Signals.peak(expected[0], 0, 512));
+			assertArrayEquals(expected[0], block[0], "block " + b);
+		}
+
+		assertTrue(peak > 0.1, "the wood block sounds: " + peak);
 	}
 
 	// a bend with its exact semitones reaches a source that takes them (a VST3 instrument) with them, on its frame; a

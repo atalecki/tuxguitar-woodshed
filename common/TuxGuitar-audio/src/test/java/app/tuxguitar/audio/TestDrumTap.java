@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.midi.synth.impl.ClickProcessor;
 import app.tuxguitar.player.base.MidiClick;
+import app.tuxguitar.player.base.MidiClickSound;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerCountDown;
 import app.tuxguitar.player.base.MidiPlayerMode;
@@ -21,8 +22,8 @@ import app.tuxguitar.util.properties.TGPropertiesManager;
 
 /**
  * The drum tap over a timeline: from its first sample, the built-in click on each Count In click's sample (and the
- * Metronome's), at the click sound's velocity, whatever its drum note, accented on beat 1 (the Count In's first click,
- * the Metronome's first of each measure); silence elsewhere, and without a Count In. The
+ * Metronome's), with the click's sounds at its volume, as live, whatever their drum notes, beat 1's sound on beat 1 (the
+ * Count In's first click, the Metronome's first of each measure); silence elsewhere, and without a Count In. The
  * song has 2 measures of 4/4 at 120 bpm, played from measure 2 at 44100 Hz.
  */
 public class TestDrumTap {
@@ -42,13 +43,16 @@ public class TestDrumTap {
 		return new TGTimeline(song, played, 44100, TGCountIn.before(countDown, played, 44100));
 	}
 
-	// the built-in click at the velocity on each sample (cut at the timeline's end), left and right alike, accented on
-	// the samples of beat 1
-	private static float[] clicks(TGTimeline timeline, int velocity, java.util.Set<Long> accented, long... positions) {
+	// the code-made Click at the volume (dB) on each sample (cut at the timeline's end), left and right alike, accented
+	// on the samples of beat 1
+	private static float[] clicks(TGTimeline timeline, int volume, java.util.Set<Long> accented, long... positions) {
 		float[] expected = new float[(int) timeline.length()];
+		float gain = (float) Math.pow(10, volume / 20.0);
 		for (long position : positions) {
-			float[] click = ClickProcessor.sound(44100, velocity, accented.contains(position));
-			System.arraycopy(click, 0, expected, (int) position, (int) Math.min(click.length, expected.length - position));
+			float[] click = ClickProcessor.sound(44100, 127, accented.contains(position));
+			for (int i = 0; i < Math.min(click.length, expected.length - position); i++) {
+				expected[(int) position + i] = gain * click[i];
+			}
 		}
 		return expected;
 	}
@@ -66,17 +70,46 @@ public class TestDrumTap {
 		countDown.setTickCount(1);
 		TGTimeline timeline = fromMeasure2();
 
-		assertSides(clicks(timeline, 95, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
+		assertSides(clicks(timeline, -3, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
 	}
 
-	// the velocity sets its level; the drum note (a closed hi-hat) is for other MIDI Ports
+	// the volume sets its level
 	@Test
-	public void isTheBuiltInClickAtTheClickSoundsVelocityWhateverItsNote() {
+	public void isTheBuiltInClickAtTheClickVolume() {
 		countDown.setEnabled(true);
 		countDown.setTickCount(1);
 		TGTimeline timeline = fromMeasure2();
 
-		assertSides(clicks(timeline, 127, java.util.Set.of(), 0), TGDrumTap.render(timeline, new MidiClick(42, 127)));
+		assertSides(clicks(timeline, 0, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.sameAccented(MidiClickSound.CLICK, 0)));
+	}
+
+	// a recording sounds as long as it is: the wood block still sounds 0.3 s on, long after the code-made Click's 30 ms
+	@Test
+	public void playsTheClicksRecordings() {
+		countDown.setEnabled(true);
+		countDown.setTickCount(1);
+		TGTimeline timeline = fromMeasure2();
+		float[][] woodBlock = TGDrumTap.render(timeline, MidiClick.sameAccented(MidiClickSound.WOOD_BLOCK, 0));
+		float[][] click = TGDrumTap.render(timeline, MidiClick.DEFAULT);
+
+		assertEquals("true 0.0", (Meters.peak(woodBlock[0], 13000, 14000) > 0.001) + " " + Meters.peak(click[0], 13000, 14000));
+	}
+
+	// the user's own sound from the folder of own sounds (a clap: it still sounds after the code-made Click's 30 ms); with
+	// no folder it cannot be read, and the Click plays
+	@Test
+	public void playsTheUsersOwnSoundFromTheirFolder(@org.junit.jupiter.api.io.TempDir java.io.File folder) throws Exception {
+		try (java.io.InputStream clap = ClickProcessor.class.getResourceAsStream("click-sounds/clap.wav")) {
+			java.nio.file.Files.copy(clap, new java.io.File(folder, "Mine.wav").toPath());
+		}
+		countDown.setEnabled(true);
+		countDown.setTickCount(1);
+		TGTimeline timeline = fromMeasure2();
+		MidiClick own = MidiClick.sameAccented(MidiClickSound.own("Mine.wav"), 0);
+		float[][] mine = TGDrumTap.render(timeline, own, folder.getPath(), TGClicks.NONE);
+
+		assertEquals("true", Boolean.toString(Meters.peak(mine[0], 1500, 2500) > 0.01));
+		assertSides(clicks(timeline, 0, java.util.Set.of(), 0), TGDrumTap.render(timeline, own, null, TGClicks.NONE));
 	}
 
 	// stopped 1000 samples in, just after the Count In's click: the tap ends there, holding what the click sounds by then
@@ -87,7 +120,7 @@ public class TestDrumTap {
 		TGTimeline timeline = fromMeasure2().until(1000);
 
 		assertEquals(1000, timeline.length());
-		assertSides(clicks(timeline, 95, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
+		assertSides(clicks(timeline, -3, java.util.Set.of(), 0), TGDrumTap.render(timeline, MidiClick.DEFAULT));
 	}
 
 	// as many Count In clicks as Metronome clicks (4 each, a beat of 22050 samples apart): the Metronome's on measure 2's
@@ -100,7 +133,7 @@ public class TestDrumTap {
 		long[] beats = TGMetronome.of(timeline).positions();
 
 		assertEquals("[88200, 110250, 132300, 154350]", Arrays.toString(beats));
-		assertSides(clicks(timeline, 95, java.util.Set.of(0L, 88200L), 0, 22050, 44100, 66150, 88200, 110250, 132300, 154350), TGDrumTap.render(timeline, MidiClick.DEFAULT, TGMetronome.of(timeline)));
+		assertSides(clicks(timeline, -3, java.util.Set.of(0L, 88200L), 0, 22050, 44100, 66150, 88200, 110250, 132300, 154350), TGDrumTap.render(timeline, MidiClick.DEFAULT, TGMetronome.of(timeline)));
 	}
 
 	@Test

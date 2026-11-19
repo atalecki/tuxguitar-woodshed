@@ -12,11 +12,13 @@ import java.util.stream.IntStream;
 
 import app.tuxguitar.audio.Meters;
 import app.tuxguitar.midi.synth.impl.ClickProcessor;
+import app.tuxguitar.player.base.MidiClick;
+import app.tuxguitar.player.base.MidiClickSound;
 import io.cucumber.java.en.Then;
 
 /**
- * Steps on the accent of the built-in click on beat 1. A plain click is, sample for sample, the built-in click at the
- * velocity; an accented one is measured: its frequency over its first 20 ms, and its level (root mean square over its
+ * Steps on the accent of the built-in click on beat 1. A plain click is, sample for sample, the code-made Click at the
+ * click volume (dB); an accented one is measured: its frequency over its first 20 ms, and its level (root mean square over its
  * 30 ms) against the plain click's (3 dB above: 10^(3/20) times). Offline the drum tap is measured from each click's sample (the clicks are where
  * TuxGuitar sends their notes to the drums), and is silent between them; live, the output.
  */
@@ -38,33 +40,38 @@ public class ClickAccentSteps {
 		return PlaySteps.heard(world);
 	}
 
-	@Then("the Count In clicks sound the built-in click at velocity {int}, accented on click {int} only")
-	public void countInAccentedOn(int velocity, int click) {
-		assertDrums(heard().timeline().getCountIn().positions(), velocity, index -> index == click - 1);
+	@Then("the Count In clicks sound the built-in click at {int} dB, accented on click {int} only")
+	public void countInAccentedOn(int volume, int click) {
+		assertDrums(heard().timeline().getCountIn().positions(), volume, index -> index == click - 1);
 	}
 
-	@Then("the Count In clicks sound the built-in click at velocity {int}, accented on clicks {int} and {int} only")
-	public void countInAccentedOn(int velocity, int click, int other) {
-		assertDrums(heard().timeline().getCountIn().positions(), velocity, index -> index == click - 1 || index == other - 1);
+	@Then("the Count In clicks sound the built-in click at {int} dB, accented on clicks {int} and {int} only")
+	public void countInAccentedOn(int volume, int click, int other) {
+		assertDrums(heard().timeline().getCountIn().positions(), volume, index -> index == click - 1 || index == other - 1);
 	}
 
-	@Then("the Count In clicks sound the built-in click at velocity {int}, accented on no click")
-	public void countInAccentedOnNone(int velocity) {
-		assertDrums(heard().timeline().getCountIn().positions(), velocity, index -> false);
+	@Then("the Count In clicks sound the built-in click at {int} dB, accented on no click")
+	public void countInAccentedOnNone(int volume) {
+		assertDrums(heard().timeline().getCountIn().positions(), volume, index -> false);
 	}
 
 	// beat 1 of each measure, where the song plays it
-	@Then("the Metronome clicks sound the built-in click at velocity {int}, accented on beat 1 of measures {int} to {int} only")
-	public void metronomeAccentedOn(int velocity, int first, int last) {
+	@Then("the Metronome clicks sound the built-in click at {int} dB, accented on beat 1 of measures {int} to {int} only")
+	public void metronomeAccentedOn(int volume, int first, int last) {
 		Set<Long> beats = IntStream.rangeClosed(first, last).mapToObj(measure -> (long) heard().sampleAt(SongPosition.parse("measure " + measure + " beat 1"), 0)).collect(Collectors.toSet());
 		long[] clicks = heard().metronome();
-		assertDrums(clicks, velocity, index -> beats.contains(clicks[index]));
+		assertDrums(clicks, volume, index -> beats.contains(clicks[index]));
 	}
 
-	// from the first click to the end of the last, on both sides of the drum tap
-	private void assertDrums(long[] clicks, int velocity, IntPredicate accented) {
+	// from the first click to the end of the last, on both sides of the drum tap; the plain click at the volume, as the
+	// drums play it (a full velocity's click times the volume's gain)
+	private void assertDrums(long[] clicks, int volume, IntPredicate accented) {
 		int rate = heard().timeline().getSampleRate();
-		float[] plain = ClickProcessor.sound(rate, velocity);
+		float[] plain = ClickProcessor.sound(rate, 127);
+		float gain = (float) MidiClick.sameAccented(MidiClickSound.CLICK, volume).getGain();
+		for (int i = 0; i < plain.length; i++) {
+			plain[i] *= gain;
+		}
 		for (int side = 0; side < 2; side++) {
 			assertSide(heard().drums(side), clicks, plain, accented, rate);
 		}

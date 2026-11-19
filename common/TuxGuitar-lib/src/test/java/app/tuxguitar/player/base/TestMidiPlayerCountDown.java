@@ -13,7 +13,6 @@ import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.song.models.TGDuration;
 import app.tuxguitar.song.models.TGMeasureHeader;
 import app.tuxguitar.song.models.TGSong;
-import app.tuxguitar.song.models.TGVelocities;
 import app.tuxguitar.util.TGContext;
 
 /**
@@ -73,7 +72,7 @@ public class TestMidiPlayerCountDown {
 	// only the side stick's key and time, when sent at the default velocity, on no voice, not in bend mode
 	private String note(String kind, int key, int velocity, int voice, boolean bendMode) {
 		String sent = " v" + velocity + " s" + voice + " b" + bendMode;
-		return kind + " " + key + " @" + countDown.now + (sent.equals(" v" + TGVelocities.DEFAULT + " s-1 bfalse") ? "" : sent);
+		return kind + " " + key + " @" + countDown.now + (sent.equals(" v" + MidiClick.DEFAULT.getVelocity(9, false) + " s-1 bfalse") ? "" : sent);
 	}
 
 	public TestMidiPlayerCountDown() {
@@ -102,7 +101,7 @@ public class TestMidiPlayerCountDown {
 	public void ticksEveryBeatOfTheMeasure() {
 		withPercussion();
 
-		assertEquals("on 37 @0, off 37 @1, on 37 @501, off 37 @502, on 37 @1002, off 37 @1003, on 37 @1503, off 37 @1504"
+		assertEquals("on 37 @0 v127 s-1 bfalse, off 37 @1 v127 s-1 bfalse, on 37 @501, off 37 @502, on 37 @1002, off 37 @1003, on 37 @1503, off 37 @1504"
 			+ " -> end @2014", start());
 	}
 
@@ -113,7 +112,7 @@ public class TestMidiPlayerCountDown {
 		header.getTimeSignature().setNumerator(3);
 		header.getTimeSignature().getDenominator().setValue(TGDuration.EIGHTH);
 
-		assertEquals("on 37 @0, off 37 @1, on 37 @251, off 37 @252, on 37 @502, off 37 @503 -> end @763", start());
+		assertEquals("on 37 @0 v127 s-1 bfalse, off 37 @1 v127 s-1 bfalse, on 37 @251, off 37 @252, on 37 @502, off 37 @503 -> end @763", start());
 	}
 
 	@Test
@@ -140,7 +139,7 @@ public class TestMidiPlayerCountDown {
 	public void ticksTheClickSound() {
 		withPercussion();
 		countDown.setTickCount(1);
-		player.setClick(new MidiClick(76, 127));
+		player.setClick(MidiClick.sameAccented(MidiClickSound.WOOD_BLOCK, 0));
 
 		assertEquals("on 76 @0 v127 s-1 bfalse, off 76 @1 v127 s-1 bfalse -> end @511", start());
 	}
@@ -162,7 +161,7 @@ public class TestMidiPlayerCountDown {
 		withPercussion();
 		countDown.stopAt = 600;
 
-		assertEquals("on 37 @0, off 37 @1, on 37 @501, off 37 @502 -> end @602", start());
+		assertEquals("on 37 @0 v127 s-1 bfalse, off 37 @1 v127 s-1 bfalse, on 37 @501, off 37 @502 -> end @602", start());
 	}
 
 	// the measure that starts on the player's tick, not the one that ends there
@@ -210,12 +209,12 @@ public class TestMidiPlayerCountDown {
 
 	@Test
 	public void withoutAPercussionChannelItTicksOnThePlayersPercussionChannelOnAPort() throws MidiPlayerException {
-		assertEquals(" -> end @511 | [-3 on 37 95, -3 off 37 95]", ticksOn(new PortSynthesizer(received)));
+		assertEquals(" -> end @511 | [-3 on 37 90, -3 off 37 90]", ticksOn(new PortSynthesizer(received)));
 	}
 
 	@Test
 	public void withoutAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
-		assertEquals(" -> end @511 | [-2 on 77 95, -2 off 77 95]", ticksOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 77 127, -2 off 77 127]", ticksOn(new ClockedSynthesizer(received, true)));
 	}
 
 	// with one too: the TuxGuitar Synthesizer's Count In clicks on its drums (the built-in click), as offline, not
@@ -224,7 +223,7 @@ public class TestMidiPlayerCountDown {
 	public void withAPercussionChannelItTicksOnTheDrumsOfASynthesizerThatHasThem() throws MidiPlayerException {
 		withPercussion();
 
-		assertEquals(" -> end @511 | [-2 on 77 95, -2 off 77 95]", ticksOn(new ClockedSynthesizer(received, true)));
+		assertEquals(" -> end @511 | [-2 on 77 127, -2 off 77 127]", ticksOn(new ClockedSynthesizer(received, true)));
 	}
 
 	// the notes Count In sends the drums (the built-in click), so many ticks before the player's tick

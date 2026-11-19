@@ -171,8 +171,9 @@ public class TestSequenceParserNotes {
 
 	// ---- metronome ----
 
-	private static String[] tick(long start, long end) {
-		String rest = " t2 c0 k37 v95 s-1 b0";
+	// beat 1 accented: 3 dB louder than the others
+	private static String[] tick(long start, long end, int velocity) {
+		String rest = " t2 c0 k37 v" + velocity + " s-1 b0";
 		return new String[] {"on " + start + rest, "off " + end + rest};
 	}
 
@@ -181,7 +182,7 @@ public class TestSequenceParserNotes {
 		song.flags = MidiSequenceParser.ADD_METRONOME;
 		song.song.getMeasureHeader(0).getTimeSignature().setNumerator(3);
 		song.song.getMeasureHeader(0).getTimeSignature().getDenominator().setValue(TGDuration.EIGHTH);
-		assertEquals(events(tick(960, 1440), tick(1440, 1920), tick(1920, 2400)), song.notes());
+		assertEquals(events(tick(960, 1440, 127), tick(1440, 1920, 90), tick(1920, 2400, 90)), song.notes());
 	}
 
 	@Test

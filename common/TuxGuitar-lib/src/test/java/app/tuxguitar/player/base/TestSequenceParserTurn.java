@@ -77,7 +77,7 @@ public class TestSequenceParserTurn {
 	@Test
 	public void aTurnClicksItsCountInThenPlaysItsMeasuresOnceEachInScoreOrder() {
 		long start = 10 * MEASURE;
-		assertEquals("ts 38400 t0 4/4, tempo 38400 t0 500000, on 38400 t0 c9 k37 v95 s-1 b0, on 39360 t0 c9 k37 v95 s-1 b0, ts 40320 t0 4/4, tempo 40320 t0 500000,"
+		assertEquals("ts 38400 t0 4/4, tempo 38400 t0 500000, on 38400 t0 c9 k37 v90 s-1 b0, on 39360 t0 c9 k37 v90 s-1 b0, ts 40320 t0 4/4, tempo 40320 t0 500000,"
 			+ " on 40320 t1 c1 k66, on 44160 t1 c1 k67, on 48000 t1 c1 k68, on 51840 t1 c1 k69",
 			parsed(turn(2, 5, start, 2), false, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
@@ -86,7 +86,7 @@ public class TestSequenceParserTurn {
 	@Test
 	public void aTurnAfterABreakTakesItsTempoAtTheBreakAndClicksAfterIt() {
 		MidiPracticeTurn turn = new MidiPracticeTurn(song.song.getMeasureHeader(2), song.song.getMeasureHeader(2), 960, 1920, 2, 2, TGTempoScale.percent(100));
-		assertEquals("ts 960 t0 4/4, tempo 960 t0 500000, on 2880 t0 c9 k37 v95 s-1 b0, on 3840 t0 c9 k37 v95 s-1 b0, ts 4800 t0 4/4, tempo 4800 t0 500000, on 4800 t1 c1 k67",
+		assertEquals("ts 960 t0 4/4, tempo 960 t0 500000, on 2880 t0 c9 k37 v90 s-1 b0, on 3840 t0 c9 k37 v90 s-1 b0, ts 4800 t0 4/4, tempo 4800 t0 500000, on 4800 t1 c1 k67",
 			parsed(turn, false, "ts", "tempo", "on").replaceAll(" v95 s1 b0", ""));
 	}
 
@@ -123,8 +123,8 @@ public class TestSequenceParserTurn {
 		third.getTimeSignature().setNumerator(6);
 		third.getTimeSignature().getDenominator().setValue(TGDuration.EIGHTH);
 		third.getTempo().setQuarterValue(90);
-		assertEquals("ts 960 t0 6/8, tempo 960 t0 1333332, on 960 t0 c9 k37 v95 s-1 b0, off 1440 t0 c9 k37 v95 s-1 b0, on 1440 t0 c9 k37 v95 s-1 b0,"
-			+ " off 1920 t0 c9 k37 v95 s-1 b0, ts 1920 t0 6/8, tempo 1920 t0 1333332", parsed(new MidiPracticeTurn(third, third, 960, 0, 2, 1, TGTempoScale.percent(50)), false,
+		assertEquals("ts 960 t0 6/8, tempo 960 t0 1333332, on 960 t0 c9 k37 v90 s-1 b0, off 1440 t0 c9 k37 v90 s-1 b0, on 1440 t0 c9 k37 v90 s-1 b0,"
+			+ " off 1920 t0 c9 k37 v90 s-1 b0, ts 1920 t0 6/8, tempo 1920 t0 1333332", parsed(new MidiPracticeTurn(third, third, 960, 0, 2, 1, TGTempoScale.percent(50)), false,
 			"ts", "tempo", "on 960", "off 1440", "on 1440", "off 1920"));
 	}
 

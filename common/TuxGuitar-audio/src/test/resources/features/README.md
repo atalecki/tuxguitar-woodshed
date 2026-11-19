@@ -444,16 +444,19 @@ These features change how TuxGuitar works today. They are requirements, not side
 - **Percentage of Tempo, Play looped, Loop Range, Training Mode, Count In, Count In ticks, Metronome**: the existing
   Play Mode and transport settings. Training Mode raises the percentage after each pass of the Loop Range, from its
   start percentage to its end, by its increment. Count In starts playing: its first click is where the output starts.
-- **Click sound**: the drum note and velocity Count In and the Metronome play, a TuxGuitar setting (not saved in the
-  song, not undoable): Side Stick (note 37) at velocity 95 until I change it. On the TuxGuitar Synthesizer the
-  velocity sets the built-in click's level and the drum note is not heard; another MIDI Port plays the drum note at the
-  velocity.
+- **Click**: what Count In and the Metronome play, a TuxGuitar setting (not saved in the song, not undoable): beat 1's
+  sound (the other beats' sound played accented, until I choose another), the other beats' sound (the code-made Click,
+  a built-in recording, or a WAV file of my own) and the click volume in dB (-30 to +12, 0 dB being the loudest a
+  General MIDI velocity gives): the code-made Click, beat 1 accented, at -3 dB until I change it. On the TuxGuitar
+  Synthesizer the drums play the sounds at the volume; another MIDI Port plays each sound's drum note at the volume's
+  velocity (127 x 10^(dB/20), at most 127), beat 1 accented 3 dB louder.
 - **The built-in click**: the sound of Count In and the Metronome on the TuxGuitar Synthesizer, made in code (no
   recorded sample, no General MIDI): a 1500 Hz sine from phase 0, its level rising in a straight line over its first
   0.2 ms, then falling by a factor of e every 5 ms, silent 30 ms after it starts. It is the same on the left and the
-  right, and its level is 0.5 times the velocity / 127 (its peak, 0.9 of that, is -9.4 dBFS at the default velocity
-  95). Beat 1 of each measure is **accented**: a 2000 Hz sine, 3 dB louder (its level 0.5 x 10^(3/20), about 0.71,
-  times the velocity / 127), with the same rise and fall; the Metronome accents each measure's first beat as its time
+  right, and its level is 0.5 times the click volume's gain, 10^(dB/20) (its peak, 0.9 of that, is -9.9 dBFS at the
+  default -3 dB). Beat 1 of each measure is **accented**: a 2000 Hz sine, 3 dB louder (its level 0.5 x 10^(3/20), about
+  0.71, times the volume's gain), with the same rise and fall; a recording accented is played 2 semitones higher and
+  3 dB louder; the Metronome accents each measure's first beat as its time
   signature says (a Metronome started mid-measure does not accent the beat it starts on), and Count In the first click
   of each measure it counts, in the time signature of the measure it leads into (8 ticks in 4/4: clicks 1 and 5; 6
   ticks in 3/4: clicks 1 and 4). It starts on the sample its note reaches it, at every sample rate the same sound, and
@@ -595,8 +598,8 @@ These features change how TuxGuitar works today. They are requirements, not side
   mix. Count In and Metronome clicks are counted there, in two parts: a click's position is the sample on which
   TuxGuitar sends its note to the drums, where the built-in click starts (its attack is no one-sample click, so the
   position is not measured from the audio), and each click must sound on the drum tap, and in the output, above -60 dBFS
-  within its beat. **The Count In (or Metronome) clicks sound the built-in click at velocity V, accented on ...**: from
-  the first click to the end of the last, the drum tap is, sample for sample, the plain built-in click at that velocity
+  within its beat. **The Count In (or Metronome) clicks sound the built-in click at V dB, accented on ...**: from
+  the first click to the end of the last, the drum tap is, sample for sample, the plain built-in click at that volume
   from each plain click's sample, silent between the clicks; an accented one is measured, its frequency over its first
   20 ms (2000 Hz within 1%) and its level (root mean square over its 30 ms) 3 dB above the plain click's within 1%.
   Live, the output's clicks are measured the same way, against the plain click on beat 2.

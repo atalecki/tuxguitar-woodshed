@@ -59,10 +59,12 @@ public class MidiPlayerCountDown {
 				tickStart += tickLength;
 				tickIndex ++;
 				if( tickIndex <= localTickCount ){
-					int note = click.getNote(channelId, MidiClick.isCountInAccented(tickIndex - 1, localTickCount, header.getTimeSignature(), from));
-					this.player.getOutputTransmitter().sendNoteOn(channelId, note, click.getVelocity(), -1, false);
+					boolean accented = MidiClick.isCountInAccented(tickIndex - 1, localTickCount, header.getTimeSignature(), from);
+					int note = click.getNote(channelId, accented);
+					int velocity = click.getVelocity(channelId, accented);
+					this.player.getOutputTransmitter().sendNoteOn(channelId, note, velocity, -1, false);
 					this.pause( 1 );
-					this.player.getOutputTransmitter().sendNoteOff(channelId, note, click.getVelocity(), -1, false);
+					this.player.getOutputTransmitter().sendNoteOff(channelId, note, velocity, -1, false);
 				}
 			}
 			this.pause( 10 );

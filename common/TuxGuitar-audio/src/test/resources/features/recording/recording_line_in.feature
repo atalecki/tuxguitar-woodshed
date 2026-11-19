@@ -220,15 +220,14 @@ Feature: Recording line-in audio
     And track 2's takes read ""
     And the undo history is as it was before the recording
 
-  # on the TuxGuitar Synthesizer the click sound's drum note is not heard (another MIDI Port plays it): its velocity
-  # sets the built-in click's level
-  Scenario: Count In sounds the built-in click at the velocity of the click sound I have set
-    Given I have set the click sound to drum note 42 at velocity 127
+  # on the TuxGuitar Synthesizer the click volume sets the built-in click's level (another MIDI Port plays a velocity)
+  Scenario: Count In sounds the built-in click at the click volume I have set
+    Given I have set the click to the code-made Click at 0 dB
     And I have turned Count In on
     And I have armed track 2
     When I record from measure 2 beat 1 to measure 3 beat 1
     Then the output holds 4 Count In clicks, 22050 samples apart within 1 sample
-    And the Count In clicks sound the built-in click at velocity 127, accented on click 1 only
+    And the Count In clicks sound the built-in click at 0 dB, accented on click 1 only
 
   # Input level
 
