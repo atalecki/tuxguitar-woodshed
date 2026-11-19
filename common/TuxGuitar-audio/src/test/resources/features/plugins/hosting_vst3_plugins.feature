@@ -400,6 +400,22 @@ Feature: Hosting VST3 plugins
     Then TuxGuitar's parameter editor of VST3 effect 1 of track 1 is open
     And the parameters of VST3 effect 1 of track 1 read "Ceiling"
 
+  # a value set in TuxGuitar's parameter editor that its row shows already changes nothing: the song is as it was and no
+  # undo step is added, so Undo takes back the change before it (a default instrument's: see default_instruments)
+  Scenario Outline: setting the value a plugin's parameter already has in TuxGuitar's parameter editor adds no undo step
+    Given <chosen>
+    And I have opened the editor of <edited>
+    And I have saved the song as a TuxGuitar file
+    When I set "<parameter>" to <value> in TuxGuitar's parameter editor of <edited>
+    Then the song is not modified
+    When I undo
+    Then track 1's sound chain reads "Distortion Electric Guitar"
+
+    Examples:
+      | chosen                                                    | edited                   | parameter | value |
+      | I have added the VST3 effect "Test Clip 0.5" to track 1   | VST3 effect 1 of track 1 | Ceiling   | 0.5   |
+      | I have chosen the VST3 instrument "Test Tone" for track 1 | the source of track 1    | Level     | 1.0   |
+
   # Plugin editors inside the app: the Sound Chain panel shows the picked plugin's editor in its editor area, inside
   # TuxGuitar's window. Here TuxGuitar's window, and the area, is a window of a host process of its own (the test
   # plugins' stand-in), 600 by 400 inside unless a step says otherwise; an editor may take half its height
