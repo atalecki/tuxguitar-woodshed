@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -364,20 +366,83 @@ class TestLiveAudio {
 
 	@Test
 	void aRefusedRecordingIsLoggedWithWhy() {
+		assertEquals("[WARN recording refused: no track is armed] | [WARN recording refused: the MIDI port is not the TuxGuitar Synthesizer]"
+			+ " | [WARN recording refused: no live audio device] | null", this.refusedRecordings(record -> logged(record).toString()));
+	}
+
+	// Record refused three times (no armed track, then no MIDI port, then no device), what each press tells (told:
+	// pressing it, given how), then whether the action succeeded
+	private String refusedRecordings(Function<Runnable, String> told) {
+		TGTrack track = this.unarmedWithoutDevice();
+		Runnable record = this::record;
+		String unarmed = told.apply(record);
+		this.session.arm(track);
+		String portless = told.apply(record);
+		openPort();
+		String deviceless = told.apply(record);
+		return String.join(" | ", unarmed, portless, deviceless, String.valueOf(this.fixture.actionContext.<Boolean>getAttribute(TGRecordAction.ATTRIBUTE_SUCCESS)));
+	}
+
+	// no live audio device (the native library did not load), an audio track, not armed, and Record set to start at 960
+	private TGTrack unarmedWithoutDevice() {
 		this.audio.load(new File("target/no-native-library"));
 		this.audio.open(settings("", "", 2, 0));
-		TGTrack track = this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1));
 		this.fixture.actionContext.setAttribute(TGRecordAction.ATTRIBUTE_START, 960L);
-		Runnable record = () -> this.fixture.execute(new TGRecordAction(this.fixture.context));
-		List<String> unarmed = logged(record);
-		this.session.arm(track);
-		List<String> portless = logged(record);
-		openPort();
-		List<String> deviceless = logged(record);
+		return this.fixture.songManager.addAudioTrack(this.fixture.song, TGAudioInput.mono(1));
+	}
 
-		assertEquals(Arrays.asList("WARN recording refused: no track is armed"), unarmed);
-		assertEquals(Arrays.asList("WARN recording refused: the MIDI port is not the TuxGuitar Synthesizer"), portless);
-		assertEquals(Arrays.asList("WARN recording refused: no live audio device"), deviceless);
+	// Record pressed, as the app presses it
+	private void record() {
+		this.fixture.execute(new TGRecordAction(this.fixture.context));
+	}
+
+	// the hint goes as soon as its cause no longer holds, before its 5 seconds are up: here once the track is armed
+	@Test
+	void aRefusalsHintGoesOnceItsCauseNoLongerHolds() {
+		TGStatusHint hint = TGStatusHint.getInstance(this.fixture.context);
+		TGTrack track = this.unarmedWithoutDevice();
+		String refused = TuxGuitarMessages.english(() -> {
+			this.record();
+			return hint.getText();
+		});
+		this.session.arm(track);
+		assertEquals("Arm a track to record | null", refused + " | " + hint.getText());
+	}
+
+	// what the user is told each time Record is refused, in TuxGuitar's language (said): what the app showed before the
+	// press (shown), then the hint it shows on its status line after it; the action does not fail (no error message)
+	private String toldOfRefusedRecordings(Map<String, String> said, Supplier<String> shown) {
+		TGStatusHint hint = TGStatusHint.getInstance(this.fixture.context);
+		return TuxGuitarMessages.said(said, () -> this.refusedRecordings(record -> {
+			String before = shown.get();
+			record.run();
+			return before + hint.getText();
+		}));
+	}
+
+	@Test
+	void aRefusedRecordingSaysWhatToDoOnTheStatusLine() {
+		assertEquals("Arm a track to record | Choose the TuxGuitar Synthesizer as the MIDI Port to record | Choose an audio device to record | null",
+			this.toldOfRefusedRecordings(Map.of(), () -> ""));
+	}
+
+	// as the language TuxGuitar shows says it (a made-up German)
+	@Test
+	void aRefusedRecordingSaysWhatToDoInTuxGuitarsLanguage() {
+		Map<String, String> german = Map.of("audio.record.refusal.no-armed-track", "Zum Aufnehmen eine Spur scharf schalten",
+			"audio.record.refusal.midi-port", "Zum Aufnehmen den TuxGuitar-Synthesizer als MIDI-Port wählen",
+			"audio.record.refusal.no-device", "Zum Aufnehmen ein Audiogerät wählen");
+		assertEquals("Zum Aufnehmen eine Spur scharf schalten | Zum Aufnehmen den TuxGuitar-Synthesizer als MIDI-Port wählen | Zum Aufnehmen ein Audiogerät wählen | null",
+			this.toldOfRefusedRecordings(german, () -> ""));
+	}
+
+	// Tools > Record greyed out (here there is no device all along): a key bound to it runs it all the same (the
+	// desktop's TGToolItemPlugin does not ask whether the item is enabled), and the status line says why
+	@Test
+	void aKeyBoundToRecordRunsItWhileItIsGreyedOutAndSaysWhy() {
+		assertEquals("greyed out: Arm a track to record | greyed out: Choose the TuxGuitar Synthesizer as the MIDI Port to record"
+			+ " | greyed out: Choose an audio device to record | null",
+			this.toldOfRefusedRecordings(Map.of(), () -> (TGAudioStatus.of(this.fixture.context).canRecord() ? "not greyed out: " : "greyed out: ")));
 	}
 
 	@Test

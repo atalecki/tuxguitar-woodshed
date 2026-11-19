@@ -609,4 +609,14 @@ public class TestVst3Processors {
 		assertNotNull(this.hosting.getFolders());
 		assertEquals(2, this.hosting.getFolders().size());
 	}
+
+	// what the user is told (a refusal to open a plugin, the scan's line in the Sound Chain window), in TuxGuitar's
+	// language when it is read; the log keeps the English message
+	@Test
+	public void anUnconfiguredHostIsToldInTuxGuitarsLanguage() {
+		TGVst3Hosting unconfigured = TGVst3Hosting.getInstance(new TGContext());
+		TGVst3Exception refused = assertThrows(TGVst3Exception.class, () -> unconfigured.open(this.hosting.find("Test Gain"), 44100f, FRAMES));
+		assertEquals("no VST3 host is configured | kein VST3-Host ist eingerichtet | no VST3 host is configured", TuxGuitarMessages.english(refused::getLocalizedMessage)
+			+ " | " + TuxGuitarMessages.said(Map.of("audio.vst3-host.not-configured", "kein VST3-Host ist eingerichtet"), refused::getLocalizedMessage) + " | " + refused.getMessage());
+	}
 }

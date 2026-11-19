@@ -21,8 +21,10 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import app.tuxguitar.action.TGActionContext;
+import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.action.TGActionManager;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
@@ -219,6 +221,31 @@ public class SavingSteps {
 		handle.setInputStream(new ByteArrayInputStream(file));
 		new TGSongReaderImpl().read(handle);
 		return handle.getSong();
+	}
+
+	// the saved file with every take entry replaced by bytes that are no wave file
+	@Given("the takes in the saved file are not wave files")
+	public void theTakesAreNotWaveFiles() throws IOException {
+		ByteArrayOutputStream damaged = new ByteArrayOutputStream();
+		try (ZipInputStream saved = new ZipInputStream(new ByteArrayInputStream(world.saved())); ZipOutputStream zip = new ZipOutputStream(damaged)) {
+			for (ZipEntry entry = saved.getNextEntry(); entry != null; entry = saved.getNextEntry()) {
+				zip.putNextEntry(new ZipEntry(entry.getName()));
+				zip.write(damaged(entry.getName(), saved.readAllBytes()));
+			}
+		}
+		world.setSaved(damaged.toByteArray());
+	}
+
+	// what an entry of the saved file holds once damaged: a take's entry no wave file, any other entry as it was
+	private static byte[] damaged(String name, byte[] held) {
+		return (name.startsWith("takes/") ? "not a wave file".getBytes(StandardCharsets.US_ASCII) : held);
+	}
+
+	// what the app's error message reads: the message of the action's refusal (the desktop's open passes it on as it is)
+	@Then("opening it again is refused, the error message reading {string}")
+	public void openingItAgainIsRefused(String message) {
+		TGActionException refused = assertThrows(TGActionException.class, () -> world.open(world.saved()));
+		assertEquals(message, refused.getMessage());
 	}
 
 	// the file's entries, in order, by name, as text

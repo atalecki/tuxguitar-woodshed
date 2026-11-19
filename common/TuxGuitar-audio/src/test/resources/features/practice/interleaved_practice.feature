@@ -467,13 +467,14 @@ Feature: Interleaved practice
       | a solo   | soloed track 1                        | solo  |          |
       | a marker | added the marker "Intro" at measure 2 | -     | m2 Intro |
 
-  # Tools > Record is greyed out during a session, playing or paused; the action refuses too, and the session goes on
-  Scenario: Record during a session is refused, saying why, and the session goes on
+  # Tools > Record is greyed out during a session, playing or paused; the action (a key bound to Record runs it) refuses
+  # too, quietly: the status line says why, no error message; and the session goes on
+  Scenario: Record during a session is refused, the status line saying why, and the session goes on
     Given I have added an audio track recording input channel 1
     And I have armed track 2
     And I have set interleaved practice to measures over measures 1 to 4
     When I practise 3 turns live, choosing Record during turn 2
-    Then Record is refused, saying "Interleaved practice is under way: stop it to record."
+    Then Record is refused with no error message, the status line saying "Interleaved practice is under way: stop it to record."
     And the player stopped by itself at the end of the block turn 3's end is heard in
     And track 2's takes read ""
 

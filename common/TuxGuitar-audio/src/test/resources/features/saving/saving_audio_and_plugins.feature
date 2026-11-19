@@ -173,3 +173,20 @@ Feature: Saving audio tracks and plugins
       | format |
       | MIDI   |
       | GP5    |
+
+  # a take that cannot be read: what the app's error message reads opening the song, the take's reason in context
+  Scenario: opening a song whose take is not a wave file is refused, saying a take could not be read and why
+    Given I have added an audio track recording input channel 1
+    And track 2 has a take of a 440 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
+    And I have saved the song as a TuxGuitar file
+    And the takes in the saved file are not wave files
+    Then opening it again is refused, the error message reading "A take in this song could not be read: Not a wave file"
+
+  Scenario: a take that cannot be read is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "Eine Aufnahme in diesem Lied ließ sich nicht lesen: {0}" for the message "audio.take.refusal.unreadable"
+    And TuxGuitar's language says "Keine Wave-Datei" for the message "audio.take.refusal.not-wave"
+    And I have added an audio track recording input channel 1
+    And track 2 has a take of a 440 Hz tone peaking at 0.4 from measure 1 beat 1 to measure 2 beat 1
+    And I have saved the song as a TuxGuitar file
+    And the takes in the saved file are not wave files
+    Then opening it again is refused, the error message reading "Eine Aufnahme in diesem Lied ließ sich nicht lesen: Keine Wave-Datei"

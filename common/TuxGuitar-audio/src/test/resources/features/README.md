@@ -86,8 +86,9 @@ language's messages with "TuxGuitar's language says ..."). Every text shown to t
 files: the refusals to open a plugin or its editor (`audio.plugin.refusal.*`), the lines of the VST3 scan
 (`audio.scan.*`, the capture players' names `audio.capture-player.*`), an audio track's source (`audio.source.takes`),
 a take file's refusals (`audio.take.refusal.*`) and the audio device's description (`audio.device.*`) too, and the
-reasons TuxGuitar gives that the VST3 host failed (`audio.vst3-host.*`: it stopped, did not answer, did not start), which
-the log keeps in English (TGVst3Exception: its message logged, its localized message shown); the reasons they quote
+reasons TuxGuitar gives that the VST3 host failed (`audio.vst3-host.*`: it stopped, did not answer, did not start, or none is configured), which
+the log keeps in English (TGVst3Exception: its message logged, its localized message shown); what to do when Record is refused
+(`audio.record.refusal.*`, said on the app's status line for 5 seconds or until its cause no longer holds, TGStatusHint; logged in English); the reasons they quote
 from a plugin's host process, the audio library or the device stay as those gave them. Logs stay English, but for a
 text shown to the user that a log line quotes (an action's refusal, the scan), which it quotes as shown. The helper
 tells that description with the plugin's timing too (protocol version 8). Play that waited until the plugins were ready shows no hint. The player's position
@@ -626,8 +627,9 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   playing or paused: clicking the score or moving the caret, a measure at a time too (Measure First, Previous, Next
   and Last, from the menu, the toolbar or the Transport window), moves only the caret, not the position, so the
   session goes on (and the Difficulty flag goes to the caret's measure); moving the position (the transport) still
-  ends it. Selecting stays refused. Record is greyed out and refused during a session, saying why
-  ("Interleaved practice is under way: stop it to record."). During a session, playing or paused,
+  ends it. Selecting stays refused. Record is greyed out and refused during a session (a key bound to
+  it runs it), quietly: the status line says why for a few seconds ("Interleaved practice is under way: stop it to
+  record."), no error message. During a session, playing or paused,
   every menu item and toolbar button of an edit the session refuses is greyed out. Pause keeps the session: Play then plays the paused turn again from the start of its Count In,
   and the session goes on from there with the turns it had chosen; the turns before it count as played. A session
   needs a sequencer that takes the turns added while it plays (TuxGuitar's own); on another it is refused, saying why. Play looped, the Loop Range and Training Mode take no part in a session: it plays at the

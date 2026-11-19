@@ -142,6 +142,29 @@ Build and launch with the VS Code task **app: build + run** at `faae7b847` or la
   plugin that crashes or hangs); the tests use test plugins that do.
 - The reasons the host process itself gives ("not a VST3 module: ...") and the audio library's stay as they give them.
 
+### A take that cannot be read, and an unconfigured VST3 host (fix/record-refusal-feedback)
+
+Commits on `fix/record-refusal-feedback`: `3bfaa5e3e` (opening a song whose take cannot be read says so, with the
+reason: "A take in this song could not be read: Not a wave file", through the translation files; before, the error read
+the bare reason) and `38f287dac` ("no VST3 host is configured" said through the translation files, logged in English).
+Build and launch with the VS Code task **app: build + run** at `cdaa0ffaa` or later, as in the setup above. You need an
+archive tool that can replace a file inside a zip (such as 7-Zip) and a short text file (any `.txt`).
+
+| #   | Do | Expect | Result |
+| --- | --- | --- | --- |
+| 1 | Settings > Language: English. Arm the audio track, record a few seconds (Tools > Record, then Stop) and File > Save As a TuxGuitar file, `damaged.tg`. Close the song. | Saved as usual. | not run |
+| 2 | Copy `damaged.tg` to `damaged.zip` and open it in the archive tool. In its `takes` folder, replace the wave file (such as `1.wav`) with your text file renamed to that name. Save the archive and rename it back to `damaged.tg` (over the first). | The archive tool shows `version.txt`, `content.xml` and the folder `takes` holding a wave file per take. | not run |
+| 3 | File > Open `damaged.tg`. | The song is not opened; the error message reads "A take in this song could not be read: Not a wave file", no Java class names. | not run |
+| 4 | Settings > Language: Deutsch (or any language other than English), OK, restart TuxGuitar if asked. Repeat step 3. | The message reads in English exactly as in step 3 (no translation yet), never `audio.take.refusal.unreadable` nor `audio.take.refusal.not-wave`. | not run |
+| 5 | Settings > Language back to the one you use. Delete `damaged.tg` and `damaged.zip`. | TuxGuitar reads as before. | not run |
+
+- "no VST3 host is configured" cannot be brought about in the desktop app: when its audio starts, TuxGuitar always says
+  where the host program is (next to the audio library), and a missing program reads "the VST3 host did not start:
+  ..." instead (step 3 of the previous table). The tests cover it in English, in a made-up German, and in English in
+  the log.
+- The tests cover the damaged take's message in English and a made-up German, opening a song file whose takes are no
+  wave files, and a take codec that refuses.
+
 ### Notes
 
 - The tests already cover: every one of these texts in English, unchanged (TestPluginScan, TestLiveAudio, TestTakeWave,
@@ -152,7 +175,7 @@ Build and launch with the VS Code task **app: build + run** at `faae7b847` or la
   windows and error messages.
 - The errors when a plugin or its editor cannot be opened, and when a take cannot be read, are hard to bring about by
   hand (a plugin uninstalled after a song was saved with it; a damaged song file); the tests cover them. The error
-  opening a song whose take is damaged shows the bare reason ("Not a wave file"), with no Java class names: a
-  scenario opening such a song reads exactly that.
+  opening a song whose take is damaged said the bare reason ("Not a wave file"), with no Java class names; since
+  `3bfaa5e3e` it says which part of the song failed: see the steps just above.
 - The Sound Chain window's Edit... is greyed out for a source that is no VST3 plugin, so its refusal ("takes is not a
   VST3 plugin: it has no editor to open") is not shown there.

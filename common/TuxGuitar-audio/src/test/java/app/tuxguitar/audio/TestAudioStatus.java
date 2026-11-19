@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import app.tuxguitar.document.TGDocumentManager;
 import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.practice.TGPracticeRefusal;
 import app.tuxguitar.practice.TGPracticeSession;
 import app.tuxguitar.practice.TGPracticeSettings;
@@ -66,6 +67,16 @@ class TestAudioStatus {
 		assertEquals("audio.status.not-recording", status());
 	}
 
+	// the MIDI Port does not grey Record out: with a device and an armed track it can record while the TuxGuitar
+	// Synthesizer is not the port (none is open here), and only the record action refuses then
+	@Test
+	void theMidiPortDoesNotGreyRecordOut() {
+		device();
+		this.session.arm(this.voice);
+		boolean synthesizer = MidiPlayer.getInstance(this.fixture.context).isOutputPortOpen(TGAudioSession.SYNTHESIZER_PORT_KEY);
+		assertEquals("false audio.status.not-recording record | Voice 0 -inf dBFS", synthesizer + " " + status());
+	}
+
 	// half full scale is -6.0 dBFS; full scale has clipped; the guitar track cannot be armed, the Bass was never fed
 	@Test
 	void itCanRecordAndEachArmedTrackShowsItsLevelInTrackOrder() {
@@ -120,14 +131,22 @@ class TestAudioStatus {
 		TGPracticeUnderWay.getInstance(this.fixture.context).begin(TGPracticeSession.start(settings, this.fixture.song).course(1, header -> 0, TGTempoScale.percent(100)));
 	}
 
-	// Record is greyed out during a practice session, and refused saying why (null without one)
+	// whether a practice session refuses Record, and why it says
+	private String practiceRefusal() {
+		return TuxGuitarMessages.english(() -> {
+			TGRecordConditions now = TGRecordConditions.of(this.fixture.context, this.fixture.song);
+			return (TGRecordRefusal.PRACTICE.holds(now) ? TGRecordRefusal.PRACTICE.say(now) : "none");
+		});
+	}
+
+	// Record is greyed out during a practice session, and refused saying why
 	@Test
 	void duringAPracticeSessionItCannotRecord() throws TGPracticeRefusal {
 		device();
 		this.session.arm(this.voice);
-		String before = String.valueOf(TGAudioStatus.practiceRefusal(this.fixture.context));
+		String before = this.practiceRefusal();
 		practising();
-		assertEquals("null | audio.status.not-recording | Voice 0 -inf dBFS | Interleaved practice is under way: stop it to record.",
-			before + " | " + status() + " | " + TuxGuitarMessages.english(() -> TGAudioStatus.practiceRefusal(this.fixture.context)));
+		assertEquals("none | audio.status.not-recording | Voice 0 -inf dBFS | Interleaved practice is under way: stop it to record.",
+			before + " | " + status() + " | " + this.practiceRefusal());
 	}
 }

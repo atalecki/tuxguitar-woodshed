@@ -330,12 +330,12 @@ Feature: Interleaved click-up
       | removing the marker of measure 2             | -     |                    |
       | undoing                                      | -     |                    |
 
-  Scenario: Record during a session is refused, saying why, and the session goes on
+  Scenario: Record during a session is refused, the status line saying why, and the session goes on
     Given I have added an audio track recording input channel 1
     And I have armed track 2
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, choosing Record during step 2
-    Then Record is refused, saying "Interleaved click-up is under way: stop it to record."
+    Then Record is refused with no error message, the status line saying "Interleaved click-up is under way: stop it to record."
     And the player stopped by itself at the end of the block step 5's end is heard in
     And track 2's takes read ""
 
@@ -346,7 +346,7 @@ Feature: Interleaved click-up
     And I have armed track 2
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, choosing Record during step 2
-    Then Record is refused, saying "Verschachteltes Click-up läuft: zum Aufnehmen anhalten."
+    Then Record is refused with no error message, the status line saying "Verschachteltes Click-up läuft: zum Aufnehmen anhalten."
     And track 2's takes read ""
 
   # a flag weighs a unit in interleaved practice's random choice; a click-up has no choice, so its steps stay as they were
