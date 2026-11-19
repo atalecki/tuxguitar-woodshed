@@ -63,11 +63,11 @@ public class ClickUpLadderBenchmark {
 		return TGClickUpLadder.of(this.settings, this.song);
 	}
 
-	// every step's plan, first to last, as the player plans one ahead and starts it; each plan used, as the player keeps
-	// it (unused, the JIT drops the plans and times only the loop)
+	// every step's plan, first to last (no Count In clicks), as the player plans one ahead and starts it; each plan used,
+	// as the player keeps it (unused, the JIT drops the plans and times only the loop)
 	@Benchmark
 	public void course(Blackhole plans) {
-		TGPracticeCourse course = this.ladder.course();
+		TGPracticeCourse course = this.ladder.course(header -> 0);
 		TGPracticePlan plan;
 		do {
 			plan = course.ahead();
