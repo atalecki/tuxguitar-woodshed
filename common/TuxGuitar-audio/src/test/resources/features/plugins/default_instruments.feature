@@ -148,6 +148,20 @@ Feature: Default instruments by track kind
     When TuxGuitar's VST3 scan at startup is done
     Then the song is still playing
 
+  # Scan again (the Sound Chain dialog) finds a default installed meanwhile: applied at once when nothing plays; while
+  # the song plays it plays on, and the next Play picks the defaults up
+  Scenario: after Scan again with nothing playing, the song's channels play the defaults without Play
+    Given the default instrument for guitar tracks is "Test Sine"
+    When I press Scan again in the Sound Chain dialog
+    Then track 1's channel plays "Test Sine" before any Play
+
+  Scenario: Scan again while the song plays leaves it playing, the defaults left for the next Play
+    Given the default instrument for guitar tracks is "Test Sine"
+    And the song has started playing
+    When I press Scan again in the Sound Chain dialog
+    Then the song is still playing
+    And track 1's channel plays "nothing" before any Play
+
   # the Sound Chain dialog's source row says what a track without an instrument of its own plays, and why: its kind's
   # default, else General MIDI's program and the reason
   Scenario Outline: the Sound Chain dialog's source row says what plays and why

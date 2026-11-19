@@ -14,17 +14,21 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * those instruments (the one in use, when the scan did not find it, stays offered as "<name> (not installed)", so
  * opening the settings never loses it); guitar and bass, while Woodshed Guitar is their choice, a profile: a .nam file,
  * or none, the one TuxGuitar ships for the kind. Only what can be played is offered: no other instrument, and no
- * profile for another one. One writer (the app's UI thread).
+ * profile for another one; nothing while the MIDI Port chosen is not the TuxGuitar Synthesizer, the only one they play
+ * on, and a line says why. One writer (the app's UI thread).
  */
 public final class TGDefaultInstrumentChoices {
 
 	private static final String GENERAL_MIDI = "audio.default-instrument.general-midi";
 	private static final String NOT_INSTALLED = "audio.default-instrument.not-installed-choice";
 	private static final String SHIPPED = "audio.default-instrument.shipped-profile";
+	private static final String SYNTHESIZER_ONLY = "audio.default-instrument.synthesizer-only";
 
 	private final TGDefaultInstruments current;
 	private final List<TGVst3Plugin> scanned;
 	private TGDefaultInstruments chosen;
+	// the MIDI Port chosen is the TuxGuitar Synthesizer's
+	private boolean onSynthesizer = true;
 
 	public TGDefaultInstrumentChoices(TGDefaultInstruments current, List<TGVst3Plugin> scanned) {
 		this.current = current;
@@ -112,5 +116,31 @@ public final class TGDefaultInstrumentChoices {
 
 	public TGDefaultInstruments getChosen() {
 		return this.chosen;
+	}
+
+	// the MIDI Port chosen on the page (its key; null for none): the defaults are chosen only while it is the TuxGuitar
+	// Synthesizer's, the only one they play on
+	public void choosePort(String portKey) {
+		this.onSynthesizer = TGAudioSession.SYNTHESIZER_PORT_KEY.equals(portKey);
+	}
+
+	// whether anything can be chosen: until a port is told, it can
+	public boolean isEditable() {
+		return this.onSynthesizer;
+	}
+
+	// why nothing can be chosen; "" while it can
+	public String getNotice() {
+		return (this.onSynthesizer ? "" : TGMessagesManager.getProperty(SYNTHESIZER_ONLY));
+	}
+
+	// a file can be chosen as the kind's profile: Woodshed Guitar is its choice and the defaults can be chosen
+	public boolean canChooseProfile(TGInstrumentKind kind) {
+		return (this.onSynthesizer && this.takesProfile(kind));
+	}
+
+	// the kind can go back to the profile TuxGuitar ships: a file can be chosen, and one is
+	public boolean canGoBackToShipped(TGInstrumentKind kind) {
+		return (this.canChooseProfile(kind) && !this.isShipped(kind));
 	}
 }

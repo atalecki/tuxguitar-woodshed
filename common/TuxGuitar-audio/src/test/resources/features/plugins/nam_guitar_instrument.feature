@@ -118,6 +118,60 @@ Feature: Woodshed Guitar, the guitar instrument that plays through a NAM capture
       | Output level | -20.0 | 0.3   |
       | Output level | 0.0   | 3.0   |
 
+  # Evening out the loudness. A capture stores how loud it plays a standard input (its loudness, in dB, as NAM's trainer
+  # measures it); NAM's own plugin evens every capture out to -18 dB from it (its Normalized output, the default), and so
+  # does Woodshed Guitar, so changing profile does not jump the level. A capture that stores none (Gain 3.nam, and the
+  # captures of the scenarios above) plays at its own level, as before. Output level scales what is evened out.
+
+  Scenario Outline: a profile that stores its loudness is evened out to -18 dB
+    Given there is a NAM capture "Gain 3 at <loudness> dB.nam" that multiplies the signal by 3.0, its loudness <loudness> dB
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    When Woodshed Guitar of track 1 loads the NAM capture "Gain 3 at <loudness> dB.nam"
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds <times> times what track 2 sounds, sample for sample within 0.001
+
+    # 6 dB below -18 doubles the level (10^(6/20) = 1.995), 6 dB above halves it
+    Examples:
+      | loudness | times |
+      | -24.0    | 5.986 |
+      | -18.0    | 3.0   |
+      | -12.0    | 1.504 |
+
+  Scenario: Output level scales a profile evened out
+    Given there is a NAM capture "Gain 3 at -24 dB.nam" that multiplies the signal by 3.0, its loudness -24.0 dB
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3 at -24 dB.nam"
+    And I have set "Output level" of the VST3 instrument of track 1 to -20.0
+    When I play the song from measure 1 beat 1
+    Then track 1 sounds 0.599 times what track 2 sounds, sample for sample within 0.001
+
+  # the song holds the capture's contents, its loudness with them: a reopened song plays it evened out as it did
+  Scenario: a profile evened out plays at the same level after saving and reopening the song
+    Given there is a NAM capture "Gain 3 at -24 dB.nam" that multiplies the signal by 3.0, its loudness -24.0 dB
+    And I have entered fret 5 on string 1
+    And I have added a guitar track on a channel of its own
+    And I have moved the caret to track 2
+    And I have entered fret 5 on string 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 1
+    And I have chosen the VST3 instrument "Woodshed Guitar" for track 2
+    And Woodshed Guitar of track 1 has loaded the NAM capture "Gain 3 at -24 dB.nam"
+    And I have saved the song as a TuxGuitar file
+    And the NAM capture "Gain 3 at -24 dB.nam" has been moved away
+    When I open it again
+    And I play the song from measure 1 beat 1
+    Then track 1 sounds 5.986 times what track 2 sounds, sample for sample within 0.001
+    And the state of every VST3 plugin is byte for byte what the plugin gave when the song was saved
+
   Scenario: with no profile loaded, Woodshed Guitar plays no profile
     Given I have chosen the VST3 instrument "Woodshed Guitar" for track 1
     Then Woodshed Guitar of track 1 plays no profile

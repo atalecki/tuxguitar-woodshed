@@ -1,6 +1,6 @@
 // woodshed-guitar-text-test: checks how Woodshed Guitar chooses its texts (text.h), over a table of two languages made
 // up here (only English ships), then the English it ships. Prints each check that fails; exit 0 when none does
-// (TuxGuitar-vst3's TestWoodshedText runs it).
+// (TuxGuitar-vst3's TestWoodshedChecks runs it).
 #include "text.h"
 
 #include <cstdio>

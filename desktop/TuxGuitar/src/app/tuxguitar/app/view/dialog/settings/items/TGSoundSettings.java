@@ -17,4 +17,8 @@ public interface TGSoundSettings {
 
 	// Defaults: the settings' defaults are kept (and applied)
 	void keepDefaults();
+
+	// the MIDI Port chosen on the page (its key; null while none is): told once it is created, and each time the user
+	// chooses another, before OK
+	void portChosen(String portKey);
 }

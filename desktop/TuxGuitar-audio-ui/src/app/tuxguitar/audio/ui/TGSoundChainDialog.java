@@ -132,11 +132,12 @@ public class TGSoundChainDialog {
 		plugins.stream().findFirst().ifPresent(select::setSelectedValue);
 	}
 
-	// the VST3 folders scanned again off the UI thread (a plugin installed while TuxGuitar runs), then offered here
+	// the VST3 folders scanned again off the UI thread (a plugin installed while TuxGuitar runs), then offered here; the
+	// default instruments applied at once unless the song plays
 	private void scanAgain() {
 		this.scan.setEnabled(false);
 		Thread scanning = new Thread(() -> {
-			LOG.info(TGLiveAudio.getInstance(this.context).scanPlugins());
+			LOG.info(TGLiveAudio.getInstance(this.context).scanAgain());
 			this.later(this::scanned);
 		}, "TuxGuitar VST3 scan");
 		scanning.setDaemon(true);

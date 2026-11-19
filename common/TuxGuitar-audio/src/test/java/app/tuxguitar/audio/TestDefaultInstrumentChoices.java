@@ -15,7 +15,8 @@ import app.tuxguitar.vst3.TGVst3Plugin;
 /**
  * What the settings offer to choose the default instruments from, and what the user chose: per kind General MIDI, the
  * instruments the scan found (no effect), and the one in use when the scan did not find it; a profile only for guitar
- * and bass while Woodshed Guitar is their choice, the shipped one until a file is chosen. Labels in English.
+ * and bass while Woodshed Guitar is their choice, the shipped one until a file is chosen; nothing to choose, and why,
+ * while the MIDI Port chosen is not the TuxGuitar Synthesizer. Labels in English.
  */
 class TestDefaultInstrumentChoices {
 
@@ -84,5 +85,42 @@ class TestDefaultInstrumentChoices {
 		this.choices.chooseProfile(TGInstrumentKind.GUITAR, null);
 		assertEquals("RiffSmith Clean (shipped with TuxGuitar) (true) | RiffSmith Bass Clean (shipped with TuxGuitar) (true)"
 			+ " / C:/profiles/Lead.nam (false) | RiffSmith Bass Clean (shipped with TuxGuitar) (true) / " + shipped, shipped + " / " + lead + " / " + profiles());
+	}
+
+	// whether the defaults can be chosen, and the line saying why not ("" while they can)
+	private String editable() {
+		return TuxGuitarMessages.english(() -> this.choices.isEditable() + " \"" + this.choices.getNotice() + "\"");
+	}
+
+	// the defaults play only on the TuxGuitar Synthesizer: chosen in the same dialog, the port changes them at once
+	@Test
+	void theDefaultsAreChosenOnlyWhileTheMidiPortIsTheTuxGuitarSynthesizer() {
+		String untold = editable();
+		this.choices.choosePort("test-midi-out.port");
+		String other = editable();
+		this.choices.choosePort(null);
+		String none = editable();
+		this.choices.choosePort(TGAudioSession.SYNTHESIZER_PORT_KEY);
+		assertEquals("true \"\" / false \"Default instruments play only when the MIDI Port is the TuxGuitar Synthesizer.\" / false \""
+			+ "Default instruments play only when the MIDI Port is the TuxGuitar Synthesizer.\" / true \"\"", untold + " / " + other + " / " + none + " / " + editable());
+	}
+
+	// "choose? back to shipped?" for the guitar profile
+	private String guitarProfile() {
+		return this.choices.canChooseProfile(TGInstrumentKind.GUITAR) + " " + this.choices.canGoBackToShipped(TGInstrumentKind.GUITAR);
+	}
+
+	// a profile is chosen while Woodshed Guitar is the kind's choice and the defaults can be chosen; back to the shipped
+	// one only from a file chosen
+	@Test
+	void aProfileIsChosenOnlyWhileTheDefaultsCanBe() {
+		String shipped = guitarProfile();
+		this.choices.chooseProfile(TGInstrumentKind.GUITAR, "C:/profiles/Lead.nam");
+		String lead = guitarProfile();
+		this.choices.choosePort("test-midi-out.port");
+		String other = guitarProfile();
+		this.choices.choosePort(TGAudioSession.SYNTHESIZER_PORT_KEY);
+		this.choices.choose(TGInstrumentKind.GUITAR, choice(TGInstrumentKind.GUITAR, "Test Sine"));
+		assertEquals("true false / true true / false false / false false", shipped + " / " + lead + " / " + other + " / " + guitarProfile());
 	}
 }
