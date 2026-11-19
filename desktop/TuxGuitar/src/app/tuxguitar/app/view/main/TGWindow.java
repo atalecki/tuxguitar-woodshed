@@ -107,8 +107,7 @@ public class TGWindow implements TGEventListener {
 
 		TGFretBoardEditor tgFretBoardEditor = TGFretBoardEditor.getInstance(this.context);
 		tgFretBoardEditor.createFretBoard(bottom, tgConfig.getBooleanValue(TGConfigKeys.SHOW_FRETBOARD));
-		TGBottomDock.getInstance(this.context).create(uiFactory, bottom, 2);
-		TGStatusLine.getInstance(this.context).create(uiFactory, bottom, 3);
+		TGStatusLine.getInstance(this.context).create(uiFactory, bottom, 2);
 
 		// Layout
 		this.window.setLayout(new TGWindowLayout(tgToolBar.getControl(), topContainer, tgWindowDivider.getControl(), tgTableViewer.getControl(), bottom));

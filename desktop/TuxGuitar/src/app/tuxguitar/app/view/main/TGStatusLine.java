@@ -8,7 +8,7 @@ import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 
 /**
- * The line at the foot of the main window, under the fretboard and any panel docked there (TGBottomDock), that shows a quiet hint (a plugin still loading, say):
+ * The line at the foot of the main window, under the fretboard, that shows a quiet hint (a plugin still loading, say):
  * hidden, taking no room, while there is none. Glue only: what it shows is decided where the hint comes from. On the UI
  * thread.
  */
