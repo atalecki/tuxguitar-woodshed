@@ -1,5 +1,7 @@
 package app.tuxguitar.audio;
 
+import app.tuxguitar.midi.synth.TGLevelTap;
+
 /**
  * The input level of an audio track: the peak of what its input channel(s) delivered in the last second, in dBFS (the
  * higher of the two sides for a pair). At -0.1 dBFS or above the input is clipping; it shows it has clipped until the
@@ -7,8 +9,8 @@ package app.tuxguitar.audio;
  */
 public final class TGInputMeter {
 
-	// -0.1 dBFS, as a sample
-	static final float CLIPPING = (float) Math.pow(10, -0.1 / 20);
+	// -0.1 dBFS, as a sample: decided once, by the level taps
+	static final float CLIPPING = TGLevelTap.CLIPPING;
 
 	// the peak of each of the last second's samples, the oldest overwritten first
 	private final float[] lastSecond;
