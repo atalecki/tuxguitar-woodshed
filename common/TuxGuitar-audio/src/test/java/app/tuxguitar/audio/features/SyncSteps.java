@@ -216,10 +216,22 @@ public class SyncSteps {
 	public void everyClickReachesTheOutputLate(int side, int late) {
 		List<Integer> beats = heard().beats();
 		float[] output = heard().output(side);
-		List<Integer> clicks = Meters.clicks(output, Math.max(0, beats.get(0) - heard().latency()), output.length);
+		assertOnBeats(beats, Meters.clicks(output, Math.max(0, beats.get(0) - heard().latency()), output.length), late);
+	}
+
+	// the beats counted from the song's first (1), in spans ("1 to 4, 6 to 9"); its clicks those beats' and no others
+	@Then("the output's {side} side holds a click on beats {spans} of the song, each within 1 sample of its beat")
+	public void clicksOnBeats(int side, List<int[]> spans) {
+		List<Integer> beats = heard().beats();
+		List<Integer> heldOn = spans.stream().flatMap(span -> IntStream.rangeClosed(span[0], span[1]).boxed()).map(beat -> beats.get(beat - 1)).collect(Collectors.toList());
+		assertOnBeats(heldOn, clicks(heard(), side), 0);
+	}
+
+	// one click per beat, each that late after it within 1 sample, where the output sounds it (the render's latency later)
+	private void assertOnBeats(List<Integer> beats, List<Integer> clicks, int late) {
 		assertEquals(beats.size(), clicks.size(), "clicks at " + clicks);
 		for (int i = 0; i < clicks.size(); i++) {
-			assertEquals(beats.get(i) + late, clicks.get(i) + heard().latency(), 1, "click " + i);
+			assertEquals(beats.get(i) + late, clicks.get(i) + heard().latency(), 1, "click " + i + " of " + clicks);
 		}
 	}
 }
