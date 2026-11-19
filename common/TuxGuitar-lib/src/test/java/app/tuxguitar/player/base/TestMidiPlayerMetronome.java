@@ -80,7 +80,7 @@ public class TestMidiPlayerMetronome {
 	public void onAPortWithoutASampleClockTheMetronomeClicksOnThePercussionChannel() throws MidiPlayerException {
 		withPercussion();
 
-		assertEquals("16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95", clicks());
+		assertEquals("16 | on 960 c0 k37 v127 | on 15360 c0 k37 v90", clicks());
 	}
 
 	// without one, on a percussion channel of the player's own (CLICKS), not the song's: opened as playing starts with
@@ -88,7 +88,7 @@ public class TestMidiPlayerMetronome {
 	// gm-utils); the song keeps its one channel
 	@Test
 	public void onAPortWithoutAPercussionChannelTheMetronomeClicksOnAPercussionChannelOfThePlayersOwn() throws MidiPlayerException {
-		assertEquals("16 | on 960 c-3 k37 v95 | on 15360 c-3 k37 v95 | " + newPercussionChannel(-3, 127) + " | 1",
+		assertEquals("16 | on 960 c-3 k37 v127 | on 15360 c-3 k37 v90 | " + newPercussionChannel(-3, 127) + " | 1",
 				clicksOnAPort() + " | " + channel(MidiClickChannels.CLICKS) + " | " + fixture.song.countChannels());
 	}
 
@@ -109,7 +109,7 @@ public class TestMidiPlayerMetronome {
 		withPercussion();
 		received.clear();
 
-		assertEquals("16 | on 960 c-3 k37 v95 | on 15360 c-3 k37 v95 / 16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95 | [-3 closed]",
+		assertEquals("16 | on 960 c-3 k37 v127 | on 15360 c-3 k37 v90 / 16 | on 960 c0 k37 v127 | on 15360 c0 k37 v90 | [-3 closed]",
 				without + " / " + clicks() + " | " + channel(MidiClickChannels.CLICKS));
 	}
 
@@ -120,19 +120,19 @@ public class TestMidiPlayerMetronome {
 	public void onASampleClockTheMetronomeClicksOnItsDrumsWhenItHasThem() throws MidiPlayerException {
 		withPercussion();
 
-		assertEquals("16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95 / 16 | on 960 c-2 k76 v95 | on 15360 c-2 k77 v95",
+		assertEquals("16 | on 960 c0 k37 v127 | on 15360 c0 k37 v90 / 16 | on 960 c-2 k76 v127 | on 15360 c-2 k77 v127",
 				clicksOnASampleClock(false) + " / " + clicksOnASampleClock(true));
 	}
 
 	@Test
 	public void onASampleClockWithoutDrumsTheMetronomeClicksOnThePlayersPercussionChannelWithoutOne() throws MidiPlayerException {
-		assertEquals("16 | on 960 c-3 k37 v95 | on 15360 c-3 k37 v95 | []", clicksOnASampleClock(false) + " | " + drums());
+		assertEquals("16 | on 960 c-3 k37 v127 | on 15360 c-3 k37 v90 | []", clicksOnASampleClock(false) + " | " + drums());
 	}
 
 	// with drums, percussion channel or not: the player opens no percussion channel of its own
 	@Test
 	public void onASampleClockWithDrumsTheMetronomeClicksWithoutAPercussionChannel() throws MidiPlayerException {
-		assertEquals("16 | on 960 c-2 k76 v95 | on 15360 c-2 k77 v95 | []", clicksOnASampleClock(true) + " | " + channel(MidiClickChannels.CLICKS));
+		assertEquals("16 | on 960 c-2 k76 v127 | on 15360 c-2 k77 v127 | []", clicksOnASampleClock(true) + " | " + channel(MidiClickChannels.CLICKS));
 	}
 
 	// the drums open when playing starts, at the percussion channel's Volume and Balance (scaled by the player's volume,
@@ -161,7 +161,7 @@ public class TestMidiPlayerMetronome {
 	@Test
 	public void theMetronomeClicksTheClickSound() throws MidiPlayerException {
 		withPercussion();
-		player.setClick(new MidiClick(76, 127));
+		player.setClick(MidiClick.sameAccented(MidiClickSound.WOOD_BLOCK, 0));
 
 		assertEquals("16 | on 960 c0 k76 v127 | on 15360 c0 k76 v127", clicks());
 	}

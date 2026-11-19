@@ -91,8 +91,8 @@ public class TGConfigDefaults{
 		loadProperty(properties, TGConfigKeys.COLOR_INVALID_ENTRY, "230,110,110");
 		loadProperty(properties, TGConfigKeys.MIDI_PORT, "tuxguitar-synth.port");
 		loadProperty(properties, TGConfigKeys.MIDI_SEQUENCER, "tuxguitar.sequencer");
-		loadProperty(properties, MidiClick.NOTE, MidiClick.DEFAULT.getNote());
-		loadProperty(properties, MidiClick.VELOCITY, MidiClick.DEFAULT.getVelocity());
+		// the click's keys are kept, with no default here: MidiClick.read gives the default, and migrates the old keys
+		keys.addAll(MidiClick.KEYS);
 		loadProperty(properties, TGConfigKeys.MAX_HISTORY_FILES, 10);
 		loadProperty(properties, TGConfigKeys.FRETBOARD_STRING_SPACING, 20);
 		loadProperty(properties, TGConfigKeys.FRETBOARD_STYLE, TGFretBoardConfig.DISPLAY_TEXT_SCALE);

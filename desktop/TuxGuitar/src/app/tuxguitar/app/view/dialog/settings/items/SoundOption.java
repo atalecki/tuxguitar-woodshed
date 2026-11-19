@@ -23,6 +23,9 @@ import app.tuxguitar.util.TGSynchronizer;
 
 public class SoundOption extends TGSettingsOption {
 
+	// a channel of a General MIDI port, where the click is a drum note at a velocity
+	private static final int GM_PORT_CHANNEL = 9;
+
 	private boolean initialized;
 
 	//**MidiSequencer module**//
@@ -85,9 +88,10 @@ public class SoundOption extends TGSettingsOption {
 		clickComposite.setLayout(clickCompositeLayout);
 		this.indent(clickComposite, 6, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, false);
 
+		// until Settings offers the sounds: the other beats' drum note and their velocity on a General MIDI port
 		MidiClick click = MidiClick.read(getConfig());
-		this.clickNote = this.createClickSpinner(clickComposite, 1, "midi.click.note", 0, click.getNote());
-		this.clickVelocity = this.createClickSpinner(clickComposite, 3, "midi.click.velocity", 1, click.getVelocity());
+		this.clickNote = this.createClickSpinner(clickComposite, 1, "midi.click.note", 0, click.getOther().getGmNote());
+		this.clickVelocity = this.createClickSpinner(clickComposite, 3, "midi.click.velocity", 1, click.getVelocity(GM_PORT_CHANNEL, false));
 
 		this.createExtensions(7);
 		this.loadConfig();
@@ -179,7 +183,7 @@ public class SoundOption extends TGSettingsOption {
 			this.updateKey(TGConfigKeys.MIDI_SEQUENCER, this.msCombo, MidiSequencer::getKey);
 			this.updateKey(TGConfigKeys.MIDI_PORT, this.mpCombo, MidiOutputPort::getKey);
 		}
-		new MidiClick(this.clickNote.getValue(), this.clickVelocity.getValue()).write(getConfig());
+		MidiClick.ofMidi(this.clickNote.getValue(), this.clickVelocity.getValue()).write(getConfig());
 		this.extensions.forEach(TGSoundSettings::keep);
 	}
 

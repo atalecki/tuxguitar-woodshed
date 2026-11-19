@@ -3,40 +3,48 @@ package app.tuxguitar.player.base;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.song.models.TGChannel;
-import app.tuxguitar.song.models.TGVelocities;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.configuration.TGConfigManager;
 import app.tuxguitar.util.properties.MapProperties;
 import app.tuxguitar.util.properties.TGPropertiesManager;
 
 /**
- * The click sound Count In and the Metronome play: a drum note from 0 to 127 at a velocity from 1 to 127 (0 would be
- * no note at all), Side Stick at the default velocity until changed, the player's own setting.
+ * The click Count In and the Metronome play, the player's own setting: beat 1's sound (the other beats' sound played
+ * accented, until another is chosen), the other beats' sound, and the click volume in dB from -30 to +12 over the
+ * loudest click a General MIDI velocity gives. The code-made Click, beat 1 accented, at -3 dB (the velocity TuxGuitar
+ * clicked at before, 95) until changed. On a synthesizer's own drums every click is sent at full velocity, accented or
+ * plain, and the drums are told the sounds and the volume (its parameters); on any other channel a click is its sound's
+ * General MIDI drum note at the velocity of the volume.
  */
 public class TestMidiClick {
 
-	private static String read(MidiClick click) {
-		return click.getNote() + " at " + click.getVelocity();
+	private static final int PORT = 9;
+
+	// beat 1's sound (or "same, accented"), the other beats' and the volume
+	private static String describe(MidiClick click) {
+		return click.getBeatOne().map(MidiClickSound::getId).orElse("accented") + " " + click.getOther() + " " + click.getVolume();
 	}
 
 	@Test
-	public void isSideStickAtTheDefaultVelocityUntilChanged() {
+	public void isTheCodeMadeClickAccentedAtMinus3DecibelsUntilChanged() {
 		MidiPlayer player = MidiPlayer.getInstance(new TGContext());
 
-		assertEquals("37 at " + TGVelocities.DEFAULT, read(player.getClick()));
+		assertEquals("accented click -3", describe(player.getClick()));
 	}
 
 	@Test
 	public void isTheOneThePlayerIsGiven() {
 		MidiPlayer player = MidiPlayer.getInstance(new TGContext());
-		player.setClick(new MidiClick(76, 127));
+		player.setClick(new MidiClick(MidiClickSound.CLAVES, MidiClickSound.WOOD_BLOCK, 6));
 
-		assertEquals("76 at 127", read(player.getClick()));
+		assertEquals("claves wood-block 6", describe(player.getClick()));
 	}
 
 	// the song's one track, on a percussion channel, has no notes: every note of the sequence is the Metronome's
@@ -47,7 +55,7 @@ public class TestMidiClick {
 		percussion.setBank(TGChannel.DEFAULT_PERCUSSION_BANK);
 		fixture.song.addChannel(percussion);
 		fixture.song.getTrack(0).setChannelId(percussion.getChannelId());
-		fixture.player.setClick(new MidiClick(76, 127));
+		fixture.player.setClick(MidiClick.sameAccented(MidiClickSound.WOOD_BLOCK, 0));
 		fixture.player.updateLoop(true);
 		fixture.player.addSequence();
 
@@ -56,8 +64,52 @@ public class TestMidiClick {
 	}
 
 	@Test
-	public void keepsTheLowestAndHighestNoteAndVelocity() {
-		assertEquals("0 at 1, 127 at 127", read(new MidiClick(0, 1)) + ", " + read(new MidiClick(127, 127)));
+	public void keepsTheLowestAndHighestVolume() {
+		assertEquals("accented cowbell -30, snare clap 12", describe(MidiClick.sameAccented(MidiClickSound.COWBELL, -30)) + ", "
+			+ describe(new MidiClick(MidiClickSound.SNARE, MidiClickSound.CLAP, 12)));
+	}
+
+	@Test
+	public void refusesAVolumeOutsideItsRangeOrNoSound() {
+		assertThrows(IllegalArgumentException.class, () -> MidiClick.sameAccented(MidiClickSound.CLICK, -31));
+		assertThrows(IllegalArgumentException.class, () -> MidiClick.sameAccented(MidiClickSound.CLICK, 13));
+		assertThrows(IllegalArgumentException.class, () -> MidiClick.sameAccented(null, 0));
+		assertThrows(IllegalArgumentException.class, () -> new MidiClick(null, MidiClickSound.CLICK, 0));
+	}
+
+	// plain, then accented
+	private static String velocities(int volume) {
+		MidiClick click = MidiClick.sameAccented(MidiClickSound.CLICK, volume);
+		return click.getVelocity(PORT, false) + " " + click.getVelocity(MidiClickChannels.CLICKS, true);
+	}
+
+	// a General MIDI port: the volume as a velocity, 127 * 10^(dB / 20), from 1 to 127 (above 0 dB, 127); beat 1 played
+	// accented is 3 dB louder, beat 1 of a sound of its own is not
+	@Test
+	public void elsewhereTheVolumeIsAVelocity() {
+		assertEquals("4 6 90 127 127 127 | 90 64", velocities(-30) + " " + velocities(-3) + " " + velocities(12)
+			+ " | " + MidiClick.sameAccented(MidiClickSound.CLICK, -6).getVelocity(PORT, true)
+			+ " " + new MidiClick(MidiClickSound.CLAP, MidiClickSound.CLICK, -6).getVelocity(PORT, true));
+	}
+
+	// on a synthesizer's own drums (the built-in click) an accented and a plain note at full velocity: the drums play the
+	// sounds and the volume they are told
+	@Test
+	public void onTheDrumsAClickIsAccentedOrPlainAtFullVelocity() {
+		MidiClick click = new MidiClick(MidiClickSound.CLAP, MidiClickSound.HI_HAT, -20);
+
+		assertEquals("76 127 77 127", click.getNote(MidiSampleClock.DRUMS, true) + " " + click.getVelocity(MidiSampleClock.DRUMS, true)
+			+ " " + click.getNote(MidiSampleClock.DRUMS, false) + " " + click.getVelocity(MidiSampleClock.DRUMS, false));
+	}
+
+	// elsewhere the drum note of the sound: beat 1's, the other beats' when beat 1 is played accented
+	@Test
+	public void elsewhereAClickIsTheDrumNoteOfItsSound() {
+		MidiClick click = new MidiClick(MidiClickSound.CLAP, MidiClickSound.HI_HAT, 0);
+		MidiClick accented = MidiClick.sameAccented(MidiClickSound.COWBELL, 0);
+
+		assertEquals("39 42 56 56", click.getNote(PORT, true) + " " + click.getNote(MidiClickChannels.CLICKS, false)
+			+ " " + accented.getNote(PORT, true) + " " + accented.getNote(PORT, false));
 	}
 
 	// a TuxGuitar setting: kept in a configuration of the app's, which a test keeps in memory
@@ -70,29 +122,110 @@ public class TestMidiClick {
 	@Test
 	public void keptIsReadBackAsWrittenAndNothingKeptIsTheDefault() {
 		TGConfigManager config = config();
-		String none = read(MidiClick.read(config));
-		new MidiClick(76, 127).write(config);
-		assertEquals("37 at " + TGVelocities.DEFAULT + " | 76 at 127", none + " | " + read(MidiClick.read(config)));
+		String none = describe(MidiClick.read(config));
+		new MidiClick(MidiClickSound.own("Mine.wav"), MidiClickSound.SNARE, 12).write(config);
+		String own = describe(MidiClick.read(config));
+		MidiClick.sameAccented(MidiClickSound.CLAVES, -30).write(config);
+
+		assertEquals("accented click -3 | file:Mine.wav snare 12 | accented claves -30", none + " | " + own + " | " + describe(MidiClick.read(config)));
 	}
 
-	// a configuration edited by hand: what is not a MIDI note and velocity is the default click
 	@Test
-	public void keptOutsideMidiIsTheDefault() {
+	public void keptUnderItsOwnKeys() {
 		TGConfigManager config = config();
-		config.setValue(MidiClick.NOTE, 128);
-		config.setValue(MidiClick.VELOCITY, 127);
-		String note = read(MidiClick.read(config));
+		new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, -12).write(config);
+		MidiClick accented = MidiClick.sameAccented(MidiClickSound.SNARE, 1);
+
+		assertEquals("clap snare -12 | same-accented", config.getStringValue(MidiClick.BEAT_ONE) + " " + config.getStringValue(MidiClick.OTHER)
+			+ " " + config.getStringValue(MidiClick.VOLUME) + " | " + accented.toParameters(null).get(MidiClick.BEAT_ONE));
+	}
+
+	// a configuration edited by hand: a sound that is none (or since removed from TuxGuitar) is the Click, beat 1's is
+	// the other beats' accented; a volume that is no number the default one, outside the range the nearest end
+	@Test
+	public void keptThatIsNoSoundOrVolumeFallsBack() {
+		TGConfigManager config = config();
+		config.setValue(MidiClick.BEAT_ONE, "gong");
+		config.setValue(MidiClick.OTHER, "file:../up.wav");
+		config.setValue(MidiClick.VOLUME, "loud");
+		String none = describe(MidiClick.read(config));
+		config.setValue(MidiClick.OTHER, "same-accented");
+		config.setValue(MidiClick.VOLUME, 40);
+		String high = describe(MidiClick.read(config));
+		config.setValue(MidiClick.VOLUME, -99);
+
+		assertEquals("accented click -3 | accented click 12 | accented click -30", none + " | " + high + " | " + describe(MidiClick.read(config)));
+	}
+
+	private static String migrated(int note, int velocity) {
+		TGConfigManager config = config();
+		config.setValue(MidiClick.NOTE, note);
+		config.setValue(MidiClick.VELOCITY, velocity);
+		return describe(MidiClick.read(config));
+	}
+
+	// a configuration kept before: the drum note's built-in sound (else the Click), beat 1 accented, the velocity as a
+	// volume, round(20 * log10(velocity / 127)) dB, from -30; the default one (Side Stick at 95) is the default click
+	@Test
+	public void keptBeforeAsANoteAndVelocityIsMigrated() {
+		assertEquals("accented wood-block 0 | accented click -3 | accented click -30 | accented hi-hat -6",
+			migrated(76, 127) + " | " + migrated(37, 95) + " | " + migrated(60, 1) + " | " + migrated(42, 64));
+	}
+
+	// kept before outside MIDI (edited by hand): the default click; the lowest and highest notes are MIDI
+	@Test
+	public void keptBeforeOutsideMidiIsTheDefault() {
+		assertEquals("accented click -3 | accented click -3 | accented click 0 | accented click 0", migrated(128, 127) + " | " + migrated(76, 0)
+			+ " | " + migrated(0, 127) + " | " + migrated(127, 127));
+	}
+
+	// written, the note and velocity kept before are gone: the click is kept once
+	@Test
+	public void writtenTheNoteAndVelocityKeptBeforeAreGone() {
+		TGConfigManager config = config();
 		config.setValue(MidiClick.NOTE, 76);
-		config.setValue(MidiClick.VELOCITY, 0);
-		assertEquals("37 at " + TGVelocities.DEFAULT + " | 37 at " + TGVelocities.DEFAULT, note + " | " + read(MidiClick.read(config)));
+		config.setValue(MidiClick.VELOCITY, 127);
+		MidiClick.DEFAULT.write(config);
+
+		assertEquals("null null accented click -3", config.getStringValue(MidiClick.NOTE) + " " + config.getStringValue(MidiClick.VELOCITY) + " " + describe(MidiClick.read(config)));
+	}
+
+	// what the synthesizer's drums are told: the sounds and the volume, and the folder of the user's own sounds
+	@Test
+	public void theDrumsParametersGiveBackTheClickAndTheFolder() {
+		MidiClick click = new MidiClick(MidiClickSound.own("Mine.wav"), MidiClickSound.COWBELL, -7);
+		Map<String, String> parameters = click.toParameters("C:/click-sounds");
+
+		assertEquals("file:Mine.wav cowbell -7 C:/click-sounds | false", describe(MidiClick.fromParameters(parameters)) + " " + parameters.get(MidiClick.FOLDER)
+			+ " | " + click.toParameters(null).containsKey(MidiClick.FOLDER));
 	}
 
 	@Test
-	public void refusesANoteOrVelocityOutsideMidi() {
-		assertThrows(IllegalArgumentException.class, () -> new MidiClick(-1, 95));
-		assertThrows(IllegalArgumentException.class, () -> new MidiClick(128, 95));
-		assertThrows(IllegalArgumentException.class, () -> new MidiClick(37, 0));
-		assertThrows(IllegalArgumentException.class, () -> new MidiClick(37, 128));
+	public void noParametersAreTheDefaultClick() {
+		assertEquals("accented click -3", describe(MidiClick.fromParameters(new HashMap<String, String>())));
+	}
+
+	// the volume's gain, 10^(dB / 20): 1 at 0 dB
+	@Test
+	public void theGainOfTheVolume() {
+		assertEquals("1.0 3.981 0.5012", MidiClick.sameAccented(MidiClickSound.CLICK, 0).getGain() + " " + Math.round(MidiClick.sameAccented(MidiClickSound.CLICK, 12).getGain() * 1000) / 1000.0
+			+ " " + Math.round(MidiClick.sameAccented(MidiClickSound.CLICK, -6).getGain() * 10000) / 10000.0);
+	}
+
+	// the click of the setting kept before, a General MIDI note at a velocity (Settings until it offers the sounds)
+	@Test
+	public void theClickOfANoteAndVelocity() {
+		assertEquals("accented cowbell -2 | accented click 0", describe(MidiClick.ofMidi(56, 100)) + " | " + describe(MidiClick.ofMidi(60, 127)));
+	}
+
+	@Test
+	public void clicksOfTheSameSoundsAndVolumeAreEqual() {
+		MidiClick click = new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 3);
+
+		assertEquals("true true false false false false", click.equals(new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 3)) + " "
+			+ (click.hashCode() == new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 3).hashCode()) + " " + click.equals(MidiClick.sameAccented(MidiClickSound.SNARE, 3))
+			+ " " + click.equals(new MidiClick(MidiClickSound.CLAP, MidiClickSound.SNARE, 2)) + " " + click.equals(new MidiClick(MidiClickSound.CLAP, MidiClickSound.CLICK, 3))
+			+ " " + click.equals("clap snare 3"));
 	}
 
 	// beat 1 of each measure: the first of each measure's worth of clicks, counted from 0
@@ -133,14 +266,5 @@ public class TestMidiClick {
 	@Test
 	public void countInBeforeAStartBetweenTwoBeatsAccentsItsFirstClick() {
 		assertEquals("x...x. x..x", countIn(6, 4, 4, 1440) + " " + countIn(4, 3, 4, 1440));
-	}
-
-	// on a synthesizer's own drums (the built-in click) an accented and a plain note; elsewhere the drum note either way
-	@Test
-	public void aClickOnTheDrumsIsAccentedOrPlainAndElsewhereTheDrumNote() {
-		MidiClick click = new MidiClick(42, 100);
-
-		assertEquals("76 77 42 42", click.getNote(MidiSampleClock.DRUMS, true) + " " + click.getNote(MidiSampleClock.DRUMS, false)
-			+ " " + click.getNote(9, true) + " " + click.getNote(MidiClickChannels.CLICKS, false));
 	}
 }
