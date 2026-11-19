@@ -16,6 +16,7 @@ import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGMidiProcessor;
 import app.tuxguitar.midi.synth.TGSynthManager;
 import app.tuxguitar.player.base.MidiClick;
+import app.tuxguitar.player.base.MidiClickSound;
 import app.tuxguitar.util.TGContext;
 
 /**
@@ -50,7 +51,17 @@ public class TestClickProcessor {
 
 	// left and right of the blocks the processor fills at the rate, the notes sent before the first: they click
 	private static float[][] play(float sampleRate, Note... notes) {
+		return play(new ClickProcessor(), sampleRate, notes);
+	}
+
+	// told the parameters first (a click's, see MidiClick.toParameters)
+	private static float[][] told(Map<String, String> parameters, float sampleRate, Note... notes) {
 		ClickProcessor click = new ClickProcessor();
+		click.restoreParameters(parameters);
+		return play(click, sampleRate, notes);
+	}
+
+	private static float[][] play(ClickProcessor click, float sampleRate, Note... notes) {
 		click.setSampleRate(sampleRate);
 		for (Note note : notes) {
 			click.sendNoteOn(note.key, note.velocity, -1, false, note.frame);
@@ -242,6 +253,17 @@ public class TestClickProcessor {
 			float[][] block = new float[2][FRAMES];
 			buffer.read(block);
 			assertArrayEquals(Arrays.copyOfRange(expected, b * FRAMES, (b + 1) * FRAMES), block[1], 1f / Short.MAX_VALUE, "block " + b);
+		}
+	}
+
+	// told the default sounds, the code-made Click accented on beat 1, at 0 dB: bit for bit what it played before it was
+	// told any sounds, at 44100 and 48000 Hz
+	@Test
+	public void theDefaultSoundsAt0DecibelsAreTheClickItAlwaysPlayed() {
+		Map<String, String> click = MidiClick.sameAccented(MidiClickSound.CLICK, 0).toParameters(null);
+		for (float rate : new float[] {44100, 48000}) {
+			Note[] notes = {note(95, 0), new Note(MidiClick.ACCENTED, 64, 700), new Note(MidiClick.PLAIN, 127, 1500)};
+			assertArrayEquals(play(rate, notes), told(click, rate, notes));
 		}
 	}
 
