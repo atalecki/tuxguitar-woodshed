@@ -362,18 +362,64 @@ public class TestVst3Processors {
 		assertEquals(0.5f, block[0][0]);
 	}
 
-	// an element without a state is its plugin as it opens: the plugin running it, restored from it again (an undo of the
-	// plugin's first change, say), goes back to that, whatever it was set to since
+	// an element without a state is its plugin as it opens: once the song took a change of the plugin running it, the
+	// element restored again (an undo of that first change, say) takes the plugin back to that
 	@Test
-	public void aRunningPluginRestoredFromAnElementWithoutAStateIsAsItOpened() throws TGVst3Exception {
+	public void aRunningPluginRestoredFromAnElementWithoutAStateAfterTheSongTookAChangeIsAsItOpened() throws TGVst3Exception {
 		TGProgramElement element = element("Test Gain");
 		TGAudioProcessor processor = effect(element);
 		TGVst3Instance gain = ((TGVst3Processor) processor).getInstance();
 		byte[] opened = gain.getState().getComponent();
 		gain.message("TG.preset", Map.of("index", 1L), new HashMap<String, byte[]>());
+		gain.agree(gain.getState());
 		processor.restoreParameters(element.getParameters());
 		assertTrue(gain == ((TGVst3Processor) processor).getInstance());
 		org.junit.jupiter.api.Assertions.assertArrayEquals(opened, gain.getState().getComponent());
+	}
+
+	// the song sending the plugin running an element that element again, unchanged (Play does, and a change of another
+	// channel's chain), leaves what the plugin's own editor did that the song has not taken (a capture loaded, say)
+	@Test
+	public void aRunningPluginRestoredFromItsUnchangedElementKeepsWhatItsEditorDid() throws TGVst3Exception {
+		TGProgramElement element = element("Test Gain");
+		TGAudioProcessor processor = effect(element);
+		TGVst3Instance gain = ((TGVst3Processor) processor).getInstance();
+		byte[] opened = gain.getState().getComponent();
+		gain.message("TG.preset", Map.of("index", 1L), new HashMap<String, byte[]>());
+		byte[] edited = gain.getState().getComponent();
+		processor.restoreParameters(element.getParameters());
+		assertFalse(Arrays.equals(opened, edited));
+		org.junit.jupiter.api.Assertions.assertArrayEquals(edited, gain.getState().getComponent());
+	}
+
+	// the element took the plugin's state: a change since that the song has not taken stays when that element comes again
+	@Test
+	public void aRunningPluginKeepsAChangeMadeAfterItsElementTookItsState() throws TGVst3Exception {
+		TGProgramElement element = element("Test Gain");
+		TGAudioProcessor processor = effect(element);
+		TGVst3Instance gain = ((TGVst3Processor) processor).getInstance();
+		gain.message("TG.preset", Map.of("index", 1L), new HashMap<String, byte[]>());
+		processor.storeParameters(element.getParameters());
+		gain.setParameter(gain.findParameter("Gain"), 5.0);
+		processor.restoreParameters(element.getParameters());
+		assertEquals(5.0, gain.getParameter(gain.findParameter("Gain")));
+	}
+
+	// the plugin as its element gave it is what the song holds; changed since, it is not, until the song takes it; an
+	// element with parameters set since its state is not a state the song holds without them
+	@Test
+	public void theSongHoldsThePluginsStateUntilItChangesAndAgainOnceTheSongTakesIt() throws TGVst3Exception {
+		TGProgramElement element = element("Test Gain");
+		TGVst3Element.setParameter(element, parameter("Test Gain", "Gain"), 3.0);
+		TGAudioProcessor processor = effect(element);
+		TGVst3Instance gain = ((TGVst3Processor) processor).getInstance();
+		boolean withParameters = gain.isAgreed(gain.getState());
+		processor.restoreParameters(element("Test Gain").getParameters());
+		boolean asGiven = gain.isAgreed(gain.getState());
+		gain.setParameter(gain.findParameter("Gain"), 5.0);
+		boolean changed = gain.isAgreed(gain.getState());
+		gain.agree(gain.getState());
+		assertEquals("false true false true", withParameters + " " + asGiven + " " + changed + " " + gain.isAgreed(gain.getState()));
 	}
 
 	@Test

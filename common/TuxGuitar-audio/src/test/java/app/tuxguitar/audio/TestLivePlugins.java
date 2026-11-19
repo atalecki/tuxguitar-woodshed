@@ -208,6 +208,64 @@ public class TestLivePlugins {
 		assertEquals("false true 3.0", unpolled + " " + polled + " " + songGain("effect-1"));
 	}
 
+	// a capture loaded in the plugin's own editor, the plugin saying (dirty) or not
+	private static void load(TGVst3Instance plugin, long capture, boolean dirty) throws TGVst3Exception {
+		plugin.message("TG.load", Map.of("capture", capture, "dirty", dirty ? 1L : 0L), Map.of());
+	}
+
+	// the capture of the song's element: of the plugin opened afresh from it
+	private int songCapture(String element) throws TGVst3Exception {
+		TGVst3EffectProcessor fresh = new TGVst3EffectProcessor(this.hosting);
+		try {
+			fresh.restoreParameters(TGSoundChain.element(TGSoundChain.get(this.guitar), element).getParameters());
+			byte[] capture = fresh.getInstance().message("TG.capture", Map.of(), Map.of());
+			return java.nio.ByteBuffer.wrap(capture).order(java.nio.ByteOrder.nativeOrder()).getInt();
+		} finally {
+			fresh.close();
+		}
+	}
+
+	// the user closes the plugin's own editor by its close box (it hides), and the hide is heard
+	private void closeBox(String element) throws TGVst3Exception {
+		TGVst3Instance plugin = gain(element);
+		plugin.message("TG.close-window", Map.of(), Map.of());
+		long end = System.currentTimeMillis() + 2000;
+		while (plugin.getEditorWindow().isShown() && System.currentTimeMillis() < end) {
+			java.util.concurrent.locks.LockSupport.parkNanos(5000000);
+		}
+	}
+
+	// a capture loaded by a plugin that says it is dirty reaches the song once drained, one change
+	@Test
+	public void aCaptureLoadedByAPluginSayingItIsDirtyReachesTheSong() throws TGVst3Exception {
+		load(gain("effect-1"), 8, true);
+		this.live.drain();
+		assertEquals("[effect-1] 8", this.changes + " " + songCapture("effect-1"));
+	}
+
+	// a capture loaded silently reaches the song once its editor is closed by its close box
+	@Test
+	public void aCaptureLoadedSilentlyReachesTheSongOnceItsEditorIsClosed() throws TGVst3Exception {
+		this.live.openEditor(this.guitar.getChannelId(), "effect-1", 0, "");
+		load(gain("effect-1"), 7, false);
+		this.live.drain();
+		String loaded = this.changes + " " + songCapture("effect-1");
+		this.closeBox("effect-1");
+		this.live.drain();
+		assertEquals("[] 0 | [effect-1] 7", loaded + " | " + this.changes + " " + songCapture("effect-1"));
+	}
+
+	// an editor closed having changed nothing changes nothing in the song (no step to undo)
+	@Test
+	public void anEditorClosedHavingChangedNothingChangesNothing() throws TGVst3Exception {
+		this.live.openEditor(this.guitar.getChannelId(), "effect-1", 0, "");
+		gesture(gain("effect-1"), 3.0);
+		this.live.drain();
+		this.closeBox("effect-1");
+		this.live.drain();
+		assertEquals("[effect-1] 3.0", this.changes + " " + songGain("effect-1"));
+	}
+
 	// a kept plugin whose host process is gone after a gesture: asking it, reading its editor again and keeping its
 	// gesture in the song each fail quietly as before, and each failure is logged with the host's reason
 	@Test
@@ -373,6 +431,31 @@ public class TestLivePlugins {
 		undoable.redo(this.fixture.actionContext);
 		TGMidiTaps.sendParameters(synthesizer, this.fixture.songManager, this.fixture.song, this.guitar.getChannelId());
 		assertEquals("2.0 3.0", undone + " " + running(channel, "effect-1").getParameter(1));
+	}
+
+	// a plugin changed as it runs, not through the song (a capture loaded in its own editor), keeps the change while the
+	// synthesizer is sent the channel again (as each Play does, and each change of a sound chain)
+	@Test
+	public void aRunningPluginKeepsAChangeTheSongHasNotTakenWhenItsChannelIsSentAgain() throws Exception {
+		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
+		TGSynthChannel channel = playLive(synthesizer);
+		running(channel, "effect-1").setParameter(1, 4.0);
+		this.addGain();
+		this.sendAgain(synthesizer);
+		assertEquals("4.0 2.0", running(channel, "effect-1").getParameter(1) + " " + running(channel, "effect-2").getParameter(1));
+	}
+
+	// saving took the running plugin's state: a change since that the song has not taken stays when the channel is sent
+	// again
+	@Test
+	public void aRunningPluginKeepsAChangeMadeAfterSavingWhenItsChannelIsSentAgain() throws Exception {
+		TGSynthModel synthesizer = LiveOutput.synthesizer(this.fixture.context, 44100);
+		TGSynthChannel channel = playLive(synthesizer);
+		running(channel, "effect-1").setParameter(1, 4.0);
+		TGPluginStates.store(this.fixture.context, this.fixture.song, this.fixture.songManager.getFactory(), 44100f);
+		running(channel, "effect-1").setParameter(1, 5.0);
+		this.sendAgain(synthesizer);
+		assertEquals(5.0, running(channel, "effect-1").getParameter(1));
 	}
 
 	// a plugin changed as it runs (not through the song) gives the song its state; a disabled one is opened afresh

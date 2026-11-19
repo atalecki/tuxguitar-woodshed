@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +42,9 @@ public final class TGVst3Instance implements AutoCloseable {
 	private volatile int latency;
 	private volatile int tail;
 	private TGVst3Listener listener;
+	// the state and the parameters set since that the song and the plugin last agreed on (the song gave them, or took the
+	// state), null before any
+	private volatile Map.Entry<TGVst3State, Map<Integer, Double>> agreed;
 
 	private TGVst3Instance(TGVst3Host host, TGVst3SharedBlocks blocks, String name, int id, int inputs, int outputs, boolean editor, List<TGVst3Parameter> parameters) {
 		this.host = host;
@@ -174,6 +178,34 @@ public final class TGVst3Instance implements AutoCloseable {
 
 	public void setState(TGVst3State state) throws TGVst3Exception {
 		this.host.call(this.request(TGVst3Protocol.SET_STATE).writeBytes(state.getComponent()).writeBytes(state.getController()), this::readTiming);
+	}
+
+	// the song holds the state now, without parameters set since (it took the state from the plugin)
+	public void agree(TGVst3State state) {
+		this.agreed = agreement(state);
+	}
+
+	// whether the song already holds the state, without parameters set since: taking it again would change nothing
+	public boolean isAgreed(TGVst3State state) {
+		return agreement(state).equals(this.agreed);
+	}
+
+	private static Map.Entry<TGVst3State, Map<Integer, Double>> agreement(TGVst3State state) {
+		return Map.entry(state, Collections.<Integer, Double>emptyMap());
+	}
+
+	// the song gives the plugin the state, then the parameters set since (by id, plain values): set, unless they are what
+	// the two last agreed on, so what the plugin's own editor did since that the song has not taken (a capture loaded)
+	// stays
+	public void restore(TGVst3State state, Map<Integer, Double> parameters) throws TGVst3Exception {
+		Map.Entry<TGVst3State, Map<Integer, Double>> wanted = Map.entry(state, Collections.unmodifiableMap(new HashMap<Integer, Double>(parameters)));
+		if (!wanted.equals(this.agreed)) {
+			this.setState(state);
+			for (Map.Entry<Integer, Double> parameter : parameters.entrySet()) {
+				this.setParameter(parameter.getKey(), parameter.getValue());
+			}
+			this.agreed = wanted;
+		}
 	}
 
 	// what still sounds (tails) is dropped
