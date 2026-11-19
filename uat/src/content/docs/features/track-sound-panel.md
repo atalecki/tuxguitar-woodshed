@@ -7,13 +7,13 @@ sidebar:
 
 ## What it tests
 
-Branch `feature/track-sound-panel`, commit `b26f532eb` (the Track panel came in `d4a87a4ea`; the sound model in
-`be011b50f` and `9e8d8ea7a`). The Sound Chain panel moves from the foot of the window to a Track panel docked at the
-right of the score, like Guitar Pro 8's Track inspector: the track's colour and name, then SOUNDS with a **MIDI** /
-**VST3** switch per track, the instrument, the sound chain top to bottom with its meters, and its actions. MIDI plays
-the track's General MIDI program inside TuxGuitar; VST3 plays the track's VST3 instrument or the default instrument
-of its kind. Switching to MIDI and back restores the same VST3 instrument with its settings. The picked plugin's
-editor stays at the foot of the window.
+Branch `feature/track-sound-panel`, commit `036770c5f` (the switch fix; the Track panel came in `d4a87a4ea`; the
+sound model in `be011b50f` and `9e8d8ea7a`). The Sound Chain panel moves from the foot of the window to a Track panel
+docked at the right of the score, like Guitar Pro 8's Track inspector: the track's colour and name, then SOUNDS with
+a **MIDI** / **VST3** switch per track, the instrument, the sound chain top to bottom with its meters, and its
+actions. MIDI plays the track's General MIDI program inside TuxGuitar; VST3 plays the track's VST3 instrument or the
+default instrument of its kind. Switching to MIDI and back restores the same VST3 instrument with its settings. The
+picked plugin's editor stays at the foot of the window.
 
 ## Setup
 
@@ -50,6 +50,7 @@ Close any running TuxGuitar first. Check out the commit above, then build and la
 | 18 | Add an audio track (Track > Add audio track) and move the caret to it. | No MIDI / VST3 switch and no instrument row; the chain reads "Source: takes". | not run |
 | 19 | Settings > Sound: pick another MIDI Port than the TuxGuitar Synthesizer. | Under **Sound Chain...** a quiet line says sound chains are heard only with the TuxGuitar Synthesizer. Set it back. | not run |
 | 20 | Settings > Language: pick another language, then back to English. | No label is blank or shows a raw key; the new texts stay in English where the language has no translation yet. | not run |
+| 21 | Settings > Sound, Default instruments: set Other tracks to none (General MIDI). Track > Add Track, set its instrument to a piano (Track > Properties, or the channel settings), move the caret to it and press **VST3**. Pick **Woodshed Guitar** in the Instrument drop-down. Press Play and keep it playing; while it plays, pick "Default instrument (General MIDI)", then **Woodshed Guitar** again. | Each pick is heard at once: the General MIDI piano right after the first pick, Woodshed Guitar right after the second. The track never goes silent. | not run |
 
 ## Notes
 
@@ -58,7 +59,3 @@ Close any running TuxGuitar first. Check out the commit above, then build and la
   reopen, and audio tracks. Here the point is what you see and hear in the app.
 - An older TuxGuitar opening a song saved with a track on MIDI plays that track's default instrument (or General MIDI
   without one): it does not know the MIDI setting. Do not report it.
-- Known, older than this change (reported to the owner): on a track whose kind has no default instrument (a piano
-  track while only guitar tracks have one), picking "Default instrument (General MIDI)" in the panel, or Default
-  instrument in the Sound Chain dialog, after the track had a VST3 instrument of its own can leave the track silent
-  while the synthesizer runs. Do not report it here.
