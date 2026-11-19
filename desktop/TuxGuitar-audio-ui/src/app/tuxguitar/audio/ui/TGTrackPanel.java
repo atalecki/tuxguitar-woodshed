@@ -1,7 +1,9 @@
 package app.tuxguitar.audio.ui;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -45,8 +47,9 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * effect, an arrow down into each after the source, a level meter under each, Track out and Master at the foot), one
  * picked; the actions on the picked one (Edit / Hide editor, Disable / Enable, Up, Remove); Add effect; "Sound
  * Chain..." opening the dialog (Scan again and the scan report are there) and, while the MIDI Port is not the TuxGuitar
- * Synthesizer, a quiet line saying the chains are not heard. A name too long for the panel ends in "…", its whole in
- * the tooltip. Built in sections so more can follow (notation, tuning, interpretation); under them the picked plugin's
+ * Synthesizer, a quiet line saying the chains are not heard. Its content is fitted to its width, never wider, so none of
+ * it goes past its right edge: a chip's name too long for it ends in "…" (its whole in the tooltip), a line wraps, a
+ * drop-down is as wide as its row leaves it (TGSoundChainButtons.narrow). Built in sections so more can follow (notation, tuning, interpretation); under them the picked plugin's
  * own editor, or TuxGuitar's parameter rows for one without (TGSoundChainEditorArea: an editor wider than the panel
  * goes to a window of its own); it scrolls when taller than the window. Nothing of it is at the foot of the window.
  * Shown and hidden by View > Sound Chain (F8), the choice kept in its own config at once, as is the panel's width
@@ -61,8 +64,9 @@ final class TGTrackPanel implements TGEventListener {
 	// how wide Track out's and Master's meters are, and the held peak beside their name ("-60.0 dB")
 	private static final float OUTPUT_WIDTH = 120f;
 	private static final float NUMBER_WIDTH = 56f;
-	// about how wide a character of a name is, so a name too long for the panel is cut
-	private static final float CHARACTER = 7f;
+	// the most the margins take from the panel's width around a control of a section, both sides (a chip in its group:
+	// 9 a side), so a control given the panel's width less this fits in it
+	private static final float INSET = 20f;
 	// the panel's rows: the header, the sound's three, the chain, the actions on the picked one, Add effect, the dialog,
 	// the editor area
 	private static final int HEADER = 1;
@@ -81,6 +85,8 @@ final class TGTrackPanel implements TGEventListener {
 	// each text (re)set in the language chosen
 	private final List<Runnable> texts = new ArrayList<Runnable>();
 	private final List<UIToggleButton> chips = new ArrayList<UIToggleButton>();
+	// each chip's whole name, which it shows cut to the panel's width
+	private final Map<UIToggleButton, String> wholes = new HashMap<UIToggleButton, String>();
 	// the chain list's groups: each element's chip, after its arrow, its meter under it
 	private final List<UIPanel> links = new ArrayList<UIPanel>();
 	private TGSoundChainMeters meters;
@@ -92,6 +98,7 @@ final class TGTrackPanel implements TGEventListener {
 	private TGTrackSoundSection sound;
 	private UIPanel chain;
 	private UILabel note;
+	private UITableLayout noteLayout;
 	private UIDropDownSelect<TGVst3Plugin> effects;
 	private UIButton edit;
 	private TGSoundChainEditorArea area;
@@ -100,6 +107,8 @@ final class TGTrackPanel implements TGEventListener {
 	private Key shown = Key.NONE;
 	private TGSoundChainRows rows = TGSoundChainRows.NONE;
 	private int picked = -1;
+	// the width the content is fitted to: the panel's, less the scrollbar's
+	private float fitted;
 
 	TGTrackPanel(TGContext context, TGConfigManager config) {
 		this.context = context;
@@ -111,6 +120,7 @@ final class TGTrackPanel implements TGEventListener {
 	// in the right dock's slot, its editor area under the chain and its actions; shown as last chosen (the first time:
 	// shown) unless the audio it edits is off
 	void create(boolean audio) {
+		this.fitted = this.width();
 		this.createPanel();
 		this.header = new TGTrackHeader(this.context, this.factory, this.panel, HEADER, this.commands);
 		this.texts.add(this.header::retell);
@@ -132,16 +142,46 @@ final class TGTrackPanel implements TGEventListener {
 		this.onUpdate();
 	}
 
-	// a column that scrolls when taller than the window
+	// a column that scrolls when taller than the window, as wide as the slot whatever its content (which is fitted to it)
 	private void createPanel() {
 		UIPanel slot = TGRightDock.getInstance(this.context).getSlot();
 		this.scroll = this.factory.createScrollBarPanel(slot, true, false, false);
 		this.scroll.setLayout(new UIScrollBarPanelLayout(false, true, true, false, false, true));
 		this.scroll.getVScroll().addSelectionListener(event -> this.scroll.layout());
 		((UITableLayout) slot.getLayout()).set(this.scroll, 1, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_FILL, true, true, 1, 1, null, null, 0f);
+		((UITableLayout) slot.getLayout()).set(this.scroll, UITableLayout.PACKED_WIDTH, 0f);
 		this.panel = this.factory.createPanel(this.scroll, false);
 		this.panel.setLayout(new UITableLayout());
 		this.panel.getLayout().set(UITableLayout.IGNORE_INVISIBLE, true);
+		this.panel.addResizeListener(event -> this.resized());
+	}
+
+	// the content's width changed (the divider dragged, the scrollbar come or gone): fitted to it
+	private void resized() {
+		float width = this.panel.getBounds().getWidth();
+		if (width != this.fitted) {
+			this.later(() -> this.fit(width));
+		}
+	}
+
+	// the content fitted to the width: the chips' names cut to it, the lines wrapping at it; laid out again
+	private void fit(float width) {
+		this.fitted = width;
+		this.wholes.forEach(this::cut);
+		this.noteLayout.set(this.note, UITableLayout.MAXIMUM_PACKED_WIDTH, width - INSET);
+		this.area.fit(width - INSET);
+		this.layout();
+	}
+
+	// the chip's whole name cut to the width fitted to, as the chip measures it
+	private void cut(UIToggleButton chip, String whole) {
+		chip.setText(TGTrackSoundChoices.shorten(whole, text -> this.fits(chip, text)));
+	}
+
+	private boolean fits(UIToggleButton chip, String text) {
+		chip.setText(text);
+		chip.computePackedSize(null, null);
+		return chip.getPackedSize().getWidth() <= this.fitted - INSET;
 	}
 
 	// a section of the column, its controls in a table of its own
@@ -177,7 +217,8 @@ final class TGTrackPanel implements TGEventListener {
 	private void dialog(UIPanel section) {
 		this.buttons.put(Control.OPEN_DIALOG, this.button(section, 1, 1, "audio.sound-chain", () -> new TGSoundChainDialog(this.context, this.shown.getTrack()).open()));
 		this.note = this.factory.createWrapLabel(section);
-		((UITableLayout) section.getLayout()).set(this.note, 2, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_TOP, true, false, 1, 2, null, null, 0f);
+		this.noteLayout = (UITableLayout) section.getLayout();
+		this.noteLayout.set(this.note, 2, 1, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_TOP, true, false, 1, 2, null, null, 0f);
 		this.note.setVisible(false);
 	}
 
@@ -290,6 +331,7 @@ final class TGTrackPanel implements TGEventListener {
 		this.links.forEach(UIControl::dispose);
 		this.links.clear();
 		this.chips.clear();
+		this.wholes.clear();
 		this.canvases = new ArrayList<TGMeterCanvas>();
 		this.names = new ArrayList<String>();
 		TGSoundChainStrip.links(read).forEach(this::link);
@@ -359,7 +401,8 @@ final class TGTrackPanel implements TGEventListener {
 	// an element's chip: its name cut to the panel's width, the whole in the tooltip
 	private UIToggleButton chip(UIPanel group, int row, String text) {
 		UIToggleButton chip = this.factory.createToggleButton(group);
-		chip.setText(TGTrackSoundChoices.shorten(text, Math.round(this.width() / CHARACTER)));
+		this.wholes.put(chip, text);
+		this.cut(chip, text);
 		chip.setToolTipText(text);
 		chip.addSelectionListener(event -> this.pick(row));
 		return chip;

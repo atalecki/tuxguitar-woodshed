@@ -2,6 +2,7 @@ package app.tuxguitar.audio;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -17,7 +18,7 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * kind first (no plugin: the panel names it by what it plays), then each VST3 instrument the scan found, then the
  * track's own instrument when the scan did not find it (so the one picked shows). On MIDI: General MIDI's 128 programs
  * in TuxGuitar's language, a percussion channel's numbered (as the channel settings name them). A name too long for the
- * panel is cut, its last character "…".
+ * panel (as measured there) is cut, its last character "…".
  */
 public final class TGTrackSoundChoices {
 
@@ -68,8 +69,26 @@ public final class TGTrackSoundChoices {
 		return IntStream.range(0, PROGRAMS).mapToObj(program -> named[program].getName()).collect(Collectors.toList());
 	}
 
-	// the text cut to the most characters, its last "…"; as it is when it fits
-	public static String shorten(String text, int most) {
-		return (text.length() <= most ? text : text.substring(0, most - 1) + ELLIPSIS);
+	// the text as it is when it fits (the panel measures), else the longest start of it that fits with "…" after it
+	public static String shorten(String text, Predicate<String> fits) {
+		if (fits.test(text)) {
+			return text;
+		}
+		int fitting = 0;
+		int over = text.length();
+		while (over - fitting > 1) {
+			int middle = (fitting + over) / 2;
+			if (fits.test(cut(text, middle))) {
+				fitting = middle;
+			} else {
+				over = middle;
+			}
+		}
+		return cut(text, fitting);
+	}
+
+	// the start of the text, its length given, then "…" (no space before it)
+	private static String cut(String text, int length) {
+		return text.substring(0, length).replaceFirst("\\s+$", "") + ELLIPSIS;
 	}
 }
