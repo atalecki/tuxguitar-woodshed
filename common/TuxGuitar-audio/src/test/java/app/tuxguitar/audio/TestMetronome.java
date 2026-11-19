@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +23,7 @@ public class TestMetronome {
 	private final TGSong song = songManager.newSong();
 
 	@Test
-	public void aClickOnEachBeatFromWherePlayingStartsEachHeldABeatOfItsMeasure() {
+	public void aClickOnEachBeatFromWherePlayingStarts() {
 		songManager.addNewMeasureBeforeEnd(song);
 		TGMeasureHeader second = song.getMeasureHeader(1);
 		second.getTimeSignature().setNumerator(3);
@@ -35,8 +33,7 @@ public class TestMetronome {
 		List<TGPlayedMeasure> played = TGSongTime.play(song, new MidiPlayerMode(), start, Long.MAX_VALUE, 1);
 		TGClicks metronome = TGMetronome.of(new TGTimeline(song, played, 48000));
 
-		String holds = IntStream.range(0, metronome.positions().length).mapToObj(click -> Long.toString(metronome.hold(click))).collect(Collectors.joining(", "));
-		assertEquals("[12000, 36000, 60000, 76000, 92000] | 24000, 24000, 16000, 16000, 16000", Arrays.toString(metronome.positions()) + " | " + holds);
+		assertEquals("[12000, 36000, 60000, 76000, 92000]", Arrays.toString(metronome.positions()));
 	}
 
 	@Test

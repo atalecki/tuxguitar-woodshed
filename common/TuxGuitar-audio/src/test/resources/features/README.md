@@ -129,13 +129,19 @@ offers Tools > Sound Chain... (`TGSoundChainRows`; its status shows the last sca
 startup and drains gestures every 50 ms;
 Tools > Record and Audio Track Settings... grey when they cannot apply (a core enabled check on custom tools). Its
 parameter window (a slider per parameter, for a plugin without its own editor) follows that editor: it shows the
-values again after an undo or redo, and closes once the plugin no longer runs. The Metronome
-clicks on the General MIDI drums outside every sound chain: offline (`TGMetronome`), and live on the TuxGuitar
-Synthesizer's own drums (the channel `MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by
-plugin delay compensation like the tracks); with another MIDI Port it is still the sequencer's metronome track on the
-percussion channel, and Count In clicks on the percussion channel as before. A song without a percussion channel clicks
+values again after an undo or redo, and closes once the plugin no longer runs. Count In
+and the Metronome click the built-in click outside every sound chain (synth-core's `ClickProcessor`):
+offline (`TGMetronome`, `TGDrumTap`), and live on the TuxGuitar Synthesizer's own drums (the channel
+`MidiSampleClock.DRUMS`, at the percussion channel's Volume and Balance, delayed by plugin delay compensation like the
+tracks), whether or not the song has a percussion channel; with another MIDI Port the Metronome is still the
+sequencer's metronome track on the percussion channel, and Count In clicks on the percussion channel as before, both
+the click sound's drum note. Beat 1 is accented, decided once (lib's `MidiClick.isAccented`: the first of each
+measure's worth of clicks) for the Metronome (each measure's first beat, as its time signature says) and Count In (the
+first click of each measure it counts, in the time signature it leads into), live (the parser, Count In's timer) and
+offline (`TGMetronome`, `TGCountIn`); on the drums the note says it (`MidiClick.ACCENTED`, 76, or `PLAIN`, 77), and any
+other channel gets the drum note on every beat, so another MIDI Port is unchanged. A song without a percussion channel clicks
 on a channel of the player's own that is not in the song (`MidiClickChannels`, lib): the TuxGuitar
-Synthesizer's drums, Count In too, else a new percussion channel (bank 128, Volume 127, Balance 64), General MIDI
+Synthesizer's drums, else a new percussion channel (bank 128, Volume 127, Balance 64), General MIDI
 channel 10 on any other MIDI Port. These scenarios play on the TuxGuitar Synthesizer, so lib's and gm-utils' unit tests
 cover it (`TestMidiPlayerMetronome`, `TestMidiPlayerCountDown`, `TestClicksOnAPort`), and the UAT page "Count In and
 Metronome without a percussion track" what is heard. A bend carries its exact semitones next to
@@ -230,6 +236,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 |---|---|
 | `tracks/audio_tracks` | audio tracks: adding, channels, cloning, removing, which MIDI Port they need |
 | `recording/recording_line_in` | arming, input channels and level, Count In, monitoring, recording at another Percentage of Tempo |
+| `transport/the_click_accent` | the built-in click's accent on beat 1: the Metronome and Count In, time signatures, live and offline |
 | `recording/takes` | takes, comping, punch-in, loop recording, repeats, undo, editing the song under takes |
 | `plugins/hosting_vst3_plugins` | VST3 effects and instruments in a track's sound chain; what a scan reports, and why an editor does not open |
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
@@ -313,10 +320,11 @@ These features change how TuxGuitar works today. They are requirements, not side
   TuxGuitar Synthesizer keeps today's timing.
 - **Seamless loops.** With Play looped on, the jump back to the start of the Loop Range is seamless: no restart, no gap,
   tails carry across. Count In sounds once, before the first pass, at the first pass's Percentage of Tempo.
-- **Count In and Metronome** sound through the TuxGuitar Synthesizer's General MIDI drums, outside every sound chain,
-  whether or not the song has a percussion channel, on the sample clock, at the exact Percentage of Tempo (today's
+- **Count In and Metronome** sound the built-in click on the TuxGuitar Synthesizer's own drums, outside every sound
+  chain, whether or not the song has a percussion channel, on the sample clock, at the exact Percentage of Tempo (today's
   Count In rounds the tempo down to a whole bpm), and delayed like the tracks by plugin delay compensation. A Count In
-  or Metronome click's position is the sample on which its note reaches the drums. The drums join the output at the
+  or Metronome click's position is the sample on which its note reaches the drums, where the built-in click starts:
+  it adds no latency. No General MIDI sound is heard for them. The drums join the output at the
   Volume and Balance of the song's percussion channel, the channel they click on today, with the tracks' law; a song
   without one (today it has no Count In and no Metronome) clicks as a new channel sounds: Volume 127, Balance 64.
 - **File format 3.0** for a song with an audio track. A reader of format 2.0 opening it as a `.tg` file refuses it with
@@ -366,7 +374,19 @@ These features change how TuxGuitar works today. They are requirements, not side
   Play Mode and transport settings. Training Mode raises the percentage after each pass of the Loop Range, from its
   start percentage to its end, by its increment. Count In starts playing: its first click is where the output starts.
 - **Click sound**: the drum note and velocity Count In and the Metronome play, a TuxGuitar setting (not saved in the
-  song, not undoable): Side Stick (note 37) at velocity 95 until I change it.
+  song, not undoable): Side Stick (note 37) at velocity 95 until I change it. On the TuxGuitar Synthesizer the
+  velocity sets the built-in click's level and the drum note is not heard; another MIDI Port plays the drum note at the
+  velocity.
+- **The built-in click**: the sound of Count In and the Metronome on the TuxGuitar Synthesizer, made in code (no
+  recorded sample, no General MIDI): a 1500 Hz sine from phase 0, its level rising in a straight line over its first
+  0.2 ms, then falling by a factor of e every 5 ms, silent 30 ms after it starts. It is the same on the left and the
+  right, and its level is 0.5 times the velocity / 127 (its peak, 0.9 of that, is -9.4 dBFS at the default velocity
+  95). Beat 1 of each measure is **accented**: a 2000 Hz sine, 3 dB louder (its level 0.5 x 10^(3/20), about 0.71,
+  times the velocity / 127), with the same rise and fall; the Metronome accents each measure's first beat as its time
+  signature says (a Metronome started mid-measure does not accent the beat it starts on), and Count In the first click
+  of each measure it counts, in the time signature of the measure it leads into (8 ticks in 4/4: clicks 1 and 5; 6
+  ticks in 3/4: clicks 1 and 4). It starts on the sample its note reaches it, at every sample rate the same sound, and
+  adds no latency.
 
 ### Tracks and sound
 
@@ -459,8 +479,8 @@ These features change how TuxGuitar works today. They are requirements, not side
   the two for a pair). At -0.1 dBFS or above the input is **clipping**; it shows **has clipped** until I reset it. An
   armed track's input level follows its input whenever the audio device runs: stopped, playing and recording.
 - **Round trip**: output latency + the plugin delay compensation of what I hear + input latency + recording offset.
-  A take is placed earlier by its round trip, so one recorded against General MIDI tracks or the Count In lands on the
-  beat although Gervill sounds them 600 samples late (at 44100 Hz).
+  A take is placed earlier by its round trip, so one recorded against General MIDI tracks lands on the beat although
+  Gervill sounds them 600 samples late (at 44100 Hz). The Count In and the Metronome add nothing to it.
 - **Latency**: how many samples late something delivers its sound: a plugin, the audio input or the audio output.
 - **Recording offset**: a setting, in samples, added to the input latency the audio device reports, because drivers
   sometimes report it wrong.
@@ -468,8 +488,9 @@ These features change how TuxGuitar works today. They are requirements, not side
 ### Sync
 
 - **Plugin delay compensation**: delaying each track, the Count In and the Metronome so that all reach the output as
-  late as the slowest track: the slowest sound chain's latency, Gervill's included, a muted track's too, and the
-  General MIDI drums' (Count In and Metronome) whether or not they click. A monitored input is not delayed by it. When a plugin's latency changes while playing, the
+  late as the slowest track: the slowest sound chain's latency, Gervill's included, a muted track's too. The Count In
+  and the Metronome (the built-in click) delay nothing, so without a General MIDI track or a delaying plugin there is
+  none. A monitored input is not delayed by it. When a plugin's latency changes while playing, the
   tracks are together again from the next beat (TuxGuitar realigns them at the next block it renders). Playing to the end of the song runs on until the most delayed track has
   sounded its last beat.
 - **Time-stretch**: playing a take faster or slower without changing its pitch.
@@ -483,12 +504,15 @@ These features change how TuxGuitar works today. They are requirements, not side
   delay compensation, before Volume and Balance. "Track 2 sounds ..." is measured at track 2's tap.
 - **The output**: what the audio device plays, left and right: every channel after Volume and Balance, the Count In and
   the Metronome.
-- **The drum tap**: the General MIDI drums Count In and the Metronome play on, where they join the mix. Count In and
-  Metronome clicks are counted there, in two parts: a click's position is the sample on which TuxGuitar sends its note to
-  the drums (a drum's attack is no click, so the position is not measured from the audio), and each click must sound on
-  the drum tap, and in the output, above -60 dBFS within its beat. **Every Count In click sounds drum note N at velocity
-  V**: the drum tap is, sample for sample, what the General MIDI drums sound playing that note at that velocity on the
-  clicks' samples.
+- **The drum tap**: the TuxGuitar Synthesizer's own drums, where Count In and the Metronome click, where they join the
+  mix. Count In and Metronome clicks are counted there, in two parts: a click's position is the sample on which
+  TuxGuitar sends its note to the drums, where the built-in click starts (its attack is no one-sample click, so the
+  position is not measured from the audio), and each click must sound on the drum tap, and in the output, above -60 dBFS
+  within its beat. **The Count In (or Metronome) clicks sound the built-in click at velocity V, accented on ...**: from
+  the first click to the end of the last, the drum tap is, sample for sample, the plain built-in click at that velocity
+  from each plain click's sample, silent between the clicks; an accented one is measured, its frequency over its first
+  20 ms (2000 Hz within 1%) and its level (root mean square over its 30 ms) 3 dB above the plain click's within 1%.
+  Live, the output's clicks are measured the same way, against the plain click on beat 2.
 - **A track plays for N seconds**: how long its audio lasts as the song plays; **a take is N samples long**: how long it
   is stored.
 - **Click** (in a take or a signal): a one-sample impulse. Its position is its first sample above half its peak; next to a tone, a click is a

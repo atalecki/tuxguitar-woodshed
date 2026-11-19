@@ -1,6 +1,7 @@
 package app.tuxguitar.midi.synth;
 
 import static app.tuxguitar.midi.synth.FakeProcessors.program;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,6 +11,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.midi.synth.impl.ClickProcessor;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.player.base.MidiParameters;
 import app.tuxguitar.player.base.MidiSampleClock;
@@ -90,19 +92,22 @@ public class TestSynthClock {
 		assertEquals("[on 60 100 2 true @30, bend 70 2 true @31, cc 91 40 @32, off 60 0 2 true @33] []", received(3) + " " + received(4));
 	}
 
-	// the synthesizer's own drums, where the Metronome clicks: they open as the channel DRUMS on Gervill's drum kit
-	// (here a source of Gervill's type), whatever the programs of its banks, take the events of a frame, and their
-	// latency counts in the synthesizer's (plugin delay compensation delays the other channels to them)
+	// the synthesizer's own drums, where Count In and the Metronome click: they open as the channel DRUMS on the built-in
+	// click (no plugin installed, not Gervill's drum kit even when Gervill is), whatever the programs of its banks, take
+	// the events of a frame, and add no latency to the synthesizer's
 	@Test
-	public void itsDrumsOpenAsTheirOwnChannelOnGervillsDrumKit() throws MidiPlayerException {
+	public void itsDrumsOpenAsTheirOwnChannelOnTheBuiltInClick() throws MidiPlayerException {
 		FakeProcessors.SourceFactory gervill = new FakeProcessors.SourceFactory(GervillProcessorFactory.TYPE, 0.5f);
 		TGSynthManager.getInstance(this.context).addExtension(TGMidiProcessorFactory.class, gervill);
 		this.model.openChannel(MidiSampleClock.DRUMS);
-		gervill.last().latency = 700;
 		this.model.at(40).sendNoteOn(MidiSampleClock.DRUMS, 37, 95, -1, false);
+		float[][] block = new float[2][512];
+		this.model.getChannelById(MidiSampleClock.DRUMS).fillChain(block);
+		float[] expected = new float[512];
+		System.arraycopy(ClickProcessor.sound(44100, 95), 0, expected, 40, 512 - 40);
 
-		assertEquals("true " + Collections.singletonMap("gervil.program", "128:0") + " [on 37 95 -1 false @40] 700",
-				this.model.hasDrums() + " " + gervill.last().restored + " " + gervill.last().received + " " + this.model.getLatency());
+		assertArrayEquals(expected, block[0]);
+		assertEquals("true 0 0", this.model.hasDrums() + " " + gervill.created.size() + " " + this.model.getLatency());
 	}
 
 	// a bend with its exact semitones reaches a source that takes them (a VST3 instrument) with them, on its frame; a

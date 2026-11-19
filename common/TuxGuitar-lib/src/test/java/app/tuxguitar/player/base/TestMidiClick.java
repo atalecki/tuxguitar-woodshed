@@ -94,4 +94,20 @@ public class TestMidiClick {
 		assertThrows(IllegalArgumentException.class, () -> new MidiClick(37, 0));
 		assertThrows(IllegalArgumentException.class, () -> new MidiClick(37, 128));
 	}
+
+	// beat 1 of each measure: the first of each measure's worth of clicks, counted from 0
+	@Test
+	public void theFirstClickOfEachMeasureIsAccented() {
+		assertEquals("[true, false, false, true, false, false, true, false]",
+			java.util.stream.IntStream.range(0, 8).mapToObj(click -> MidiClick.isAccented(click, 3)).collect(java.util.stream.Collectors.toList()).toString());
+	}
+
+	// on a synthesizer's own drums (the built-in click) an accented and a plain note; elsewhere the drum note either way
+	@Test
+	public void aClickOnTheDrumsIsAccentedOrPlainAndElsewhereTheDrumNote() {
+		MidiClick click = new MidiClick(42, 100);
+
+		assertEquals("76 77 42 42", click.getNote(MidiSampleClock.DRUMS, true) + " " + click.getNote(MidiSampleClock.DRUMS, false)
+			+ " " + click.getNote(9, true) + " " + click.getNote(MidiClickChannels.CLICKS, false));
+	}
 }

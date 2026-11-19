@@ -27,11 +27,12 @@ public interface MidiSampleClock {
 		return 0;
 	}
 
-	// the channel of the clock's own General MIDI drums (see hasDrums): no song channel has this id
+	// the channel of the clock's own drums (see hasDrums): no song channel has this id
 	int DRUMS = -2;
 
-	// whether the clock has General MIDI drums of its own, outside every channel's sound chain, opened as the channel
-	// DRUMS: while the song plays on the clock the Metronome clicks there, rather than on the song's percussion channel
+	// whether the clock has drums of its own (the TuxGuitar Synthesizer's built-in click), outside every channel's sound
+	// chain, opened as the channel DRUMS: Count In and the Metronome click there, rather than on the song's percussion
+	// channel
 	default boolean hasDrums() {
 		return false;
 	}

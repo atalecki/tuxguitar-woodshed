@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import app.tuxguitar.action.TGActionContext;
 import app.tuxguitar.action.TGActionException;
@@ -318,22 +319,27 @@ public class AudioWorld {
 		this.device.setChainDelay(this.chainDelay());
 	}
 
-	// plugin delay compensation as the README defines it: the slowest sound chain, the General MIDI drums' (Gervill's
-	// latency) at least, a muted track's too. Of the test plugins, Test Latency and Test Click delay by their one
-	// parameter, Latency; a disabled effect does not count
+	// plugin delay compensation as the README defines it: the slowest sound chain (a General MIDI source's is Gervill's
+	// latency), a muted track's too; the built-in click (Count In, the Metronome) adds none. Of the test plugins, Test
+	// Latency and Test Click delay by their one parameter, Latency; a disabled effect does not count
 	int chainDelay() {
-		int gervill = GervillProcessor.latency(this.device.getSampleRate());
-		int delay = gervill;
+		int delay = 0;
 		Iterator<TGTrack> tracks = song().getTracks();
 		while (tracks.hasNext()) {
 			TGProgram chain = TGSoundChain.get(channel(tracks.next()));
-			int latency = (GervillProcessorFactory.TYPE.equals(chain.getReceiver().getType()) ? gervill : latency(chain.getReceiver()));
-			for (int i = 0; i < chain.countOutputs(); i++) {
-				latency += (chain.getOutput(i).isEnabled() ? latency(chain.getOutput(i)) : 0);
-			}
-			delay = Math.max(delay, latency);
+			delay = Math.max(delay, this.sourceLatency(chain.getReceiver()) + effectsLatency(chain));
 		}
 		return delay;
+	}
+
+	// a General MIDI source's is Gervill's at the device's rate
+	private int sourceLatency(TGProgramElement source) {
+		return (GervillProcessorFactory.TYPE.equals(source.getType()) ? GervillProcessor.latency(this.device.getSampleRate()) : latency(source));
+	}
+
+	// the enabled effects'
+	private static int effectsLatency(TGProgram chain) {
+		return IntStream.range(0, chain.countOutputs()).mapToObj(chain::getOutput).filter(TGProgramElement::isEnabled).mapToInt(AudioWorld::latency).sum();
 	}
 
 	private static int latency(TGProgramElement element) {

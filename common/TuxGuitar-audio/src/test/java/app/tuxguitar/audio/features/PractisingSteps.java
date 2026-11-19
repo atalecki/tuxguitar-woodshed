@@ -347,11 +347,12 @@ public class PractisingSteps {
 	}
 
 	// at every sample of the clock from the one the output sounds where the given sample plays to the turn's first note,
-	// the position reported is the turn's first tick
+	// the position reported is the turn's first tick; without a delay, from the sample after it (a position is reported
+	// once the clock has played its sample, see TGReportedPositions)
 	void assertReportsTheFirstTick(List<Note> turn, long from, String name) {
 		TGReportedPositions reported = heard().reportedAt(world.session().getDevice().getOutputLatency());
 		long tick = ticks(turn).get(0);
-		for (long sample = from + delay(); sample < first(turn).start + delay(); sample++) {
+		for (long sample = Math.max(from + delay(), from + 1); sample < first(turn).start + delay(); sample++) {
 			assertEquals(tick, reported.tickAt(sample), name + " at " + sample);
 		}
 	}

@@ -616,7 +616,7 @@ public class MidiPlayer{
 	// a parser of the song as the player plays it
 	private MidiSequenceParser parser() {
 		MidiSequenceParser midiSequenceParser = new MidiSequenceParser(this.getSong(), this.getSongManager(), MidiSequenceParser.DEFAULT_PLAY_FLAGS);
-		midiSequenceParser.setMetronomeChannelId(this.getMetronomeChannelId());
+		midiSequenceParser.setMetronomeChannelId(this.getClickChannels().clicks());
 		midiSequenceParser.setMetronomeClick(getClick());
 		return midiSequenceParser;
 	}
@@ -842,15 +842,11 @@ public class MidiPlayer{
 		return new MidiClickChannels(this.hasDrums(), this.getPercussionChannelId());
 	}
 
-	// where the Metronome clicks: on the drums of a synthesizer's sample clock that has them (the TuxGuitar
-	// Synthesizer's, outside every sound chain), else where the Count In clicks
-	private int getMetronomeChannelId() {
-		return this.getClickChannels().metronome();
-	}
-
-	// where the Count In clicks: on the song's percussion channel, else on the player's own channel for the clicks
+	// where the Count In clicks, as the Metronome does: on the drums of a synthesizer's sample clock that has them (the
+	// TuxGuitar Synthesizer's built-in click, outside every sound chain), else on the song's percussion channel, else on
+	// the player's own channel for the clicks
 	public int getCountInChannelId() {
-		return this.readLocked(() -> this.getClickChannels().countIn());
+		return this.readLocked(() -> this.getClickChannels().clicks());
 	}
 
 	private boolean hasDrums() {

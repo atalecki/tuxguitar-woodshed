@@ -23,13 +23,13 @@ import app.tuxguitar.util.TGContext;
 /**
  * Renders a timeline of the song offline, on the audio device's sample clock: each channel's tap (an audio track's
  * takes through the effects of its sound chain, see TGEffects, or the sound chain a track with notes plays, see
- * TGMidiTaps) and the drum tap (the Count In, see
+ * TGMidiTaps) and the drum tap (the Count In and the Metronome, the built-in click, see
  * TGDrumTap), then the output mix, where each channel heard is scaled by its Volume and Balance (today's
  * constant-power law), and the drum tap by those of the song's percussion channel (a new channel's without one).
  * Muted tracks, and tracks other than the soloed ones, are not heard. With a MIDI Port other than the TuxGuitar Synthesizer nothing is heard here: audio tracks and the drums need
  * it, and the other tracks and today's Count In play on that port. Plugin delay compensation delays each tap, the
- * drum tap included, to the slowest chain where it joins the mix: offline each tap is read its own latency later, and
- * the render keeps the latency the output sounds with.
+ * drum tap included, to the slowest chain where it joins the mix (the drums, adding no latency, set none): offline each
+ * tap is read its own latency later, and the render keeps the latency the output sounds with.
  */
 public final class TGRenderer {
 
@@ -102,10 +102,10 @@ public final class TGRenderer {
 				tails.put(channel, tap.getTail());
 			});
 			metronome = this.metronome(timeline, live);
-			drums = TGDrumTap.render(this.context, timeline, MidiPlayer.getInstance(this.context).getClick(), metronome);
+			drums = TGDrumTap.render(timeline, MidiPlayer.getInstance(this.context).getClick(), metronome);
 			Map<TGTrack, TGEffects> effects = new HashMap<TGTrack, TGEffects>();
 			audioTracks.forEach(track -> effects.put(track, TGEffects.open(this.context, TGSoundChain.get(this.channel(track)), timeline.getSampleRate())));
-			latency = latency(midi.values(), effects.values(), timeline);
+			latency = latency(midi.values(), effects.values());
 			for (TGTrack track : audioTracks) {
 				TGTap tap = this.tap(track, timeline, recording, live, latency, effects.get(track));
 				taps.put(track.getChannelId(), tap.getSamples());
@@ -133,9 +133,9 @@ public final class TGRenderer {
 		return audioTracks;
 	}
 
-	// plugin delay compensation: the slowest chain's latency, the drums' and the audio tracks' effects' included
-	private static int latency(Collection<TGTap> taps, Collection<TGEffects> effects, TGTimeline timeline) {
-		int latency = TGDrumTap.latency(timeline);
+	// plugin delay compensation: the slowest chain's latency, the audio tracks' effects' included (the drums add none)
+	private static int latency(Collection<TGTap> taps, Collection<TGEffects> effects) {
+		int latency = 0;
 		for (TGTap tap : taps) {
 			latency = Math.max(latency, tap.getLatency());
 		}

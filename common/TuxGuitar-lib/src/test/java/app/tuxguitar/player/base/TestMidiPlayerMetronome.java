@@ -120,7 +120,7 @@ public class TestMidiPlayerMetronome {
 	public void onASampleClockTheMetronomeClicksOnItsDrumsWhenItHasThem() throws MidiPlayerException {
 		withPercussion();
 
-		assertEquals("16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95 / 16 | on 960 c-2 k37 v95 | on 15360 c-2 k37 v95",
+		assertEquals("16 | on 960 c0 k37 v95 | on 15360 c0 k37 v95 / 16 | on 960 c-2 k76 v95 | on 15360 c-2 k77 v95",
 				clicksOnASampleClock(false) + " / " + clicksOnASampleClock(true));
 	}
 
@@ -132,7 +132,7 @@ public class TestMidiPlayerMetronome {
 	// with drums, percussion channel or not: the player opens no percussion channel of its own
 	@Test
 	public void onASampleClockWithDrumsTheMetronomeClicksWithoutAPercussionChannel() throws MidiPlayerException {
-		assertEquals("16 | on 960 c-2 k37 v95 | on 15360 c-2 k37 v95 | []", clicksOnASampleClock(true) + " | " + channel(MidiClickChannels.CLICKS));
+		assertEquals("16 | on 960 c-2 k76 v95 | on 15360 c-2 k77 v95 | []", clicksOnASampleClock(true) + " | " + channel(MidiClickChannels.CLICKS));
 	}
 
 	// the drums open when playing starts, at the percussion channel's Volume and Balance (scaled by the player's volume,
@@ -164,5 +164,19 @@ public class TestMidiPlayerMetronome {
 		player.setClick(new MidiClick(76, 127));
 
 		assertEquals("16 | on 960 c0 k76 v127 | on 15360 c0 k76 v127", clicks());
+	}
+
+	// on the drums (the built-in click) beat 1 of each measure is accented, as each measure's time signature says; on a
+	// port every click is the drum note
+	@Test
+	public void onTheDrumsBeat1OfEachMeasureIsAccented() throws MidiPlayerException {
+		app.tuxguitar.song.models.TGTimeSignature threeFour = fixture.songManager.getFactory().newTimeSignature();
+		threeFour.setNumerator(3);
+		fixture.songManager.changeTimeSignature(fixture.song, fixture.song.getMeasureHeader(1), threeFour, false);
+		player.getSynthesizerProxy().setMidiSynthesizer(new ClockedSynthesizer(received, true));
+		player.play();
+		String keys = fixture.sequencer.sequence.events("on").stream().filter(event -> event.contains(" c-2 ")).map(event -> event.replaceAll(".* k(\\d+) .*", "$1")).collect(Collectors.joining(" "));
+
+		assertEquals("76 77 77 77 76 77 77 76 77 77 77 76 77 77 77", keys);
 	}
 }

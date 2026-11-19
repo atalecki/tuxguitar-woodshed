@@ -15,6 +15,7 @@ import app.tuxguitar.midi.synth.TGSynthChannel;
 import app.tuxguitar.midi.synth.TGSynthChannelProperties;
 import app.tuxguitar.midi.synth.impl.GervillProcessor;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
+import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.player.base.MidiPlayerException;
 import app.tuxguitar.player.base.MidiPlayerMode;
 import app.tuxguitar.song.managers.TGSongManager;
@@ -30,8 +31,8 @@ import app.tuxguitar.util.properties.TGPropertiesManager;
 
 /**
  * Plugin delay compensation, offline: each tap is read its own chain's latency later, so the taps are together from
- * their samples, and the render says how much later the output sounds them: the slowest chain's latency, the General
- * MIDI drums' (Gervill's) counting whether or not they click.
+ * their samples, and the render says how much later the output sounds them: the slowest chain's latency. The drums
+ * (Count In and the Metronome, the built-in click) add none.
  *
  * The song is one measure of 4/4 at 120 bpm whose guitar track plays General MIDI program 80 and A4 as a quarter note
  * on beat 1. Its sound chain can be a custom program (the channel's synth.program parameters): Gervill, saved on
@@ -111,7 +112,8 @@ public class TestDelayCompensation {
 		});
 		MidiPlayerMode mode = new MidiPlayerMode();
 		List<TGPlayedMeasure> played = TGSongTime.play(this.song, mode, this.song.getMeasureHeader(0).getStart(), Long.MAX_VALUE, 1);
-		return new TGRenderer(this.context, this.songManager, this.song, session).render(new TGTimeline(this.song, played, sampleRate), mode, false, synthesizer);
+		TGTimeline timeline = new TGTimeline(this.song, played, sampleRate, TGCountIn.before(MidiPlayer.getInstance(this.context).getCountDown(), played, sampleRate));
+		return new TGRenderer(this.context, this.songManager, this.song, session).render(timeline, mode, false, synthesizer);
 	}
 
 	// Gervill's two control periods at the device's rate
@@ -166,11 +168,17 @@ public class TestDelayCompensation {
 		assertEquals(0, render(44100, false).getLatency());
 	}
 
-	// an audio track alone: its takes have no latency, the drums Gervill's
+	// an audio track alone: its takes have no latency, nor have the drums, which click a one-tick Count In from the first
+	// sample
 	@Test
-	public void theDrumsCountWithoutAGeneralMidiTrack() throws MidiPlayerException {
+	public void theDrumsAddNoLatency() throws MidiPlayerException {
 		this.songManager.addAudioTrack(this.song, TGAudioInput.mono(1));
 		this.songManager.removeTrack(this.song, 1);
-		assertEquals(GervillProcessor.latency(44100), render(44100).getLatency());
+		MidiPlayer.getInstance(this.context).getCountDown().setEnabled(true);
+		MidiPlayer.getInstance(this.context).getCountDown().setTickCount(1);
+		TGRender render = render(44100);
+
+		assertTrue(Meters.peak(render.getDrums(0), 0, 20) > 0.1, "the click sounds at once");
+		assertEquals(0, render.getLatency());
 	}
 }

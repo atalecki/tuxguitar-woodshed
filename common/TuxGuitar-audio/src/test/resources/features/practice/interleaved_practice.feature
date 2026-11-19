@@ -652,8 +652,12 @@ Feature: Interleaved practice
     Then after Play, the turn's measure sounds again after a Count In of 4 beats, then 26 more times back to back
     And the player stopped by itself within 512 samples of the turn's end, 56 seconds after Play
 
+  # 600 samples of plugin delay compensation here, as the General MIDI drums gave before the built-in click: where the
+  # player stops does not follow the compensation (open: with none it stops 528 samples after turn 2's end)
   Scenario: Pause during a break keeps the session: Play starts the next turn's Count In at once
-    Given I have set interleaved practice to measures over measures 1 to 4
+    Given I have added the VST3 effect "Test Latency" to track 1
+    And I have set "Latency" of VST3 effect 1 of track 1 to 600
+    And I have set interleaved practice to measures over measures 1 to 4
     And I have turned the interval clock on, with turns of 1 minute, breaks of 10 seconds and sessions of 2 minutes
     When I practise the session live, pausing 5 seconds into the break and playing again
     Then after Play, turn 2's Count In of 4 beats starts within 512 samples

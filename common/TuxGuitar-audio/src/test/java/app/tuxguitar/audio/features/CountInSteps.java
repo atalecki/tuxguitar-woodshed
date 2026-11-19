@@ -1,15 +1,12 @@
 package app.tuxguitar.audio.features;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
 
 import app.tuxguitar.audio.Meters;
-import app.tuxguitar.audio.TGDrumTap;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
 import app.tuxguitar.player.base.MidiClick;
@@ -19,9 +16,9 @@ import io.cucumber.java.en.Then;
 
 /**
  * Steps on Count In and the click sound. Count In clicks are counted on the drum tap, as the features README measures
- * them: each click's position is the sample on which TuxGuitar sends its note to the drums, and each must sound there,
- * and in the output, above -60 dBFS within its beat (a drum's attack is no click, so the position is not measured
- * from the audio).
+ * them: each click's position is the sample on which TuxGuitar sends its note to the drums, where the built-in click
+ * starts, and each must sound there, and in the output, above -60 dBFS within its beat (the click's attack is no
+ * one-sample click, so the position is not measured from the audio).
  */
 public class CountInSteps {
 
@@ -146,16 +143,5 @@ public class CountInSteps {
 	public void theLastClickSoundsBefore(int samples, SongPosition position) {
 		long[] clicks = clicks();
 		assertEquals(samples, (double) (heard().sampleAt(position, 0) - clicks[clicks.length - 1]), 1.0, Arrays.toString(clicks));
-	}
-
-	// the drum tap is, sample for sample, the General MIDI drums sounding that note at that velocity on the clicks'
-	// samples, which the default click does not sound
-	@Then("every Count In click sounds drum note {int} at velocity {int}")
-	public void everyClickSounds(int note, int velocity) {
-		float[][] expected = TGDrumTap.render(world.fixture().context, heard().timeline(), new MidiClick(note, velocity));
-		float[][] byDefault = TGDrumTap.render(world.fixture().context, heard().timeline(), MidiClick.DEFAULT);
-		assertFalse(Arrays.equals(expected[0], byDefault[0]), "the default click sounds the same");
-		assertArrayEquals(expected[0], heard().drums(0));
-		assertArrayEquals(expected[1], heard().drums(1));
 	}
 }
