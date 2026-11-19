@@ -8,12 +8,13 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 /**
- * How a meter looks: the shapes an app paints. A meter of one bar 6 high whose bar is 66 wide (1 per dB, from -60 at 0
- * to +6 at 66; 0 dB at 60), then a gap of 1 and its lamp, 6 by 6: 73 wide.
+ * How a meter looks: the shapes an app paints. A meter of one bar 6 high: its bar's room 68 wide, an outline 1 wide
+ * around a track 66 by 4 (1 per dB, from -60 at 1 to +6 at 67; 0 dB at 61), then a gap of 1 and its lamp, 6 by 6: 75
+ * wide.
  */
 public class TestMeterLook {
 
-	private static final float WIDE = 73;
+	private static final float WIDE = 75;
 	private static final float HIGH = 6f;
 	private static final float STEREO = 13f;
 
@@ -29,28 +30,32 @@ public class TestMeterLook {
 
 	private static final double INF = Double.NEGATIVE_INFINITY;
 
+	// the outline around the (upper) bar's room: its top, bottom, left and right edges; and around the lower bar's
+	private static final String OUTLINE = "OUTLINE 0.0,0.0 68.0x1.0 | OUTLINE 0.0,5.0 68.0x1.0 | OUTLINE 0.0,1.0 1.0x4.0 | OUTLINE 67.0,1.0 1.0x4.0 | ";
+	private static final String LOWER = "OUTLINE 0.0,7.0 68.0x1.0 | OUTLINE 0.0,12.0 68.0x1.0 | OUTLINE 0.0,8.0 1.0x4.0 | OUTLINE 67.0,8.0 1.0x4.0 | ";
+
 	// each case: what it shows, the reading, the meter's height (6: one bar; 13: two bars), the shapes
 	private static final Object[][] CASES = {
 		{"a bar runs from the left to its peak, its hold line ending at the hold", reading(-6, -9, false), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 54.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 49.0,0.0 2.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | HOLE 68.0,1.0 4.0x4.0"},
-		{"silence shows the empty track, the mark and the lamp", reading(INF, INF, false), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | HOLE 68.0,1.0 4.0x4.0"},
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 54.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 50.0,1.0 2.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | HOLE 70.0,1.0 4.0x4.0"},
+		{"silence shows the empty track in its outline (seen on any background), the mark and the lamp", reading(INF, INF, false), HIGH,
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | HOLE 70.0,1.0 4.0x4.0"},
 		{"at 0 dB the bar reaches the mark, no stripes", reading(0, 0, false), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 60.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 58.0,0.0 2.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | HOLE 68.0,1.0 4.0x4.0"},
-		{"above 0 dB the bar goes on striped (inside a chain the sound keeps it)", reading(3, 6, false), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 60.0x6.0 | OVER 60.0,0.0 3.0x6.0 | STRIPE 60.0,0.0 1.0x6.0 | STRIPE 62.0,0.0 1.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 64.0,0.0 2.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | HOLE 68.0,1.0 4.0x4.0"},
-		{"a hold line at the floor stays inside", reading(-59, -59, false), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 1.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 0.0,0.0 2.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | HOLE 68.0,1.0 4.0x4.0"},
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 60.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 59.0,1.0 2.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | HOLE 70.0,1.0 4.0x4.0"},
+		{"above 0 dB the bar goes on striped (inside a chain the sound keeps it), a hold line at +6 inside the outline", reading(3, 6, false), HIGH,
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 60.0x4.0 | OVER 61.0,1.0 3.0x4.0 | STRIPE 61.0,1.0 1.0x4.0 | STRIPE 63.0,1.0 1.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 65.0,1.0 2.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | HOLE 70.0,1.0 4.0x4.0"},
+		{"a hold line at the floor stays inside the outline", reading(-59, -59, false), HIGH,
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 1.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 1.0,1.0 2.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | HOLE 70.0,1.0 4.0x4.0"},
 		{"a lit lamp is filled with a \"!\", its stroke and its dot a sixth of the lamp from its edges", reading(0, 0, true), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 60.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 58.0,0.0 2.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | BANG 69.5,1.0 1.0x2.0 | BANG 69.5,4.0 1.0x1.0"},
-		{"two bars, left above right, a gap between, one lamp as high as both",
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 60.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 59.0,1.0 2.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | BANG 71.5,1.0 1.0x2.0 | BANG 71.5,4.0 1.0x1.0"},
+		{"two bars, left above right, each in its outline, a gap between, one lamp as high as both",
 			new TGMeterReading(new double[] {-6, INF}, new double[] {-6, -12}, false, true), STEREO,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 54.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 52.0,0.0 2.0x6.0 | "
-			+ "TRACK 0.0,7.0 66.0x6.0 | ZERO 60.0,7.0 1.0x6.0 | HOLD 46.0,7.0 2.0x6.0 | LAMP 67.0,0.0 13.0x13.0 | HOLE 68.0,1.0 11.0x11.0"},
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 54.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 53.0,1.0 2.0x4.0 | "
+			+ LOWER + "TRACK 1.0,8.0 66.0x4.0 | ZERO 61.0,8.0 1.0x4.0 | HOLD 47.0,8.0 2.0x4.0 | LAMP 69.0,0.0 13.0x13.0 | HOLE 70.0,1.0 11.0x11.0"},
 		{"one bar shows the louder side", new TGMeterReading(new double[] {-12, -6}, new double[] {-6, -12}, false, true), HIGH,
-			"TRACK 0.0,0.0 66.0x6.0 | BAR 0.0,0.0 54.0x6.0 | ZERO 60.0,0.0 1.0x6.0 | HOLD 52.0,0.0 2.0x6.0 | LAMP 67.0,0.0 6.0x6.0 | HOLE 68.0,1.0 4.0x4.0"},
-		{"a meter measuring nothing is an empty, greyed track, no lamp", TGMeterReading.OFF, HIGH, "GREYED 0.0,0.0 66.0x6.0"},
-		{"the same, of two bars", TGMeterReading.OFF, STEREO, "GREYED 0.0,0.0 66.0x6.0 | GREYED 0.0,7.0 66.0x6.0"},
+			OUTLINE + "TRACK 1.0,1.0 66.0x4.0 | BAR 1.0,1.0 54.0x4.0 | ZERO 61.0,1.0 1.0x4.0 | HOLD 53.0,1.0 2.0x4.0 | LAMP 69.0,0.0 6.0x6.0 | HOLE 70.0,1.0 4.0x4.0"},
+		{"a meter measuring nothing is an empty, greyed track in its outline, no lamp", TGMeterReading.OFF, HIGH, OUTLINE + "GREYED 1.0,1.0 66.0x4.0"},
+		{"the same, of two bars", TGMeterReading.OFF, STEREO, OUTLINE + "GREYED 1.0,1.0 66.0x4.0 | " + LOWER + "GREYED 1.0,8.0 66.0x4.0"},
 	};
 
 	@Test

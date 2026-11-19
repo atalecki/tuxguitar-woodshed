@@ -28,13 +28,15 @@ import app.tuxguitar.ui.widget.UIPanel;
  */
 final class TGMeterCanvas {
 
-	// a bar's height: a meter of one bar is as high, one of two bars twice as high plus a gap
-	static final float BAR = 6f;
+	// a bar's height, its outline (1 above, 1 below) around a track 6 high: a meter of one bar is as high, one of two
+	// bars twice as high plus a gap
+	static final float BAR = 8f;
 	static final float STEREO = 2 * BAR + 1f;
 
 	private static final Map<Role, UIColorAppearance> COLOURS = new EnumMap<Role, UIColorAppearance>(Role.class);
 
 	static {
+		COLOURS.put(Role.OUTLINE, UIColorAppearance.WidgetForeground);
 		COLOURS.put(Role.TRACK, UIColorAppearance.InputBackground);
 		COLOURS.put(Role.BAR, UIColorAppearance.InputSelectedBackground);
 		COLOURS.put(Role.OVER, UIColorAppearance.InputSelectedBackground);

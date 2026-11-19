@@ -6,11 +6,12 @@ import java.util.List;
 /**
  * How a level meter looks, as shapes an app only paints: each a rectangle (in the app's units, from the meter's top
  * left) with the role that says how (TGMeterLook.Role). One bar, or two (left above right), from -60 dB at the left to
- * +6 dB at the right, linear in dB; a mark at 0 dB; the part of a bar above 0 dB striped; a hold line; a clip lamp at
+ * +6 dB at the right, linear in dB, each in an outline 1 wide (so even an empty track shows against any background);
+ * a mark at 0 dB; the part of a bar above 0 dB striped; a hold line; a clip lamp at
  * the right end (a square as high as the meter), an outline while out, filled with a "!" (two shapes, so no font is
  * needed) once lit. Nothing is said by colour alone, so an app
  * paints the roles in its system colours and a high-contrast theme recolours the meter. A meter that measures nothing
- * is an empty, greyed track.
+ * is an empty, greyed track in its outline.
  */
 public final class TGMeterLook {
 
@@ -21,8 +22,12 @@ public final class TGMeterLook {
 	static final float MARK = 1f;
 	// a stripe 1 wide every this many
 	static final float STRIPES = 2f;
+	// how wide the outline around a bar's track is
+	static final float EDGE = 1f;
 
 	public enum Role {
+		// the outline around a bar's track (the text's colour), so an empty meter shows on any background
+		OUTLINE,
 		// the empty track under a bar
 		TRACK,
 		// the bar, up to 0 dB at most
@@ -103,27 +108,44 @@ public final class TGMeterLook {
 		return shapes;
 	}
 
-	// the bar of a side (of two bars) or of the louder side (of one), or greyed for a meter measuring nothing
+	// the bar of a side (of two bars) or of the louder side (of one), or greyed for a meter measuring nothing: inside
+	// its outline
 	private static List<Shape> side(TGMeterReading reading, boolean stereo, int bar, float top, float wide, float high) {
 		double peak = (stereo ? reading.getPeak(bar) : reading.getPeak());
 		double hold = (stereo ? reading.getHold(bar) : reading.getHold());
-		return (reading.isOn() ? bar(peak, hold, top, wide, high) : greyed(top, wide, high));
-	}
-
-	private static List<Shape> greyed(float top, float wide, float high) {
-		List<Shape> shapes = new ArrayList<Shape>();
-		shapes.add(new Shape(Role.GREYED, 0, top, wide, high));
+		float inside = wide - 2 * EDGE;
+		float low = high - 2 * EDGE;
+		List<Shape> shapes = outline(top, wide, high);
+		shapes.addAll(reading.isOn() ? bar(peak, hold, top + EDGE, inside, low) : greyed(top + EDGE, inside, low));
 		return shapes;
 	}
 
-	// the track, the bar to the peak (striped above 0 dB), the 0 dB mark, the hold line ending at the hold
+	// the outline around a bar's room, along its edges: top, bottom, left, right
+	private static List<Shape> outline(float top, float wide, float high) {
+		List<Shape> shapes = new ArrayList<Shape>();
+		shapes.add(new Shape(Role.OUTLINE, 0, top, wide, EDGE));
+		shapes.add(new Shape(Role.OUTLINE, 0, top + high - EDGE, wide, EDGE));
+		shapes.add(new Shape(Role.OUTLINE, 0, top + EDGE, EDGE, high - 2 * EDGE));
+		shapes.add(new Shape(Role.OUTLINE, wide - EDGE, top + EDGE, EDGE, high - 2 * EDGE));
+		return shapes;
+	}
+
+	// the track inside the outline, greyed
+	private static List<Shape> greyed(float top, float wide, float high) {
+		List<Shape> shapes = new ArrayList<Shape>();
+		shapes.add(new Shape(Role.GREYED, EDGE, top, wide, high));
+		return shapes;
+	}
+
+	// inside the outline: the track, the bar to the peak (striped above 0 dB), the 0 dB mark, the hold line ending at
+	// the hold
 	private static List<Shape> bar(double peak, double hold, float top, float wide, float high) {
 		List<Shape> shapes = new ArrayList<Shape>();
 		float zero = at(0, wide);
 		float level = at(peak, wide);
-		shapes.add(new Shape(Role.TRACK, 0, top, wide, high));
-		if (level > 0) {
-			shapes.add(new Shape(Role.BAR, 0, top, Math.min(level, zero), high));
+		shapes.add(new Shape(Role.TRACK, EDGE, top, wide, high));
+		if (level > EDGE) {
+			shapes.add(new Shape(Role.BAR, EDGE, top, Math.min(level, zero) - EDGE, high));
 		}
 		if (level > zero) {
 			shapes.add(new Shape(Role.OVER, zero, top, level - zero, high));
@@ -131,7 +153,7 @@ public final class TGMeterLook {
 		}
 		shapes.add(new Shape(Role.ZERO, zero, top, MARK, high));
 		if (!Double.isInfinite(hold)) {
-			shapes.add(new Shape(Role.HOLD, Math.max(0, at(hold, wide) - HOLD), top, HOLD, high));
+			shapes.add(new Shape(Role.HOLD, Math.max(EDGE, at(hold, wide) - HOLD), top, HOLD, high));
 		}
 		return shapes;
 	}
@@ -147,9 +169,9 @@ public final class TGMeterLook {
 		return shapes;
 	}
 
-	// where the level sits along the bar
+	// where the level sits along the track (inside the outline)
 	private static float at(double decibels, float wide) {
-		return (float) (TGMeterScale.position(decibels) * wide);
+		return (float) (EDGE + TGMeterScale.position(decibels) * wide);
 	}
 
 	// an outline 1 wide while out (every shape is filled, so an app draws no outline); lit, filled with a "!": its
