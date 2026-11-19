@@ -14,7 +14,8 @@ the chooser, seeded through `java.util.SplittableRandom`, since `java.util.Rando
 and the difficulty flag (`TGMeasureHeader.getDifficulty`, the undoable `TGChangeDifficultyAction`, saved as
 `<difficulty>` in format 2.0), and a session played offline (`TGPractiseAction`: the turns back to back on a timeline
 of turns, `TGTimeline.of` and `TGTurn`, each its own Count In then its unit's measures once each in score order,
-`TGSongTime.unit`; a turn that another follows ends its notes there; a measure no pass of the song reaches plays in its
+`TGSongTime.unit`; a turn that another follows ends its notes there, as does a measure the next one in song order does
+not follow (the song's end, where a loop jumps back); a measure no pass of the song reaches plays in its
 unit too, its events parsed alone; with the interval clock, offline and live, lib's `TGPracticeSchedule` plans each
 turn as it is chosen, the one place that decides its passes, the last turn and its Count In clicks
 (`TGPracticeCourse.clicks`: with the session's "Count In before each turn" on, as long as the player's Count In whether
@@ -55,9 +56,10 @@ their undoable edit are editor-utils' (`TGUpdateMarkerAction`, `TGRemoveMarkerAc
 Record is refused during a session, saying why (`TGAudioStatus.practiceRefusal`, which `TGRecordAction` throws as a
 `TGActionException`), and `TGAudioStatus.canRecord` is false then, so Tools > Record is greyed out. Every refusal of interleaved practice and click-up (`TGPracticeRefusal`, the Record refusal, the sequencer's) is said as TuxGuitar's language says its message (`transport.practice.refusal.*`, `transport.click-up.refusal.*`, the parts it names too: a unit's noun, the unit or block, the tempo, the mode), English where a language lacks it. The desktop starts a session with editor-utils' `TGTransportPractiseAction` (Transport > Interleaved Practice).
 Live practice scenarios play on the live device as the
-other live scenarios do (`LivePractisingSteps`). Known and pinned, not fixed (ordinary playback): offline, a note ending
-where the song ends or a loop jumps back is never sent its note off (`TestGeneralMidiRender.pinnedDefect...`); live, a
-VST3 instrument ignores All Notes Off, so a note held when the player moves or stops rings on. Export is implemented headless (TGAudioExporter in this module), in
+other live scenarios do (`LivePractisingSteps`). A note held when the player stops, pauses or moves ends there, on a
+VST3 instrument too: VST3 has no All Notes Off, so `TGVst3InstrumentProcessor` sends a note off for each note it
+started and has not stopped when All Notes Off or All Sound Off reaches it (these notes rang on before); offline, a note
+ending where the song ends or a loop jumps back goes off there (`TestGeneralMidiRender`; it rang on before). Export is implemented headless (TGAudioExporter in this module), in
 WAVE 16/24-bit/float, AIFF 16-bit and AU 16-bit (`TGExportFormat.offered`); an installed app's audio export writes
 through it (`TGAudioExport`, synth-core's `TGSynthAudioExporter` extension: the desktop's File > Export audio offers
 those formats when the audio plugin is installed). Saving is implemented in lib's TuxGuitar file format (format 3.0: a
@@ -215,8 +217,8 @@ plan's and the span's from and to, as a click-up step's run of sections), a bloc
 joint; `TGPracticeWording` words a block of more than one unit by its first and last unit, capitalised as a unit is
 ("Lines 4–5": `transport.practice.block-turn`, `block-timed-turn`, `block-break`, the run by
 `transport.practice.block.<kind>`). The desktop sets it in Interleaved Practice's units per block field.
-Live scenarios read a step played again by its notes'
-level, as after a pause (the note under way rings on through its Count In, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
+Live scenarios read a step played again exact, as any
+other (the note under way when it was played again is over there, see Interleaved click-up). Planned: `plugins/nam_captures` (dropping a NAM capture on a track), the whole feature `@planned`. Open for it: how
 TuxGuitar gives a capture to the real capture players (the old "Neural Amp Modeler"'s VST3 state holds the capture's
 path, no public format; Gateway's and the TONE3000 plugin's are unknown), whether a song should carry the capture file itself so it opens on another computer, and whether a cabinet
 impulse response (`.wav`) dropped the same way goes to the capture player's IR slot.
@@ -814,8 +816,8 @@ measures 1 to 3" means each measure sounds its tone, within 1%, and no other abo
   there. Paused, they choose the step Play plays from its Count In (Repeat step: the paused one, as Play would anyway).
   They are there only while a click-up is under way, playing or paused; interleaved practice's turns are no steps. As
   for interleaved practice, only TuxGuitar's own sequencer can play a session. "Step 3" counts from 1, in the order of
-  the steps. A VST3 instrument ignores All Notes Off, so the note sounding when a step is played again rings on through
-  its Count In until it is played again, as after a pause (a defect of playback, left as it is).
+  the steps. The note sounding when a step is played again ends there, so its Count In sounds clicks alone, as after
+  a pause.
 - **Passage**: the sections of a click-up, a range of units such as `measures 9 to 11`, `lines 1 to 4`, `pages 1 to 2`
   (beats: a range of measures, `beats over measures 9 to 10`, every beat a section),
   as interleaved practice's pool is (the same fixed groups). Its first unit is **section** 1, the next section 2, and so

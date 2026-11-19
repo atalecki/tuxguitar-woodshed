@@ -29,6 +29,7 @@ import app.tuxguitar.midi.synth.TGAudioProcessor;
 import app.tuxguitar.midi.synth.TGMidiProcessor;
 import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.TGSynthManager;
+import app.tuxguitar.player.base.MidiControllers;
 import app.tuxguitar.player.base.MidiTransport;
 import app.tuxguitar.util.TGContext;
 
@@ -406,6 +407,73 @@ public class TestVst3Processors {
 		sine.process(block);
 		assertEquals(0f, block[0][0]);
 		assertEquals(0f, block[0][100]);
+	}
+
+	// Test Sine holding a note of voice 0, one of voice 1 (unison) and one of no voice (a beat played as a note is
+	// entered), heard for a block; then the control sent: the peak of the next block from the frame on, and before it
+	private float[] heldNotesAfter(java.util.function.Consumer<TGMidiProcessor> control, int frame) {
+		TGMidiProcessor sine = instrument("Test Sine");
+		sine.sendNoteOn(69, 127, 0, false, 0);
+		sine.sendNoteOn(69, 127, 1, false, 0);
+		sine.sendNoteOn(57, 127, -1, false, 0);
+		sine.process(new float[2][FRAMES]);
+		control.accept(sine);
+		float[][] block = new float[2][FRAMES];
+		sine.process(block);
+		return new float[] {peak(block[0], 0, frame), peak(block[0], frame, FRAMES)};
+	}
+
+	private static float peak(float[] side, int from, int to) {
+		float peak = 0f;
+		for (int i = from; i < to; i++) {
+			peak = Math.max(peak, Math.abs(side[i]));
+		}
+		return peak;
+	}
+
+	// All Notes Off and All Sound Off (MIDI's controls 123 and 120), as the synthesizer sends them when the player stops
+	// or moves, stop every note the instrument holds on the next block's first frame; any other control stops none
+	@Test
+	public void allNotesOffAndAllSoundOffStopEveryNoteTheInstrumentHolds() {
+		assertEquals(0f, heldNotesAfter(sine -> sine.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0), 0)[1]);
+		assertEquals(0f, heldNotesAfter(sine -> sine.sendControlChange(MidiControllers.ALL_SOUND_OFF, 0), 0)[1]);
+		assertTrue(heldNotesAfter(sine -> sine.sendControlChange(MidiControllers.VOLUME, 0), 0)[1] > 0.5f);
+	}
+
+	// timed, on its frame: the notes sound up to it
+	@Test
+	public void allNotesOffOnAFrameStopsTheNotesThere() {
+		float[] peaks = heldNotesAfter(sine -> sine.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0, 256), 256);
+
+		assertTrue(peaks[0] > 0.5f, "before: " + peaks[0]);
+		assertEquals(0f, peaks[1]);
+	}
+
+	// a note stopped is no longer held, and one started after All Notes Off sounds: once more, All Notes Off stops it
+	@Test
+	public void aNoteStartedAfterAllNotesOffSoundsUntilTheNext() {
+		float[] peaks = heldNotesAfter(sine -> {
+			sine.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0);
+			sine.sendNoteOn(69, 127, 0, false, 0);
+			sine.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0, 300);
+		}, 300);
+
+		assertEquals(0.5f, peaks[0], 0.01f);
+		assertEquals(0f, peaks[1]);
+	}
+
+	// what the instrument hears: a note stopped, or stopped by an All Notes Off before, is not sent another note off
+	@Test
+	public void allNotesOffStopsOnlyTheNotesStillHeld() {
+		TGVst3InstrumentProcessor sine = (TGVst3InstrumentProcessor) instrument("Test Sine");
+		sine.sendNoteOn(60, 127, 0, false, 0);
+		sine.sendNoteOn(62, 127, 1, false, 0);
+		sine.sendNoteOff(60, 0, 0, false, 10);
+		sine.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0, 20);
+		sine.sendControlChange(MidiControllers.ALL_NOTES_OFF, 0, 30);
+
+		assertEquals("1 60 0, 1 62 0, 2 60 10, 2 62 20", sine.takeEvents().stream().map(event -> event.getType() + " " + event.getPitch() + " " + event.getOffset())
+			.collect(Collectors.joining(", ")));
 	}
 
 	@Test

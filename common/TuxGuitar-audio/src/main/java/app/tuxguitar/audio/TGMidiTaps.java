@@ -161,10 +161,10 @@ public final class TGMidiTaps {
 
 	// the parser's events, each at the sample of the timeline where its tick plays (none outside it); the events before
 	// where playing starts (the channel settings at the start of the sequence among them) fall before sample 0, so they
-	// go out with the first block, in tick order. A turn that another follows ends its notes where it ends: the notes
-	// ending on its last measure's end go off there, before what follows (the next measure in song order, where they
-	// would go off, does not play next). A measure whose events are a span's parsed alone (see alone) takes them from
-	// that parse, once per span, where the song has it
+	// go out with the first block, in tick order. A measure that the measure after it in song order does not follow
+	// (a turn's last, the song's last, where a loop or a session jumps) ends its notes where it ends: the notes ending on
+	// its end go off there, before what follows. A measure whose events are a span's parsed alone (see alone) takes them
+	// from that parse, once per span, where the song has it
 	private static TreeMap<Long, List<Event>> schedule(TGSongManager songManager, TGSong song, MidiPlayerMode mode, TGTimeline timeline) {
 		MidiSequenceParser parser = new MidiSequenceParser(song, songManager, FLAGS);
 		if (mode.isLoop()) {
@@ -173,25 +173,59 @@ public final class TGMidiTaps {
 		}
 		Events parsed = new Events(song.countTracks());
 		parser.parse(parsed);
-		List<Long> moves = TGSongTime.moves(song, mode);
-		Map<List<Long>, Events> spans = new HashMap<List<Long>, Events>();
+		List<Played> played = played(timeline, parser, parsed, TGSongTime.moves(song, mode));
 		TreeMap<Long, List<Event>> scheduled = new TreeMap<Long, List<Event>>();
-		for (int i = 0; i < timeline.count(); i++) {
-			TGPlayedMeasure measure = timeline.get(i);
-			Optional<TGPracticeSpan> alone = alone(timeline, i);
-			Events events = alone.map(span -> spans.computeIfAbsent(Arrays.asList(span.getStart(), span.getJoint(), span.getEnd()), key -> parsed(parser, span, parsed.getTracks())))
-				.orElse(parsed);
-			long start = measure.getHeader().getStart() + (alone.isPresent() ? 0 : moves.get(measure.getStep()));
-			long from = (i == 0 ? Long.MIN_VALUE : start + measure.getFrom());
-			List<Event> due = events.between(from, start + measure.getTo());
-			if (timeline.endsTurn(i)) {
-				due.addAll(events.offsAt(start + measure.getTo()));
+		for (int i = 0; i < played.size(); i++) {
+			Played measure = played.get(i);
+			List<Event> due = measure.events.between(i == 0 ? Long.MIN_VALUE : measure.from, measure.to);
+			if (timeline.endsTurn(i) || i + 1 == played.size() || !measure.isFollowedBy(played.get(i + 1))) {
+				due.addAll(measure.events.offsAt(measure.to));
 			}
 			for (Event event : due) {
-				scheduled.computeIfAbsent(timeline.sampleAt(i, event.tick - start), key -> new ArrayList<Event>()).add(event);
+				scheduled.computeIfAbsent(timeline.sampleAt(i, event.tick - measure.start), key -> new ArrayList<Event>()).add(event);
 			}
 		}
 		return scheduled;
+	}
+
+	// each measure the timeline plays, with the events it takes: a span's parsed alone once per span (see alone)
+	private static List<Played> played(TGTimeline timeline, MidiSequenceParser parser, Events parsed, List<Long> moves) {
+		Map<List<Long>, Events> spans = new HashMap<List<Long>, Events>();
+		List<Played> played = new ArrayList<Played>();
+		for (int i = 0; i < timeline.count(); i++) {
+			Optional<Events> alone = alone(timeline, i).map(span -> spans.computeIfAbsent(Arrays.asList(span.getStart(), span.getJoint(), span.getEnd()),
+				key -> parsed(parser, span, parsed.getTracks())));
+			played.add(played(timeline, i, alone, parsed, moves));
+		}
+		return played;
+	}
+
+	// the played measure's events (a span's parsed alone, else the song's) and its ticks in them: the song's moved by the
+	// repeats played before it
+	private static Played played(TGTimeline timeline, int index, Optional<Events> alone, Events parsed, List<Long> moves) {
+		TGPlayedMeasure measure = timeline.get(index);
+		long start = measure.getHeader().getStart() + (alone.isPresent() ? 0 : moves.get(measure.getStep()));
+		return new Played(alone.orElse(parsed), start, start + measure.getFrom(), start + measure.getTo());
+	}
+
+	// a played measure: the events it takes, and its start, first tick and end (not included) in them
+	private static final class Played {
+		private final Events events;
+		private final long start;
+		private final long from;
+		private final long to;
+
+		Played(Events events, long start, long from, long to) {
+			this.events = events;
+			this.start = start;
+			this.from = from;
+			this.to = to;
+		}
+
+		// whether the next played measure goes on from its end, in the same events
+		boolean isFollowedBy(Played next) {
+			return (next.events == this.events && next.from == this.to);
+		}
 	}
 
 	// the span whose events, parsed alone, the played measure takes: its turn's, when that plays parts of measures (a

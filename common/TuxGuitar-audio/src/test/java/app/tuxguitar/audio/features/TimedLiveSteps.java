@@ -139,11 +139,12 @@ public class TimedLiveSteps {
 		assertEquals("the break before turn " + turn + ": measure " + heardMeasure(turn), turnOrBreak(shown) + ": measure " + shown.getFrom().getFirst());
 	}
 
-	// the turn's measure, as heard: from Play, a Count In (its beats not read: a VST3 instrument ignores All Notes Off, so
-	// the note held at the pause rings on), then the measure's note on every beat, the times given
+	// the turn's measure, as heard: from Play, a Count In without the note (the note held at the pause is over; it rang on
+	// while a VST3 instrument ignored All Notes Off), then the measure's note on every beat, the times given
 	@Then("after Play, the turn's measure sounds again after a Count In of {int} beats, then {int} more times back to back")
 	public void afterPlayTheTurnsMeasure(int beats, int more) {
 		int note = BASE + heardMeasure(1);
+		IntStream.range(0, beats).forEach(beat -> assertBeat(note, live.change() + world.chainDelay(), beat, false));
 		long start = live.change() + world.chainDelay() + beats * LivePractisingSteps.beat();
 		int measure = world.song().getMeasureHeader(note - BASE - 1).getTimeSignature().getNumerator();
 		IntStream.range(0, (more + 1) * measure).forEach(beat -> assertBeat(note, start, beat, true));

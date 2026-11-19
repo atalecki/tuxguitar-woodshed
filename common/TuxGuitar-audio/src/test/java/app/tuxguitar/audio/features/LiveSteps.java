@@ -24,9 +24,11 @@ public class LiveSteps {
 	private static final double SILENT = 0.001;
 
 	private final AudioWorld world;
+	private final PlaySteps play;
 
-	public LiveSteps(AudioWorld world) {
+	public LiveSteps(AudioWorld world, PlaySteps play) {
 		this.world = world;
+		this.play = play;
 	}
 
 	private TGSynthModel synthesizer() {
@@ -87,6 +89,12 @@ public class LiveSteps {
 		int from = after + world.chainDelay();
 		assertTrue(Meters.peak(samples, from, samples.length) < SILENT, "from sample " + from + " the side peaks at " + Meters.peak(samples, from, samples.length));
 		assertTrue(Meters.peak(samples, from - 256, from) >= SILENT, "before sample " + from + " the side peaks at " + Meters.peak(samples, from - 256, from));
+	}
+
+	// from the sample of the change made while the song played live (see PlaySteps.playLiveChanging)
+	@Then("the output's {side} side is silent from the change on, as heard, and sounds right before")
+	public void silentFromTheChange(int side) {
+		this.silentFrom(side, (int) this.play.change());
 	}
 
 	// from its first sample above half its peak to its very last, never at or below half its peak for more than the most
