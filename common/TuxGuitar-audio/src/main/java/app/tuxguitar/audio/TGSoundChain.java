@@ -50,9 +50,9 @@ public final class TGSoundChain {
 	}
 
 	// a General MIDI source is read by the channel's program, an audio channel's takes as TuxGuitar's language names them;
-	// any other element by its plugin's name, else its type
+	// a VST3 plugin by its name; any other element (a VST3 element naming no plugin too) by its type
 	static String name(TGProgramElement element, TGChannel channel) {
-		if (TGVst3Element.isVst3(element)) {
+		if (names(element)) {
 			return TGVst3Element.getName(element);
 		}
 		if (GervillProcessorFactory.TYPE.equals(element.getType())) {
@@ -80,10 +80,16 @@ public final class TGSoundChain {
 		return (effect != null ? chain.getOutput(effect - 1) : chain.getReceiver());
 	}
 
-	// the VST3 plugin of the chain (an effect by its number, or the source); null when that is no VST3 plugin
+	// the VST3 plugin of the chain (an effect by its number, or the source); null when that is no VST3 plugin, or a VST3
+	// element naming none (the Synthesizer dialog adds one by its type alone)
 	public static TGProgramElement plugin(TGProgram chain, Integer effect) {
 		TGProgramElement element = at(chain, effect);
-		return (element != null && TGVst3Element.isVst3(element) ? element : null);
+		return (element != null && names(element) ? element : null);
+	}
+
+	// whether the element is a VST3 plugin: a VST3 element naming its plugin (module and class id)
+	private static boolean names(TGProgramElement element) {
+		return (TGVst3Element.isVst3(element) && TGVst3Element.plugin(element.getParameters(), false) != null);
 	}
 
 	// the name of the channel's chain's element (an effect by its number, or the source), as the reading names it; an

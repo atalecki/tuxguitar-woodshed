@@ -112,7 +112,7 @@ public class TestRecording {
 		session.setRecordingOffset(100);
 		record(0, MEASURE, 100, new TGPunchRange(3, 3));
 
-		assertEquals(-6.02, session.getInputMeter(track).getLevel(), 0.01);
+		assertEquals(-6.02, session.getInputLevel(track).getLevel(), 0.01);
 		assertEquals(List.of("2:100+512", "2:88164+136"), List.of(captures.get(0), captures.get(captures.size() - 1)));
 	}
 

@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import app.tuxguitar.midi.synth.TGLevels;
 import app.tuxguitar.midi.synth.TGProgram;
+import app.tuxguitar.midi.synth.TGProgramElement;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
 import app.tuxguitar.song.models.TGChannel;
 import app.tuxguitar.vst3.TGVst3Plugin;
@@ -92,6 +94,23 @@ public final class TGSoundChainRows {
 			elements.add(TGSoundChain.effect(this.chain.getOutput(i), this.channel));
 		}
 		return elements;
+	}
+
+	// the points the level meters of its rows read, in order: the source's, each effect's (null for one switched off: it
+	// measures nothing), then the channel's output (after its Volume and Balance); none without a chain
+	public List<TGLevels.Key> getMeters() {
+		List<TGLevels.Key> meters = new ArrayList<TGLevels.Key>();
+		if (this.chain == null) {
+			return meters;
+		}
+		int channel = this.channel.getChannelId();
+		meters.add(TGLevels.Key.source(channel));
+		for (int i = 0; i < this.chain.countOutputs(); i++) {
+			TGProgramElement effect = this.chain.getOutput(i);
+			meters.add(effect.isEnabled() ? TGLevels.Key.effect(channel, effect.getId()) : null);
+		}
+		meters.add(TGLevels.Key.out(channel));
+		return meters;
 	}
 
 	// the source as the row names it: a default source says what plays and why, when that is known

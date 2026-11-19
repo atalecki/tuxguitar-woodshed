@@ -78,6 +78,15 @@ public class TestVst3Processors {
 		return open(TGSynthManager.getInstance(this.context).findMidiProcessorFactory(element.getType()).createProcessor(), element);
 	}
 
+	// the VST3 types are found to open an element, but not offered to be chosen alone (the Channel Settings window): an
+	// element of the type alone names no plugin
+	@Test
+	public void theVst3TypesAreFoundButNotOfferedAlone() {
+		TGSynthManager manager = TGSynthManager.getInstance(this.context);
+		String found = manager.findMidiProcessorFactory(TGVst3Element.INSTRUMENT).getType() + " " + manager.findAudioProcessorFactory(TGVst3Element.EFFECT).getType();
+		assertEquals("vst3-instrument vst3-effect [] []", found + " " + manager.getAllSupportedMidiTypes() + " " + manager.getAllSupportedAudioTypes());
+	}
+
 	private static float[][] level(float value) {
 		return TestPlugins.block(FRAMES, value, value);
 	}

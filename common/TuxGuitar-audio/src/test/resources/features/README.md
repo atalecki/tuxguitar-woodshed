@@ -256,6 +256,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `plugins/nam_captures` | dropping a NAM capture on a track (planned) |
 | `plugins/default_instruments` | the default instrument of each kind of track (guitar, bass, drums, other) for a track without an instrument of its own |
 | `plugins/nam_guitar_instrument` | Woodshed Guitar, the VST3 instrument TuxGuitar ships: plucked strings through a NAM capture, its profile; found in TuxGuitar's own plugins folder |
+| `plugins/sound_chain_levels` | the Sound Chain panel's level meters: after each element, Track out (after Volume and Balance), Master; the clip lamps; measured only while the panel shows them |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |
@@ -560,9 +561,10 @@ These features change how TuxGuitar works today. They are requirements, not side
   `Always`: the input is heard whenever the track is armed, and the track's takes are not, so I can practise along with
   the song without recording. `Off`: the input is never heard. Whatever the monitoring, while recording the armed
   track's takes are silent where it records (inside the punch range, or everywhere without one).
-- **Input level**: the peak of what a track's input channel(s) delivered in the last second, in dBFS (the higher of
-  the two for a pair). At -0.1 dBFS or above the input is **clipping**; it shows **has clipped** until I reset it. An
-  armed track's input level follows its input whenever the audio device runs: stopped, playing and recording.
+- **Input level**: the peak of what a track's input channel(s) delivered over about the last two thirds of a second
+  (the newest 56 blocks of 512 frames), in dBFS (the higher of the two for a pair). At -0.1 dBFS or above the input is
+  **clipping**; it shows **has clipped** until I reset it. An armed track's input level follows its input whenever the
+  audio device runs: stopped, playing and recording.
 - **Round trip**: output latency + the plugin delay compensation of what I hear + input latency + recording offset.
   A take is placed earlier by its round trip, so one recorded against General MIDI tracks lands on the beat although
   Gervill sounds them 600 samples late (at 44100 Hz). The Count In and the Metronome add nothing to it.

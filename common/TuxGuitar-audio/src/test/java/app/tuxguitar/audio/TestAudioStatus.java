@@ -83,9 +83,9 @@ class TestAudioStatus {
 		device();
 		this.session.arm(this.bass);
 		this.session.arm(this.voice);
-		this.session.getInputMeter(this.voice).deliver(new float[][] {{0.5f}});
+		this.session.getInputLevel(this.voice).deliver(new float[][] {{0.5f}});
 		assertEquals("audio.status.not-recording record | Voice 90 -6.0 dBFS | Bass 0 -inf dBFS", status());
-		this.session.getInputMeter(this.bass).deliver(new float[][] {{1f}});
+		this.session.getInputLevel(this.bass).deliver(new float[][] {{1f}});
 		assertEquals("audio.status.not-recording record | Voice 90 -6.0 dBFS | Bass 100 0.0 dBFS clipped", status());
 	}
 
@@ -94,13 +94,13 @@ class TestAudioStatus {
 	void theMeterRunsFromMinusSixtyToZeroDbfs() {
 		device();
 		this.session.arm(this.voice);
-		this.session.getInputMeter(this.voice).deliver(new float[][] {{0.0001f}});
+		this.session.getInputLevel(this.voice).deliver(new float[][] {{0.0001f}});
 		String quieter = status();
-		this.session.getInputMeter(this.voice).deliver(new float[][] {{0.001f}});
+		this.session.getInputLevel(this.voice).deliver(new float[][] {{0.001f}});
 		String sixty = status();
-		this.session.getInputMeter(this.voice).deliver(new float[][] {{0.0316f}});
+		this.session.getInputLevel(this.voice).deliver(new float[][] {{0.0316f}});
 		String thirty = status();
-		this.session.getInputMeter(this.voice).deliver(new float[][] {{2f}});
+		this.session.getInputLevel(this.voice).deliver(new float[][] {{2f}});
 		assertEquals("Voice 0 -80.0 dBFS | Voice 0 -60.0 dBFS | Voice 50 -30.0 dBFS | Voice 100 6.0 dBFS clipped", meter(quieter) + " | " + meter(sixty) + " | " + meter(thirty) + " | " + meter(status()));
 	}
 

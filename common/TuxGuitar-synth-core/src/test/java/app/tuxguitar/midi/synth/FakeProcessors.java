@@ -97,6 +97,18 @@ final class FakeProcessors {
 		}
 	}
 
+	// a source that renders 32-bit float blocks, as a plugin does, without going through a 16-bit buffer
+	static class FloatSource extends TimedSource {
+
+		FloatSource(float level) {
+			super(level);
+		}
+
+		public void process(float[][] block) {
+			this.change(block);
+		}
+	}
+
 	// a source that cannot time events: a timed one reaches it at once, as TGMidiProcessor does by default
 	static class Source extends Effect implements TGMidiProcessor {
 		final List<String> received = new ArrayList<String>();

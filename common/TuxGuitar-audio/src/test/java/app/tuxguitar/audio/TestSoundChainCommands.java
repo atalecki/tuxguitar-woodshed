@@ -193,6 +193,23 @@ class TestSoundChainCommands {
 		assertEquals(this.track.getChannelId() + " true true Test Gain 1 null null null", element + " " + this.commands.element(0) + " " + this.commands.element(-1) + " " + none.element(0));
 	}
 
+	// a VST3 element naming no plugin (the Synthesizer dialog adds one by its type alone) is no plugin the editor area
+	// opens, as source or as effect
+	@Test
+	void aVst3ElementNamingNoPluginIsNone() {
+		TGProgram chain = TGSoundChain.get(this.channel(this.track));
+		chain.setReceiver(TGSoundChain.source(TGVst3Element.INSTRUMENT));
+		TGProgramElement effect = TGSoundChain.source(TGVst3Element.EFFECT);
+		effect.setId("custom");
+		chain.addOutput(effect);
+		TGSoundChain.save(this.channel(this.track), chain, this.fixture.songManager.getFactory());
+		assertEquals("none none", none(this.commands.element(0)) + " " + none(this.commands.element(1)));
+	}
+
+	private static String none(TGEditorDock.Element element) {
+		return (element == null ? "none" : "the element of " + element.getClassId());
+	}
+
 	// a plugin asking for its editor is found by its channel and element among the rows of the track shown; none on
 	// another channel, nor one not in the chain
 	@Test

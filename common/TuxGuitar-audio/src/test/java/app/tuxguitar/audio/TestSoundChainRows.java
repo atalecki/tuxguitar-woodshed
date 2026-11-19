@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 
 import app.tuxguitar.editor.action.SongActionFixture;
+import app.tuxguitar.midi.synth.TGLevels;
 import app.tuxguitar.midi.synth.TGInstrumentKind;
 import app.tuxguitar.midi.synth.TGProgram;
 import app.tuxguitar.midi.synth.impl.GervillProcessorFactory;
@@ -62,6 +63,26 @@ class TestSoundChainRows {
 	void theElementsAsThePanelNamesThemWithoutNumbers() {
 		assertEquals("Source: drone | Test Gain | [echo] || ", String.join(" | ", TGSoundChainRows.of(this.guitar).getElements("Source")) + " || "
 			+ String.join(" | ", TGSoundChainRows.NONE.getElements("Source")));
+	}
+
+	// a VST3 element naming no plugin (the Synthesizer dialog adds one by its type alone) is read by its type, and has
+	// no editor to open
+	@Test
+	void aVst3ElementNamingNoPluginIsReadByItsTypeWithoutAnEditor() {
+		TGProgram chain = TGSoundChain.get(this.guitar);
+		chain.setReceiver(TGSoundChain.source(TGVst3Element.INSTRUMENT));
+		chain.getOutput(0).getParameters().clear();
+		TGSoundChain.save(this.guitar, chain, this.fixture.songManager.getFactory());
+		TGSoundChainRows rows = TGSoundChainRows.of(this.guitar);
+		assertEquals("Source: vst3-instrument | vst3-effect | [echo] edit false false", String.join(" | ", rows.getElements("Source")) + " edit " + rows.canEdit(0) + " " + rows.canEdit(1));
+	}
+
+	// the meters under the panel's buttons, and the track's output: an effect switched off measures nothing
+	@Test
+	void theMetersReadTheSourceEachEffectOnAndTheOutput() {
+		int channel = this.guitar.getChannelId();
+		assertEquals(Arrays.asList(TGLevels.Key.source(channel), TGLevels.Key.effect(channel, "effect-1"), null, TGLevels.Key.out(channel)), TGSoundChainRows.of(this.guitar).getMeters());
+		assertEquals(Arrays.asList(), TGSoundChainRows.NONE.getMeters());
 	}
 
 	// the source is not moved, removed or disabled; the first effect is not moved up; only a VST3 plugin has an editor

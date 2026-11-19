@@ -61,6 +61,30 @@ public class TestSynthManager {
 		assertSame(this.manager, TGSynthManager.getInstance(this.context));
 	}
 
+	// a factory whose element must name more than its type (a VST3 plugin) is found by its type, but its type is not
+	// offered to be chosen alone (the Channel Settings window lists the types offered)
+	@Test
+	public void aFactoryNotChosenByTypeIsFoundButNotOffered() {
+		TGMidiProcessorFactory instrument = new FakeProcessors.SourceFactory("instrument", 0.5f) {
+			public boolean isChosenByType() {
+				return false;
+			}
+		};
+		TGAudioProcessorFactory plugin = new FakeProcessors.EffectFactory("plugin", sample -> sample) {
+			public boolean isChosenByType() {
+				return false;
+			}
+		};
+		this.manager.addExtension(TGMidiProcessorFactory.class, this.source);
+		this.manager.addExtension(TGMidiProcessorFactory.class, instrument);
+		this.manager.addExtension(TGAudioProcessorFactory.class, plugin);
+		this.manager.addExtension(TGAudioProcessorFactory.class, this.effect);
+		assertSame(instrument, this.manager.findMidiProcessorFactory("instrument"));
+		assertSame(plugin, this.manager.findAudioProcessorFactory("plugin"));
+		assertEquals(Arrays.asList("source"), this.manager.getAllSupportedMidiTypes());
+		assertEquals(Arrays.asList("effect"), this.manager.getAllSupportedAudioTypes());
+	}
+
 	@Test
 	public void removedFactoriesAreNotFound() {
 		this.manager.addExtension(TGMidiProcessorFactory.class, this.source);

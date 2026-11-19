@@ -259,9 +259,10 @@ public final class TGLiveAudio implements TGSynthOutput {
 	}
 
 	// the synthesizer opening plays through the device, if there is one; either way its chains' plugins are the live
-	// plugins (TGLivePlugins hears each change of them)
+	// plugins (TGLivePlugins hears each change of them), and its levels the live levels (the meters')
 	public synchronized boolean play(TGSynthModel synthesizer) {
 		synthesizer.addChannelListener(TGLivePlugins.getInstance(this.context));
+		TGLiveLevels.getInstance(this.context).play(synthesizer.getLevels());
 		if (this.device == null) {
 			LOG.info("the TuxGuitar Synthesizer plays through its own output (Java Sound on the desktop): " + this.problem);
 			return false;

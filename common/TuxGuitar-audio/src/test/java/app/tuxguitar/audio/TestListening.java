@@ -59,7 +59,7 @@ public class TestListening {
 		session.listen(songManager, song, 512);
 
 		assertEquals(List.of("2:0+512"), captures);
-		assertEquals(Double.NEGATIVE_INFINITY, session.getInputMeter(unarmed).getLevel());
+		assertEquals(Double.NEGATIVE_INFINITY, session.getInputLevel(unarmed).getLevel());
 	}
 
 	// monitoring while stopped: an armed track monitored Auto or Always sounds its input (mono on both sides, a pair on

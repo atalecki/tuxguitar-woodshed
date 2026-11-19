@@ -25,11 +25,24 @@ public class TGSynthChannelProcessor {
 
 	private float sampleRate;
 	private MidiTransport transport;
+	// the synthesizer's level taps, and the channel this processor sounds, its points' taps keyed by it
+	private TGLevels levels;
+	private int channel;
+	// the tap after each mapped processor, looked up without allocating; and the tap at the output
+	private Map<TGAudioProcessor, TGLevelTap> taps;
+	private TGLevelTap out;
+	// the left and right gains of the block being filled, kept so that no block allocates them
+	private final float[] gains = new float[TGLevelTap.SIDES];
 
-	// its processors render at the sample rate and are told the song's state over each block in the transport
-	public TGSynthChannelProcessor(float sampleRate, MidiTransport transport) {
+	// its processors render at the sample rate and are told the song's state over each block in the transport; the sound
+	// after each of its elements and at its output is measured into the levels' taps of the channel
+	public TGSynthChannelProcessor(float sampleRate, MidiTransport transport, TGLevels levels, int channel) {
 		this.sampleRate = sampleRate;
 		this.transport = transport;
+		this.levels = levels;
+		this.channel = channel;
+		this.taps = new IdentityHashMap<TGAudioProcessor, TGLevelTap>();
+		this.out = levels.open(TGLevels.Key.out(channel));
 		this.lock = new Object();
 		this.buffer = new TGAudioBuffer();
 		this.block = new float[TGAudioBuffer.CHANNELS][TGAudioBuffer.BUFFER_SIZE / 2];
@@ -44,9 +57,18 @@ public class TGSynthChannelProcessor {
 			this.processor = null;
 			this.outputs.clear();
 			this.closeOrphanProcessors(program);
+			this.levels.keep(this.channel, effects(program));
 			this.openReceiver(context, program.getReceiver());
 			this.openOutputs(context, program);
 		}
+	}
+
+	private static List<String> effects(TGProgram program) {
+		List<String> effects = new ArrayList<String>();
+		for( int i = 0 ; i < program.countOutputs() ; i ++ ){
+			effects.add(program.getOutput(i).getId());
+		}
+		return effects;
 	}
 
 	// the processor of the element (mapped) is the other element's from now on, when both are of the same type: opened
@@ -106,11 +128,13 @@ public class TGSynthChannelProcessor {
 	public void setMidiProcessor(TGProgramElement element, TGMidiProcessor processor) {
 		this.processor = processor;
 		this.addProcessor(element, processor);
+		this.taps.put(processor, this.levels.open(TGLevels.Key.source(this.channel)));
 	}
 
 	public void addOutputProcessor(TGProgramElement element, TGAudioProcessor processor) {
 		this.addOutput(processor);
 		this.addProcessor(element, processor);
+		this.taps.put(processor, this.levels.open(TGLevels.Key.effect(this.channel, element.getId())));
 	}
 
 	public void addProcessor(TGProgramElement element, TGAudioProcessor processor) {
@@ -155,9 +179,11 @@ public class TGSynthChannelProcessor {
 		}
 	}
 
-	// the element no longer has a processor, nor its processor (if any) an element
+	// the element no longer has a processor, nor its processor (if any) an element or a tap
 	private void unmap(TGProgramElement element) {
-		this.elements.remove(this.processorMap.remove(element));
+		TGAudioProcessor processor = this.processorMap.remove(element);
+		this.elements.remove(processor);
+		this.taps.remove(processor);
 	}
 
 	public boolean shouldCloseProcessor(TGProgram program, TGProgramElement element) {
@@ -216,38 +242,57 @@ public class TGSynthChannelProcessor {
 	}
 
 	// the chain delayed by the frames (unless its source delays itself), at the volume and balance, written in 16 bits
-	// (clipped there) and mixed into the buffer
+	// (clipped there) and mixed into the buffer. While the levels are on, the sound after each element and at the output
+	// (as written: held at full scale) is measured. The audio thread calls it every block: it allocates nothing
 	public void fillBuffer(TGAudioBuffer buffer, int volume, int balance, int delay) {
 		synchronized (this.lock) {
 			if( this.isOpen() ){
+				boolean measured = this.levels.isOn();
 				boolean compensated = this.processor.compensate(delay);
-				this.fillChain(this.block);
+				this.fillChain(this.block, measured);
 				this.delayLine.delay(this.block, (compensated ? 0 : delay));
-				float[] gains = gains(volume, balance);
-				for( int side = 0 ; side < this.block.length ; side ++ ) {
-					for( int i = 0 ; i < this.block[side].length ; i ++ ) {
-						this.block[side][i] *= gains[side];
-					}
-				}
+				gains(volume, balance, this.gains);
+				amplify(this.block, this.gains);
+				measure(this.out, this.block, measured, 1f);
 				this.buffer.write(this.block);
 				buffer.mix(this.buffer);
 			}
 		}
 	}
 
+	private static void amplify(float[][] block, float[] gains) {
+		for( int side = 0 ; side < block.length ; side ++ ) {
+			for( int i = 0 ; i < block[side].length ; i ++ ) {
+				block[side][i] *= gains[side];
+			}
+		}
+	}
+
 	// the receiver, then each output in processing order, from silence, in 32-bit float; silence when the receiver is
-	// not open
+	// not open. While the levels are on, the sound after each enabled element is measured
 	public void fillChain(float[][] block) {
 		synchronized (this.lock) {
-			for( float[] side : block ) {
-				java.util.Arrays.fill(side, 0f);
+			this.fillChain(block, this.levels.isOn());
+		}
+	}
+
+	private void fillChain(float[][] block, boolean measured) {
+		for( float[] side : block ) {
+			java.util.Arrays.fill(side, 0f);
+		}
+		if( this.isOpen() ){
+			this.process(block, this.processor, measured);
+			// by index: no iterator is allocated
+			for( int i = 0; i < this.outputs.size(); i ++ ){
+				this.process(block, this.outputs.get(i), measured);
 			}
-			if( this.isOpen() ){
-				this.process(block, this.processor);
-				for( TGAudioProcessor output : this.outputs ){
-					this.process(block, output);
-				}
-			}
+		}
+	}
+
+	// the block as it is here, into the tap (if any) when measured, each side held at the ceiling
+	private static void measure(TGLevelTap tap, float[][] block, boolean measured, float ceiling) {
+		if( measured && tap != null ) {
+			tap.measure(block, ceiling);
 		}
 	}
 
@@ -283,9 +328,10 @@ public class TGSynthChannelProcessor {
 		return (this.processor != null && this.processor.isOpen());
 	}
 
-	private void process(float[][] block, TGAudioProcessor processor) {
+	private void process(float[][] block, TGAudioProcessor processor, boolean measured) {
 		if( this.isEnabled(processor) ) {
 			processor.process(block);
+			measure(this.taps.get(processor), block, measured, TGLevelTap.UNLIMITED);
 		}
 	}
 
@@ -293,9 +339,17 @@ public class TGSynthChannelProcessor {
 	// the total power (left² + right²) remains constant across all pan positions. At center (balance=63.5) both
 	// channels get cos(π/4) ≈ 0.707, whereas a linear law would give 0.5 — a 3 dB centre-hole.
 	public static float[] gains(int volume, int balance) {
+		float[] gains = new float[TGLevelTap.SIDES];
+		gains(volume, balance, gains);
+		return gains;
+	}
+
+	// into the two gains, so that the audio thread allocates none
+	private static void gains(int volume, int balance, float[] gains) {
 		float pan = (balance / 127f) * ((float) Math.PI / 2f);
 		float gain = volume / 127f;
-		return new float[] {gain * (float) Math.cos(pan), gain * (float) Math.sin(pan)};
+		gains[0] = gain * (float) Math.cos(pan);
+		gains[1] = gain * (float) Math.sin(pan);
 	}
 
 	public boolean isBusy() {

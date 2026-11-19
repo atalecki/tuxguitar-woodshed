@@ -28,6 +28,10 @@ public final class TGVst3Processors {
 				public TGAudioProcessor createProcessor() {
 					return new TGVst3EffectProcessor(hosting);
 				}
+
+				public boolean isChosenByType() {
+					return false;
+				}
 			});
 		}
 		if (manager.findMidiProcessorFactory(TGVst3Element.INSTRUMENT) == null) {
@@ -38,6 +42,10 @@ public final class TGVst3Processors {
 
 				public TGMidiProcessor createProcessor() {
 					return new TGVst3InstrumentProcessor(hosting);
+				}
+
+				public boolean isChosenByType() {
+					return false;
 				}
 			});
 		}
