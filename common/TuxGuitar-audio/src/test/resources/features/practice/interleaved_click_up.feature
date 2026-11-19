@@ -256,7 +256,7 @@ Feature: Interleaved click-up
     When I practise interleaved click-up live
     Then the output holds 11 steps, measures "9, 9, 9, 9 to 10, 10, 9 to 10, 9 to 11, 11, 10 to 11, 11, 9 to 11" at 50%, 75%, 100%, 50%, 75%, 100%, 50%, 75%, 100%, 100% and 100%
     And each step sounds the notes of its measures once each and in order, each within 1 sample of its beat at the step's tempo
-    And the player stopped by itself within 512 samples of step 11's end
+    And the player stopped by itself at the end of the block step 11's end is heard in
 
   Scenario: live, with "Count In before each step" off, each step starts where the step before ended, even with Count In on
     Given I have turned Count In on
@@ -264,7 +264,7 @@ Feature: Interleaved click-up
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live
     Then the output holds 5 steps, measures "9, 9, 9 to 10, 10, 9 to 10" at 50%, 100%, 50%, 100% and 100%
-    And the player stopped by itself within 512 samples of step 5's end
+    And the player stopped by itself at the end of the block step 5's end is heard in
 
   # measures 9 to 10 from 50% to 100% by 50%: 9@50%, 9@100%, 9-10@50%, 10@100%, 9-10@100%
   Scenario: Pause keeps the session: Play plays the paused step again from its Count In, then the steps after it
@@ -272,17 +272,18 @@ Feature: Interleaved click-up
     When I practise interleaved click-up live, pausing during step 3 and playing again
     Then after Play, step 3's measures 9 and 10 sound again at 50% after a Count In of 4 beats 44100 samples apart
     And then steps 4 and 5 sound, each after its Count In
-    And the player stopped by itself within 512 samples of step 5's end
+    And the player stopped by itself at the end of the block step 5's end is heard in
 
   # Repeat step plays the step under way again at once, from its Count In; Previous step plays the step before it (or,
-  # during step 1, step 1 again); then the steps go on from there. The player sees its end at the end of a block of 512
-  # samples, which falls up to two blocks after the step ends as heard, as the choice moves the steps against the blocks
+  # during step 1, step 1 again); then the steps go on from there. The player stops at the end of the block of 512
+  # samples the output sounds the last step's end in, wherever the choice moved the steps against the blocks; the step
+  # played again is heard from the sample it was chosen at (its first click's attack 2 samples later)
   Scenario Outline: <command> during step <during> plays step <again> again from its Count In, then the steps after it
     Given I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, choosing <command> during step <during>'s first measure
     Then the steps the output holds started are <played>
-    And step <again>'s second time starts with its Count In within 512 samples of choosing it
-    And the player stopped by itself within 1024 samples of step 5's end
+    And step <again>'s second time starts with its Count In within 2 samples of choosing it
+    And the player stopped by itself at the end of the block step 5's end is heard in
 
     Examples:
       | command       | during | again | played              |
@@ -308,7 +309,7 @@ Feature: Interleaved click-up
     Given I have turned interleaved click-up's "Count In before each step" off
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, removing measure 40 during step 2
-    Then the player stopped within 512 samples of the edit, during step 2
+    Then the player stopped at the edit, during step 2
     And the song has 63 measures
     And interleaved click-up has ended
 
@@ -317,7 +318,7 @@ Feature: Interleaved click-up
     Given I have added the marker "Intro" at measure 2
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, <edit> during step 2
-    Then the player stopped by itself within 512 samples of step 5's end
+    Then the player stopped by itself at the end of the block step 5's end is heard in
     And track 1 reads "<track>" and the markers read "<markers>"
 
     Examples:
@@ -335,7 +336,7 @@ Feature: Interleaved click-up
     And I have set interleaved click-up to measures over measures 9 to 10, from 50% to 100% by 50%
     When I practise interleaved click-up live, choosing Record during step 2
     Then Record is refused, saying "Interleaved click-up is under way: stop it to record."
-    And the player stopped by itself within 512 samples of step 5's end
+    And the player stopped by itself at the end of the block step 5's end is heard in
     And track 2's takes read ""
 
   Scenario: Record's refusal during a click-up is said as the language TuxGuitar shows says it

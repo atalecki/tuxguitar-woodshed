@@ -270,11 +270,11 @@ public class LivePractisingSteps {
 		}
 	}
 
-	// the player stops by itself at the first block after the turn of what the session plays ends, as heard
-	@Then("the player stopped by itself within {int} samples of turn {int}'s end")
-	public void stoppedByItself(int within, int turn) {
+	// the player stops by itself at the end of the block the output sounds the end of the session's last turn in
+	@Then("the player stopped by itself at the end of the block turn {int}'s end is heard in")
+	public void stoppedByItself(int turn) {
 		assertEquals(planned.turns(), turn, "turns");
-		assertEquals(planned.turnEnd(turn - 1) + world.chainDelay(), stopped(), within, "turn " + turn + " ends, as heard");
+		assertStoppedWhereHeard(planned.turnEnd(turn - 1) + world.chainDelay(), "turn " + turn);
 	}
 
 	// the measure whose note the output sounds on the beat that starts at the player's sample (as heard, the chain
@@ -317,24 +317,22 @@ public class LivePractisingSteps {
 		}
 	}
 
-	// the player stops by itself (no change does) at the first block after the session's last turn ends, as heard
-	@Then("the player stopped by itself within {int} samples of turn {int}'s end, {int} beats after Play")
-	public void stoppedAfter(int within, int turn, int beats) {
-		assertStoppedAfter(within, beats * beat(), "turn " + turn);
+	// the player stops by itself (no change does) where the session's last turn ends, so many beats after Play
+	@Then("the player stopped by itself at the end of the block turn {int}'s end is heard in, {int} beats after Play")
+	public void stoppedAfter(int turn, int beats) {
+		assertStoppedAsHeard(beats * beat(), "turn " + turn);
 	}
 
-	// the player stopped at the first block after the turn ends so many samples after Play, as heard
-	void assertStoppedAfter(int within, long samples, String turn) {
-		long end = change + samples + world.chainDelay();
-		assertEquals(end, stopped(), within, turn + " ends, as heard, at sample " + end);
-	}
-
-	// the player stopped at the end of the block the output sounds the turn's end in, so many samples after Play: not
-	// before the end is heard, and not a block later
+	// the player stopped at the end of the block the output sounds the turn's end in, so many samples after Play
 	void assertStoppedAsHeard(long samples, String turn) {
-		long end = change + samples + world.chainDelay();
+		assertStoppedWhereHeard(change + samples + world.chainDelay(), turn);
+	}
+
+	// the player stopped at the end of the block the output sounds the end (of the turn or step named) in, the sample
+	// given: not before the end is heard, and not a block later
+	void assertStoppedWhereHeard(long end, String what) {
 		long stopped = stopped();
-		assertTrue(stopped >= end && stopped < end + BLOCK, turn + " ends, as heard, at sample " + end + "; the player stopped at " + stopped);
+		assertTrue(stopped >= end && stopped < end + BLOCK, what + " ends, as heard, at sample " + end + "; the player stopped at " + stopped);
 	}
 
 	// where the turn (from 1) ends, as heard: where the next one starts
@@ -408,13 +406,12 @@ public class LivePractisingSteps {
 		}
 	}
 
-	// the player stops at the first block after the edit; the output had sounded the turn's unit up to it
-	@Then("the player stopped within {int} samples of the edit, during turn {int}")
-	@Then("the player stopped within {int} samples of the edit, during step {int}")
-	public void stoppedWithin(int within, int turn) {
-		int stopped = running.indexOf(Boolean.FALSE);
-		assertTrue(stopped >= 0, "the player never stopped");
-		assertTrue((stopped + 1L) * BLOCK - change <= within, "stopped at sample " + (stopped + 1L) * BLOCK + ", the edit at " + change);
+	// the player stops at the edit (made between two blocks): it no longer runs once the block before the edit has
+	// played; the output had sounded the turn's unit up to it
+	@Then("the player stopped at the edit, during turn {int}")
+	@Then("the player stopped at the edit, during step {int}")
+	public void stoppedAtTheEdit(int turn) {
+		assertEquals(change, stopped(), "the player stopped, the edit made at sample " + change);
 		assertEquals(turn, changedIn);
 		long heard = change + world.chainDelay();
 		int before = noteOver(heard - 2 * EDGE, heard - EDGE / 2);
