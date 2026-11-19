@@ -100,6 +100,31 @@ public final class Meters {
 		return highest(samples, from, to, coarse - 0.1, coarse + 0.1, 0.01, sampleRate);
 	}
 
+	// of a tone rich in overtones (a plucked string), the frequency between low and high at which the samples have their
+	// highest level: a hertz apart first (Hann-windowed Goertzel), then as peakFrequency around the highest
+	public static double strongest(float[] samples, int from, int to, double low, double high, int sampleRate) {
+		int n = to - from;
+		double[] windowed = new double[n];
+		for (int i = 0; i < n; i++) {
+			windowed[i] = samples[from + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / n));
+		}
+		double coarse = java.util.stream.DoubleStream.iterate(low, frequency -> frequency <= high, frequency -> frequency + 1).boxed()
+			.max(java.util.Comparator.comparingDouble(frequency -> power(windowed, frequency, sampleRate))).get();
+		return peakFrequency(samples, from, to, coarse - 1, coarse + 1, sampleRate);
+	}
+
+	private static double power(double[] samples, double frequency, int sampleRate) {
+		double coefficient = 2 * Math.cos(2 * Math.PI * frequency / sampleRate);
+		double last = 0;
+		double before = 0;
+		for (double sample : samples) {
+			double next = sample + coefficient * last - before;
+			before = last;
+			last = next;
+		}
+		return last * last + before * before - coefficient * last * before;
+	}
+
 	private static double highest(float[] samples, int from, int to, double low, double high, double step, int sampleRate) {
 		return java.util.stream.DoubleStream.iterate(low, frequency -> frequency <= high, frequency -> frequency + step).boxed()
 			.max(java.util.Comparator.comparingDouble(frequency -> level(samples, from, to, frequency, sampleRate))).get();

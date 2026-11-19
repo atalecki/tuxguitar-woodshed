@@ -25,7 +25,7 @@
 
 namespace TuxGuitar {
 
-const int32_t kProtocolVersion = 4;
+const int32_t kProtocolVersion = 8;
 
 enum Operation {
 	kHello = 1,
@@ -43,6 +43,7 @@ enum Operation {
 	kCloseEditor = 13,
 	kMessage = 14,
 	kEditorWindow = 15,
+	kTiming = 16,
 };
 
 struct Failure {
@@ -175,26 +176,26 @@ private:
 		writeNotifications();
 	}
 
+	// each operation reads its fields and writes its reply's
 	void dispatch(int32_t operation) {
-		switch (operation) {
-			case kHello: return hello();
-			case kScan: return scan();
-			case kOpen: return open();
-			case kClose: return close();
-			case kProcess: return process();
-			case kSetParameter: return setParameter();
-			case kGetParameter: return getParameter();
-			case kGetState: return getState();
-			case kSetState: return setState();
-			case kReset: return instance().reset();
-			case kListeners: return wire.writeInt(networkListeners(wire.readLong()));
-			case kOpenEditor: return openEditor();
-			case kCloseEditor: return closeEditor();
-			case kMessage: return message();
-			case kEditorWindow: return editorWindow();
-			default: throw Failure{"unknown operation " + std::to_string(operation)};
+		static const std::map<int32_t, void (Host::*)()> operations = {
+			{kHello, &Host::hello}, {kScan, &Host::scan}, {kOpen, &Host::open}, {kClose, &Host::close}, {kProcess, &Host::process},
+			{kSetParameter, &Host::setParameter}, {kGetParameter, &Host::getParameter}, {kGetState, &Host::getState},
+			{kSetState, &Host::setState}, {kReset, &Host::reset}, {kListeners, &Host::listeners}, {kOpenEditor, &Host::openEditor},
+			{kCloseEditor, &Host::closeEditor}, {kMessage, &Host::message}, {kEditorWindow, &Host::editorWindow}, {kTiming, &Host::timing},
+		};
+		auto found = operations.find(operation);
+		if (found == operations.end()) {
+			throw Failure{"unknown operation " + std::to_string(operation)};
 		}
+		(this->*(found->second))();
 	}
+
+	void reset() { instance().reset(); }
+
+	void listeners() { wire.writeInt(networkListeners(wire.readLong())); }
+
+	void timing() { writeTiming(instance()); }
 
 	void hello() {
 		wire.writeInt(kProtocolVersion);
@@ -271,9 +272,13 @@ private:
 		}
 	}
 
+	// its latency, its tail, whether it restores its state in the background (1, else 0) and what that restoration said
+	// it does (empty for nothing)
 	void writeTiming(Instance& timed) {
 		wire.writeInt(timed.latency());
 		wire.writeInt(timed.tail());
+		wire.writeInt(timed.restoring() ? 1 : 0);
+		wire.writeString(timed.restoringWhat());
 	}
 
 	Instance& instance() { return instance(wire.readInt()); }
@@ -323,6 +328,7 @@ private:
 		transport.denominator = wire.readInt();
 		transport.quarters = wire.readDouble();
 		transport.samples = wire.readLong();
+		transport.offline = (wire.readInt() != 0);
 		return transport;
 	}
 
@@ -350,19 +356,29 @@ private:
 		wire.writeDouble(read.parameter(wire.readInt()));
 	}
 
+	// the component's state, the controller's, then the parts kept apart (count, then name and bytes)
 	void getState() {
-		Instance& saved = instance();
-		std::vector<char> component = saved.componentState();
-		std::vector<char> controller = saved.controllerState();
-		wire.writeBytes(component.data(), component.size());
-		wire.writeBytes(controller.data(), controller.size());
+		SavedState saved = instance().state();
+		wire.writeBytes(saved.component.data(), saved.component.size());
+		wire.writeBytes(saved.controller.data(), saved.controller.size());
+		wire.writeInt((int32_t) saved.resources.size());
+		for (const auto& resource : saved.resources) {
+			wire.writeString(resource.first);
+			wire.writeBytes(resource.second.data(), resource.second.size());
+		}
 	}
 
 	void setState() {
 		Instance& restored = instance();
-		std::vector<char> component = wire.readBytes();
-		std::vector<char> controller = wire.readBytes();
-		restored.setState(component, controller);
+		SavedState saved;
+		saved.component = wire.readBytes();
+		saved.controller = wire.readBytes();
+		saved.resources.resize((size_t) std::max(0, wire.readInt()));
+		for (auto& resource : saved.resources) {
+			resource.first = wire.readString();
+			resource.second = wire.readBytes();
+		}
+		restored.setState(saved);
 		writeTiming(restored);
 	}
 

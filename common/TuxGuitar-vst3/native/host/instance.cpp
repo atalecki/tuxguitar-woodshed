@@ -1,14 +1,17 @@
 #include "instance.h"
 
 #include "public.sdk/source/vst/hosting/hostclasses.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
+#include "pluginterfaces/vst/ivstattributes.h"
 #include "pluginterfaces/vst/ivstmessage.h"
 #include "pluginterfaces/vst/ivstnoteexpression.h"
 
 #include <algorithm>
 #include <cstring>
+#include <map>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -20,9 +23,10 @@ using namespace Steinberg::Vst;
 
 namespace {
 
-// what the controller tells the host goes to the instance: its edits, restarts, and that its state changed outside an
-// edit (dirty); it has no editor TuxGuitar opens on request, and group edits are heard as their edits
-class Handler : public U::Implements<U::Directly<IComponentHandler, IComponentHandler2>> {
+// what the controller tells the host goes to the instance: its edits, restarts, that its state changed outside an
+// edit (dirty), and the work it does in the background (IProgress: a state restored on a thread of its own, say); it has
+// no editor TuxGuitar opens on request, and group edits are heard as their edits
+class Handler : public U::Implements<U::Directly<IComponentHandler, IComponentHandler2, IProgress>> {
 public:
 	explicit Handler(Instance* instance) : instance(instance) {}
 
@@ -35,6 +39,16 @@ public:
 	tresult PLUGIN_API requestOpenEditor(FIDString) override { return kNotImplemented; }
 	tresult PLUGIN_API startGroupEdit() override { return kResultOk; }
 	tresult PLUGIN_API finishGroupEdit() override { return kResultOk; }
+
+	tresult PLUGIN_API start(ProgressType type, const tchar* optionalDescription, ID& outID) override {
+		outID = instance->beginProgress(type == AsyncStateRestoration, (optionalDescription ? StringConvert::convert(optionalDescription) : std::string()));
+		return kResultOk;
+	}
+	tresult PLUGIN_API update(ID, ParamValue) override { return kResultOk; }
+	tresult PLUGIN_API finish(ID id) override {
+		instance->endProgress(id);
+		return kResultOk;
+	}
 
 private:
 	tresult tell(int32 kind, int32 id, double normalized) {
@@ -59,10 +73,54 @@ private:
 };
 
 // a stream over bytes in memory
-class ByteStream : public U::Implements<U::Directly<IBStream>> {
+// the attributes of a state's stream: the host says it keeps parts of a state apart (the integer kApart, 1), and the
+// plugin sets each part it keeps apart as a binary attribute it names; given back with the state, they are there again.
+// Integers and binaries only
+class StateAttributes : public U::Implements<U::Directly<IAttributeList>> {
+public:
+	tresult PLUGIN_API setInt(AttrID id, int64 value) override {
+		integers[id] = value;
+		return kResultOk;
+	}
+	tresult PLUGIN_API getInt(AttrID id, int64& value) override {
+		auto found = integers.find(id);
+		value = (found != integers.end() ? found->second : value);
+		return (found != integers.end() ? kResultOk : kResultFalse);
+	}
+	tresult PLUGIN_API setFloat(AttrID, double) override { return kResultFalse; }
+	tresult PLUGIN_API getFloat(AttrID, double&) override { return kResultFalse; }
+	tresult PLUGIN_API setString(AttrID, const TChar*) override { return kResultFalse; }
+	tresult PLUGIN_API getString(AttrID, TChar*, uint32) override { return kResultFalse; }
+	tresult PLUGIN_API setBinary(AttrID id, const void* data, uint32 size) override {
+		const char* bytes = static_cast<const char*>(data);
+		binaries[id] = std::vector<char>(bytes, bytes + size);
+		return kResultOk;
+	}
+	tresult PLUGIN_API getBinary(AttrID id, const void*& data, uint32& size) override {
+		auto found = binaries.find(id);
+		if (found == binaries.end()) {
+			return kResultFalse;
+		}
+		data = found->second.data();
+		size = (uint32) found->second.size();
+		return kResultOk;
+	}
+
+	std::map<std::string, std::vector<char>> binaries;
+
+private:
+	std::map<std::string, int64> integers;
+};
+
+// the stream of a state: its bytes, and, when it has them, attributes the plugin reads and sets (IStreamAttributes)
+class ByteStream : public U::Implements<U::Directly<IBStream, IStreamAttributes>> {
 public:
 	ByteStream() {}
 	explicit ByteStream(const std::vector<char>& bytes) : bytes(bytes) {}
+	ByteStream(const std::vector<char>& bytes, IPtr<StateAttributes> attributes) : bytes(bytes), attributes(attributes) {}
+
+	tresult PLUGIN_API getFileName(String128) override { return kResultFalse; }
+	IAttributeList* PLUGIN_API getAttributes() override { return attributes; }
 
 	tresult PLUGIN_API read(void* buffer, int32 count, int32* read) override {
 		int32 available = (int32) std::max<int64>(0, (int64) bytes.size() - position);
@@ -110,7 +168,18 @@ public:
 private:
 	std::vector<char> bytes;
 	int64 position = 0;
+	IPtr<StateAttributes> attributes;
 };
+
+// the attributes of a state's stream, the host keeping its parts apart, with those parts
+IPtr<StateAttributes> apart(const std::vector<std::pair<std::string, std::vector<char>>>& resources) {
+	IPtr<StateAttributes> attributes = owned(new StateAttributes());
+	attributes->setInt(kApart, 1);
+	for (const auto& resource : resources) {
+		attributes->binaries[resource.first] = resource.second;
+	}
+	return attributes;
+}
 
 int32 mainChannels(IComponent* component, BusDirection direction) {
 	BusInfo info = {};
@@ -260,6 +329,7 @@ void Instance::process(int32 frames, const Transport& transport, const std::vect
 	addEvents(events);
 	setContext(frames, transport);
 	data.numSamples = frames;
+	data.processMode = (transport.offline ? kOffline : kRealtime);
 	processor->process(data);
 	copyOut(frames);
 	eventList.clear();
@@ -361,28 +431,32 @@ double Instance::setParameter(int32 id, double plain) {
 	return parameter(id);
 }
 
-std::vector<char> Instance::componentState() {
-	ByteStream state;
+SavedState Instance::state() {
+	SavedState saved;
+	IPtr<StateAttributes> attributes = apart({});
+	ByteStream state(std::vector<char>(), attributes);
 	component->getState(&state);
-	return state.data();
-}
-
-std::vector<char> Instance::controllerState() {
-	ByteStream state;
-	if (separateController) {
-		controller->getState(&state);
+	saved.component = state.data();
+	for (const auto& resource : attributes->binaries) {
+		saved.resources.push_back(resource);
 	}
-	return state.data();
+	ByteStream own;
+	if (separateController) {
+		controller->getState(&own);
+	}
+	saved.controller = own.data();
+	return saved;
 }
 
-void Instance::setState(const std::vector<char>& componentBytes, const std::vector<char>& controllerBytes) {
-	ByteStream state(componentBytes);
+void Instance::setState(const SavedState& saved) {
+	IPtr<StateAttributes> attributes = apart(saved.resources);
+	ByteStream state(saved.component, attributes);
 	component->setState(&state);
 	if (separateController) {
-		ByteStream copy(componentBytes);
+		ByteStream copy(saved.component, attributes);
 		controller->setComponentState(&copy);
-		if (!controllerBytes.empty()) {
-			ByteStream own(controllerBytes);
+		if (!saved.controller.empty()) {
+			ByteStream own(saved.controller);
 			controller->setState(&own);
 		}
 	}
@@ -701,6 +775,18 @@ void Instance::notify(int32 kind, int32 id, double normalized) {
 			queue->addPoint(0, normalized, index);
 		}
 	}
+}
+
+IProgress::ID Instance::beginProgress(bool restoration, const std::string& what) {
+	IProgress::ID id = nextProgress++;
+	if (restoration) {
+		restorations[id] = what;
+	}
+	return id;
+}
+
+void Instance::endProgress(IProgress::ID id) {
+	restorations.erase(id);
 }
 
 std::vector<Notification> Instance::takeNotifications() {

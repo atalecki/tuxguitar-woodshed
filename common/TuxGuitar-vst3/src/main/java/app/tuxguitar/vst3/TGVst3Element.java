@@ -5,10 +5,12 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import app.tuxguitar.midi.synth.TGProgramElement;
+import app.tuxguitar.song.models.TGChannelParameter;
 
 /**
  * A VST3 effect or instrument as an element of a sound chain (TGProgramElement): its type, and parameters naming the
- * plugin (module, class id, name), its saved state, and the plain values of parameters set since that state.
+ * plugin (module, class id, name), its saved state (the resources it keeps apart as shared values, each kept once in a
+ * TuxGuitar file however many elements hold it), and the plain values of parameters set since that state.
  */
 public final class TGVst3Element {
 
@@ -20,6 +22,8 @@ public final class TGVst3Element {
 	static final String NAME = "vst3.name";
 	static final String STATE = "vst3.state";
 	static final String CONTROLLER = "vst3.controller";
+	// a resource of the state, by its name: a shared value, which a TuxGuitar file keeps once
+	static final String RESOURCE = "vst3.resource.";
 	static final String PARAMETER = "vst3.parameter.";
 
 	private TGVst3Element() {
@@ -62,9 +66,10 @@ public final class TGVst3Element {
 	}
 
 	private static void setState(Map<String, String> parameters, TGVst3State state) {
-		parameters.keySet().removeIf(key -> key.startsWith(PARAMETER));
+		parameters.keySet().removeIf(key -> key.startsWith(PARAMETER) || key.startsWith(RESOURCE));
 		parameters.put(STATE, Base64.getEncoder().encodeToString(state.getComponent()));
 		parameters.put(CONTROLLER, Base64.getEncoder().encodeToString(state.getController()));
+		state.getResources().forEach((name, bytes) -> parameters.put(RESOURCE + name, TGChannelParameter.SHARED + Base64.getEncoder().encodeToString(bytes)));
 	}
 
 	// the parameters set since the state, by id
@@ -82,7 +87,17 @@ public final class TGVst3Element {
 	static TGVst3State state(Map<String, String> parameters) {
 		String component = parameters.get(STATE);
 		String controller = parameters.get(CONTROLLER);
-		return (component != null ? new TGVst3State(decode(component), decode(controller)) : null);
+		return (component != null ? new TGVst3State(decode(component), decode(controller), resources(parameters)) : null);
+	}
+
+	private static Map<String, byte[]> resources(Map<String, String> parameters) {
+		Map<String, byte[]> resources = new TreeMap<String, byte[]>();
+		parameters.forEach((key, value) -> {
+			if (key.startsWith(RESOURCE)) {
+				resources.put(key.substring(RESOURCE.length()), decode(value.substring(TGChannelParameter.SHARED.length())));
+			}
+		});
+		return resources;
 	}
 
 	// the plugin and its state, which holds every parameter: none is kept apart

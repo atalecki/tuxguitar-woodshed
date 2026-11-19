@@ -3,8 +3,10 @@
 #   host/          tuxguitar-vst3-host, the helper process that runs VST3 plugins apart from TuxGuitar
 #   test-plugins/  the plugins of the README of the audio features ("the VST3 folders hold the test plugins"), and
 #                  Old Amp, a stand-in for a VST 2 plugin
+#   plugins/       the VST3 plugins TuxGuitar ships in its own plugins folder: Woodshed Guitar
 #
-# Outputs, under the build directory: bin/tuxguitar-vst3-host[.exe], VST3/<plugin>.vst3 (bundles), vst2/Old Amp.<ext>.
+# Outputs, under the build directory: bin/tuxguitar-vst3-host[.exe], VST3/<plugin>.vst3 (bundles), vst2/Old Amp.<ext>,
+# plugins/VST3/<plugin>.vst3 (TuxGuitar's own).
 # Built by build.cmd / build.sh, which Maven runs before the tests of TuxGuitar-vst3 and TuxGuitar-audio.
 # Verified on Windows (MSVC); the Linux and macOS paths follow the VST3 SDK's own CMake and are not verified yet.
 cmake_minimum_required(VERSION 3.25)
@@ -82,4 +84,10 @@ if(TG_VST3_TEST_PLUGINS)
 
 	add_library(tg_old_amp MODULE test-plugins/old_amp.c)
 	set_target_properties(tg_old_amp PROPERTIES OUTPUT_NAME "Old Amp" PREFIX "" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/vst2")
+endif()
+
+# the plugins TuxGuitar ships, each a bundle of its own
+option(TG_VST3_OWN_PLUGINS "Build the VST3 plugins TuxGuitar ships" ON)
+if(TG_VST3_OWN_PLUGINS)
+	add_subdirectory(plugins/woodshed_guitar)
 endif()

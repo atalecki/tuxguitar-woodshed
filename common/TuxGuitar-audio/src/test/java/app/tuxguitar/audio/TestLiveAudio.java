@@ -142,9 +142,9 @@ class TestLiveAudio {
 	}
 
 	// VST3 hosting: the host process is in the native folder (even when the native audio library is not), named for the
-	// system, and the plugins are those of the system's VST3 folders
+	// system, and the plugins are those of the system's VST3 folders and TuxGuitar's own next to the native folder
 	@Test
-	void loadingConfiguresTheVst3HostInTheNativeFolderAndTheSystemsVst3Folders() {
+	void loadingConfiguresTheVst3HostInTheNativeFolderAndTheScannedVst3Folders() {
 		File folder = new File("target/no-native-library");
 		TGVst3Hosting hosting = TGVst3Hosting.getInstance(this.fixture.context);
 		Map<String, String> env = Map.of("COMMONPROGRAMFILES", "/common");
@@ -152,7 +152,7 @@ class TestLiveAudio {
 		String windows = hosting.getExecutable() + " " + hosting.getFolders();
 		this.audio.load(folder, system("Linux", "/home/me"), env);
 		String linux = hosting.getExecutable() + " " + hosting.getFolders();
-		assertEquals(new File(folder, "tuxguitar-vst3-host.exe") + " " + TGVst3Folders.standard("Windows 11", env, new File("/home/me")) + " | " + new File(folder, "tuxguitar-vst3-host") + " " + TGVst3Folders.standard("Linux", env, new File("/home/me")), windows + " | " + linux);
+		assertEquals(new File(folder, "tuxguitar-vst3-host.exe") + " " + TGVst3Folders.scanned("Windows 11", env, new File("/home/me"), folder) + " | " + new File(folder, "tuxguitar-vst3-host") + " " + TGVst3Folders.scanned("Linux", env, new File("/home/me"), folder), windows + " | " + linux);
 	}
 
 	// what the scan of the VST3 folders found (TGPluginScan), for the log and kept for the app to show: nothing before the

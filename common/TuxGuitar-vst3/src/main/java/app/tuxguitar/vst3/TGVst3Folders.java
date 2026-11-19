@@ -42,6 +42,16 @@ public final class TGVst3Folders {
 		return Arrays.asList(new File(home, ".vst3"), new File("/usr/lib/vst3"), new File("/usr/local/lib/vst3"));
 	}
 
+	/**
+	 * The folders TuxGuitar scans: the system's (standard), then TuxGuitar's own plugins folder, vst3 next to the folder
+	 * of its native libraries (in the install directory: lib and vst3), where the plugins it ships are.
+	 */
+	public static List<File> scanned(String os, Map<String, String> env, File home, File nativeFolder) {
+		List<File> folders = new ArrayList<File>(standard(os, env, home));
+		folders.add(new File(nativeFolder.getAbsoluteFile().getParentFile(), "vst3"));
+		return folders;
+	}
+
 	// the path under the folder, unless there is no folder
 	private static void under(List<File> folders, String folder, String path) {
 		if (folder != null) {

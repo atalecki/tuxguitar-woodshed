@@ -103,6 +103,13 @@ public class LevelSteps {
 		assertTrue(passes > 1);
 	}
 
+	// a plucked note: the strongest frequency from 20 Hz to 2 kHz over the measure
+	@Then("track {int} sounds a {double} Hz note within 1% in measure {int}")
+	public void soundsANote(int number, double pitch, int measure) {
+		int[] bounds = heard().measure(measure);
+		assertEquals(pitch, Meters.strongest(tap(number, 0), bounds[0], bounds[1], 20, 2000, TestInterface.SAMPLE_RATE), pitch / 100);
+	}
+
 	@Then("track {int} sounds a {int} Hz tone within 1 Hz in measure {int}")
 	public void soundsAToneWithinOneHertz(int number, int frequency, int measure) {
 		assertEquals(frequency, frequency(tap(number, 0), measure), 1.0);
@@ -150,6 +157,97 @@ public class LevelSteps {
 		double first = Meters.level(tap, sounding[1] - LONG, sounding[1], one, TestInterface.SAMPLE_RATE);
 		double second = Meters.level(tap, sounding[1] - LONG, sounding[1], other, TestInterface.SAMPLE_RATE);
 		assertTrue(first > level && second > level, one + " Hz peaks at " + first + ", " + other + " Hz at " + second);
+	}
+
+	// a tone among others over the range (from its first sample above -60 dBFS for its start; at the range's end for where
+	// it ends), so a damped note is heard while it is held, not as it dies away
+	@Then("track {int} sounds a {double} Hz tone rising to {double} Hz within 1 Hz from {position} to {position}")
+	public void soundsAToneRisingToFromTo(int number, double from, double to, SongPosition start, SongPosition end) {
+		float[] tap = tap(number, 0);
+		int first = heard().sampleAt(start, 0);
+		while (Math.abs(tap[first]) < SILENT) {
+			first++;
+		}
+		int last = heard().sampleAt(end, 0);
+		assertEquals(from, Meters.peakFrequency(tap, first, first + SHORT, from - NEAR, to + NEAR, TestInterface.SAMPLE_RATE), 1.0, "where it starts");
+		assertEquals(to, Meters.peakFrequency(tap, last - LONG, last, from - NEAR, to + NEAR, TestInterface.SAMPLE_RATE), 1.0, "where it ends");
+	}
+
+	@Then("track {int} sounds a {double} Hz tone and a {double} Hz tone from {position} to {position}, each peaking above {float}")
+	public void soundsTwoTonesFromTo(int number, double one, double other, SongPosition start, SongPosition end, float level) {
+		float[] tap = tap(number, 0);
+		int first = heard().sampleAt(start, 0);
+		int last = heard().sampleAt(end, 0);
+		double firstLevel = Meters.level(tap, first, last, one, TestInterface.SAMPLE_RATE);
+		double secondLevel = Meters.level(tap, first, last, other, TestInterface.SAMPLE_RATE);
+		assertTrue(firstLevel > level && secondLevel > level, one + " Hz peaks at " + firstLevel + ", " + other + " Hz at " + secondLevel);
+	}
+
+	// on both sides, over all that was heard
+	@Then("track {int} sounds {float} times what track {int} sounds, sample for sample within {float}")
+	public void soundsTimesWhatAnotherSounds(int number, float times, int other, float within) {
+		java.util.stream.IntStream.range(0, 2).forEach(side -> assertTimes(tap(number, side), tap(other, side), times, within, side));
+	}
+
+	private static void assertTimes(float[] tap, float[] reference, float times, float within, int side) {
+		int length = Math.min(tap.length, reference.length);
+		for (int i = 0; i < length; i++) {
+			assertEquals(times * reference[i], tap[i], within, "side " + side + ", sample " + i);
+		}
+		assertTrue(Meters.peak(reference, 0, length) > SILENT, "the other track sounds nothing");
+	}
+
+	// the lag at which track 1 fits N times track 2 best is 0, and what is left is within the fraction (see Fit)
+	@Then("track {int} sounds {float} times what track {int} sounds, in time to the sample, within {int}% RMS")
+	public void soundsTimesInTime(int number, float times, int other, int percent) {
+		float[] tap = tap(number, 0);
+		float[] reference = tap(other, 0);
+		Fit.assertInTime(tap, reference, times, 0, Math.min(tap.length, reference.length), percent);
+	}
+
+	// not track 2 shifted: at its best-fitting lag, what is left is more than the fraction of track 2's root mean square
+	@Then("track {int} sounds other than track {int} at every lag up to 64 samples, by more than {int}% RMS")
+	public void soundsOtherAtEveryLag(int number, int other, int percent) {
+		float[] tap = tap(number, 0);
+		float[] reference = tap(other, 0);
+		int length = Math.min(tap.length, reference.length) - Fit.LAGS;
+		double least = java.util.stream.IntStream.rangeClosed(-Fit.LAGS, Fit.LAGS).mapToDouble(lag -> Fit.residual(tap, reference, 1f, lag, Fit.LAGS, length)).min().getAsDouble();
+		double scale = Math.sqrt(java.util.stream.IntStream.range(Fit.LAGS, length).mapToDouble(i -> reference[i] * reference[i]).sum());
+		assertTrue(scale > 0, "track " + other + " sounds nothing");
+		assertTrue(least > scale * percent / 100, "left at best " + least / scale);
+	}
+
+	@Then("track {int}'s left and right sides are the same, sample for sample")
+	public void sidesAreTheSame(int number) {
+		float[] left = tap(number, 0);
+		org.junit.jupiter.api.Assertions.assertArrayEquals(left, tap(number, 1));
+		assertTrue(Meters.peak(left, 0, left.length) > SILENT, "track " + number + " sounds nothing");
+	}
+
+	@Then("track {int} sounds, every sample a number, peaking above {float} in measure {int}")
+	public void soundsNumbersPeakingAbove(int number, float level, int measure) {
+		int[] bounds = heard().measure(measure);
+		java.util.stream.IntStream.range(0, 2).forEach(side -> assertNumbersPeakingAbove(tap(number, side), bounds, level, side));
+	}
+
+	private static void assertNumbersPeakingAbove(float[] tap, int[] bounds, float level, int side) {
+		for (int i = bounds[0]; i < bounds[1]; i++) {
+			assertTrue(Float.isFinite(tap[i]), "side " + side + ", sample " + i + ": " + tap[i]);
+		}
+		assertTrue(Meters.peak(tap, bounds[0], bounds[1]) > level, "peak " + Meters.peak(tap, bounds[0], bounds[1]));
+	}
+
+	// some sample of the measure differs by more than -60 dBFS
+	@Then("track {int} sounds other than track {int} in measure {int}")
+	public void soundsOtherThan(int number, int other, int measure) {
+		int[] bounds = heard().measure(measure);
+		float[] tap = tap(number, 0);
+		float[] reference = tap(other, 0);
+		float most = 0;
+		for (int i = bounds[0]; i < bounds[1]; i++) {
+			most = Math.max(most, Math.abs(tap[i] - reference[i]));
+		}
+		assertTrue(most > SILENT, "differs by at most " + most);
 	}
 
 	@Then("the output peaks below {float} in measure {int}")

@@ -4,6 +4,10 @@ import app.tuxguitar.song.factory.TGFactory;
 
 public abstract class TGChannelParameter {
 
+	// the start of a shared value: what follows it (a plugin's capture, say) a TuxGuitar file keeps once however many
+	// parameters hold it
+	public static final String SHARED = "tg-shared:";
+
 	private String key;
 	private String value;
 

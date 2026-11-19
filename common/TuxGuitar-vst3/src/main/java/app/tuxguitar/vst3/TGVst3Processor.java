@@ -175,8 +175,11 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 		return (this.instance != null);
 	}
 
+	// while its plugin restores its state in the background, for a while at most (see TGVst3Instance.isRestoring): Play
+	// waits for it, so the first note sounds as the plugin's state says
 	public boolean isBusy() {
-		return false;
+		TGVst3Instance instance = this.instance;
+		return (instance != null && instance.isRestoring());
 	}
 
 	public void close() {
