@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import app.tuxguitar.io.tg.TGTakeCodec;
-import app.tuxguitar.midi.synth.TGWaveReader;
+import app.tuxguitar.io.wave.TGWaveReader;
 import app.tuxguitar.song.models.TGTake;
 import app.tuxguitar.util.TGMessagesManager;
 

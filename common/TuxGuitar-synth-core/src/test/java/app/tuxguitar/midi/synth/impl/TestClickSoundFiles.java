@@ -76,7 +76,7 @@ public class TestClickSoundFiles {
 		for (MidiClickSound sound : MidiClickSound.BUILT_IN) {
 			if (sound.isRecording()) {
 				try (InputStream in = TGClickSounds.open(sound, null)) {
-					float[] samples = app.tuxguitar.midi.synth.TGWaveReader.readSamples(in, app.tuxguitar.midi.synth.TGWaveReader.readFormat(in))[0];
+					float[] samples = app.tuxguitar.io.wave.TGWaveReader.readSamples(in, app.tuxguitar.io.wave.TGWaveReader.readFormat(in))[0];
 					float peak = app.tuxguitar.midi.synth.Signals.peak(samples, 0, samples.length);
 					onsets.put(sound.getId(), (int) java.util.stream.IntStream.range(0, samples.length).filter(i -> Math.abs(samples[i]) >= peak / 100).findFirst().getAsInt());
 				}

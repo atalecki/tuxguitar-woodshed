@@ -1,4 +1,4 @@
-package app.tuxguitar.midi.synth;
+package app.tuxguitar.io.wave;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;

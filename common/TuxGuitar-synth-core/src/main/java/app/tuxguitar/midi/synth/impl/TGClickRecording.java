@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 
 import app.tuxguitar.midi.synth.TGResampler;
-import app.tuxguitar.midi.synth.TGWaveReader;
+import app.tuxguitar.io.wave.TGWaveReader;
 
 /**
  * A recording a click plays (a built-in sound, or a WAV file of the user's own, see MidiClickSound), evened as it is

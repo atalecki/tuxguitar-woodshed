@@ -1,4 +1,4 @@
-package app.tuxguitar.midi.synth;
+package app.tuxguitar.io.wave;
 
 import java.io.IOException;
 import java.io.InputStream;
