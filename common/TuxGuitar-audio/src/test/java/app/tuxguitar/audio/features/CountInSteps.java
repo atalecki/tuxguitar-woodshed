@@ -10,6 +10,7 @@ import app.tuxguitar.audio.Meters;
 import app.tuxguitar.editor.action.transport.TGTransportCountDownAction;
 import app.tuxguitar.editor.action.transport.TGTransportMetronomeAction;
 import app.tuxguitar.player.base.MidiClick;
+import app.tuxguitar.player.base.MidiClickSound;
 import app.tuxguitar.player.base.MidiPlayer;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -65,10 +66,10 @@ public class CountInSteps {
 		player().getCountDown().setTickCount(ticks);
 	}
 
-	// as the settings set it
-	@Given("I have set the click sound to drum note {int} at velocity {int}")
-	public void setTheClickSound(int note, int velocity) {
-		player().setClick(new MidiClick(note, velocity));
+	// as the settings set it: the code-made Click on every beat, beat 1 accented, at the click volume
+	@Given("I have set the click to the code-made Click at {int} dB")
+	public void setTheClick(int volume) {
+		player().setClick(MidiClick.sameAccented(MidiClickSound.CLICK, volume));
 	}
 
 	private Heard heard() {

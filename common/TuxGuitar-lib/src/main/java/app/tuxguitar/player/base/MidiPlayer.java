@@ -1134,18 +1134,13 @@ public class MidiPlayer{
 		this.sendClick(this.click);
 	}
 
-	// what the drums of a synthesizer are told of the click: its sounds and volume, and the folder of the user's own
-	// sounds (see MidiClick.toParameters); the offline drums are told the same
-	public Map<String, String> getClickParameters(MidiClick click) {
-		return click.toParameters(this.clickSoundsFolder);
-	}
-
 	// the drums of a synthesizer that has them (the TuxGuitar Synthesizer's built-in click), when open, are told the
-	// click; a port plays a click's drum note at its velocity, and is told nothing
+	// click: its sounds and volume, and the folder of the user's own sounds (see MidiClick.toParameters; the offline
+	// drums are told the same, see TGDrumTap); a port plays a click's drum note at its velocity, and is told nothing
 	void sendClick(MidiClick click) {
 		this.runLocked(() -> {
 			if( this.hasDrums() ){
-				this.sendParameters(MidiSampleClock.DRUMS, this.getClickParameters(click));
+				this.sendParameters(MidiSampleClock.DRUMS, click.toParameters(this.clickSoundsFolder));
 			}
 		});
 	}

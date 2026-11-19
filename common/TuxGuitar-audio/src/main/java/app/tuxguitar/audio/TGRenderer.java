@@ -102,7 +102,8 @@ public final class TGRenderer {
 				tails.put(channel, tap.getTail());
 			});
 			metronome = this.metronome(timeline, live);
-			drums = TGDrumTap.render(timeline, MidiPlayer.getInstance(this.context).getClick(), metronome);
+			MidiPlayer player = MidiPlayer.getInstance(this.context);
+			drums = TGDrumTap.render(timeline, player.getClick(), player.getClickSoundsFolder(), metronome);
 			Map<TGTrack, TGEffects> effects = new HashMap<TGTrack, TGEffects>();
 			audioTracks.forEach(track -> effects.put(track, TGEffects.open(this.context, TGSoundChain.get(this.channel(track)), timeline.getSampleRate())));
 			latency = latency(midi.values(), effects.values());
