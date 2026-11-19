@@ -13,7 +13,7 @@ import app.tuxguitar.util.TGContext;
 
 /**
  * The audio export an app's own export writes through (registered by TGLiveAudio.install): the formats of
- * TGExportFormat.offered by name, the song written by TGAudioExporter.
+ * TGExportFormat.offered by name (each shown by its label), the song written by TGAudioExporter.
  */
 final class TGAudioExport implements TGSynthAudioExporter {
 
@@ -25,6 +25,10 @@ final class TGAudioExport implements TGSynthAudioExporter {
 
 	public List<String> getFormats() {
 		return TGExportFormat.offered().stream().map(TGExportFormat::getName).collect(Collectors.toList());
+	}
+
+	public String getLabel(String format) {
+		return TGExportFormat.named(format).getLabel();
 	}
 
 	public String getExtension(String format) {

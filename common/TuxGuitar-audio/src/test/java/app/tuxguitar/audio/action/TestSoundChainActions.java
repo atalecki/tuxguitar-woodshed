@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import app.tuxguitar.action.TGActionException;
 import app.tuxguitar.audio.TGSoundChain;
 import app.tuxguitar.document.TGDocumentContextAttributes;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.editor.action.SongActionFixture;
 import app.tuxguitar.editor.action.TGActionBase;
 import app.tuxguitar.midi.synth.TGProgram;
@@ -130,10 +131,10 @@ public class TestSoundChainActions {
 		return run(guitar, new TGSetPluginStateAction(fixture.context));
 	}
 
-	// what the refusal to open the effect's editor says
+	// what the refusal to open the effect's editor says to an English user
 	private String editorRefusal(Integer effect) {
 		fixture.actionContext.setAttribute(TGEffectAction.ATTRIBUTE_EFFECT, effect);
-		return assertThrows(TGActionException.class, () -> run(guitar, new TGOpenPluginEditorAction(fixture.context))).getMessage();
+		return TuxGuitarMessages.english(() -> assertThrows(TGActionException.class, () -> run(guitar, new TGOpenPluginEditorAction(fixture.context))).getMessage());
 	}
 
 	// the editor of an effect not there, or of a plugin that cannot be opened (no host here), is refused saying why,

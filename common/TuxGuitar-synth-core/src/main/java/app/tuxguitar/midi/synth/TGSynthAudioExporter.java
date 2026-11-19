@@ -13,8 +13,11 @@ import app.tuxguitar.song.models.TGSong;
  */
 public interface TGSynthAudioExporter {
 
-	// the formats offered, by name, the first being the default
+	// the formats offered, by name, the first being the default; a name is what an app keeps and passes back
 	List<String> getFormats();
+
+	// what an app shows of a format named: its label for the user
+	String getLabel(String format);
 
 	// the file name extension of a format's files (without the dot)
 	String getExtension(String format);

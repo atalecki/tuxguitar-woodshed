@@ -90,6 +90,14 @@
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
+		<!-- the tests read what the user is told with TuxGuitar's messages (editor-utils' TuxGuitarMessages) -->
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>tuxguitar-editor-utils</artifactId>
+			<version>${project.version}</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>

@@ -28,6 +28,8 @@ public final class TGSoundChain {
 
 	// the source type of an audio channel's chain: its takes, rendered by the audio engine
 	public static final String TAKES = "takes";
+	// the name of that source in TuxGuitar's language: "takes"
+	private static final String TAKES_NAME = "audio.source.takes";
 
 	private TGSoundChain() {
 	}
@@ -47,7 +49,8 @@ public final class TGSoundChain {
 		return (effect.isEnabled() ? name(effect, channel) : "[" + name(effect, channel) + "]");
 	}
 
-	// a General MIDI source is read by the channel's program; any other element by its plugin's name, else its type
+	// a General MIDI source is read by the channel's program, an audio channel's takes as TuxGuitar's language names them;
+	// any other element by its plugin's name, else its type
 	static String name(TGProgramElement element, TGChannel channel) {
 		if (TGVst3Element.isVst3(element)) {
 			return TGVst3Element.getName(element);
@@ -55,7 +58,7 @@ public final class TGSoundChain {
 		if (GervillProcessorFactory.TYPE.equals(element.getType())) {
 			return TGMessagesManager.getMidiInstrument(channel.getProgram()).getName();
 		}
-		return element.getType();
+		return (TAKES.equals(element.getType()) ? TGMessagesManager.getProperty(TAKES_NAME) : element.getType());
 	}
 
 	// a copy of the channel's chain

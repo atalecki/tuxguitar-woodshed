@@ -124,7 +124,7 @@ public final class TGVst3Hosting {
 			found.addAll(plugins);
 			LOG.debug("VST3 module " + module + ": " + plugins.stream().map(TGVst3Plugin::getName).collect(Collectors.joining(", ")));
 		} catch (TGVst3Exception refused) {
-			skipped.add(new TGVst3SkippedModule(module, refused.getMessage()));
+			skipped.add(new TGVst3SkippedModule(module, refused.getLocalizedMessage()));
 			LOG.info("VST3 module skipped: " + module + ": " + refused.getMessage());
 		}
 	}

@@ -28,7 +28,7 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	private TGVst3Plugin plugin;
 	private TGVst3Instance instance;
 	// why no plugin is open (null while one is, and before the first)
-	private String problem;
+	private TGVst3Exception problem;
 	// the state the plugin opened with
 	private TGVst3State opened;
 
@@ -145,12 +145,13 @@ abstract class TGVst3Processor implements TGAudioProcessor, TGVst3PluginProcesso
 	// the host process stopped and the plugin with it (or refused it): closed, it is silent until opened again, and the
 	// reason kept
 	private void lost(TGVst3Exception reason) {
-		this.problem = reason.getMessage();
+		this.problem = reason;
 		this.close();
 	}
 
+	// as the user is told it, when it is read (TGVst3Exception.getLocalizedMessage)
 	public String getProblem() {
-		return this.problem;
+		return (this.problem != null ? this.problem.getLocalizedMessage() : null);
 	}
 
 	public int getLatency() {

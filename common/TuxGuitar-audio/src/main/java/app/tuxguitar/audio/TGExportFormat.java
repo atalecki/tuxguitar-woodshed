@@ -10,28 +10,34 @@ import java.util.Set;
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
 
+import app.tuxguitar.util.TGMessagesManager;
+
 /**
  * What an exported file is: its type, its sample rate and how each sample is written, left and right. A WAVE file holds
  * 16 or 24-bit integers (little-endian) or 32-bit floats; an AIFF file holds integers (big-endian); an AU file 16-bit
- * integers (big-endian). Immutable. An app offers the formats of offered(), each named "<type> <samples>".
+ * integers (big-endian). Immutable. An app offers the formats of offered(), each named "<type> <samples>" (what it keeps)
+ * and shown by its label (in TuxGuitar's language).
  */
 public final class TGExportFormat {
 
 	// the rate an app's export writes at (the TuxGuitar Synthesizer's)
 	private static final int OFFERED_RATE = 44100;
 
-	// how a sample is written: integers are clipped to full scale, a float keeps what goes above it
+	// how a sample is written: integers are clipped to full scale, a float keeps what goes above it. Named in English;
+	// shown to the user by its message, which places the type ({0}) and says the words in TuxGuitar's language
 	public enum Samples {
-		PCM_16(2, "16-bit"),
-		PCM_24(3, "24-bit"),
-		FLOAT_32(4, "32-bit float");
+		PCM_16(2, "16-bit", "audio.export.format.pcm-16"),
+		PCM_24(3, "24-bit", "audio.export.format.pcm-24"),
+		FLOAT_32(4, "32-bit float", "audio.export.format.float-32");
 
 		private final int bytes;
 		private final String name;
+		private final String label;
 
-		Samples(int bytes, String name) {
+		Samples(int bytes, String name, String label) {
 			this.bytes = bytes;
 			this.name = name;
+			this.label = label;
 		}
 	}
 
@@ -81,9 +87,14 @@ public final class TGExportFormat {
 		return offered().stream().filter(format -> format.getName().equals(name)).findFirst().orElseThrow(() -> new IllegalArgumentException("no export format is named " + name));
 	}
 
-	// "WAVE 16-bit"
+	// "WAVE 16-bit": what an app keeps and passes back
 	public String getName() {
 		return this.type + " " + this.samples.name;
+	}
+
+	// what the user is shown, in TuxGuitar's language: "WAVE 16-bit" in English, the type's name as it is
+	public String getLabel() {
+		return TGMessagesManager.getProperty(this.samples.label, new Object[] {this.type});
 	}
 
 	// of its files, without the dot

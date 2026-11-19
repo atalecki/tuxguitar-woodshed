@@ -13,10 +13,13 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
 import app.tuxguitar.audio.features.AudioWorld;
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.song.models.TGTake;
 
 /**
@@ -141,8 +144,34 @@ public class TestTakeWave {
 		assertRefused(patched(file, 34, "\u0040\u0000"));
 	}
 
+	// what a file refused says to the user, in TuxGuitar's English: not a wave file, not one of floats, one cut short
+	@Test
+	public void aRefusedFileSaysWhyAsTheUserReadsIt() throws Exception {
+		byte[] file = written(new TGTake(1, STEREO, 44100));
+
+		assertEquals("Not a wave file | Not a wave file | Not a wave file of 32-bit float samples | The wave file ends early",
+			TuxGuitarMessages.english(() -> String.join(" | ", this.refusal(patched(file, 0, "RIFX")), this.refusal(patched(file, 8, "WAVX")),
+				this.refusal(patched(file, 20, "\u0001\u0000")), this.refusal(Arrays.copyOf(file, file.length - 1)))));
+	}
+
+	// as the language TuxGuitar shows says them (a made-up German)
+	@Test
+	public void aRefusedFileSaysWhyInTuxGuitarsLanguage() throws Exception {
+		byte[] file = written(new TGTake(2, STEREO, 48000));
+		Map<String, String> german = Map.of("audio.take.refusal.not-wave", "Keine Wave-Datei", "audio.take.refusal.not-float",
+			"Keine Wave-Datei aus 32-Bit-Floats", "audio.take.refusal.ends-early", "Die Wave-Datei endet zu früh");
+
+		assertEquals("Keine Wave-Datei / Keine Wave-Datei aus 32-Bit-Floats / Die Wave-Datei endet zu früh", TuxGuitarMessages.said(german,
+			() -> this.refusal(patched(file, 8, "WAVX")) + " / " + this.refusal(patched(file, 34, "@\u0000")) + " / " + this.refusal(Arrays.copyOf(file, 40))));
+	}
+
 	private void assertRefused(byte[] file) {
-		assertThrows(IOException.class, () -> this.wave.read(new ByteArrayInputStream(file)));
+		this.refusal(file);
+	}
+
+	// why the file is refused
+	private String refusal(byte[] file) {
+		return assertThrows(IOException.class, () -> this.wave.read(new ByteArrayInputStream(file))).getMessage();
 	}
 
 	// the file with the bytes from the offset replaced by the text's

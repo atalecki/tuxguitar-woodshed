@@ -6,16 +6,22 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.vst3.TGVst3Plugin;
 import app.tuxguitar.vst3.TGVst3SkippedModule;
 
 /**
  * What a scan of the VST3 folders tells the user, a line each: the plugins found, the modules skipped and why, which
- * plugin plays the NAM captures found there, and the folders.
+ * plugin plays the NAM captures found there, and the folders. Read as an English user reads them: with TuxGuitar's
+ * English messages, none again after.
  */
 class TestPluginScan {
 
@@ -33,6 +39,16 @@ class TestPluginScan {
 	private static String installed(String players) {
 		return "NAM captures found: 2. A .nam capture is a model of an amp or pedal, not a plugin: " + players + " plays it. Add "
 			+ players + " to the track as a VST3 effect after the instrument, then load the capture in its editor.";
+	}
+
+	@BeforeEach
+	void speakEnglish() {
+		TuxGuitarMessages.speak(Map.of());
+	}
+
+	@AfterEach
+	void speakNone() {
+		TGMessagesManager.getInstance().setResources(null);
 	}
 
 	private static TGVst3Plugin plugin(String name, boolean instrument) {
@@ -114,6 +130,40 @@ class TestPluginScan {
 	void beforeTheFirstScanAndWhenTheScanFailsTheUserIsToldSo() {
 		assertEquals("The VST3 folders have not been scanned yet. | The VST3 folders could not be scanned: no VST3 host is configured",
 			TGPluginScan.NONE + " | " + TGPluginScan.failed("no VST3 host is configured"));
+	}
+
+	// a made-up German: what a scan says, and the capture players' names, as the language TuxGuitar shows says them
+	private static final Map<String, String> GERMAN = Map.ofEntries(
+		Map.entry("audio.scan.found", "VST3-Effekte: {0}, VST3-Instrumente: {1}."),
+		Map.entry("audio.scan.skipped", "Übersprungen: {0} ({1})"),
+		Map.entry("audio.scan.folders", "Durchsuchte Ordner: {0}"),
+		Map.entry("audio.scan.not-yet", "Die VST3-Ordner sind noch nicht durchsucht."),
+		Map.entry("audio.scan.failed", "Die VST3-Ordner ließen sich nicht durchsuchen: {0}"),
+		Map.entry("audio.scan.captures", "NAM-Captures: {0}. {1} spielt sie."),
+		Map.entry("audio.scan.captures.no-player", "NAM-Captures: {0}. Installiere {1} oder {2}."),
+		Map.entry("audio.scan.players", "{0} oder {1}"),
+		Map.entry("audio.capture-player.gateway", "Gateway (NAM)"),
+		Map.entry("audio.capture-player.tone3000", "das TONE3000-Plugin"),
+		Map.entry("audio.capture-player.neural-amp-modeler", "das Neural-Amp-Modeler-Plugin"));
+
+	// the lines are said when they are read, in the language TuxGuitar shows then
+	@Test
+	void aScanIsSaidAsTheLanguageTuxGuitarShowsSaysIt() {
+		List<TGVst3Plugin> plugins = Arrays.asList(plugin("TONE3000", false), plugin("NAM Gateway", false), plugin("Piano", true));
+		List<TGVst3SkippedModule> skipped = Arrays.asList(new TGVst3SkippedModule(new File("common", "Broken.vst3"), "the VST3 host stopped"));
+		TGPluginScan scan = TGPluginScan.of(FOLDERS, plugins, skipped, captures(2));
+		TuxGuitarMessages.speak(GERMAN);
+		assertEquals(Arrays.asList("VST3-Effekte: 2, VST3-Instrumente: 1.", "NAM-Captures: 2. Gateway (NAM) oder das TONE3000-Plugin spielt sie.",
+			"Übersprungen: Broken.vst3 (the VST3 host stopped)", "Durchsuchte Ordner: " + FOLDERS.get(0) + ", " + FOLDERS.get(1)), scan.getLines());
+	}
+
+	@Test
+	void beforeTheFirstScanWhenItFailsAndWithoutAPlayerTheUserIsToldSoInTuxGuitarsLanguage() {
+		TuxGuitarMessages.speak(GERMAN);
+		assertEquals("Die VST3-Ordner sind noch nicht durchsucht. | Die VST3-Ordner ließen sich nicht durchsuchen: no VST3 host is configured"
+			+ " | NAM-Captures: 2. Installiere Gateway (NAM) oder das TONE3000-Plugin. | NAM-Captures: 2. das Neural-Amp-Modeler-Plugin spielt sie.",
+			TGPluginScan.NONE + " | " + TGPluginScan.failed("no VST3 host is configured") + " | " + captureLine(Collections.<TGVst3Plugin>emptyList())
+			+ " | " + captureLine(Arrays.asList(plugin("NeuralAmpModeler", false))));
 	}
 
 	@Test

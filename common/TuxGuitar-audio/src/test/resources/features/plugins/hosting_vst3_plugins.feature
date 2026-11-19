@@ -402,6 +402,42 @@ Feature: Hosting VST3 plugins
     Then the action is refused
     And the refusal starts with "The editor of the VST3 plugin Test Gain could not be opened: the VST3 host stopped"
 
+  # the refusals are said as the language TuxGuitar shows says them, an audio track's source too ("{0}" the plugin or
+  # the source, "{1}" the reason the host gave, which stays as the host said it)
+  Scenario: opening the editor of an audio track's source is refused as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "{0} ist kein VST3-Plugin: es hat keinen Editor" for the message "audio.plugin.refusal.no-editor"
+    And TuxGuitar's language says "Aufnahmen" for the message "audio.source.takes"
+    And I have added an audio track recording input channel 1
+    When I open the editor of the source of track 2
+    Then the action is refused
+    And the refusal reads "Aufnahmen ist kein VST3-Plugin: es hat keinen Editor"
+
+  Scenario: opening a VST3 plugin that cannot be opened is refused as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "Das VST3-Plugin {0} ließ sich nicht öffnen: {1}" for the message "audio.plugin.refusal.not-opened"
+    And I have added the VST3 effect "Missing Amp" to track 1 on a computer where it is installed
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "Das VST3-Plugin Missing Amp ließ sich nicht öffnen: not a VST3 module: "
+
+  Scenario: opening the editor of a VST3 plugin whose host stopped is refused as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "Der Editor des VST3-Plugins {0} ließ sich nicht öffnen: {1}" for the message "audio.plugin.refusal.editor-not-opened"
+    And I have added the VST3 effect "Test Gain" to track 1
+    And the host process of VST3 effect 1 of track 1 has stopped
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "Der Editor des VST3-Plugins Test Gain ließ sich nicht öffnen: the VST3 host stopped"
+
+  # why the host failed is said as the language TuxGuitar shows says it too ("{0}" its exit code); the log keeps it in
+  # English
+  Scenario: the reason the host of a VST3 plugin stopped is said as the language TuxGuitar shows says it
+    Given TuxGuitar's language says "Der Editor des VST3-Plugins {0} ließ sich nicht öffnen: {1}" for the message "audio.plugin.refusal.editor-not-opened"
+    And TuxGuitar's language says "der VST3-Host hat sich beendet (Exit-Code {0})" for the message "audio.vst3-host.stopped.exit-code"
+    And I have added the VST3 effect "Test Gain" to track 1
+    And the host process of VST3 effect 1 of track 1 has stopped
+    When I open the editor of VST3 effect 1 of track 1
+    Then the action is refused
+    And the refusal starts with "Der Editor des VST3-Plugins Test Gain ließ sich nicht öffnen: der VST3-Host hat sich beendet (Exit-Code "
+
   Scenario: a change made in a plugin's editor changes the sound
     Given I have added an audio track recording input channel 1
     And track 2 has a take of a 440 Hz tone peaking at 0.1 from measure 1 beat 1 to measure 2 beat 1

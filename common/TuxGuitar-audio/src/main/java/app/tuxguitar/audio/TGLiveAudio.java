@@ -22,6 +22,7 @@ import app.tuxguitar.midi.synth.TGSynthModel;
 import app.tuxguitar.midi.synth.TGSynthOutput;
 import app.tuxguitar.player.base.MidiPlayer;
 import app.tuxguitar.util.TGContext;
+import app.tuxguitar.util.TGMessagesManager;
 import app.tuxguitar.util.log.TGLog;
 import app.tuxguitar.util.singleton.TGSingletonUtil;
 import app.tuxguitar.vst3.TGVst3Exception;
@@ -44,6 +45,10 @@ public final class TGLiveAudio implements TGSynthOutput {
 	public static final String NATIVE_PATH = "tuxguitar.audio.native.path";
 
 	private static final TGLog LOG = TGLog.get(TGLiveAudio.class);
+	// the description, in TuxGuitar's language: the device open ({0} the output, {1} the sample rate, {2} and {3} the
+	// input and output latency in frames), or none ({0} why)
+	private static final String OPEN = "audio.device.open";
+	private static final String NONE = "audio.device.none";
 
 	private final TGContext context;
 	private TGAudioBackend backend;
@@ -85,12 +90,13 @@ public final class TGLiveAudio implements TGSynthOutput {
 		return audio;
 	}
 
-	// a line for the log and the settings: the device open, or why there is none
+	// a line for the log and the settings, in TuxGuitar's language: the device open, or why there is none (the reason as
+	// it was given)
 	public synchronized String describe() {
 		if (this.device == null) {
-			return "TuxGuitar audio: no device (" + this.problem + "), the TuxGuitar Synthesizer plays through Java Sound";
+			return TGMessagesManager.getProperty(NONE, new Object[] {this.problem});
 		}
-		return "TuxGuitar audio: " + this.output + " at " + this.device.getSampleRate() + " Hz, latency in " + this.device.getInputLatency() + " out " + this.device.getOutputLatency() + " frames";
+		return TGMessagesManager.getProperty(OPEN, new Object[] {this.output, this.device.getSampleRate(), this.device.getInputLatency(), this.device.getOutputLatency()});
 	}
 
 	// to choose from: the backend's host APIs, and the devices of one with inputs, or outputs; none without a backend
@@ -147,7 +153,7 @@ public final class TGLiveAudio implements TGSynthOutput {
 			List<TGVst3Plugin> plugins = hosting.scan();
 			return TGPluginScan.of(hosting.getFolders(), plugins, hosting.getSkipped(), TGVst3Folders.find(hosting.getFolders(), TGPluginScan.CAPTURE));
 		} catch (TGVst3Exception e) {
-			return TGPluginScan.failed(e.getMessage());
+			return TGPluginScan.failed(e.getLocalizedMessage());
 		}
 	}
 

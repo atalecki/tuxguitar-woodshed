@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import app.tuxguitar.editor.TuxGuitarMessages;
 import app.tuxguitar.midi.synth.TGAudioBuffer;
 import app.tuxguitar.midi.synth.TGAudioProcessor;
 import app.tuxguitar.midi.synth.TGMidiProcessor;
@@ -430,13 +431,56 @@ public class TestVst3Processors {
 		processor.process(block);
 		assertEquals(0f, block[0][0]);
 		assertFalse(processor.isOpen());
-		assertTrue(((TGVst3PluginProcessor) processor).getProblem().startsWith("the VST3 host stopped"), ((TGVst3PluginProcessor) processor).getProblem());
+		String problem = TuxGuitarMessages.english(((TGVst3PluginProcessor) processor)::getProblem);
+		assertTrue(problem.startsWith("the VST3 host stopped"), problem);
 		assertEquals(0, processor.getLatency());
 		processor.storeParameters(new HashMap<String, String>());
 		effect(element("Test Gain")).process(block = level(0.25f));
 		assertEquals(0.5f, block[0][0]);
 		assertEquals(1, this.hosting.getStops().size());
 		assertTrue(this.hosting.getStops().get(0).startsWith("the VST3 host stopped"), this.hosting.getStops().get(0));
+	}
+
+	// the effects whose host failed, each as the user is told why: its plugin crashed the host; offline, its plugin hung
+	// and the host did not answer for 2 s; the host did not start (its program missing)
+	private List<TGVst3PluginProcessor> failedHosts(File missing) throws TGVst3Exception {
+		TGVst3Processor crashed = (TGVst3Processor) effect(element("Test Gain"));
+		assertThrows(TGVst3Exception.class, () -> crashed.getInstance().message("TG.crash", new HashMap<String, Long>(), new HashMap<String, byte[]>()));
+		crashed.process(level(0.25f));
+		TGVst3Processor silent = (TGVst3Processor) effect(element("Test Hang"));
+		silent.getInstance().setParameter(silent.getInstance().findParameter("Hang at"), 0);
+		silent.getInstance().setParameter(silent.getInstance().findParameter("Hang for"), 1e9);
+		MidiTransport offline = new MidiTransport();
+		offline.setOffline(true);
+		silent.setTransport(offline);
+		silent.process(level(0.25f));
+		this.hosting.configure(missing, Arrays.asList(TestPlugins.folder()));
+		return Arrays.asList(crashed, silent, (TGVst3PluginProcessor) effect(element("Test Gain")));
+	}
+
+	private static String problems(List<TGVst3PluginProcessor> processors) {
+		return processors.stream().map(TGVst3PluginProcessor::getProblem).collect(Collectors.joining(" | "));
+	}
+
+	@Test
+	public void anEffectWhoseHostFailedTellsWhyAsTheUserReadsIt(@TempDir File folder) throws TGVst3Exception {
+		File missing = new File(folder, "tuxguitar-vst3-host.exe");
+		List<TGVst3PluginProcessor> failed = failedHosts(missing);
+		assertEquals("the VST3 host stopped (exit code 70) | the VST3 host did not answer for 2 s | the VST3 host did not start: " + missing,
+			TuxGuitarMessages.english(() -> problems(failed)));
+	}
+
+	// a made-up German: why the host failed, as the language TuxGuitar shows says it
+	static final Map<String, String> GERMAN = Map.of("audio.vst3-host.stopped.exit-code", "der VST3-Host hat sich beendet (Exit-Code {0})",
+		"audio.vst3-host.silent", "der VST3-Host hat {0} s lang nicht geantwortet", "audio.vst3-host.not-started", "der VST3-Host ließ sich nicht starten: {0}");
+
+	// told when it is read, in the language TuxGuitar shows then
+	@Test
+	public void anEffectWhoseHostFailedTellsWhyInTuxGuitarsLanguage(@TempDir File folder) throws TGVst3Exception {
+		File missing = new File(folder, "tuxguitar-vst3-host.exe");
+		List<TGVst3PluginProcessor> failed = failedHosts(missing);
+		assertEquals("der VST3-Host hat sich beendet (Exit-Code 70) | der VST3-Host hat 2 s lang nicht geantwortet | der VST3-Host ließ sich nicht starten: " + missing,
+			TuxGuitarMessages.said(GERMAN, () -> problems(failed)));
 	}
 
 	// told by an offline transport, an effect waits for a block its plugin answers late, so the block is not silent

@@ -83,8 +83,14 @@ the restoration again with its own file), or "its sound" when it gave none, unti
 runs; said as TuxGuitar's language says the messages `audio.loading-hint` and `audio.loading-hint.sound`
 (common/resources/lang, through lib's `TGMessagesManager`, English where a language lacks them; the features set a
 language's messages with "TuxGuitar's language says ..."). Every text shown to the user goes through those translation
-files; logs stay English. The helper tells that description with the plugin's timing too (protocol version 8). Play
-that waited until the plugins were ready shows no hint. The player's position
+files: the refusals to open a plugin or its editor (`audio.plugin.refusal.*`), the lines of the VST3 scan
+(`audio.scan.*`, the capture players' names `audio.capture-player.*`), an audio track's source (`audio.source.takes`),
+a take file's refusals (`audio.take.refusal.*`) and the audio device's description (`audio.device.*`) too, and the
+reasons TuxGuitar gives that the VST3 host failed (`audio.vst3-host.*`: it stopped, did not answer, did not start), which
+the log keeps in English (TGVst3Exception: its message logged, its localized message shown); the reasons they quote
+from a plugin's host process, the audio library or the device stay as those gave them. Logs stay English, but for a
+text shown to the user that a log line quotes (an action's refusal, the scan), which it quotes as shown. The helper
+tells that description with the plugin's timing too (protocol version 8). Play that waited until the plugins were ready shows no hint. The player's position
 is the one the output sounds: live, lib's sequencer on the synthesizer's clock reports the tick the output sounds
 (chains' latency plus output latency behind what it schedules); offline, `TGReportedPositions` reports it block by
 block the same way (through every turn's Count In it stays on the turn's first tick, as live, where a Count In is a
