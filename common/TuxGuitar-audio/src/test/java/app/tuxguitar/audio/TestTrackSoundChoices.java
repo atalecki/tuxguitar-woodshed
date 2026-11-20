@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * What the Track panel offers in its drop-downs, and which is picked: on VST3, the default instrument of the track's
  * kind, then each VST3 instrument the scan found (and the track's own instrument when the scan did not find it); on
  * MIDI, General MIDI's 128 programs (a percussion channel's numbered, as the channel settings name them). A name too
- * long for the panel ends in "…".
+ * long for the panel (as measured there) ends in "…".
  */
 class TestTrackSoundChoices {
 
@@ -63,10 +64,25 @@ class TestTrackSoundChoices {
 			+ TGTrackSoundChoices.programs(false, "Program").size() + " " + TGTrackSoundChoices.programs(false, "Program").get(30));
 	}
 
-	// cut to the most characters given, its last "…"
+	// a measure standing in for the panel's: as wide as its characters, a "W" three times as wide as the others
+	private static Predicate<String> within(int most) {
+		return text -> text.chars().map(character -> character == 'W' ? 3 : 1).sum() <= most;
+	}
+
+	// the longest start that fits with its "…" after it; whole when it fits, no space before the "…"
 	@Test
-	void aNameTooLongEndsInAnEllipsis() {
-		assertEquals("Distortion Elec… | Test Sine | Test Sine", TGTrackSoundChoices.shorten("Distortion Electric Guitar", 16) + " | "
-			+ TGTrackSoundChoices.shorten("Test Sine", 16) + " | " + TGTrackSoundChoices.shorten("Test Sine", 9));
+	void aNameTooLongForThePanelEndsInAnEllipsis() {
+		assertEquals("Distortion Elec… | Distortion… | Distortion… | Test Sine | Test Sine",
+			TGTrackSoundChoices.shorten("Distortion Electric Guitar", within(16)) + " | "
+			+ TGTrackSoundChoices.shorten("Distortion Electric Guitar", within(11)) + " | "
+			+ TGTrackSoundChoices.shorten("Distortion Electric Guitar", within(12)) + " | "
+			+ TGTrackSoundChoices.shorten("Test Sine", within(16)) + " | " + TGTrackSoundChoices.shorten("Test Sine", within(9)));
+	}
+
+	// the width measured, not the characters counted: two wide ones fit where four narrow would
+	@Test
+	void theCutFollowsTheWidthMeasured() {
+		assertEquals("WW… | abcd… | …", TGTrackSoundChoices.shorten("WWWWabc", within(8)) + " | "
+			+ TGTrackSoundChoices.shorten("abcdefgh", within(5)) + " | " + TGTrackSoundChoices.shorten("WWWW", within(2)));
 	}
 }

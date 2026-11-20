@@ -58,12 +58,8 @@ final class TGTrackSoundSection {
 		this.instrument = this.panel(factory, parent, row + 2);
 		this.instrumentLabel = factory.createLabel(this.instrument);
 		this.place(this.instrumentLabel, 1, 1, false);
-		this.programs = factory.<Short>createDropDownSelect(this.instrument);
-		this.place(this.programs, 1, 2, true);
-		this.programs.addSelectionListener(event -> this.pickProgram());
-		this.instruments = factory.<Integer>createDropDownSelect(this.instrument);
-		this.place(this.instruments, 1, 2, true);
-		this.instruments.addSelectionListener(event -> this.pickInstrument());
+		this.programs = this.select(factory, this::pickProgram);
+		this.instruments = this.select(factory, this::pickInstrument);
 		this.keep = buttons.put(Control.KEEP, factory.createButton(this.instrument));
 		this.keep.addSelectionListener(event -> this.commands.keep());
 		((UITableLayout) this.instrument.getLayout()).set(this.keep, 2, 2, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_CENTER, false, false);
@@ -82,6 +78,15 @@ final class TGTrackSoundSection {
 		toggle.addSelectionListener(event -> switched.run());
 		((UITableLayout) this.switches.getLayout()).set(toggle, 1, column, UITableLayout.ALIGN_FILL, UITableLayout.ALIGN_CENTER, true, false);
 		return toggle;
+	}
+
+	// a drop-down beside the label, as wide as the row leaves it (TGSoundChainButtons.narrow)
+	private <T> UIDropDownSelect<T> select(UIFactory factory, Runnable picked) {
+		UIDropDownSelect<T> select = factory.<T>createDropDownSelect(this.instrument);
+		this.place(select, 1, 2, true);
+		TGSoundChainButtons.narrow((UITableLayout) this.instrument.getLayout(), select);
+		select.addSelectionListener(event -> picked.run());
+		return select;
 	}
 
 	private void place(UIControl control, int row, int column, boolean grows) {
@@ -129,6 +134,7 @@ final class TGTrackSoundSection {
 		this.programs.removeItems();
 		IntStream.range(0, names.size()).forEach(program -> this.programs.addItem(new UISelectItem<Short>(names.get(program), (short) program)));
 		this.programs.setSelectedValue((short) this.program);
+		TGSoundChainButtons.tip(this.programs);
 		this.programs.setIgnoreEvents(false);
 	}
 
@@ -141,6 +147,7 @@ final class TGTrackSoundSection {
 		this.instruments.removeItems();
 		IntStream.range(0, this.offered.size()).forEach(choice -> this.instruments.addItem(new UISelectItem<Integer>(this.name(choice, byDefault), choice)));
 		this.instruments.setSelectedValue(this.picked);
+		TGSoundChainButtons.tip(this.instruments);
 		this.instruments.setIgnoreEvents(false);
 	}
 

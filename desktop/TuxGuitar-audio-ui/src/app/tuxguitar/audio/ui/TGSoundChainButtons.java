@@ -3,6 +3,7 @@ package app.tuxguitar.audio.ui;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import app.tuxguitar.app.TuxGuitar;
@@ -11,6 +12,7 @@ import app.tuxguitar.audio.TGSoundChainCommands;
 import app.tuxguitar.audio.TGSoundChainRows;
 import app.tuxguitar.audio.TGSoundChainRows.Control;
 import app.tuxguitar.song.models.TGTrack;
+import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.widget.UIButton;
 import app.tuxguitar.ui.widget.UIControl;
 import app.tuxguitar.ui.widget.UIDropDownSelect;
@@ -46,6 +48,19 @@ final class TGSoundChainButtons {
 		select.removeItems();
 		plugins.forEach(plugin -> select.addItem(new UISelectItem<TGVst3Plugin>(plugin.getName(), plugin)));
 		plugins.stream().findFirst().ifPresent(select::setSelectedValue);
+		tip(select);
+	}
+
+	// a drop-down of the Track panel as wide as its row leaves it, not as its longest name (which then shows cut; the
+	// opened list stays as wide as that name), the whole of the name picked in its tooltip
+	static void narrow(UITableLayout layout, UIDropDownSelect<?> select) {
+		layout.set(select, UITableLayout.PACKED_WIDTH, 0f);
+		select.addSelectionListener(event -> tip(select));
+	}
+
+	// the drop-down's tooltip: the whole of the name picked (none: no tooltip)
+	static void tip(UIDropDownSelect<?> select) {
+		select.setToolTipText(Optional.ofNullable(select.getSelectedItem()).map(UISelectItem::getText).orElse(null));
 	}
 
 	// the row's plugin's own editor opens floating over TuxGuitar's main window, or else TuxGuitar's parameter editor,

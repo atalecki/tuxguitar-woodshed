@@ -23,4 +23,8 @@ public interface UIDropDownSelect<T> extends UIControl {
 	void addSelectionListener(UISelectionListener listener);
 
 	void removeSelectionListener(UISelectionListener listener);
+
+	String getToolTipText();
+
+	void setToolTipText(String text);
 }

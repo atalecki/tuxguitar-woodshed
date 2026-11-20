@@ -23,8 +23,8 @@ import app.tuxguitar.audio.TGSoundChainCommands;
 import app.tuxguitar.ui.UIFactory;
 import app.tuxguitar.ui.layout.UITableLayout;
 import app.tuxguitar.ui.widget.UIButton;
-import app.tuxguitar.ui.widget.UILabel;
 import app.tuxguitar.ui.widget.UIPanel;
+import app.tuxguitar.ui.widget.UIWrapLabel;
 import app.tuxguitar.util.TGContext;
 import app.tuxguitar.util.configuration.TGConfigManager;
 import app.tuxguitar.util.log.TGLog;
@@ -37,9 +37,9 @@ import app.tuxguitar.vst3.TGVst3Exception;
  * (Q3: no border to drag), with a line above naming it and offering Open in window; or a line saying where the editor
  * is instead (in a window of its own, too large for the panel: wider than the panel when it opens or once the panel is
  * made narrower, or higher than the limit; stopped); for a plugin without an editor of its own, TuxGuitar's parameter
- * rows under that line (TGSoundChainParameterRoom). TGEditorDock decides all of it; this executes its steps
- * (TGLivePlugins closes a view, TGSoundChainCommands opens an editor where the step says) and shows what it shows, on
- * the UI thread. What Hide editor and Open in window remember is kept in the panel's config at once. While the editor
+ * rows under that line (TGSoundChainParameterRoom). The line wraps at the panel's width, its button under it.
+ * TGEditorDock decides all of it; this executes its steps (TGLivePlugins closes a view, TGSoundChainCommands opens an
+ * editor where the step says) and shows what it shows, on the UI thread. What Hide editor and Open in window remember is kept in the panel's config at once. While the editor
  * inside has the focus, TuxGuitar's shortcuts with Ctrl, Alt or a function key typed there come to the area (the host
  * passes them), whose key listener runs them; plain keys stay with the plugin. Glue only.
  */
@@ -59,7 +59,7 @@ final class TGSoundChainEditorArea {
 	// the editor opened for each element the area knows of (its own, or TuxGuitar's parameter editor)
 	private final Map<Element, TGPluginEditor> editors = new HashMap<Element, TGPluginEditor>();
 	private final UIPanel header;
-	private final UILabel text;
+	private final UIWrapLabel text;
 	private final UIButton button;
 	private final UIPanel area;
 	private final UIPanel parent;
@@ -77,12 +77,13 @@ final class TGSoundChainEditorArea {
 		this.dock = new TGEditorDock(TGEditorDock.pinned(config.getStringValue(POPPED_OUT, "")), config.getBooleanValue(HIDDEN, false));
 		this.header = factory.createPanel(parent, false);
 		this.header.setLayout(new UITableLayout(0f));
-		this.text = factory.createLabel(this.header);
+		this.header.getLayout().set(UITableLayout.IGNORE_INVISIBLE, true);
+		this.text = factory.createWrapLabel(this.header);
 		this.button = factory.createButton(this.header);
 		this.button.addSelectionListener(event -> this.run(this.dock.press()));
 		UITableLayout headerLayout = (UITableLayout) this.header.getLayout();
 		headerLayout.set(this.text, 1, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, true, false);
-		headerLayout.set(this.button, 1, 2, UITableLayout.ALIGN_RIGHT, UITableLayout.ALIGN_CENTER, false, false);
+		headerLayout.set(this.button, 2, 1, UITableLayout.ALIGN_LEFT, UITableLayout.ALIGN_CENTER, false, false);
 		this.area = factory.createPanel(parent, false);
 		this.area.addResizeListener(event -> this.resized());
 		KeyBindingActionManager.getInstance(context).appendListenersTo(this.area);
@@ -209,6 +210,11 @@ final class TGSoundChainEditorArea {
 		} catch (TGVst3Exception e) {
 			LOG.debug("the editor of " + shown + " was not fitted to the panel: " + e.getMessage());
 		}
+	}
+
+	// the line above the area wraps at the width given (the panel's, less its margins)
+	void fit(float most) {
+		((UITableLayout) this.header.getLayout()).set(this.text, UITableLayout.MAXIMUM_PACKED_WIDTH, most);
 	}
 
 	// the texts in the language chosen
