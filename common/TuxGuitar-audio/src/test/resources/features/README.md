@@ -259,6 +259,7 @@ test fixture; give it the format code "tg", or it reports "Unsupported file form
 | `plugins/default_instruments` | the default instrument of each kind of track (guitar, bass, drums, other) for a track without an instrument of its own |
 | `plugins/nam_guitar_instrument` | Woodshed Guitar, the VST3 instrument TuxGuitar ships: plucked strings through a NAM capture, its profile; found in TuxGuitar's own plugins folder |
 | `plugins/sound_chain_levels` | the Sound Chain panel's level meters: after each element, Track out (after Volume and Balance), Master; the clip lamps; measured only while the panel shows them |
+| `plugins/track_panel_editor` | the Track panel's editor area after a song is opened: no editor (and no error message) for a track playing a MIDI instrument, the same plugin's editor shown again |
 | `sync/keeping_audio_in_sync` | plugin delay compensation, latency, loops, Percentage of Tempo, tails |
 | `saving/saving_audio_and_plugins` | saving and reopening; file format versions; other file formats |
 | `export/exporting_audio` | exporting audio |

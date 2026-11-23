@@ -160,8 +160,11 @@ final class TGSoundChainEditorArea {
 		this.room.close(editor);
 	}
 
+	// only while the track shown still has the element (TGSoundChainCommands.open); else the dock forgets it
 	private void open(Element element, How how) {
-		this.commands.edit(element.getRow(), this.placements.get(how), editor -> this.later(() -> this.opened(element, editor)));
+		if (!this.commands.open(element, this.placements.get(how), editor -> this.later(() -> this.opened(element, editor)))) {
+			this.run(this.dock.gone(element));
+		}
 	}
 
 	// the editor the host opened, followed from now on: what becomes of it goes to the dock
