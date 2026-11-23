@@ -256,7 +256,7 @@ public final class TGEditorDock {
 	}
 
 	// the editor the area showed closed without the area closing it (its plugin ran again: an undo, a change of the
-	// chain): it opens again where it goes
+	// chain, another song opened): it opens again where it goes, unless the track shown no longer has it (gone)
 	private Step closed(Element element) {
 		boolean shown = (this.inArea() != null || this.shows == Shows.OWN_WINDOW);
 		return (shown && element.equals(this.element) ? this.show(element) : Step.NONE);
@@ -347,6 +347,13 @@ public final class TGEditorDock {
 			this.line = new Line(null, new Object[] {reason}, null);
 		}
 		return Step.NONE;
+	}
+
+	// the element is no longer in the track shown's chain where the area was to open it (another song opened, the chain
+	// changed, before the panel caught up): forgotten, its view closed, nothing opened; the panel then picks what the
+	// track has
+	public Step gone(Element gone) {
+		return (gone.equals(this.element) ? this.show(null) : Step.NONE);
 	}
 
 	// a plugin asking to show its editor (VST3 requestOpenEditor): the picked one, the area shown, opens again where it

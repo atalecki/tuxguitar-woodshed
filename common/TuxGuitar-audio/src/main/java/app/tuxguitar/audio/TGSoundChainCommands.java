@@ -37,7 +37,7 @@ import app.tuxguitar.vst3.TGVst3Plugin;
  * effect). Once an action is done the editor is told (finished, on the action's thread), so it reads the chain again; a
  * refused one tells nothing (the app shows why). Edit opens the row's plugin's own editor where the placement says, or
  * TuxGuitar's parameter editor, then handed to the editor (to show TuxGuitar's, or follow what becomes of the plugin's
- * own), as the action opens it.
+ * own), as the action opens it; the Track panel's editor area asks only for an element the track still has (open).
  */
 public final class TGSoundChainCommands {
 
@@ -130,6 +130,17 @@ public final class TGSoundChainCommands {
 		processor.setAttribute(TGDocumentContextAttributes.ATTRIBUTE_TRACK, this.track.get());
 		processor.setAttribute(TGOpenPluginEditorAction.ATTRIBUTE_OPENED, opened);
 		this.run(processor);
+	}
+
+	// the Track panel's editor area opening the element's editor (edit, on its row) only while the track shown still has
+	// that element there; one it no longer has (another song opened, its chain changed, before the panel caught up: a
+	// General MIDI source has no editor to open) asks for nothing. Whether it was asked for
+	public boolean open(TGEditorDock.Element element, TGEditorPlacement placement, Consumer<TGPluginEditor> opened) {
+		boolean has = element.equals(this.element(element.getRow()));
+		if (has) {
+			this.edit(element.getRow(), placement, opened);
+		}
+		return has;
 	}
 
 	// the row's plugin's parameter set to the plain value, one undoable change of the song: TuxGuitar's parameter rows

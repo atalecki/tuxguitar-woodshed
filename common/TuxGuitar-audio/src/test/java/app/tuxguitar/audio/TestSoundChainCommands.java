@@ -223,6 +223,27 @@ class TestSoundChainCommands {
 		assertEquals(this.track.getChannelId() + " true true Test Gain 1 null null null", element + " " + this.commands.element(0) + " " + this.commands.element(-1) + " " + none.element(0));
 	}
 
+	// the editor area opens an element's editor only while the track shown still has it at its row; an element the track
+	// no longer has there (another song opened, its chain changed: here the effect removed, or an element of another
+	// channel) asks for nothing, and the area is told it did not open
+	@Test
+	public void theEditorAreaOpensOnlyAnElementTheTrackStillHas() {
+		List<String> asked = new ArrayList<String>();
+		this.fixture.map(new TGActionBase(this.fixture.context, TGOpenPluginEditorAction.NAME) {
+			protected void processAction(TGActionContext context) {
+				asked.add("effect " + context.getAttribute(TGEffectAction.ATTRIBUTE_EFFECT));
+			}
+		});
+		this.commands.addEffect(this.hosting.find("Test Gain"));
+		TGEditorDock.Element gain = this.commands.element(1);
+		TGEditorDock.Element elsewhere = new TGEditorDock.Element(gain.getChannel() + 1, gain.getId(), gain.getClassId(), gain.getName(), 1);
+		boolean had = this.commands.open(gain, TGEditorPlacement.floating(() -> 0L), editor -> { });
+		boolean other = this.commands.open(elsewhere, TGEditorPlacement.floating(() -> 0L), editor -> { });
+		this.commands.remove(1);
+		boolean removed = this.commands.open(gain, TGEditorPlacement.floating(() -> 0L), editor -> { });
+		assertEquals("true false false [effect 1]", had + " " + other + " " + removed + " " + asked);
+	}
+
 	// a VST3 element naming no plugin (the Synthesizer dialog adds one by its type alone) is no plugin the editor area
 	// opens, as source or as effect
 	@Test

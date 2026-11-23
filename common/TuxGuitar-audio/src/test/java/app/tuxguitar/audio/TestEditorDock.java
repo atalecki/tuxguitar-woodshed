@@ -342,6 +342,14 @@ public class TestEditorDock {
 			"nothing / STOPPED audio.sound-chain.editor.hung-restarted(Test Gain) [audio.sound-chain.editor.show-editor]");
 	}
 
+	// a plugin the track shown no longer has (another song opened, its chain changed before the panel caught up): the
+	// area forgets it, its view closed, nothing opened; another plugin gone changes nothing; picked again, it opens anew
+	@Test
+	public void aPluginTheTrackNoLongerHasIsForgotten() {
+		does(() -> dock.picked(GAIN)).does(() -> dock.opened(GAIN, opened(Kind.EMBEDDED))).does(() -> dock.gone(WOODSHED)).does(() -> dock.gone(GAIN)).does(() -> dock.picked(GAIN));
+		sees("open Test Gain inside / OPENING", "nothing / OWN_EDITOR" + INSIDE_GAIN, "nothing / OWN_EDITOR" + INSIDE_GAIN, "close Test Gain / NOTHING", "open Test Gain inside / OPENING");
+	}
+
 	// the size a plugin asked for itself is the area's height from then on
 	@Test
 	public void aSizeThePluginAskedForIsTheAreasHeight() throws Exception {
